@@ -1,179 +1,12 @@
-
-
-
-// import { useState } from "react";
-
-// const SecuritySettings = () => {
-//   const [form, setForm] = useState({
-//     currentPassword: "",
-//     newPassword: "",
-//     confirmPassword: "",
-//   });
-
-//   const [loading, setLoading] = useState(false);
-//   const [message, setMessage] = useState("");
-//   const [twoFA, setTwoFA] = useState(false);
-
-//   const handlePasswordChange = async (e) => {
-//     e.preventDefault();
-//     setMessage("");
-
-//     if (form.newPassword !== form.confirmPassword) {
-//       return setMessage("Passwords do not match");
-//     }
-
-//     try {
-//       setLoading(true);
-//       await new Promise((res) => setTimeout(res, 1000));
-
-//       setMessage("Password updated successfully");
-
-//       setForm({
-//         currentPassword: "",
-//         newPassword: "",
-//         confirmPassword: "",
-//       });
-//     } catch {
-//       setMessage("Failed to update password");
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
-
-//   const handleLogoutAll = async () => {
-//     try {
-//       setLoading(true);
-//       await new Promise((res) => setTimeout(res, 1000));
-//       setMessage("Logged out from all devices");
-//     } catch {
-//       setMessage("Failed to logout devices");
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
-
-//   return (
-//     <div className="space-y-6">
-
-//       {/* PASSWORD CARD */}
-//       <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-sm space-y-4">
-
-//         <div>
-//           <h2 className="text-lg font-semibold text-slate-900">
-//             Change Password
-//           </h2>
-//           <p className="text-sm text-slate-500">
-//             Update your credentials to keep your account secure
-//           </p>
-//         </div>
-
-//         <form onSubmit={handlePasswordChange} className="space-y-3">
-
-//           <input
-//             type="password"
-//             placeholder="Current Password"
-//             className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-//             value={form.currentPassword}
-//             onChange={(e) =>
-//               setForm({ ...form, currentPassword: e.target.value })
-//             }
-//           />
-
-//           <input
-//             type="password"
-//             placeholder="New Password"
-//             className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-//             value={form.newPassword}
-//             onChange={(e) =>
-//               setForm({ ...form, newPassword: e.target.value })
-//             }
-//           />
-
-//           <input
-//             type="password"
-//             placeholder="Confirm Password"
-//             className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-//             value={form.confirmPassword}
-//             onChange={(e) =>
-//               setForm({ ...form, confirmPassword: e.target.value })
-//             }
-//           />
-
-//           <button
-//             type="submit"
-//             disabled={loading}
-//             className="w-full py-3 rounded-xl bg-slate-900 text-white font-medium hover:bg-slate-800 transition"
-//           >
-//             {loading ? "Updating..." : "Update Password"}
-//           </button>
-
-//         </form>
-//       </div>
-
-//       {/* 2FA CARD */}
-//       <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
-
-//         <div className="flex items-center justify-between">
-
-//           <div>
-//             <h2 className="text-lg font-semibold text-slate-900">
-//               Two-Factor Authentication
-//             </h2>
-//             <p className="text-sm text-slate-500">
-//               Add extra protection to your account
-//             </p>
-//           </div>
-
-//           <button
-//             onClick={() => setTwoFA(!twoFA)}
-//             className={`px-4 py-2 rounded-full text-xs font-medium transition ${
-//               twoFA
-//                 ? "bg-emerald-500 text-white"
-//                 : "bg-slate-100 text-slate-600"
-//             }`}
-//           >
-//             {twoFA ? "Enabled" : "Disabled"}
-//           </button>
-
-//         </div>
-//       </div>
-
-//       {/* SESSION CARD */}
-//       <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-sm space-y-4">
-
-//         <div>
-//           <h2 className="text-lg font-semibold text-slate-900">
-//             Active Sessions
-//           </h2>
-//           <p className="text-sm text-slate-500">
-//             Manage logged-in devices
-//           </p>
-//         </div>
-
-//         <button
-//           onClick={handleLogoutAll}
-//           disabled={loading}
-//           className="px-4 py-3 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 transition"
-//         >
-//           {loading ? "Processing..." : "Logout All Devices"}
-//         </button>
-
-//       </div>
-
-//       {/* MESSAGE */}
-//       {message && (
-//         <p className="text-sm text-center text-slate-600">
-//           {message}
-//         </p>
-//       )}
-//     </div>
-//   );
-// };
-
-// export default SecuritySettings;
-
 import { useState } from "react";
-//import { useSecuritySettings } from "../../../hooks/useSecuritySettings";
+import {
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  Smartphone,
+  LockKeyhole,
+} from "lucide-react";
+
 import { useSecuritySettings } from "../../hooks/useSecuritySettings";
 
 const SecuritySettings = () => {
@@ -195,23 +28,27 @@ const SecuritySettings = () => {
     confirmPassword: "",
   });
 
-  /**
-   * Sync local form → hook state before submit
-   * (prevents unnecessary global updates on every keystroke)
-   */
-  const handleChange = (key, value) => {
-    setForm((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
+  const [showPassword, setShowPassword] = useState({
+    current: false,
+    new: false,
+    confirm: false,
+  });
 
+  const togglePassword = (field) => {
+    setShowPassword((prev) => ({
+      ...prev,
+      [field]: !prev[field],
+    }));
+  };
+
+  const handleChange = (key, value) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
     updateField(key, value);
   };
 
   const handlePasswordChange = async (e) => {
     e.preventDefault();
 
-    // push form into hook before validation
     updateField("currentPassword", form.currentPassword);
     updateField("newPassword", form.newPassword);
     updateField("confirmPassword", form.confirmPassword);
@@ -225,118 +62,143 @@ const SecuritySettings = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
 
-      {/* PASSWORD CARD */}
-      <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-sm space-y-4">
+      {/* ================= PASSWORD ================= */}
+      <div className="rounded-2xl md:rounded-3xl border bg-white p-4 md:p-6 space-y-4 md:space-y-5">
 
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900">
-            Change Password
-          </h2>
-          <p className="text-sm text-slate-500">
-            Update your credentials to keep your account secure
-          </p>
+        {/* HEADER */}
+        <div className="flex items-start gap-3 md:gap-4">
+          <div className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-xl md:rounded-2xl bg-slate-900 text-white">
+            <LockKeyhole size={18} className="md:w-5 md:h-5" />
+          </div>
+
+          <div>
+            <h2 className="text-base md:text-lg font-semibold text-slate-900">
+              Change Password
+            </h2>
+
+            <p className="text-xs md:text-sm text-slate-500 leading-relaxed">
+              Update credentials securely
+            </p>
+          </div>
         </div>
 
-        <form onSubmit={handlePasswordChange} className="space-y-3">
+        {/* FORM */}
+        <form onSubmit={handlePasswordChange} className="space-y-4">
 
-          <input
-            type="password"
-            placeholder="Current Password"
-            value={form.currentPassword}
-            onChange={(e) =>
-              handleChange("currentPassword", e.target.value)
-            }
-            className="w-full px-4 py-3 rounded-xl border border-slate-200"
-          />
+          {[
+            { label: "Current Password", key: "current" },
+            { label: "New Password", key: "new" },
+            { label: "Confirm Password", key: "confirm" },
+          ].map((field, i) => (
+            <div key={i} className="space-y-1">
 
-          <input
-            type="password"
-            placeholder="New Password"
-            value={form.newPassword}
-            onChange={(e) =>
-              handleChange("newPassword", e.target.value)
-            }
-            className="w-full px-4 py-3 rounded-xl border border-slate-200"
-          />
+              <label className="text-xs md:text-sm font-medium text-slate-700">
+                {field.label}
+              </label>
 
-          <input
-            type="password"
-            placeholder="Confirm Password"
-            value={form.confirmPassword}
-            onChange={(e) =>
-              handleChange("confirmPassword", e.target.value)
-            }
-            className="w-full px-4 py-3 rounded-xl border border-slate-200"
-          />
+              <div className="relative">
 
+                <input
+                  type={showPassword[field.key] ? "text" : "password"}
+                  value={form[`${field.key}Password`]}
+                  onChange={(e) =>
+                    handleChange(`${field.key}Password`, e.target.value)
+                  }
+                  className="w-full rounded-xl md:rounded-2xl border bg-slate-50 px-3 md:px-4 py-2.5 md:py-3 pr-10 text-sm outline-none focus:bg-white"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => togglePassword(field.key)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                >
+                  {showPassword[field.key] ? (
+                    <EyeOff size={16} />
+                  ) : (
+                    <Eye size={16} />
+                  )}
+                </button>
+
+              </div>
+            </div>
+          ))}
+
+          {/* BUTTON */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 rounded-xl bg-slate-900 text-white font-medium"
+            className="w-full rounded-xl md:rounded-2xl bg-slate-900 py-3 text-sm font-semibold text-white"
           >
             {loading ? "Updating..." : "Update Password"}
           </button>
-
         </form>
       </div>
 
-      {/* 2FA CARD */}
-      <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
+      {/* ================= 2FA ================= */}
+      <div className="rounded-2xl md:rounded-3xl border bg-white p-4 md:p-6">
 
-        <div className="flex items-center justify-between">
+        <div className="flex items-start justify-between gap-3">
 
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">
-              Two-Factor Authentication
-            </h2>
-            <p className="text-sm text-slate-500">
-              Add extra protection to your account
-            </p>
+          <div className="flex gap-3 md:gap-4">
+            <div className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-xl md:rounded-2xl bg-emerald-100 text-emerald-600">
+              <Smartphone size={18} />
+            </div>
+
+            <div>
+              <h2 className="text-base md:text-lg font-semibold text-slate-900">
+                Two-Factor Authentication
+              </h2>
+
+              <p className="text-xs md:text-sm text-slate-500">
+                Extra security layer
+              </p>
+            </div>
           </div>
 
           <button
             onClick={handleToggle2FA}
-            className={`px-4 py-2 rounded-full text-xs font-medium transition ${
+            className={`px-3 py-1.5 md:px-4 md:py-2 rounded-full text-xs font-semibold ${
               security.twoFA
                 ? "bg-emerald-500 text-white"
                 : "bg-slate-100 text-slate-600"
             }`}
           >
-            {security.twoFA ? "Enabled" : "Disabled"}
+            {security.twoFA ? "ON" : "OFF"}
           </button>
 
         </div>
       </div>
 
-      {/* SESSION CARD */}
-      <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-sm space-y-4">
+      {/* ================= SESSIONS ================= */}
+      <div className="rounded-2xl md:rounded-3xl border bg-white p-4 md:p-6 space-y-4">
 
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">
+          <h2 className="text-base md:text-lg font-semibold text-slate-900">
             Active Sessions
           </h2>
-          <p className="text-sm text-slate-500">
-            Manage logged-in devices
+
+          <p className="text-xs md:text-sm text-slate-500">
+            Manage device access
           </p>
         </div>
 
         <button
           onClick={logoutAllDevices}
           disabled={loading}
-          className="px-4 py-3 rounded-xl border border-rose-200 text-rose-600"
+          className="w-full sm:w-auto rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-600"
         >
           {loading ? "Processing..." : "Logout All Devices"}
         </button>
 
       </div>
 
-      {/* FEEDBACK */}
+      {/* ================= FEEDBACK ================= */}
       {(message || error) && (
-        <p className="text-sm text-center text-slate-600">
+        <div className="rounded-xl border bg-slate-50 px-4 py-3 text-center text-sm text-slate-600">
           {message || error}
-        </p>
+        </div>
       )}
 
     </div>

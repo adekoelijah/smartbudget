@@ -1,3 +1,5 @@
+
+
 // import { useEffect, useState } from "react";
 // import { motion, AnimatePresence } from "framer-motion";
 // import { getTestimonials } from "../../services/testimonialService";
@@ -13,13 +15,17 @@
 //       try {
 //         const res = await getTestimonials();
 
-//         if (mounted) setData(res);
+//         if (mounted && Array.isArray(res) && res.length) {
+//           setData(res);
+//         } else {
+//           throw new Error("No data");
+//         }
 //       } catch {
 //         setData([
 //           {
 //             name: "David O.",
 //             role: "Freelancer",
-//             text: "This tool completely changed my financial habits.",
+//             text: "SmartBudget gave me full visibility into my cash flow. I now save consistently every month.",
 //             verified: true,
 //             avatar: "https://i.pravatar.cc/150?img=12",
 //             company: "Upwork",
@@ -27,7 +33,7 @@
 //           {
 //             name: "Sarah K.",
 //             role: "Business Owner",
-//             text: "Clean UI and powerful insights. I love it.",
+//             text: "The clean dashboard and spending insights helped me control business expenses faster than spreadsheets.",
 //             verified: true,
 //             avatar: "https://i.pravatar.cc/150?img=5",
 //             company: "Shopify",
@@ -35,10 +41,34 @@
 //           {
 //             name: "John M.",
 //             role: "Developer",
-//             text: "Best budgeting tool I've ever used.",
-//             verified: false,
+//             text: "Minimal interface, powerful reporting, and smooth performance. Exactly what I wanted.",
+//             verified: true,
 //             avatar: "https://i.pravatar.cc/150?img=32",
 //             company: "GitHub",
+//           },
+//           {
+//             name: "Grace A.",
+//             role: "Consultant",
+//             text: "I use it daily for planning budgets and tracking subscriptions. Brilliant experience.",
+//             verified: true,
+//             avatar: "https://i.pravatar.cc/150?img=20",
+//             company: "Deloitte",
+//           },
+//           {
+//             name: "Michael T.",
+//             role: "Startup Founder",
+//             text: "It feels like a premium fintech product. Smart alerts saved us from unnecessary spending.",
+//             verified: true,
+//             avatar: "https://i.pravatar.cc/150?img=15",
+//             company: "Stripe",
+//           },
+//           {
+//             name: "Ada N.",
+//             role: "Product Manager",
+//             text: "Beautiful UI, reliable analytics, and smooth onboarding. Highly recommended.",
+//             verified: true,
+//             avatar: "https://i.pravatar.cc/150?img=25",
+//             company: "Notion",
 //           },
 //         ]);
 //       }
@@ -51,7 +81,7 @@
 //     };
 //   }, []);
 
-//   // ⏱ Auto-rotate
+//   // Auto rotate
 //   useEffect(() => {
 //     if (!data.length) return;
 
@@ -65,79 +95,152 @@
 //   const current = data[index];
 
 //   return (
-//     <section className="py-24 bg-gray-50 dark:bg-gray-900">
-//       <div className="max-w-5xl mx-auto px-4 text-center">
+//     <section
+//       id="testimonials"
+//       className="relative py-28 overflow-hidden bg-white dark:bg-gray-950"
+//     >
+//       {/* Background Glow */}
+//       <div className="absolute inset-0 -z-10">
+//         <div className="absolute top-[-220px] left-1/2 -translate-x-1/2 w-[900px] h-[900px] rounded-full bg-gradient-to-r from-indigo-500/10 via-violet-500/10 to-cyan-500/10 blur-3xl" />
+//       </div>
 
-//         {/* HEADER */}
-//         <h2 className="text-2xl md:text-4xl font-bold text-gray-900 dark:text-white">
-//           Loved by real users worldwide
-//         </h2>
+//       <div className="max-w-6xl mx-auto px-4">
+//         {/* Header */}
+//         <motion.div
+//           initial={{ opacity: 0, y: 35 }}
+//           whileInView={{ opacity: 1, y: 0 }}
+//           viewport={{ once: true }}
+//           transition={{ duration: 0.55 }}
+//           className="text-center max-w-3xl mx-auto"
+//         >
+//           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-indigo-100 dark:border-indigo-500/20 bg-indigo-50 dark:bg-indigo-500/10 text-xs font-medium text-indigo-600 dark:text-indigo-300">
+//             Trusted Worldwide
+//           </div>
 
-//         <p className="mt-3 text-gray-500">
-//           Real feedback from people using SmartBudget daily
-//         </p>
+//           <h2 className="mt-5 text-3xl md:text-5xl font-bold tracking-tight text-gray-900 dark:text-white">
+//             The Finance Platform 
+//             <span className="block bg-gradient-to-r from-indigo-600 via-violet-600 to-cyan-500 bg-clip-text text-transparent">
+//               Users Trust Daily
+//             </span>
+//           </h2>
 
-//         {/* CAROUSEL */}
-//         <div className="mt-10 relative h-[260px] flex items-center justify-center">
+//           <p className="mt-4 text-gray-600 dark:text-gray-400 md:text-lg">
+//             Real people using SmartBudget to save more, spend smarter, and gain
+//             financial clarity.
+//           </p>
+//         </motion.div>
 
-//           <AnimatePresence mode="wait">
-//             {current && (
-//               <motion.div
-//                 key={index}
-//                 initial={{ opacity: 0, x: 40 }}
-//                 animate={{ opacity: 1, x: 0 }}
-//                 exit={{ opacity: 0, x: -40 }}
-//                 transition={{ duration: 0.4 }}
-//                 className="w-full max-w-xl p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-lg"
-//               >
+//         {/* Main Card */}
+//         <div className="mt-16 relative">
+//           <div className="absolute inset-0 blur-3xl bg-gradient-to-r from-indigo-500/10 via-violet-500/10 to-cyan-500/10 rounded-[40px]" />
 
-//                 {/* AVATAR + INFO */}
-//                 <div className="flex items-center gap-4">
-//                   <img
-//                     src={current.avatar}
-//                     alt={current.name}
-//                     className="w-12 h-12 rounded-full"
-//                   />
+//           <div className="relative max-w-4xl mx-auto">
+//             <AnimatePresence mode="wait">
+//               {current && (
+//                 <motion.div
+//                   key={index}
+//                   initial={{ opacity: 0, y: 30, scale: 0.96 }}
+//                   animate={{ opacity: 1, y: 0, scale: 1 }}
+//                   exit={{ opacity: 0, y: -20, scale: 0.96 }}
+//                   transition={{ duration: 0.45 }}
+//                   className="rounded-3xl border border-gray-200/70 dark:border-gray-800 bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl shadow-2xl p-8 md:p-10"
+//                 >
+//                   {/* Quote Icon */}
+//                   <div className="mb-6 text-5xl leading-none text-indigo-500/30">
+//                     "
+//                   </div>
 
-//                   <div className="text-left">
-//                     <div className="flex items-center gap-2">
-//                       <h4 className="font-semibold">{current.name}</h4>
+//                   {/* Testimonial */}
+//                   <p className="text-lg md:text-2xl leading-relaxed font-medium text-gray-900 dark:text-white">
+//                     {current.text}
+//                   </p>
 
-//                       {current.verified && (
-//                         <span className="text-blue-500 text-xs">
-//                           ✔ Verified
-//                         </span>
-//                       )}
+//                   {/* Footer */}
+//                   <div className="mt-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5">
+//                     <div className="flex items-center gap-4">
+//                       <img
+//                         src={current.avatar}
+//                         alt={current.name}
+//                         className="w-14 h-14 rounded-2xl object-cover ring-2 ring-indigo-100 dark:ring-indigo-500/20"
+//                       />
+
+//                       <div>
+//                         <div className="flex items-center gap-2">
+//                           <h4 className="font-semibold text-gray-900 dark:text-white">
+//                             {current.name}
+//                           </h4>
+
+//                           {current.verified && (
+//                             <span className="text-xs px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+//                               Verified
+//                             </span>
+//                           )}
+//                         </div>
+
+//                         <p className="text-sm text-gray-500 dark:text-gray-400">
+//                           {current.role} • {current.company}
+//                         </p>
+//                       </div>
 //                     </div>
 
-//                     <p className="text-xs text-gray-500">
-//                       {current.role} • {current.company}
-//                     </p>
+//                     {/* Rating */}
+//                     <div className="flex gap-1 text-yellow-400 text-lg">
+//                       ★★★★★
+//                     </div>
 //                   </div>
-//                 </div>
-
-//                 {/* TEXT */}
-//                 <p className="mt-4 text-gray-600 dark:text-gray-300 text-sm text-left">
-//                   “{current.text}”
-//                 </p>
-
-//               </motion.div>
-//             )}
-//           </AnimatePresence>
+//                 </motion.div>
+//               )}
+//             </AnimatePresence>
+//           </div>
 //         </div>
 
-//         {/* DOT INDICATORS */}
-//         <div className="flex justify-center gap-2 mt-6">
-//           {data.map((_, i) => (
+//         {/* Indicators */}
+//         <div className="mt-10 flex justify-center gap-3 flex-wrap">
+//           {data.map((item, i) => (
 //             <button
 //               key={i}
 //               onClick={() => setIndex(i)}
-//               className={`w-2 h-2 rounded-full transition ${
-//                 i === index ? "bg-black dark:bg-white" : "bg-gray-400"
-//               }`}
-//             />
+//               className="group"
+//               aria-label={item.name}
+//             >
+//               <div
+//                 className={`transition-all duration-300 rounded-full ${
+//                   i === index
+//                     ? "w-10 h-2 bg-gradient-to-r from-indigo-600 to-violet-600"
+//                     : "w-2 h-2 bg-gray-300 dark:bg-gray-700 group-hover:bg-gray-400"
+//                 }`}
+//               />
+//             </button>
 //           ))}
 //         </div>
+
+//         {/* Bottom Stats */}
+//         <motion.div
+//           initial={{ opacity: 0, y: 25 }}
+//           whileInView={{ opacity: 1, y: 0 }}
+//           viewport={{ once: true }}
+//           transition={{ delay: 0.15 }}
+//           className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-16"
+//         >
+//           {[
+//             ["12k+", "Happy Users"],
+//             ["₦50M+", "Money Managed"],
+//             ["4.9/5", "Average Rating"],
+//             ["99.9%", "Uptime"],
+//           ].map(([value, label], i) => (
+//             <div
+//               key={i}
+//               className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 text-center"
+//             >
+//               <p className="text-2xl font-bold text-gray-900 dark:text-white">
+//                 {value}
+//               </p>
+//               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+//                 {label}
+//               </p>
+//             </div>
+//           ))}
+//         </motion.div>
 //       </div>
 //     </section>
 //   );
@@ -145,247 +248,159 @@
 
 // export default Testimonials;
 
-import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { getTestimonials } from "../../services/testimonialService";
 
-const Testimonials = () => {
-  const [data, setData] = useState([]);
-  const [index, setIndex] = useState(0);
+import { motion } from "framer-motion";
+import { CheckCircle2, ShieldCheck } from "lucide-react";
 
-  useEffect(() => {
-    let mounted = true;
+/* =========================
+   STATIC TESTIMONIAL DATA
+========================= */
+const testimonials = [
+  {
+    name: "David O.",
+    role: "Independent Consultant",
+    company: "Upwork",
+    statement:
+      "SmartBudget gives me structured visibility into my monthly cashflow. I no longer rely on manual tracking.",
+    impact: "Savings discipline improved by 38%",
+  },
+  {
+    name: "Sarah K.",
+    role: "E-commerce Founder",
+    company: "Shopify Merchant",
+    statement:
+      "Expense control is now automated. I can clearly see operational leaks before they scale.",
+    impact: "Reduced overspending by 42%",
+  },
+  {
+    name: "John M.",
+    role: "Software Engineer",
+    company: "GitHub",
+    statement:
+      "The budgeting system feels engineered, not designed. Everything is predictable and stable.",
+    impact: "Monthly savings consistency achieved",
+  },
+  {
+    name: "Grace A.",
+    role: "Financial Consultant",
+    company: "Deloitte",
+    statement:
+      "It behaves like enterprise financial software. The reporting clarity is exceptional.",
+    impact: "Improved financial reporting accuracy",
+  },
+  {
+    name: "Michael T.",
+    role: "Startup Founder",
+    company: "Stripe Ecosystem",
+    statement:
+      "We use SmartBudget for internal spending governance. It enforces discipline automatically.",
+    impact: "Burn rate reduced significantly",
+  },
+  {
+    name: "Ada N.",
+    role: "Product Manager",
+    company: "Notion",
+    statement:
+      "The interface is minimal, but the financial logic underneath is extremely powerful.",
+    impact: "Better budget forecasting accuracy",
+  },
+];
 
-    const fetchData = async () => {
-      try {
-        const res = await getTestimonials();
-
-        if (mounted && Array.isArray(res) && res.length) {
-          setData(res);
-        } else {
-          throw new Error("No data");
-        }
-      } catch {
-        setData([
-          {
-            name: "David O.",
-            role: "Freelancer",
-            text: "SmartBudget gave me full visibility into my cash flow. I now save consistently every month.",
-            verified: true,
-            avatar: "https://i.pravatar.cc/150?img=12",
-            company: "Upwork",
-          },
-          {
-            name: "Sarah K.",
-            role: "Business Owner",
-            text: "The clean dashboard and spending insights helped me control business expenses faster than spreadsheets.",
-            verified: true,
-            avatar: "https://i.pravatar.cc/150?img=5",
-            company: "Shopify",
-          },
-          {
-            name: "John M.",
-            role: "Developer",
-            text: "Minimal interface, powerful reporting, and smooth performance. Exactly what I wanted.",
-            verified: true,
-            avatar: "https://i.pravatar.cc/150?img=32",
-            company: "GitHub",
-          },
-          {
-            name: "Grace A.",
-            role: "Consultant",
-            text: "I use it daily for planning budgets and tracking subscriptions. Brilliant experience.",
-            verified: true,
-            avatar: "https://i.pravatar.cc/150?img=20",
-            company: "Deloitte",
-          },
-          {
-            name: "Michael T.",
-            role: "Startup Founder",
-            text: "It feels like a premium fintech product. Smart alerts saved us from unnecessary spending.",
-            verified: true,
-            avatar: "https://i.pravatar.cc/150?img=15",
-            company: "Stripe",
-          },
-          {
-            name: "Ada N.",
-            role: "Product Manager",
-            text: "Beautiful UI, reliable analytics, and smooth onboarding. Highly recommended.",
-            verified: true,
-            avatar: "https://i.pravatar.cc/150?img=25",
-            company: "Notion",
-          },
-        ]);
-      }
-    };
-
-    fetchData();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  // Auto rotate
-  useEffect(() => {
-    if (!data.length) return;
-
-    const interval = setInterval(() => {
-      setIndex((prev) => (prev + 1) % data.length);
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [data]);
-
-  const current = data[index];
-
+/* =========================
+   CARD
+========================= */
+const TestimonialCard = ({ item }) => {
   return (
-    <section
-      id="testimonials"
-      className="relative py-28 overflow-hidden bg-white dark:bg-gray-950"
+    <motion.div
+      initial={{ opacity: 0, y: 18 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.3 }}
+      transition={{ duration: 0.45 }}
+      className="
+        relative
+        rounded-2xl
+        border border-slate-200
+        bg-white
+        p-6
+        hover:border-slate-300
+        transition
+      "
     >
-      {/* Background Glow */}
-      <div className="absolute inset-0 -z-10">
-        <div className="absolute top-[-220px] left-1/2 -translate-x-1/2 w-[900px] h-[900px] rounded-full bg-gradient-to-r from-indigo-500/10 via-violet-500/10 to-cyan-500/10 blur-3xl" />
+      {/* TOP IDENTITY */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h4 className="text-[14px] font-semibold text-slate-950">
+            {item.name}
+          </h4>
+
+          <p className="text-[12px] text-slate-500">
+            {item.role} · {item.company}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-1 text-emerald-600 text-[11px] font-semibold">
+          <CheckCircle2 size={14} />
+          Verified
+        </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 35 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.55 }}
-          className="text-center max-w-3xl mx-auto"
-        >
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-indigo-100 dark:border-indigo-500/20 bg-indigo-50 dark:bg-indigo-500/10 text-xs font-medium text-indigo-600 dark:text-indigo-300">
-            Trusted Worldwide
+      {/* STATEMENT */}
+      <p className="mt-5 text-[14px] leading-6 text-slate-600">
+        {item.statement}
+      </p>
+
+      {/* IMPACT METRIC */}
+      <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4">
+        <span className="text-[12px] text-slate-500">
+          Financial impact
+        </span>
+
+        <span className="text-[12px] font-semibold text-slate-900">
+          {item.impact}
+        </span>
+      </div>
+    </motion.div>
+  );
+};
+
+/* =========================
+   SECTION
+========================= */
+const Testimonials = () => {
+  return (
+    <section className="relative py-28 bg-white overflow-hidden">
+      {/* subtle background */}
+      <div className="absolute inset-0 -z-10">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a04_1px,transparent_1px),linear-gradient(to_bottom,#0f172a04_1px,transparent_1px)] bg-[size:80px_80px]" />
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        {/* HEADER */}
+        <div className="max-w-3xl">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-slate-200 bg-white text-[11px] font-semibold text-slate-600">
+            <ShieldCheck size={14} />
+            TRUSTED FINANCIAL INFRASTRUCTURE
           </div>
 
-          <h2 className="mt-5 text-3xl md:text-5xl font-bold tracking-tight text-gray-900 dark:text-white">
-            The Finance Platform 
-            <span className="block bg-gradient-to-r from-indigo-600 via-violet-600 to-cyan-500 bg-clip-text text-transparent">
-              Users Trust Daily
-            </span>
+          <h2 className="mt-6 text-[44px] leading-[1.05] tracking-[-0.04em] font-semibold text-slate-950">
+            Financial credibility
+            <br />
+            proven by users
           </h2>
 
-          <p className="mt-4 text-gray-600 dark:text-gray-400 md:text-lg">
-            Real people using SmartBudget to save more, spend smarter, and gain
-            financial clarity.
+          <p className="mt-6 text-[16px] leading-7 text-slate-600">
+            Real users relying on SmartBudget for structured financial
+            control, disciplined spending, and accurate forecasting.
           </p>
-        </motion.div>
-
-        {/* Main Card */}
-        <div className="mt-16 relative">
-          <div className="absolute inset-0 blur-3xl bg-gradient-to-r from-indigo-500/10 via-violet-500/10 to-cyan-500/10 rounded-[40px]" />
-
-          <div className="relative max-w-4xl mx-auto">
-            <AnimatePresence mode="wait">
-              {current && (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 30, scale: 0.96 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -20, scale: 0.96 }}
-                  transition={{ duration: 0.45 }}
-                  className="rounded-3xl border border-gray-200/70 dark:border-gray-800 bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl shadow-2xl p-8 md:p-10"
-                >
-                  {/* Quote Icon */}
-                  <div className="mb-6 text-5xl leading-none text-indigo-500/30">
-                    "
-                  </div>
-
-                  {/* Testimonial */}
-                  <p className="text-lg md:text-2xl leading-relaxed font-medium text-gray-900 dark:text-white">
-                    {current.text}
-                  </p>
-
-                  {/* Footer */}
-                  <div className="mt-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5">
-                    <div className="flex items-center gap-4">
-                      <img
-                        src={current.avatar}
-                        alt={current.name}
-                        className="w-14 h-14 rounded-2xl object-cover ring-2 ring-indigo-100 dark:ring-indigo-500/20"
-                      />
-
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-semibold text-gray-900 dark:text-white">
-                            {current.name}
-                          </h4>
-
-                          {current.verified && (
-                            <span className="text-xs px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
-                              Verified
-                            </span>
-                          )}
-                        </div>
-
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {current.role} • {current.company}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Rating */}
-                    <div className="flex gap-1 text-yellow-400 text-lg">
-                      ★★★★★
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
         </div>
 
-        {/* Indicators */}
-        <div className="mt-10 flex justify-center gap-3 flex-wrap">
-          {data.map((item, i) => (
-            <button
-              key={i}
-              onClick={() => setIndex(i)}
-              className="group"
-              aria-label={item.name}
-            >
-              <div
-                className={`transition-all duration-300 rounded-full ${
-                  i === index
-                    ? "w-10 h-2 bg-gradient-to-r from-indigo-600 to-violet-600"
-                    : "w-2 h-2 bg-gray-300 dark:bg-gray-700 group-hover:bg-gray-400"
-                }`}
-              />
-            </button>
+        {/* GRID (3 x 2) */}
+        <div className="mt-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {testimonials.map((t, i) => (
+            <TestimonialCard key={i} item={t} />
           ))}
         </div>
-
-        {/* Bottom Stats */}
-        <motion.div
-          initial={{ opacity: 0, y: 25 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.15 }}
-          className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-16"
-        >
-          {[
-            ["12k+", "Happy Users"],
-            ["₦50M+", "Money Managed"],
-            ["4.9/5", "Average Rating"],
-            ["99.9%", "Uptime"],
-          ].map(([value, label], i) => (
-            <div
-              key={i}
-              className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 text-center"
-            >
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {value}
-              </p>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {label}
-              </p>
-            </div>
-          ))}
-        </motion.div>
       </div>
     </section>
   );

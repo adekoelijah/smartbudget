@@ -13,19 +13,21 @@ export const loginUser = async (data) => {
   return res.data;
 };
 
+//google 
+
+export const googleLogin = () => {
+  const API_URL =
+    import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
+  // Redirect to backend OAuth flow
+  window.location.href = `${API_URL}/auth/google`;
+};
+
 export const signupUser = async (data) => {
   const res = await api.post("/auth/signup", data);
   return res.data;
 };
 
-// export const getCurrentUser = async () => {
-//   const res = await api.get("/users/me");
-//   console.log("CURRENT USER RESPONSE:", res.data);
-//   return res.data;
-// };
-// services/userService.js
-
-// services/userService.js
 
 export const getCurrentUser = async () => {
   const token = localStorage.getItem("token");

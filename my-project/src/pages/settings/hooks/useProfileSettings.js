@@ -1,125 +1,77 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useUser } from "../../../context/UserContext";
 
-/**
- * Default profile shape (source of truth)
- */
-const defaultProfile = {
-  name: "",
-  email: "",
-  avatar: "",
-};
-
-/**
- * Safe loader (runs once via lazy init)
- */
-const loadProfile = () => {
-  try {
-    const stored = localStorage.getItem("user_profile");
-    return stored ? JSON.parse(stored) : defaultProfile;
-  } catch {
-    return defaultProfile;
-  }
-};
-
-/**
- * SaaS Profile Hook (Stripe-style architecture)
- */
 export const useProfileSettings = () => {
-  // ✅ FIX: lazy initialization replaces useEffect
-  const [profile, setProfile] = useState(() => loadProfile());
-  const [preview, setPreview] = useState(() => {
-    const stored = loadProfile();
-    return stored.avatar || "";
+  const {
+    user,
+    loading,
+    saveProfile,
+    changeAvatar,
+  } = useUser();
+
+  const [profile, setProfile] = useState({
+    name: "",
+    email: "",
+    avatar: "",
   });
 
-  const [loading, setLoading] = useState(false);
+
+  const [preview, setPreview] = useState(null);
   const [message, setMessage] = useState("");
 
-  /**
-   * Update single field (immutable update pattern)
-   */
+  /* ================= SYNC GLOBAL USER ================= */
+  // useEffect(() => {
+  //   if (!user) return;
+
+  //   setProfile({
+  //     name: user.name || "",
+  //     email: user.email || "",
+  //     avatar: user.avatar || "",
+  //   });
+  // }, [user]);
+  useEffect(() => {
+  if (!user) return;
+
+  setProfile((prev) => {
+    const next = {
+      name: user.name || "",
+      email: user.email || "",
+      avatar: user.avatar || "",
+    };
+
+    // 🔥 prevent unnecessary re-render loop
+    if (
+      prev.name === next.name &&
+      prev.email === next.email &&
+      prev.avatar === next.avatar
+    ) {
+      return prev;
+    }
+
+    return next;
+  });
+}, [user?._id]); // 🔥 IMPORTANT: depend on stable field, not full object
+
+  /* ================= FIELD UPDATE ================= */
   const updateField = (key, value) => {
-    setProfile((prev) => {
-      const updated = {
-        ...prev,
-        [key]: value,
-      };
-
-      // 💾 persist immediately (no effects needed)
-      localStorage.setItem("user_profile", JSON.stringify(updated));
-
-      return updated;
-    });
+    setProfile((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
   };
 
-  /**
-   * Avatar handler (SaaS abstraction)
-   */
-  const setAvatar = (file) => {
-    if (!file) return;
+  /* ================= AVATAR ================= */
+  const setAvatar = async (file) => {
+    const local = URL.createObjectURL(file);
+    setPreview(local);
 
-    const url = URL.createObjectURL(file);
-
-    setPreview(url);
-
-    setProfile((prev) => {
-      const updated = {
-        ...prev,
-        avatar: url,
-      };
-
-      localStorage.setItem("user_profile", JSON.stringify(updated));
-
-      return updated;
-    });
+    await changeAvatar(file); // 🔥 updates global state automatically
   };
 
-  /**
-   * Validation layer (light SaaS guard)
-   */
-  const validate = () => {
-    if (!profile.name?.trim()) return "Name is required";
-    if (!profile.email?.includes("@")) return "Invalid email";
-    return null;
-  };
-
-  /**
-   * Save profile (API-ready)
-   */
-  const saveProfile = async () => {
-    setMessage("");
-
-    const error = validate();
-    if (error) {
-      setMessage(error);
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      // simulate API request (replace later with backend)
-      await new Promise((res) => setTimeout(res, 900));
-
-      localStorage.setItem("user_profile", JSON.stringify(profile));
-
-      setMessage("Profile updated successfully");
-    } catch (err) {
-      setMessage("Failed to update profile");
-      console.error("Profile save error:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /**
-   * Reset profile (restore SaaS defaults)
-   */
-  const resetProfile = () => {
-    setProfile(defaultProfile);
-    setPreview("");
-
-    localStorage.removeItem("user_profile");
+  /* ================= SAVE ================= */
+  const save = async () => {
+    await saveProfile(profile); // 🔥 updates global state
+    setMessage("Profile synced successfully");
   };
 
   return {
@@ -129,7 +81,110 @@ export const useProfileSettings = () => {
     message,
     updateField,
     setAvatar,
-    saveProfile,
-    resetProfile,
+    saveProfile: save,
   };
 };
+
+
+// import { useEffect, useRef, useState, useCallback } from "react";
+// import { useUser } from "../../../context/UserContext";
+
+// export const useProfileSettings = () => {
+//   const { user, loading, saveProfile, changeAvatar } = useUser();
+
+//   const [profile, setProfile] = useState({
+//     name: "",
+//     email: "",
+//     avatar: "",
+//   });
+
+//   const [preview, setPreview] = useState(null);
+//   const [message, setMessage] = useState("");
+//   const [saving, setSaving] = useState(false);
+//   const [uploading, setUploading] = useState(false);
+
+//   const initialized = useRef(false);
+
+//   /* =========================
+//      INITIAL SYNC ONLY ONCE
+//   ========================= */
+//   useEffect(() => {
+//     if (!user || initialized.current) return;
+
+//     setProfile({
+//       name: user.name || "",
+//       email: user.email || "",
+//       avatar: user.avatar || "",
+//     });
+
+//     initialized.current = true;
+//   }, [user]);
+
+//   /* =========================
+//      FIELD UPDATE
+//   ========================= */
+//   const updateField = useCallback((key, value) => {
+//     setProfile((prev) => ({
+//       ...prev,
+//       [key]: value,
+//     }));
+//   }, []);
+
+//   /* =========================
+//      AVATAR
+//   ========================= */
+//   const setAvatar = useCallback(
+//     async (file) => {
+//       if (!file) return;
+
+//       try {
+//         setUploading(true);
+
+//         if (preview) URL.revokeObjectURL(preview);
+
+//         const local = URL.createObjectURL(file);
+//         setPreview(local);
+
+//         const res = await changeAvatar(file);
+
+//         setProfile((prev) => ({
+//           ...prev,
+//           avatar: res?.url || prev.avatar,
+//         }));
+//       } finally {
+//         setUploading(false);
+//       }
+//     },
+//     [changeAvatar, preview]
+//   );
+
+//   /* =========================
+//      SAVE
+//   ========================= */
+//   const save = useCallback(async () => {
+//     try {
+//       setSaving(true);
+//       setMessage("");
+
+//       await saveProfile(profile);
+
+//       setMessage("Profile synced successfully");
+//     } catch (err) {
+//       setMessage("Failed to sync profile");
+//     } finally {
+//       setSaving(false);
+//     }
+//   }, [profile, saveProfile]);
+
+//   return {
+//     profile,
+//     preview,
+//     loading,
+//     saving,
+//     uploading,
+//     message,
+//     updateField,
+//     setAvatar,
+//     saveProfile: save,
+//   };
+// };

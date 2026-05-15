@@ -1,140 +1,5 @@
 
 
-// import express from "express";
-// import cors from "cors";
-// import helmet from "helmet";
-// import morgan from "morgan";
-// import mongoose from "mongoose";
-
-// import authRoutes from "./routes/authRoutes.js";
-// import userRoutes from "./routes/userRoutes.js";
-// import budgetRoutes from "./routes/budgetRoutes.js";
-// import transactionRoutes from "./routes/transactionRoutes.js";
-// import dashboardRoutes from "./routes/dashboardRoutes.js";
-
-
-// const app = express();
-
-// /* ===============================
-//    CORS CONFIG
-// ================================= */
-
-// const defaultOrigins = [
-//   "http://localhost:5173",
-//   "http://127.0.0.1:5173",
-// ];
-
-// const allowedOrigins = process.env.CORS_ORIGINS
-//   ? process.env.CORS_ORIGINS.split(",")
-//       .map((origin) => origin.trim())
-//       .filter(Boolean)
-//   : defaultOrigins;
-
-// const corsOptions = {
-//   origin: (origin, callback) => {
-//     // allow Postman / mobile apps / server-to-server
-//     if (!origin) return callback(null, true);
-
-//     if (allowedOrigins.includes(origin)) {
-//       return callback(null, true);
-//     }
-
-//     return callback(
-//       new Error(`CORS blocked for origin: ${origin}`)
-//     );
-//   },
-//   credentials: true,
-//   methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-// };
-
-// /* ===============================
-//    GLOBAL MIDDLEWARE
-// ================================= */
-
-// app.set("trust proxy", 1);
-
-// app.use(helmet());
-// app.use(morgan("dev"));
-
-// app.use(cors(corsOptions));
-// app.options("*", cors(corsOptions));
-
-// app.use(express.json({ limit: "10mb" }));
-// app.use(express.urlencoded({ extended: true }));
-
-// /* ===============================
-//    HEALTH ROUTES
-// ================================= */
-
-// app.get("/api/health", (req, res) => {
-//   res.status(200).json({
-//     success: true,
-//     message: "SmartBudget API is running",
-//     environment: process.env.NODE_ENV || "development",
-//   });
-// });
-
-// app.get("/api/db-test", async (req, res) => {
-//   try {
-//     const db = mongoose.connection;
-
-//     if (db.readyState === 1) {
-//       return res.status(200).json({
-//         success: true,
-//         message: "MongoDB connected successfully",
-//       });
-//     }
-
-//     return res.status(503).json({
-//       success: false,
-//       message: "MongoDB not connected",
-//     });
-//   } catch (error) {
-//     return res.status(500).json({
-//       success: false,
-//       message: error.message,
-//     });
-//   }
-// });
-
-// /* ===============================
-//    API ROUTES
-// ================================= */
-
-// app.use("/api/auth", authRoutes);
-// app.use("/api/users", userRoutes);
-// app.use("/api/budgets", budgetRoutes);
-// app.use("/api/transactions", transactionRoutes);
-// app.use("/api/dashboard", dashboardRoutes);
-// /* ===============================
-//    404 HANDLER
-// ================================= */
-
-// app.use((req, res) => {
-//   res.status(404).json({
-//     success: false,
-//     message: `Route ${req.originalUrl} not found`,
-//   });
-// });
-
-// /* ===============================
-//    GLOBAL ERROR HANDLER
-// ================================= */
-
-// app.use((err, req, res, next) => {
-//   console.error("🔥 Error:", err.message);
-
-//   res.status(err.status || 500).json({
-//     success: false,
-//     message:
-//       process.env.NODE_ENV === "production"
-//         ? "Internal Server Error"
-//         : err.message,
-//   });
-// });
-
-// export default app;
-
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -244,6 +109,8 @@ app.get("/api/db-test", async (req, res) => {
    API ROUTES (CORE SYSTEM)
 ================================= */
 
+// app.use("/api/auth", authRoutes);
+// app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/budgets", budgetRoutes);

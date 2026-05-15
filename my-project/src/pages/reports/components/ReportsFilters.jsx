@@ -1,50 +1,70 @@
+
+// import { motion } from "framer-motion";
+
 // const ReportsFilters = ({ range, setRange }) => {
+//   const options = ["week", "month", "year"];
+
 //   return (
-//     <div className="flex flex-col md:flex-row items-center justify-center gap-3 text-center md:justify-between mb-6">
+//     <div className="w-full flex justify-start">
 
-//       {/* TIME RANGE FILTER */}
-//       <div className="flex gap-2">
+//       <div className="
+//         relative flex items-center
+//         rounded-2xl border border-gray-200
+//         bg-white p-1 shadow-sm
+//       ">
 
-//         <button
-//           onClick={() => setRange("week")}
-//           className={`px-3 py-1 rounded-lg text-sm border ${
-//             range === "week"
-//               ? "bg-black text-white dark:bg-white dark:text-black"
-//               : "text-gray-600 dark:text-gray-300"
-//           }`}
-//         >
-//           Week
-//         </button>
+//         {/* BACKGROUND INDICATOR (FINTECH STYLE) */}
+//         <motion.div
+//           layout
+//           transition={{
+//             type: "spring",
+//             stiffness: 400,
+//             damping: 30,
+//           }}
+//           className="
+//             absolute top-1 bottom-1
+//             w-1/3
+//             rounded-xl
+//             bg-gray-900
+//           "
+//           style={{
+//             transform: `translateX(${
+//               options.indexOf(range) * 100
+//             }%)`,
+//           }}
+//         />
 
-//         <button
-//           onClick={() => setRange("month")}
-//           className={`px-3 py-1 rounded-lg text-sm border ${
-//             range === "month"
-//               ? "bg-black text-white dark:bg-white dark:text-black"
-//               : "text-gray-600 dark:text-gray-300"
-//           }`}
-//         >
-//           Month
-//         </button>
+//         {options.map((item) => (
+//           <button
+//             key={item}
+//             onClick={() => setRange(item)}
+//             className={`
+//               relative z-10
+//               w-24 md:w-28
+//               py-2
 
-//         <button
-//           onClick={() => setRange("year")}
-//           className={`px-3 py-1 rounded-lg text-sm border ${
-//             range === "year"
-//               ? "bg-black text-white dark:bg-white dark:text-black"
-//               : "text-gray-600 dark:text-gray-300"
-//           }`}
-//         >
-//           Year
-//         </button>
+//               text-sm font-semibold capitalize
+
+//               transition-colors duration-200
+
+//               ${
+//                 range === item
+//                   ? "text-white"
+//                   : "text-gray-500 hover:text-gray-900"
+//               }
+//             `}
+//           >
+//             {item}
+//           </button>
+//         ))}
 
 //       </div>
-
 //     </div>
 //   );
 // };
 
 // export default ReportsFilters;
+
 
 
 import { motion } from "framer-motion";
@@ -53,39 +73,64 @@ const ReportsFilters = ({ range, setRange }) => {
   const options = ["week", "month", "year"];
 
   return (
-    <div className="mb-6 flex justify-center md:justify-between">
+    <div className="w-full flex justify-start">
+      <div className="
+        flex items-center
+        rounded-2xl
+        border border-gray-200
+        bg-white
+        p-1
+        shadow-sm
+      ">
 
-      {/* SEGMENTED CONTROL */}
-      <div className="relative flex items-center rounded-2xl border border-white/10 bg-[#0f172a] p-1 shadow-xl">
+        {options.map((item) => {
+          const isActive = range === item;
 
-        {/* ACTIVE SLIDER */}
-        <motion.div
-          layout
-          transition={{ type: "spring", stiffness: 400, damping: 30 }}
-          className={`absolute top-1 bottom-1 w-1/3 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500`}
-          style={{
-            left:
-              range === "week"
-                ? "4px"
-                : range === "month"
-                ? "33%"
-                : "66%",
-          }}
-        />
+          return (
+            <button
+              key={item}
+              onClick={() => setRange(item)}
+              className={`
+                relative
+                w-24 md:w-28
+                py-2
 
-        {options.map((item) => (
-          <button
-            key={item}
-            onClick={() => setRange(item)}
-            className={`relative z-10 w-24 py-2 text-sm font-medium capitalize transition ${
-              range === item
-                ? "text-white"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            {item}
-          </button>
-        ))}
+                text-sm font-semibold capitalize
+
+                rounded-xl
+
+                transition-all duration-200
+
+                /* better visibility ALWAYS */
+                ${
+                  isActive
+                    ? "text-gray-900 bg-gray-100 shadow-sm"
+                    : "text-gray-600 hover:text-gray-700"
+                }
+
+                /* fintech interaction */
+                active:scale-[0.97]
+                focus:outline-none
+              `}
+            >
+              {item}
+
+              {/* ACTIVE INDICATOR DOT (subtle fintech cue) */}
+              {isActive && (
+                <motion.div
+                  layoutId="activeIndicator"
+                  className="
+                    absolute bottom-1 left-1/2
+                    w-1.5 h-1.5
+                    -translate-x-1/2
+                    rounded-full
+                    bg-gray-900
+                  "
+                />
+              )}
+            </button>
+          );
+        })}
 
       </div>
     </div>

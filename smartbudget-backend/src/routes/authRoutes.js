@@ -1,30 +1,3 @@
-// // import express from "express";
-// // import {
-// //   signup,
-// //   login,
-// //   logout,
-// //   getCurrentUser,
-// //   refreshToken,
-// //   updateProfile,
-// //   changePassword,
-// // } from "../controllers/authController.js";
-// // import protect from "../middleware/authMiddleware.js";
-// // import rateLimit from "../middleware/rateLimitMiddleware.js";
-
-// // const router = express.Router();
-
-// // // ✅ Public Routes with Rate Limiting
-// // router.post("/signup", rateLimit("signup"), signup);
-// // router.post("/login", rateLimit("login"), login);
-// // router.post("/logout", logout);
-
-// // // ✅ Protected Routes
-// // router.get("/me", protect, getCurrentUser);
-// // router.post("/refresh-token", protect, refreshToken);
-// // router.put("/profile", protect, updateProfile);
-// // router.put("/change-password", protect, changePassword);
-
-// // export default router;
 
 
 // import express from "express";
@@ -33,8 +6,6 @@
 //   login,
 //   logout,
 //   getCurrentUser,
-//   refreshToken,
-//   updateProfile,
 //   changePassword,
 // } from "../config/controllers/authController.js";
 
@@ -43,78 +14,49 @@
 
 // const router = express.Router();
 
+// /* PUBLIC */
 // router.post("/signup", rateLimit("signup"), signup);
 // router.post("/login", rateLimit("login"), login);
 // router.post("/logout", logout);
 
-// router.get("/me", protect, getCurrentUser);
-// router.post("/refresh-token", protect, refreshToken);
-// router.put("/profile", protect, updateProfile);
-// router.put("/change-password", protect, changePassword);
-
-// export default router;
-
-
-// import express from "express";
-
-// import {
-//    signup,
-//   login,
-//   logout,
-//   getCurrentUser,
-//   refreshToken,
-//   updateProfile,
-//   changePassword,
-// } from  "../config/controllers/authController.js";
-
-// import protect from "../middleware/authMiddleware.js";
-// import rateLimit from "../middleware/rateLimitMiddleware.js";
-
-// const router = express.Router();
-
-// /* =========================
-//    PUBLIC ROUTES
-// ========================= */
-// router.post("/signup", rateLimit("signup"), signup);
-// router.post("/login", rateLimit("login"), login);
-
-// /* =========================
-//    OPTIONAL (REMOVE UNTIL BUILT)
-// ========================= */
-// router.post("/logout", logout);
-// // router.post("/refresh-token", refreshToken);
-// router.post("/refresh-token", protect, refreshToken);
-// router.put("/updateprofile", protect, updateProfile);
-
-// /* =========================
-//    PROTECTED ROUTES
-// ========================= */
+// /* PROTECTED */
 // router.get("/me", protect, getCurrentUser);
 // router.put("/change-password", protect, changePassword);
 
 // export default router;
+
 
 import express from "express";
 import {
+  googleAuth,
+  googleCallback,
   signup,
   login,
   logout,
   getCurrentUser,
   changePassword,
+ 
 } from "../config/controllers/authController.js";
+
+
 
 import protect from "../middleware/authMiddleware.js";
 import rateLimit from "../middleware/rateLimitMiddleware.js";
+import asyncHandler from "../utils/asyncHandler.js";
 
 const router = express.Router();
 
 /* PUBLIC */
-router.post("/signup", rateLimit("signup"), signup);
-router.post("/login", rateLimit("login"), login);
+router.get("/google", googleAuth);
+router.get("/google/callback", googleCallback);
+
+router.post("/signup", rateLimit("signup"), asyncHandler(signup));
+router.post("/login", rateLimit("login"), asyncHandler(login));
 router.post("/logout", logout);
 
+
 /* PROTECTED */
-router.get("/me", protect, getCurrentUser);
-router.put("/change-password", protect, changePassword);
+router.get("/me", protect, asyncHandler(getCurrentUser));
+router.put("/change-password", protect, asyncHandler(changePassword));
 
 export default router;
