@@ -1,28 +1,4 @@
-// const ReportsEmptyState = () => {
-//   return (
-//     <div className="flex flex-col items-center justify-center text-center py-20 px-4">
 
-//       {/* ICON */}
-//       <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
-//         📊
-//       </div>
-
-//       {/* TITLE */}
-//       <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-//         No financial data yet
-//       </h2>
-
-//       {/* DESCRIPTION */}
-//       <p className="text-sm text-gray-500 mt-2 max-w-md">
-//         Your reports will appear here once you start adding transactions and budgets.
-//         We’ll automatically generate insights and analytics for you.
-//       </p>
-
-//     </div>
-//   );
-// };
-
-// export default ReportsEmptyState;
 
 
 import { motion } from "framer-motion";

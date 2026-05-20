@@ -1,3 +1,5 @@
+
+
 import { useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -12,6 +14,9 @@ import {
   BadgeCheck,
   Wifi,
   Loader2,
+  ChevronRight,
+  Activity,
+  LockKeyhole,
 } from "lucide-react";
 
 import { useUser } from "../hooks/useUser";
@@ -28,7 +33,9 @@ const SettingsHeader = () => {
     refreshUser,
   } = useUser();
 
-  /* ================= CURRENT SECTION ================= */
+  /* =========================================
+     ACTIVE SECTION
+  ========================================= */
 
   const currentSection = useMemo(() => {
     const segment = location.pathname.split("/").pop();
@@ -37,31 +44,31 @@ const SettingsHeader = () => {
       profile: {
         label: "Profile Settings",
         icon: User,
-        desc: "Manage your banking identity & profile",
+        desc: "Manage verified banking identity and personal information",
       },
 
       security: {
         label: "Security Center",
         icon: ShieldCheck,
-        desc: "Authentication & account protection",
+        desc: "Authentication, session protection and account defense",
       },
 
       notifications: {
         label: "Notifications",
         icon: Bell,
-        desc: "Transaction alerts & updates",
+        desc: "Transaction alerts, activities and system communication",
       },
 
       preferences: {
         label: "Preferences",
         icon: SlidersHorizontal,
-        desc: "Customize your banking experience",
+        desc: "Customize your financial workspace experience",
       },
 
       billing: {
         label: "Billing & Cards",
         icon: CreditCard,
-        desc: "Manage subscriptions and payment methods",
+        desc: "Manage subscriptions, payment methods and card settings",
       },
     };
 
@@ -70,15 +77,12 @@ const SettingsHeader = () => {
 
   const SectionIcon = currentSection.icon;
 
-  /* ================= SAVE PROFILE ================= */
+  /* =========================================
+     SAVE SYSTEM
+  ========================================= */
 
   const handleSave = async () => {
     try {
-      if (!updateProfile) {
-        console.error("updateProfile function missing");
-        return;
-      }
-
       setSaving(true);
 
       await updateProfile({
@@ -96,190 +100,481 @@ const SettingsHeader = () => {
   };
 
   return (
-    <motion.div
+    <motion.section
       initial={{ opacity: 0, y: -12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
       className="
         relative overflow-hidden
-        rounded-3xl
-        border border-slate-200/70
-        bg-gradient-to-br from-white via-slate-50 to-slate-100
-        shadow-[0_10px_40px_rgba(15,23,42,0.08)]
+        rounded-[32px]
+        border border-slate-200/80
+        bg-white
+        shadow-[0_20px_80px_rgba(15,23,42,0.08)]
       "
     >
 
-      {/* FINTECH TOP GLOW */}
-      <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-emerald-500 via-indigo-500 to-cyan-500" />
+      {/* =========================================
+         BANK TOP STRIP
+      ========================================= */}
 
-      <div className="p-6 md:p-8 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-8">
+      <div className="absolute inset-x-0 top-0 h-[4px] bg-gradient-to-r from-slate-950 via-indigo-700 to-emerald-500" />
 
-        {/* ================= LEFT SIDE ================= */}
-        <div className="flex flex-col gap-6">
+      {/* =========================================
+         BACKGROUND GRID
+      ========================================= */}
 
-          {/* USER CARD */}
-          <div className="flex items-center gap-4">
+      <div className="absolute inset-0 opacity-[0.03]">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:72px_72px]" />
+      </div>
 
-            {/* AVATAR */}
+      {/* =========================================
+         CONTENT
+      ========================================= */}
+
+      <div className="relative p-5 sm:p-7 lg:p-8">
+
+        {/* =========================================
+           TOP ROW
+        ========================================= */}
+
+        <div className="
+          flex flex-col
+          xl:flex-row xl:items-center xl:justify-between
+          gap-8
+        ">
+
+          {/* =========================================
+             LEFT SIDE
+          ========================================= */}
+
+          <div className="flex-1">
+
+            {/* =========================================
+               USER + SECURITY ROW
+            ========================================= */}
+
             <div className="
-              relative h-14 w-14 rounded-2xl
-              bg-slate-200 overflow-hidden
-              ring-4 ring-white shadow-md
+              flex flex-col
+              lg:flex-row lg:items-center
+              gap-6
             ">
 
-              {user?.avatar ? (
-                <img
-                  src={user.avatar}
-                  alt={user?.name || "User Avatar"}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-slate-100">
-                  <User className="h-6 w-6 text-slate-500" />
-                </div>
-              )}
+              {/* USER CARD */}
 
-              {/* LIVE STATUS */}
               <div className="
-                absolute bottom-1 right-1
-                h-3 w-3 rounded-full
-                bg-emerald-500 ring-2 ring-white
-              " />
-            </div>
+                flex items-center gap-4
+                min-w-0
+              ">
 
-            {/* USER INFO */}
-            <div className="space-y-1">
+                {/* AVATAR */}
 
-              <div className="flex items-center gap-2">
+                <div className="
+                  relative
+                  h-16 w-16
+                  rounded-2xl
+                  overflow-hidden
+                  border border-slate-200
+                  bg-slate-100
+                  shadow-[0_10px_25px_rgba(15,23,42,0.08)]
+                ">
 
-                <h2 className="text-base font-semibold text-slate-900">
-                  {loading ? "Loading..." : user?.name || "Bank User"}
-                </h2>
+                  {user?.avatar ? (
+                    <img
+                      src={user.avatar}
+                      alt={user?.name || "User"}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="
+                      h-full w-full
+                      flex items-center justify-center
+                      bg-slate-100
+                    ">
+                      <User
+                        size={24}
+                        className="text-slate-500"
+                      />
+                    </div>
+                  )}
 
-                <BadgeCheck
-                  size={16}
-                  className="text-emerald-500"
-                />
+                  {/* LIVE DOT */}
+
+                  <div className="
+                    absolute bottom-1.5 right-1.5
+                    h-3 w-3 rounded-full
+                    bg-emerald-500
+                    ring-2 ring-white
+                  " />
+                </div>
+
+                {/* USER INFO */}
+
+                <div className="min-w-0">
+
+                  <div className="flex items-center gap-2 flex-wrap">
+
+                    <h2 className="
+                      text-[18px]
+                      font-semibold
+                      tracking-[-0.02em]
+                      text-slate-950
+                      truncate
+                    ">
+                      {loading
+                        ? "Loading..."
+                        : user?.name || "SmartBudget User"}
+                    </h2>
+
+                    <div className="
+                      flex items-center gap-1
+                      rounded-full
+                      border border-emerald-200
+                      bg-emerald-50
+                      px-2 py-1
+                    ">
+                      <BadgeCheck
+                        size={13}
+                        className="text-emerald-600"
+                      />
+
+                      <span className="
+                        text-[11px]
+                        font-semibold
+                        text-emerald-700
+                      ">
+                        VERIFIED
+                      </span>
+                    </div>
+
+                  </div>
+
+                  <p className="
+                    mt-1
+                    text-sm
+                    text-slate-500
+                    truncate
+                  ">
+                    {user?.email || "No email linked"}
+                  </p>
+
+                  {/* SYSTEM STATUS */}
+
+                  <div className="
+                    mt-3
+                    flex flex-wrap items-center gap-3
+                  ">
+
+                    <div className="
+                      flex items-center gap-2
+                      rounded-full
+                      bg-slate-100
+                      px-3 py-1.5
+                    ">
+                      <Wifi
+                        size={13}
+                        className="text-emerald-600"
+                      />
+
+                      <span className="
+                        text-[11px]
+                        font-medium
+                        text-slate-700
+                      ">
+                        Real-time Sync
+                      </span>
+                    </div>
+
+                    <div className="
+                      flex items-center gap-2
+                      rounded-full
+                      bg-slate-100
+                      px-3 py-1.5
+                    ">
+                      <Activity
+                        size={13}
+                        className="text-indigo-600"
+                      />
+
+                      <span className="
+                        text-[11px]
+                        font-medium
+                        text-slate-700
+                      ">
+                        System Operational
+                      </span>
+                    </div>
+
+                  </div>
+
+                </div>
+
               </div>
 
-              <p className="text-sm text-slate-500">
-                {user?.email || "No email connected"}
-              </p>
-
-              {/* LIVE API STATUS */}
-              <div className="flex items-center gap-2 pt-1">
-
-                <Wifi
-                  size={13}
-                  className="text-emerald-500"
-                />
-
-                <span className="text-xs font-medium text-emerald-600">
-                  Real-time sync active
-                </span>
-              </div>
-
             </div>
 
-          </div>
-
-          {/* SECTION INFO */}
-          <div className="flex items-center gap-4">
+            {/* =========================================
+               SECTION PANEL
+            ========================================= */}
 
             <div className="
-              flex h-12 w-12 items-center justify-center
-              rounded-2xl
-              bg-gradient-to-br from-indigo-600 to-indigo-700
-              text-white
-              shadow-lg shadow-indigo-500/20
+              mt-8
+              rounded-3xl
+              border border-slate-200
+              bg-slate-50/80
+              p-5 sm:p-6
             ">
-              <SectionIcon size={20} />
-            </div>
 
-            <div className="space-y-1">
+              <div className="
+                flex flex-col
+                lg:flex-row lg:items-center lg:justify-between
+                gap-5
+              ">
 
-              <h3 className="text-sm font-semibold text-slate-900">
-                {currentSection.label}
-              </h3>
+                {/* LEFT */}
 
-              <p className="text-sm text-slate-500">
-                {currentSection.desc}
-              </p>
+                <div className="flex items-start gap-4">
+
+                  <div className="
+                    flex h-14 w-14
+                    items-center justify-center
+                    rounded-2xl
+                    bg-slate-950
+                    text-white
+                    shadow-[0_10px_25px_rgba(15,23,42,0.2)]
+                  ">
+                    <SectionIcon size={22} />
+                  </div>
+
+                  <div>
+
+                    <div className="
+                      flex items-center gap-2
+                      text-[12px]
+                      uppercase tracking-[0.18em]
+                      font-semibold
+                      text-slate-400
+                    ">
+                      SETTINGS MODULE
+                      <ChevronRight size={13} />
+                      ACTIVE
+                    </div>
+
+                    <h3 className="
+                      mt-2
+                      text-[24px]
+                      leading-none
+                      font-semibold
+                      tracking-[-0.03em]
+                      text-slate-950
+                    ">
+                      {currentSection.label}
+                    </h3>
+
+                    <p className="
+                      mt-3
+                      max-w-2xl
+                      text-sm leading-7
+                      text-slate-500
+                    ">
+                      {currentSection.desc}
+                    </p>
+
+                  </div>
+
+                </div>
+
+                {/* SECURITY PANEL */}
+
+                <div className="
+                  w-full lg:w-auto
+                  rounded-2xl
+                  border border-emerald-200
+                  bg-white
+                  px-5 py-4
+                ">
+
+                  <div className="flex items-start gap-3">
+
+                    <div className="
+                      mt-0.5
+                      flex h-10 w-10
+                      items-center justify-center
+                      rounded-xl
+                      bg-emerald-50
+                    ">
+                      <LockKeyhole
+                        size={18}
+                        className="text-emerald-600"
+                      />
+                    </div>
+
+                    <div>
+
+                      <p className="
+                        text-sm
+                        font-semibold
+                        text-slate-900
+                      ">
+                        Enterprise Security Active
+                      </p>
+
+                      <p className="
+                        mt-1
+                        text-xs leading-6
+                        text-slate-500
+                      ">
+                        Encrypted sessions, protected API layers,
+                        and secured financial infrastructure enabled.
+                      </p>
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+              </div>
 
             </div>
 
           </div>
 
-        </div>
+          {/* =========================================
+             ACTION SIDE
+          ========================================= */}
 
-        {/* ================= RIGHT SIDE ================= */}
-        <div className="flex items-center gap-4">
-
-          {/* ACCOUNT SECURITY BADGE */}
           <div className="
-            hidden md:flex items-center gap-2
-            rounded-2xl border border-emerald-200
-            bg-emerald-50
-            px-4 py-3
+            flex flex-col
+            sm:flex-row
+            xl:flex-col
+            gap-4
+            xl:w-[240px]
           ">
 
-            <ShieldCheck
-              size={18}
-              className="text-emerald-600"
-            />
+            {/* SAVE BUTTON */}
 
-            <div>
-              <p className="text-xs font-semibold text-emerald-700">
-                Bank-Level Security
+            <button
+              onClick={handleSave}
+              disabled={saving || loading}
+              className="
+                group
+                relative overflow-hidden
+                h-[58px]
+                rounded-2xl
+                bg-slate-950
+                px-6
+                text-white
+                shadow-[0_20px_40px_rgba(15,23,42,0.18)]
+                transition-all duration-300
+                hover:-translate-y-[2px]
+                hover:bg-black
+                disabled:opacity-60
+                disabled:cursor-not-allowed
+              "
+            >
+
+              <div className="
+                absolute inset-0
+                opacity-0 group-hover:opacity-100
+                transition-opacity duration-300
+                bg-gradient-to-r from-white/0 via-white/10 to-white/0
+              " />
+
+              <div className="
+                relative
+                flex items-center justify-center gap-2
+              ">
+
+                {saving ? (
+                  <>
+                    <Loader2
+                      size={17}
+                      className="animate-spin"
+                    />
+                    Saving Changes...
+                  </>
+                ) : (
+                  <>
+                    <Save size={17} />
+                    Save Changes
+                  </>
+                )}
+
+              </div>
+
+            </button>
+
+            {/* SECURITY STATUS */}
+
+            <div className="
+              flex-1
+              rounded-2xl
+              border border-slate-200
+              bg-white
+              p-5
+            ">
+
+              <div className="
+                flex items-center gap-2
+                text-slate-900
+              ">
+
+                <ShieldCheck
+                  size={16}
+                  className="text-emerald-600"
+                />
+
+                <span className="
+                  text-sm
+                  font-semibold
+                ">
+                  Protection Status
+                </span>
+
+              </div>
+
+              <div className="
+                mt-4
+                flex items-end gap-2
+              ">
+
+                <h4 className="
+                  text-3xl
+                  font-semibold
+                  tracking-[-0.04em]
+                  text-slate-950
+                ">
+                  99.99%
+                </h4>
+
+                <span className="
+                  pb-1
+                  text-xs
+                  font-medium
+                  text-emerald-600
+                ">
+                  SECURE
+                </span>
+
+              </div>
+
+              <p className="
+                mt-2
+                text-xs leading-6
+                text-slate-500
+              ">
+                Banking infrastructure integrity operating normally.
               </p>
 
-              <p className="text-[11px] text-emerald-600">
-                Encrypted & Protected
-              </p>
             </div>
 
           </div>
-
-          {/* SAVE BUTTON */}
-          <button
-            onClick={handleSave}
-            disabled={saving || loading}
-            className="
-              flex items-center gap-2
-              rounded-2xl
-              bg-slate-950
-              px-5 py-3
-              text-sm font-medium text-white
-              transition-all duration-200
-              hover:bg-black
-              disabled:cursor-not-allowed
-              disabled:opacity-60
-              shadow-lg shadow-slate-900/20
-            "
-          >
-
-            {saving ? (
-              <>
-                <Loader2
-                  size={16}
-                  className="animate-spin"
-                />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save size={16} />
-                Save Changes
-              </>
-            )}
-
-          </button>
 
         </div>
 
       </div>
 
-    </motion.div>
+    </motion.section>
   );
 };
 

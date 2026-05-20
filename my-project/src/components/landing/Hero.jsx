@@ -1,191 +1,408 @@
 
 
-
-
-
-// import { motion, useScroll, useTransform } from "framer-motion";
+// import { motion } from "framer-motion";
 // import { Link } from "react-router-dom";
+// import {
+//   ArrowRight,
+//   ShieldCheck,
+//   Wallet2,
+//   TrendingUp,
+//   BarChart3,
+// } from "lucide-react";
 
 // const fadeUp = {
-//   hidden: { opacity: 0, y: 24 },
-//   show: (d = 0) => ({
+//   hidden: { opacity: 0, y: 30 },
+//   show: (delay = 0) => ({
 //     opacity: 1,
 //     y: 0,
-//     transition: { delay: d, duration: 0.6, ease: "easeOut" },
+//     transition: {
+//       delay,
+//       duration: 0.7,
+//       ease: [0.22, 1, 0.36, 1],
+//     },
 //   }),
 // };
 
 // const Hero = () => {
-//   const { scrollY } = useScroll();
-//   const y = useTransform(scrollY, [0, 400], [0, -20]);
-
 //   return (
-//     <section className="relative overflow-hidden bg-slate-50 dark:bg-[#0B1220] pt-28 pb-24">
-
-//       {/* BACKGROUND GRID (SUBTLE FINTECH STYLE) */}
+//     <section className="relative overflow-hidden bg-white pt-[140px] pb-24">
+//       {/* BACKGROUND */}
 //       <div className="absolute inset-0 -z-10">
-//         <div className="
-//           absolute inset-0
-//           bg-[linear-gradient(to_right,#0f172a10_1px,transparent_1px),linear-gradient(to_bottom,#0f172a10_1px,transparent_1px)]
-//           dark:bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)]
-//           bg-[size:40px_40px]
-//         " />
+//         {/* GRID */}
+//         <div
+//           className="
+//             absolute inset-0
+//             bg-[linear-gradient(to_right,#0f172a08_1px,transparent_1px),linear-gradient(to_bottom,#0f172a08_1px,transparent_1px)]
+//             bg-[size:64px_64px]
+//           "
+//         />
 
-//         {/* SOFT PRIMARY GLOW */}
-//         <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[700px] bg-indigo-500/10 blur-3xl rounded-full" />
+//         {/* TOP GRADIENT */}
+//         <div className="absolute inset-x-0 top-0 h-[500px] bg-gradient-to-b from-slate-50 to-transparent" />
+
+//         {/* SOFT RADIAL */}
+//         <div className="absolute top-[-200px] right-[-120px] w-[500px] h-[500px] bg-slate-200/40 blur-3xl rounded-full" />
 //       </div>
 
-//       <div className="max-w-7xl mx-auto px-4 md:px-6 grid md:grid-cols-2 gap-14 items-center">
-
-//         {/* LEFT */}
-//         <motion.div style={{ y }}>
-
-//           {/* BADGE */}
-//           <motion.div
-//             variants={fadeUp}
-//             initial="hidden"
-//             animate="show"
-//             className="
-//               inline-flex items-center gap-2 px-4 py-2 rounded-full
-//               border border-slate-200 dark:border-slate-800
-//               bg-white dark:bg-[#0F172A]
-//             "
-//           >
-//             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-//             <span className="text-xs text-slate-600 dark:text-slate-300">
-//               SmartBudget Finance OS
-//             </span>
-//           </motion.div>
-
-//           {/* TITLE */}
-//           <motion.h1
-//             variants={fadeUp}
-//             initial="hidden"
-//             animate="show"
-//             custom={0.1}
-//             className="mt-6 text-4xl md:text-6xl font-semibold text-slate-900 dark:text-white leading-tight"
-//           >
-//             Smarter money
-//             <br />
-//             decisions for your
-//             <br />
-//             <span className="text-indigo-500">
-//               financial future
-//             </span>
-//           </motion.h1>
-
-//           {/* DESCRIPTION */}
-//           <motion.p
-//             variants={fadeUp}
-//             initial="hidden"
-//             animate="show"
-//             custom={0.2}
-//             className="mt-5 max-w-xl text-slate-600 dark:text-slate-400"
-//           >
-//             Track spending, automate budgeting, and gain real-time insights
-//             into your financial life with a modern fintech dashboard.
-//           </motion.p>
-
-//           {/* CTA */}
-//           <motion.div
-//             variants={fadeUp}
-//             initial="hidden"
-//             animate="show"
-//             custom={0.3}
-//             className="mt-8 flex gap-4"
-//           >
-//             <Link
-//               to="/signup"
+//       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+//         <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-16 items-center">
+//           {/* LEFT CONTENT */}
+//           <div>
+//             {/* TRUST BADGE */}
+//             <motion.div
+//               variants={fadeUp}
+//               initial="hidden"
+//               animate="show"
 //               className="
-//                 px-6 py-3 rounded-xl
-//                 bg-indigo-600 text-white
-//                 hover:bg-indigo-700 transition
+//                 inline-flex items-center gap-2
+//                 h-11 px-4
+//                 rounded-full
+//                 border border-slate-200
+//                 bg-white
+//                 shadow-[0_1px_2px_rgba(15,23,42,0.04)]
 //               "
 //             >
-//               Get Started
-//             </Link>
-
-//             <Link
-//               to="/login"
-//               className="
-//                 px-6 py-3 rounded-xl
-//                 border border-slate-300 dark:border-slate-700
-//                 text-slate-800 dark:text-white
-//                 hover:bg-slate-100 dark:hover:bg-slate-800
-//               "
-//             >
-//               Login
-//             </Link>
-//           </motion.div>
-
-//         </motion.div>
-
-//         {/* RIGHT - FINTECH DASHBOARD MOCK */}
-//         <motion.div className="relative">
-
-//           <div className="
-//             rounded-2xl border border-slate-200 dark:border-slate-800
-//             bg-white dark:bg-[#0F172A]
-//             shadow-xl p-6
-//           ">
-
-//             {/* BALANCE */}
-//             <div className="flex justify-between items-center">
-//               <div>
-//                 <p className="text-xs text-slate-500">Balance</p>
-//                 <h2 className="text-2xl font-semibold text-slate-900 dark:text-white">
-//                   ₦245,000
-//                 </h2>
-//               </div>
-
-//               <span className="text-xs px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-500">
-//                 +12.4%
-//               </span>
-//             </div>
-
-//             {/* SIMPLE CHART */}
-//             <div className="mt-6 h-40 flex items-end gap-2">
-//               {[40, 60, 50, 80, 70, 90, 65].map((h, i) => (
-//                 <motion.div
-//                   key={i}
-//                   initial={{ height: 0 }}
-//                   animate={{ height: h }}
-//                   transition={{ delay: i * 0.05 }}
-//                   className="flex-1 bg-indigo-500/70 rounded-md"
+//               <div className="flex items-center justify-center h-6 w-6 rounded-full bg-emerald-50">
+//                 <ShieldCheck
+//                   size={14}
+//                   className="text-emerald-600"
 //                 />
+//               </div>
+
+//               <span className="text-[13px] font-medium text-slate-700">
+//                 Enterprise-grade financial infrastructure
+//               </span>
+//             </motion.div>
+
+//             {/* HEADLINE */}
+//             <motion.h1
+//               variants={fadeUp}
+//               initial="hidden"
+//               animate="show"
+//               custom={0.08}
+//               className="
+//                 mt-8
+//                 max-w-3xl
+//                 text-[44px]
+//                 sm:text-[56px]
+//                 lg:text-[68px]
+//                 leading-[1]
+//                 tracking-[-0.04em]
+//                 font-semibold
+//                 text-slate-950
+//               "
+//             >
+//               Financial clarity
+//               <br />
+//               built for modern
+//               <br />
+//               money management
+//             </motion.h1>
+
+//             {/* DESCRIPTION */}
+//             <motion.p
+//               variants={fadeUp}
+//               initial="hidden"
+//               animate="show"
+//               custom={0.16}
+//               className="
+//                 mt-7
+//                 max-w-2xl
+//                 text-[17px]
+//                 leading-8
+//                 text-slate-600
+//               "
+//             >
+//               SmartBudget helps individuals and businesses
+//               manage cash flow, monitor spending behavior,
+//               automate budgeting, and make confident
+//               financial decisions through a secure and
+//               intelligent finance platform.
+//             </motion.p>
+
+//             {/* CTA */}
+//             <motion.div
+//               variants={fadeUp}
+//               initial="hidden"
+//               animate="show"
+//               custom={0.24}
+//               className="mt-10 flex flex-col sm:flex-row items-start sm:items-center gap-4"
+//             >
+//               <Link
+//                 to="/signup"
+//                 className="
+//                   h-12 px-6
+//                   rounded-xl
+//                   bg-[#0F172A]
+//                   text-white
+//                   text-[14px]
+//                   font-semibold
+//                   flex items-center gap-2
+//                   hover:bg-slate-800
+//                   transition-all duration-200
+//                   shadow-sm
+//                 "
+//               >
+//                 Open Account
+//                 <ArrowRight size={16} />
+//               </Link>
+
+//               <Link
+//                 to="/login"
+//                 className="
+//                   h-12 px-6
+//                   rounded-xl
+//                   border border-slate-200
+//                   bg-white
+//                   text-slate-700
+//                   text-[14px]
+//                   font-semibold
+//                   flex items-center
+//                   hover:bg-slate-50
+//                   transition-all duration-200
+//                 "
+//               >
+//                 Sign In
+//               </Link>
+//             </motion.div>
+
+//             {/* METRICS */}
+//             <motion.div
+//               variants={fadeUp}
+//               initial="hidden"
+//               animate="show"
+//               custom={0.32}
+//               className="
+//                 mt-14
+//                 grid grid-cols-2 sm:grid-cols-4
+//                 gap-8
+//               "
+//             >
+//               {[
+//                 {
+//                   value: "99.9%",
+//                   label: "Platform uptime",
+//                 },
+//                 {
+//                   value: "256-bit",
+//                   label: "Encrypted security",
+//                 },
+//                 {
+//                   value: "24/7",
+//                   label: "Transaction monitoring",
+//                 },
+//                 {
+//                   value: "Real-time",
+//                   label: "Financial insights",
+//                 },
+//               ].map((item, index) => (
+//                 <div key={index}>
+//                   <h3 className="text-[22px] font-semibold text-slate-950">
+//                     {item.value}
+//                   </h3>
+
+//                   <p className="mt-1 text-[13px] text-slate-500">
+//                     {item.label}
+//                   </p>
+//                 </div>
 //               ))}
-//             </div>
-
-//             {/* STATS */}
-//             <div className="grid grid-cols-2 gap-4 mt-6">
-//               <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800">
-//                 <p className="text-xs text-slate-500">Income</p>
-//                 <p className="text-slate-900 dark:text-white font-semibold">
-//                   ₦120,000
-//                 </p>
-//               </div>
-
-//               <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800">
-//                 <p className="text-xs text-slate-500">Expenses</p>
-//                 <p className="text-slate-900 dark:text-white font-semibold">
-//                   ₦65,000
-//                 </p>
-//               </div>
-//             </div>
-
+//             </motion.div>
 //           </div>
 
-//         </motion.div>
+//           {/* RIGHT SIDE */}
+//           <motion.div
+//             variants={fadeUp}
+//             initial="hidden"
+//             animate="show"
+//             custom={0.18}
+//             className="relative"
+//           >
+//             {/* MAIN DASHBOARD */}
+//             <div
+//               className="
+//                 relative
+//                 rounded-[28px]
+//                 border border-slate-200
+//                 bg-white
+//                 p-6
+//                 shadow-[0_20px_60px_rgba(15,23,42,0.08)]
+//               "
+//             >
+//               {/* TOP */}
+//               <div className="flex items-start justify-between">
+//                 <div>
+//                   <p className="text-[13px] font-medium text-slate-500">
+//                     Total Balance
+//                   </p>
 
+//                   <h2 className="mt-3 text-[40px] leading-none font-semibold tracking-tight text-slate-950">
+//                     ₦2,450,000
+//                   </h2>
+
+//                   <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1">
+//                     <TrendingUp
+//                       size={14}
+//                       className="text-emerald-600"
+//                     />
+
+//                     <span className="text-[12px] font-semibold text-emerald-700">
+//                       +18.2% this month
+//                     </span>
+//                   </div>
+//                 </div>
+
+//                 <div className="h-14 w-14 rounded-2xl bg-slate-950 flex items-center justify-center">
+//                   <Wallet2
+//                     size={24}
+//                     className="text-white"
+//                   />
+//                 </div>
+//               </div>
+
+//               {/* CHART */}
+//               <div className="mt-10">
+//                 <div className="flex items-end gap-3 h-[220px]">
+//                   {[48, 80, 65, 110, 90, 150, 130].map(
+//                     (height, index) => (
+//                       <motion.div
+//                         key={index}
+//                         initial={{ height: 0 }}
+//                         animate={{ height }}
+//                         transition={{
+//                           delay: index * 0.06,
+//                           duration: 0.5,
+//                         }}
+//                         className="
+//                           relative flex-1 rounded-t-2xl
+//                           bg-gradient-to-b
+//                           from-slate-700
+//                           to-slate-900
+//                         "
+//                       >
+//                         <div className="absolute inset-x-0 top-0 h-[1px] bg-white/20" />
+//                       </motion.div>
+//                     )
+//                   )}
+//                 </div>
+
+//                 {/* LABELS */}
+//                 <div className="mt-4 flex justify-between text-[12px] font-medium text-slate-400">
+//                   <span>Mon</span>
+//                   <span>Tue</span>
+//                   <span>Wed</span>
+//                   <span>Thu</span>
+//                   <span>Fri</span>
+//                   <span>Sat</span>
+//                   <span>Sun</span>
+//                 </div>
+//               </div>
+
+//               {/* BOTTOM STATS */}
+//               <div className="mt-8 grid grid-cols-2 gap-4">
+//                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+//                   <div className="flex items-center justify-between">
+//                     <p className="text-[13px] font-medium text-slate-500">
+//                       Income
+//                     </p>
+
+//                     <BarChart3
+//                       size={16}
+//                       className="text-slate-400"
+//                     />
+//                   </div>
+
+//                   <h3 className="mt-3 text-[24px] font-semibold tracking-tight text-slate-950">
+//                     ₦840K
+//                   </h3>
+
+//                   <p className="mt-1 text-[12px] text-emerald-600 font-medium">
+//                     +12.4% increase
+//                   </p>
+//                 </div>
+
+//                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+//                   <div className="flex items-center justify-between">
+//                     <p className="text-[13px] font-medium text-slate-500">
+//                       Expenses
+//                     </p>
+
+//                     <BarChart3
+//                       size={16}
+//                       className="text-slate-400"
+//                     />
+//                   </div>
+
+//                   <h3 className="mt-3 text-[24px] font-semibold tracking-tight text-slate-950">
+//                     ₦312K
+//                   </h3>
+
+//                   <p className="mt-1 text-[12px] text-slate-500 font-medium">
+//                     Controlled spending
+//                   </p>
+//                 </div>
+//               </div>
+//             </div>
+
+//             {/* FLOATING CARD */}
+//             <motion.div
+//               initial={{ opacity: 0, y: 20 }}
+//               animate={{ opacity: 1, y: 0 }}
+//               transition={{ delay: 0.5 }}
+//               className="
+//                 absolute
+//                 -left-10
+//                 bottom-10
+//                 hidden lg:block
+//               "
+//             >
+//               <div
+//                 className="
+//                   w-[240px]
+//                   rounded-2xl
+//                   border border-slate-200
+//                   bg-white/95
+//                   backdrop-blur-xl
+//                   p-5
+//                   shadow-[0_10px_40px_rgba(15,23,42,0.08)]
+//                 "
+//               >
+//                 <div className="flex items-center justify-between">
+//                   <div>
+//                     <p className="text-[12px] text-slate-500">
+//                       Savings Goal
+//                     </p>
+
+//                     <h4 className="mt-2 text-[26px] font-semibold tracking-tight text-slate-950">
+//                       78%
+//                     </h4>
+//                   </div>
+
+//                   <div className="h-12 w-12 rounded-xl bg-slate-100 flex items-center justify-center">
+//                     <TrendingUp
+//                       size={18}
+//                       className="text-slate-700"
+//                     />
+//                   </div>
+//                 </div>
+
+//                 <div className="mt-5 h-2 rounded-full bg-slate-100 overflow-hidden">
+//                   <div className="h-full w-[78%] rounded-full bg-slate-900" />
+//                 </div>
+
+//                 <p className="mt-3 text-[12px] leading-5 text-slate-500">
+//                   You are on track to achieve your monthly
+//                   savings target.
+//                 </p>
+//               </div>
+//             </motion.div>
+//           </motion.div>
+//         </div>
 //       </div>
 //     </section>
 //   );
 // };
 
 // export default Hero;
-
-
-
 
 
 import { motion } from "framer-motion";
@@ -195,70 +412,147 @@ import {
   ShieldCheck,
   Wallet2,
   TrendingUp,
+  Activity,
+  Landmark,
+  Sparkles,
   BarChart3,
+  Globe,
+  CheckCircle2,
 } from "lucide-react";
 
+/* =========================================
+   ANIMATION
+========================================= */
 const fadeUp = {
-  hidden: { opacity: 0, y: 30 },
+  hidden: {
+    opacity: 0,
+    y: 40,
+  },
+
   show: (delay = 0) => ({
     opacity: 1,
     y: 0,
+
     transition: {
       delay,
-      duration: 0.7,
+      duration: 0.8,
       ease: [0.22, 1, 0.36, 1],
     },
   }),
 };
 
+/* =========================================
+   COMPONENT
+========================================= */
 const Hero = () => {
   return (
-    <section className="relative overflow-hidden bg-white pt-[140px] pb-24">
-      {/* BACKGROUND */}
+    <section className="relative overflow-hidden bg-[#020617] pt-[150px] pb-28">
+
+      {/* =====================================
+          BACKGROUND
+      ===================================== */}
       <div className="absolute inset-0 -z-10">
+
         {/* GRID */}
         <div
           className="
             absolute inset-0
-            bg-[linear-gradient(to_right,#0f172a08_1px,transparent_1px),linear-gradient(to_bottom,#0f172a08_1px,transparent_1px)]
-            bg-[size:64px_64px]
+            bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)]
+            bg-[size:80px_80px]
           "
         />
 
-        {/* TOP GRADIENT */}
-        <div className="absolute inset-x-0 top-0 h-[500px] bg-gradient-to-b from-slate-50 to-transparent" />
+        {/* TOP LIGHT */}
+        <div
+          className="
+            absolute
+            top-[-250px]
+            left-1/2
+            -translate-x-1/2
+            w-[900px]
+            h-[900px]
+            rounded-full
+            bg-emerald-500/10
+            blur-3xl
+          "
+        />
 
-        {/* SOFT RADIAL */}
-        <div className="absolute top-[-200px] right-[-120px] w-[500px] h-[500px] bg-slate-200/40 blur-3xl rounded-full" />
+        {/* SIDE LIGHT */}
+        <div
+          className="
+            absolute
+            right-[-180px]
+            top-[120px]
+            w-[500px]
+            h-[500px]
+            rounded-full
+            bg-cyan-500/10
+            blur-3xl
+          "
+        />
+
+        {/* BOTTOM */}
+        <div
+          className="
+            absolute inset-x-0 bottom-0
+            h-[300px]
+            bg-gradient-to-t
+            from-black
+            to-transparent
+          "
+        />
       </div>
 
+      {/* =====================================
+          CONTAINER
+      ===================================== */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-16 items-center">
-          {/* LEFT CONTENT */}
+
+        <div className="grid lg:grid-cols-[1.05fr_0.95fr] gap-20 items-center">
+
+          {/* =====================================
+              LEFT SIDE
+          ===================================== */}
           <div>
-            {/* TRUST BADGE */}
+
+            {/* BADGE */}
             <motion.div
               variants={fadeUp}
               initial="hidden"
               animate="show"
               className="
-                inline-flex items-center gap-2
-                h-11 px-4
+                inline-flex items-center gap-3
                 rounded-full
-                border border-slate-200
-                bg-white
-                shadow-[0_1px_2px_rgba(15,23,42,0.04)]
+                border border-white/10
+                bg-white/5
+                backdrop-blur-xl
+                px-5
+                py-3
               "
             >
-              <div className="flex items-center justify-center h-6 w-6 rounded-full bg-emerald-50">
+              <div
+                className="
+                  flex items-center justify-center
+                  h-8 w-8
+                  rounded-full
+                  bg-emerald-500/15
+                "
+              >
                 <ShieldCheck
-                  size={14}
-                  className="text-emerald-600"
+                  size={16}
+                  className="text-emerald-400"
                 />
               </div>
 
-              <span className="text-[13px] font-medium text-slate-700">
-                Enterprise-grade financial infrastructure
+              <span
+                className="
+                  text-sm
+                  font-medium
+                  tracking-wide
+                  text-slate-200
+                "
+              >
+                Secure financial infrastructure for modern banking
               </span>
             </motion.div>
 
@@ -269,22 +563,26 @@ const Hero = () => {
               animate="show"
               custom={0.08}
               className="
-                mt-8
-                max-w-3xl
-                text-[44px]
-                sm:text-[56px]
-                lg:text-[68px]
-                leading-[1]
-                tracking-[-0.04em]
+                mt-10
+                text-[50px]
+                sm:text-[68px]
+                lg:text-[82px]
+                leading-[0.92]
+                tracking-[-0.06em]
                 font-semibold
-                text-slate-950
+                text-white
               "
             >
-              Financial clarity
+              Banking
+              <span className="text-emerald-400">
+                {" "}reimagined
+              </span>
+
               <br />
-              built for modern
+
+              for intelligent
               <br />
-              money management
+              money control
             </motion.h1>
 
             {/* DESCRIPTION */}
@@ -294,18 +592,18 @@ const Hero = () => {
               animate="show"
               custom={0.16}
               className="
-                mt-7
+                mt-8
                 max-w-2xl
-                text-[17px]
+                text-[18px]
                 leading-8
-                text-slate-600
+                text-slate-400
               "
             >
-              SmartBudget helps individuals and businesses
-              manage cash flow, monitor spending behavior,
-              automate budgeting, and make confident
-              financial decisions through a secure and
-              intelligent finance platform.
+              SmartBudget delivers enterprise-grade financial
+              management, real-time analytics, intelligent
+              budgeting, transaction monitoring, and secure
+              banking infrastructure built for individuals,
+              startups, and modern businesses.
             </motion.p>
 
             {/* CTA */}
@@ -314,82 +612,181 @@ const Hero = () => {
               initial="hidden"
               animate="show"
               custom={0.24}
-              className="mt-10 flex flex-col sm:flex-row items-start sm:items-center gap-4"
+              className="
+                mt-10
+                flex flex-col sm:flex-row
+                items-start sm:items-center
+                gap-4
+              "
             >
+              {/* PRIMARY */}
               <Link
                 to="/signup"
                 className="
-                  h-12 px-6
-                  rounded-xl
-                  bg-[#0F172A]
-                  text-white
-                  text-[14px]
+                  group
+                  relative
+                  overflow-hidden
+                  h-14
+                  px-7
+                  rounded-2xl
+                  bg-emerald-500
+                  text-black
                   font-semibold
-                  flex items-center gap-2
-                  hover:bg-slate-800
-                  transition-all duration-200
-                  shadow-sm
+                  text-sm
+                  flex items-center gap-3
+                  transition-all duration-300
+                  hover:scale-[1.02]
+                  shadow-[0_20px_60px_rgba(16,185,129,0.25)]
                 "
               >
-                Open Account
-                <ArrowRight size={16} />
+                <span className="relative z-10">
+                  Open Secure Account
+                </span>
+
+                <ArrowRight
+                  size={18}
+                  className="
+                    relative z-10
+                    transition-transform
+                    duration-300
+                    group-hover:translate-x-1
+                  "
+                />
+
+                <div
+                  className="
+                    absolute inset-0
+                    bg-gradient-to-r
+                    from-emerald-400
+                    to-emerald-300
+                  "
+                />
               </Link>
 
+              {/* SECONDARY */}
               <Link
                 to="/login"
                 className="
-                  h-12 px-6
-                  rounded-xl
-                  border border-slate-200
-                  bg-white
-                  text-slate-700
-                  text-[14px]
+                  h-14
+                  px-7
+                  rounded-2xl
+                  border border-white/10
+                  bg-white/5
+                  backdrop-blur-xl
+                  text-sm
                   font-semibold
+                  text-white
                   flex items-center
-                  hover:bg-slate-50
-                  transition-all duration-200
+                  hover:bg-white/10
+                  transition-all duration-300
                 "
               >
-                Sign In
+                Access Dashboard
               </Link>
             </motion.div>
 
-            {/* METRICS */}
+            {/* TRUST ROW */}
             <motion.div
               variants={fadeUp}
               initial="hidden"
               animate="show"
               custom={0.32}
               className="
-                mt-14
-                grid grid-cols-2 sm:grid-cols-4
-                gap-8
+                mt-12
+                flex flex-wrap
+                items-center
+                gap-6
+              "
+            >
+              {[
+                "256-bit Encryption",
+                "Real-time Monitoring",
+                "AI Budget Intelligence",
+                "Enterprise Security",
+              ].map((item, index) => (
+                <div
+                  key={index}
+                  className="flex items-center gap-2"
+                >
+                  <CheckCircle2
+                    size={16}
+                    className="text-emerald-400"
+                  />
+
+                  <span
+                    className="
+                      text-sm
+                      text-slate-300
+                    "
+                  >
+                    {item}
+                  </span>
+                </div>
+              ))}
+            </motion.div>
+
+            {/* STATS */}
+            <motion.div
+              variants={fadeUp}
+              initial="hidden"
+              animate="show"
+              custom={0.4}
+              className="
+                mt-16
+                grid grid-cols-2 md:grid-cols-4
+                gap-5
               "
             >
               {[
                 {
-                  value: "99.9%",
+                  value: "99.99%",
                   label: "Platform uptime",
                 },
-                {
-                  value: "256-bit",
-                  label: "Encrypted security",
-                },
+
                 {
                   value: "24/7",
-                  label: "Transaction monitoring",
+                  label: "Fraud monitoring",
                 },
+
                 {
-                  value: "Real-time",
+                  value: "₦12B+",
+                  label: "Transactions tracked",
+                },
+
+                {
+                  value: "AI Powered",
                   label: "Financial insights",
                 },
               ].map((item, index) => (
-                <div key={index}>
-                  <h3 className="text-[22px] font-semibold text-slate-950">
+                <div
+                  key={index}
+                  className="
+                    rounded-2xl
+                    border border-white/10
+                    bg-white/[0.04]
+                    backdrop-blur-xl
+                    p-5
+                  "
+                >
+                  <h3
+                    className="
+                      text-2xl
+                      font-semibold
+                      tracking-tight
+                      text-white
+                    "
+                  >
                     {item.value}
                   </h3>
 
-                  <p className="mt-1 text-[13px] text-slate-500">
+                  <p
+                    className="
+                      mt-2
+                      text-sm
+                      leading-6
+                      text-slate-400
+                    "
+                  >
                     {item.label}
                   </p>
                 </div>
@@ -397,7 +794,9 @@ const Hero = () => {
             </motion.div>
           </div>
 
-          {/* RIGHT SIDE */}
+          {/* =====================================
+              RIGHT SIDE
+          ===================================== */}
           <motion.div
             variants={fadeUp}
             initial="hidden"
@@ -405,52 +804,123 @@ const Hero = () => {
             custom={0.18}
             className="relative"
           >
-            {/* MAIN DASHBOARD */}
+
+            {/* MAIN CARD */}
             <div
               className="
                 relative
-                rounded-[28px]
-                border border-slate-200
-                bg-white
-                p-6
-                shadow-[0_20px_60px_rgba(15,23,42,0.08)]
+                overflow-hidden
+                rounded-[32px]
+                border border-white/10
+                bg-white/[0.05]
+                backdrop-blur-2xl
+                p-7
+                shadow-[0_30px_120px_rgba(0,0,0,0.45)]
               "
             >
+
               {/* TOP */}
               <div className="flex items-start justify-between">
+
                 <div>
-                  <p className="text-[13px] font-medium text-slate-500">
-                    Total Balance
-                  </p>
-
-                  <h2 className="mt-3 text-[40px] leading-none font-semibold tracking-tight text-slate-950">
-                    ₦2,450,000
-                  </h2>
-
-                  <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1">
-                    <TrendingUp
-                      size={14}
-                      className="text-emerald-600"
+                  <div
+                    className="
+                      inline-flex items-center gap-2
+                      rounded-full
+                      border border-emerald-500/20
+                      bg-emerald-500/10
+                      px-3 py-1
+                    "
+                  >
+                    <Sparkles
+                      size={13}
+                      className="text-emerald-400"
                     />
 
-                    <span className="text-[12px] font-semibold text-emerald-700">
-                      +18.2% this month
+                    <span
+                      className="
+                        text-[11px]
+                        font-semibold
+                        tracking-wide
+                        text-emerald-300
+                      "
+                    >
+                      SMART FINANCE AI
+                    </span>
+                  </div>
+
+                  <p
+                    className="
+                      mt-5
+                      text-sm
+                      text-slate-400
+                    "
+                  >
+                    Total Portfolio Balance
+                  </p>
+
+                  <h2
+                    className="
+                      mt-3
+                      text-[52px]
+                      leading-none
+                      tracking-tight
+                      font-semibold
+                      text-white
+                    "
+                  >
+                    ₦24.8M
+                  </h2>
+
+                  <div
+                    className="
+                      mt-5
+                      inline-flex items-center gap-2
+                      rounded-full
+                      bg-emerald-500/10
+                      px-3 py-2
+                    "
+                  >
+                    <TrendingUp
+                      size={14}
+                      className="text-emerald-400"
+                    />
+
+                    <span
+                      className="
+                        text-xs
+                        font-semibold
+                        text-emerald-300
+                      "
+                    >
+                      +18.4% growth this month
                     </span>
                   </div>
                 </div>
 
-                <div className="h-14 w-14 rounded-2xl bg-slate-950 flex items-center justify-center">
-                  <Wallet2
-                    size={24}
-                    className="text-white"
+                <div
+                  className="
+                    flex items-center justify-center
+                    h-16 w-16
+                    rounded-2xl
+                    bg-gradient-to-br
+                    from-emerald-400
+                    to-emerald-600
+                    shadow-[0_20px_40px_rgba(16,185,129,0.35)]
+                  "
+                >
+                  <Landmark
+                    size={28}
+                    className="text-black"
                   />
                 </div>
               </div>
 
-              {/* CHART */}
-              <div className="mt-10">
-                <div className="flex items-end gap-3 h-[220px]">
-                  {[48, 80, 65, 110, 90, 150, 130].map(
+              {/* GRAPH */}
+              <div className="mt-12">
+
+                <div className="flex items-end gap-3 h-[240px]">
+                  {[60, 95, 82, 140, 120, 190, 165].map(
                     (height, index) => (
                       <motion.div
                         key={index}
@@ -458,23 +928,40 @@ const Hero = () => {
                         animate={{ height }}
                         transition={{
                           delay: index * 0.06,
-                          duration: 0.5,
+                          duration: 0.7,
                         }}
                         className="
-                          relative flex-1 rounded-t-2xl
+                          relative flex-1
+                          rounded-t-[20px]
                           bg-gradient-to-b
-                          from-slate-700
-                          to-slate-900
+                          from-emerald-400
+                          via-emerald-500
+                          to-emerald-700
+                          shadow-[0_10px_30px_rgba(16,185,129,0.18)]
                         "
                       >
-                        <div className="absolute inset-x-0 top-0 h-[1px] bg-white/20" />
+                        <div
+                          className="
+                            absolute inset-x-0 top-0
+                            h-[1px]
+                            bg-white/40
+                          "
+                        />
                       </motion.div>
                     )
                   )}
                 </div>
 
-                {/* LABELS */}
-                <div className="mt-4 flex justify-between text-[12px] font-medium text-slate-400">
+                {/* DAYS */}
+                <div
+                  className="
+                    mt-5
+                    flex justify-between
+                    text-xs
+                    font-medium
+                    text-slate-500
+                  "
+                >
                   <span>Mon</span>
                   <span>Tue</span>
                   <span>Wed</span>
@@ -485,47 +972,106 @@ const Hero = () => {
                 </div>
               </div>
 
-              {/* BOTTOM STATS */}
+              {/* BOTTOM GRID */}
               <div className="mt-8 grid grid-cols-2 gap-4">
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+
+                {/* CARD */}
+                <div
+                  className="
+                    rounded-2xl
+                    border border-white/10
+                    bg-black/20
+                    p-5
+                  "
+                >
                   <div className="flex items-center justify-between">
-                    <p className="text-[13px] font-medium text-slate-500">
-                      Income
+                    <p
+                      className="
+                        text-xs
+                        font-medium
+                        text-slate-400
+                      "
+                    >
+                      Revenue Flow
                     </p>
 
-                    <BarChart3
+                    <Activity
                       size={16}
-                      className="text-slate-400"
+                      className="text-emerald-400"
                     />
                   </div>
 
-                  <h3 className="mt-3 text-[24px] font-semibold tracking-tight text-slate-950">
-                    ₦840K
+                  <h3
+                    className="
+                      mt-4
+                      text-3xl
+                      font-semibold
+                      tracking-tight
+                      text-white
+                    "
+                  >
+                    ₦8.4M
                   </h3>
 
-                  <p className="mt-1 text-[12px] text-emerald-600 font-medium">
-                    +12.4% increase
+                  <p
+                    className="
+                      mt-2
+                      text-xs
+                      font-medium
+                      text-emerald-300
+                    "
+                  >
+                    +12.8% growth
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                {/* CARD */}
+                <div
+                  className="
+                    rounded-2xl
+                    border border-white/10
+                    bg-black/20
+                    p-5
+                  "
+                >
                   <div className="flex items-center justify-between">
-                    <p className="text-[13px] font-medium text-slate-500">
-                      Expenses
+                    <p
+                      className="
+                        text-xs
+                        font-medium
+                        text-slate-400
+                      "
+                    >
+                      Global Access
                     </p>
 
-                    <BarChart3
+                    <Globe
                       size={16}
-                      className="text-slate-400"
+                      className="text-cyan-400"
                     />
                   </div>
 
-                  <h3 className="mt-3 text-[24px] font-semibold tracking-tight text-slate-950">
-                    ₦312K
+                  <h3
+                    className="
+                      mt-4
+                      text-3xl
+                      font-semibold
+                      tracking-tight
+                      text-white
+                    "
+                  >
+                    180+
                   </h3>
 
-                  <p className="mt-1 text-[12px] text-slate-500 font-medium">
-                    Controlled spending
+                  <p
+                    className="
+                      mt-2
+                      text-xs
+                      font-medium
+                      text-slate-400
+                    "
+                  >
+                    Countries supported
                   </p>
                 </div>
               </div>
@@ -533,56 +1079,114 @@ const Hero = () => {
 
             {/* FLOATING CARD */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
+              initial={{
+                opacity: 0,
+                y: 30,
+              }}
+
+              animate={{
+                opacity: 1,
+                y: 0,
+              }}
+
+              transition={{
+                delay: 0.6,
+              }}
+
               className="
                 absolute
                 -left-10
                 bottom-10
-                hidden lg:block
+                hidden xl:block
               "
             >
               <div
                 className="
-                  w-[240px]
-                  rounded-2xl
-                  border border-slate-200
-                  bg-white/95
-                  backdrop-blur-xl
-                  p-5
-                  shadow-[0_10px_40px_rgba(15,23,42,0.08)]
+                  w-[260px]
+                  rounded-3xl
+                  border border-white/10
+                  bg-white/[0.06]
+                  backdrop-blur-2xl
+                  p-6
+                  shadow-[0_20px_60px_rgba(0,0,0,0.4)]
                 "
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-start justify-between">
+
                   <div>
-                    <p className="text-[12px] text-slate-500">
-                      Savings Goal
+                    <p
+                      className="
+                        text-xs
+                        text-slate-400
+                      "
+                    >
+                      Smart Savings
                     </p>
 
-                    <h4 className="mt-2 text-[26px] font-semibold tracking-tight text-slate-950">
-                      78%
+                    <h4
+                      className="
+                        mt-3
+                        text-[34px]
+                        leading-none
+                        font-semibold
+                        tracking-tight
+                        text-white
+                      "
+                    >
+                      82%
                     </h4>
                   </div>
 
-                  <div className="h-12 w-12 rounded-xl bg-slate-100 flex items-center justify-center">
-                    <TrendingUp
+                  <div
+                    className="
+                      flex items-center justify-center
+                      h-12 w-12
+                      rounded-2xl
+                      bg-emerald-500/15
+                    "
+                  >
+                    <BarChart3
                       size={18}
-                      className="text-slate-700"
+                      className="text-emerald-400"
                     />
                   </div>
                 </div>
 
-                <div className="mt-5 h-2 rounded-full bg-slate-100 overflow-hidden">
-                  <div className="h-full w-[78%] rounded-full bg-slate-900" />
+                <div
+                  className="
+                    mt-6
+                    h-2.5
+                    overflow-hidden
+                    rounded-full
+                    bg-white/10
+                  "
+                >
+                  <div
+                    className="
+                      h-full
+                      w-[82%]
+                      rounded-full
+                      bg-gradient-to-r
+                      from-emerald-400
+                      to-emerald-600
+                    "
+                  />
                 </div>
 
-                <p className="mt-3 text-[12px] leading-5 text-slate-500">
-                  You are on track to achieve your monthly
-                  savings target.
+                <p
+                  className="
+                    mt-4
+                    text-xs
+                    leading-6
+                    text-slate-400
+                  "
+                >
+                  AI-powered financial automation keeps your
+                  monthly savings goals consistently on track.
                 </p>
               </div>
             </motion.div>
+
           </motion.div>
         </div>
       </div>

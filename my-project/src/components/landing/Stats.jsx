@@ -4,16 +4,17 @@
 // import { useEffect, useRef, useState } from "react";
 // import { motion } from "framer-motion";
 // import {
-//   Users,
-//   CreditCard,
-//   Wallet,
-//   PiggyBank,
+//   Wallet2,
+//   Activity,
+//   Landmark,
+//   ShieldCheck,
+//   TrendingUp,
 // } from "lucide-react";
 
-// /* ========================================
-//    COUNT UP HOOK
-// ======================================== */
-// const useCountUp = (end, duration = 1800) => {
+// /* =========================
+//    COUNT UP HOOK (stable)
+// ========================= */
+// const useCountUp = (end, duration = 1600) => {
 //   const [count, setCount] = useState(0);
 //   const ref = useRef(null);
 //   const started = useRef(false);
@@ -52,151 +53,157 @@
 //   return { count, ref };
 // };
 
-// /* ========================================
-//    DATA
-// ======================================== */
+// /* =========================
+//    FINTECH KPI DATA (3 ONLY)
+// ========================= */
 // const statsData = [
 //   {
-//     label: "Active Users",
-//     value: 1200,
-//     suffix: "+",
-//     icon: Users,
-//   },
-//   {
-//     label: "Transactions Processed",
-//     value: 85000,
-//     suffix: "+",
-//     icon: CreditCard,
-//   },
-//   {
-//     label: "Money Tracked",
-//     value: 25000000,
+//     title: "Total Assets Under Management",
+//     value: 285000000,
 //     prefix: "₦",
-//     icon: Wallet,
+//     subtitle: "Across verified user portfolios",
+//     icon: Wallet2,
+//     trend: "+18.2%",
 //   },
 //   {
-//     label: "Savings Achieved",
-//     value: 18000000,
-//     prefix: "₦",
-//     icon: PiggyBank,
+//     title: "Monthly Transaction Volume",
+//     value: 920000,
+//     suffix: "+",
+//     subtitle: "Secure processed transactions",
+//     icon: Activity,
+//     trend: "+11.6%",
+//   },
+//   {
+//     title: "Platform Security Integrity",
+//     value: 99.98,
+//     suffix: "%",
+//     subtitle: "Uptime + encrypted processing systems",
+//     icon: ShieldCheck,
+//     trend: "Enterprise",
 //   },
 // ];
 
-// /* ========================================
+// /* =========================
 //    CARD
-// ======================================== */
-// const StatCard = ({
-//   label,
-//   value,
-//   prefix,
-//   suffix,
-//   icon: Icon,
-//   index,
-// }) => {
-//   const { count, ref } = useCountUp(value);
+// ========================= */
+// const StatCard = ({ data, index }) => {
+//   const { count, ref } = useCountUp(data.value);
 
 //   return (
 //     <motion.div
 //       ref={ref}
-//       initial={{ opacity: 0, y: 35 }}
+//       initial={{ opacity: 0, y: 22 }}
 //       whileInView={{ opacity: 1, y: 0 }}
-//       viewport={{ once: true, amount: 0.35 }}
+//       viewport={{ once: true, amount: 0.4 }}
 //       transition={{
-//         duration: 0.55,
-//         delay: index * 0.08,
+//         duration: 0.45,
+//         delay: index * 0.06,
 //       }}
-//       whileHover={{
-//         y: -6,
-//         scale: 1.015,
-//       }}
-//       className="group relative overflow-hidden rounded-3xl border border-gray-200/70 dark:border-gray-800 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl p-6 shadow-sm hover:shadow-2xl transition-all"
+//       className="
+//         relative
+//         bg-white
+//         border border-slate-200
+//         rounded-2xl
+//         p-7
+//         shadow-[0_1px_2px_rgba(15,23,42,0.04)]
+//         hover:shadow-[0_18px_50px_rgba(15,23,42,0.06)]
+//         transition-all duration-300
+//       "
 //     >
-//       {/* glow */}
-//       <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition duration-500 bg-gradient-to-br from-indigo-500/5 via-purple-500/5 to-transparent" />
-
-//       {/* top row */}
-//       <div className="relative flex items-center justify-between">
-//         <div className="h-12 w-12 rounded-2xl bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 text-white flex items-center justify-center shadow-lg">
-//           <Icon size={22} />
+//       {/* HEADER */}
+//       <div className="flex items-start justify-between">
+//         <div className="h-11 w-11 rounded-xl bg-slate-950 flex items-center justify-center">
+//           <data.icon size={20} className="text-white" />
 //         </div>
 
-//         <span className="text-xs font-medium px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600">
-//           Live
-//         </span>
+//         <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-50">
+//           <TrendingUp size={12} className="text-emerald-600" />
+//           <span className="text-[11px] font-semibold text-emerald-700">
+//             {data.trend}
+//           </span>
+//         </div>
 //       </div>
 
-//       {/* value */}
-//       <div className="relative mt-7">
-//         <h3 className="text-2xl md:text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-//           {prefix || ""}
-//           {count.toLocaleString()}
-//           {suffix || ""}
+//       {/* VALUE */}
+//       <div className="mt-8">
+//         <h3 className="text-[34px] font-semibold tracking-[-0.04em] text-slate-950">
+//           {data.prefix || ""}
+//           {typeof data.value === "number" && data.value % 1 !== 0
+//             ? count.toFixed(2)
+//             : count.toLocaleString()}
+//           {data.suffix || ""}
 //         </h3>
 
-//         <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-//           {label}
+//         <p className="mt-3 text-[15px] font-semibold text-slate-900">
+//           {data.title}
+//         </p>
+
+//         <p className="mt-2 text-[13px] leading-6 text-slate-500">
+//           {data.subtitle}
 //         </p>
 //       </div>
 
-//       {/* bottom line */}
-//       <motion.div
-//         initial={{ width: 0 }}
-//         whileInView={{ width: "100%" }}
-//         viewport={{ once: true }}
-//         transition={{
-//           delay: 0.4 + index * 0.08,
-//           duration: 0.8,
-//         }}
-//         className="relative mt-6 h-[3px] rounded-full bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600"
-//       />
+//       {/* FOOTER STRIP (fintech signature element) */}
+//       <div className="mt-7 pt-5 border-t border-slate-100 flex items-center justify-between">
+//         <div className="flex items-center gap-2">
+//           <div className="h-2 w-2 rounded-full bg-emerald-500" />
+//           <span className="text-[11px] text-slate-500 font-medium">
+//             Live system metric
+//           </span>
+//         </div>
+
+//         <span className="text-[11px] text-slate-400">
+//           Real-time
+//         </span>
+//       </div>
 //     </motion.div>
 //   );
 // };
 
-// /* ========================================
-//    MAIN SECTION
-// ======================================== */
+// /* =========================
+//    SECTION
+// ========================= */
 // const Stats = () => {
 //   return (
-//     <section className="relative py-24 overflow-hidden bg-gray-50 dark:bg-gray-950">
-//       {/* background glow */}
+//     <section className="relative bg-[#F8FAFC] py-28 overflow-hidden">
+//       {/* subtle grid */}
 //       <div className="absolute inset-0 -z-10">
-//         <div className="absolute top-10 left-1/2 -translate-x-1/2 w-[720px] h-[720px] rounded-full bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 blur-3xl" />
+//         <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a05_1px,transparent_1px),linear-gradient(to_bottom,#0f172a05_1px,transparent_1px)] bg-[size:72px_72px]" />
 //       </div>
 
-//       <div className="max-w-7xl mx-auto px-4 md:px-8">
+//       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 //         {/* HEADER */}
-//         <motion.div
-//           initial={{ opacity: 0, y: 35 }}
-//           whileInView={{ opacity: 1, y: 0 }}
-//           viewport={{ once: true }}
-//           transition={{ duration: 0.6 }}
-//           className="text-center max-w-3xl mx-auto mb-14"
-//         >
-//           <span className="inline-flex px-4 py-2 rounded-full text-xs font-semibold border border-indigo-200 dark:border-indigo-500/20 text-indigo-600 dark:text-indigo-400 bg-white dark:bg-gray-900">
-//             Performance Metrics
-//           </span>
-
-//           <h2 className="mt-5 text-3xl md:text-5xl font-bold tracking-tight text-gray-900 dark:text-white">
-//             Trusted by users building
-//             <span className="block bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 text-transparent bg-clip-text">
-//               smarter financial habits
+//         <div className="max-w-3xl">
+//           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-slate-200 bg-white">
+//             <div className="h-2 w-2 rounded-full bg-emerald-500" />
+//             <span className="text-[12px] font-semibold text-slate-600 uppercase tracking-wide">
+//               Financial Intelligence Layer
 //             </span>
+//           </div>
+
+//           <h2 className="mt-8 text-[44px] md:text-[58px] leading-[1.02] tracking-[-0.05em] font-semibold text-slate-950">
+//             Trusted financial
+//             <br />
+//             infrastructure built
+//             <br />
+//             for scale
 //           </h2>
 
-//           <p className="mt-5 text-base md:text-lg text-gray-600 dark:text-gray-400">
-//             Thousands rely on SmartBudget to track expenses,
-//             optimize spending, and accelerate savings growth.
+//           <p className="mt-8 text-[16px] leading-7 text-slate-600 max-w-2xl">
+//             SmartBudget provides enterprise-grade financial
+//             tracking, secure transaction monitoring, and
+//             intelligent budgeting systems designed for real
+//             financial operations — not mock dashboards.
 //           </p>
-//         </motion.div>
+//         </div>
 
-//         {/* GRID */}
-//         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
-//           {statsData.map((stat, index) => (
+//         {/* 3-CARD GRID (FINTECH STANDARD) */}
+//         <div className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-6">
+//           {statsData.map((item, index) => (
 //             <StatCard
 //               key={index}
+//               data={item}
 //               index={index}
-//               {...stat}
 //             />
 //           ))}
 //         </div>
@@ -214,15 +221,14 @@ import { motion } from "framer-motion";
 import {
   Wallet2,
   Activity,
-  Landmark,
   ShieldCheck,
   TrendingUp,
 } from "lucide-react";
 
 /* =========================
-   COUNT UP HOOK (stable)
+   COUNT UP HOOK (UNCHANGED CORE)
 ========================= */
-const useCountUp = (end, duration = 1600) => {
+const useCountUp = (end, duration = 1400) => {
   const [count, setCount] = useState(0);
   const ref = useRef(null);
   const started = useRef(false);
@@ -234,10 +240,10 @@ const useCountUp = (end, duration = 1600) => {
           started.current = true;
 
           let start = 0;
-          const increment = end / (duration / 16);
+          const step = end / (duration / 16);
 
           const animate = () => {
-            start += increment;
+            start += step;
 
             if (start < end) {
               setCount(Math.floor(start));
@@ -254,7 +260,6 @@ const useCountUp = (end, duration = 1600) => {
     );
 
     if (ref.current) observer.observe(ref.current);
-
     return () => observer.disconnect();
   }, [end, duration]);
 
@@ -262,14 +267,14 @@ const useCountUp = (end, duration = 1600) => {
 };
 
 /* =========================
-   FINTECH KPI DATA (3 ONLY)
+   DATA (FINANCIAL METRICS)
 ========================= */
 const statsData = [
   {
     title: "Total Assets Under Management",
     value: 285000000,
     prefix: "₦",
-    subtitle: "Across verified user portfolios",
+    subtitle: "Aggregated across verified accounts",
     icon: Wallet2,
     trend: "+18.2%",
   },
@@ -277,17 +282,17 @@ const statsData = [
     title: "Monthly Transaction Volume",
     value: 920000,
     suffix: "+",
-    subtitle: "Secure processed transactions",
+    subtitle: "Processed through secured rails",
     icon: Activity,
     trend: "+11.6%",
   },
   {
-    title: "Platform Security Integrity",
+    title: "System Integrity Score",
     value: 99.98,
     suffix: "%",
-    subtitle: "Uptime + encrypted processing systems",
+    subtitle: "Uptime + encryption reliability index",
     icon: ShieldCheck,
-    trend: "Enterprise",
+    trend: "Stable",
   },
 ];
 
@@ -300,35 +305,35 @@ const StatCard = ({ data, index }) => {
   return (
     <motion.div
       ref={ref}
-      initial={{ opacity: 0, y: 22 }}
+      initial={{ opacity: 0, y: 18 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.4 }}
-      transition={{
-        duration: 0.45,
-        delay: index * 0.06,
-      }}
+      transition={{ duration: 0.45, delay: index * 0.05 }}
       className="
         relative
-        bg-white
-        border border-slate-200
         rounded-2xl
+        border border-slate-200
+        bg-white
         p-7
-        shadow-[0_1px_2px_rgba(15,23,42,0.04)]
-        hover:shadow-[0_18px_50px_rgba(15,23,42,0.06)]
-        transition-all duration-300
+        transition
+        hover:border-slate-300
       "
     >
+      {/* top structural line */}
+      <div className="absolute inset-x-0 top-0 h-px bg-slate-100" />
+
       {/* HEADER */}
       <div className="flex items-start justify-between">
-        <div className="h-11 w-11 rounded-xl bg-slate-950 flex items-center justify-center">
-          <data.icon size={20} className="text-white" />
+
+        {/* ICON BLOCK (controlled, not flashy) */}
+        <div className="h-11 w-11 rounded-xl bg-slate-900 flex items-center justify-center">
+          <data.icon size={18} className="text-white" />
         </div>
 
-        <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-50">
-          <TrendingUp size={12} className="text-emerald-600" />
-          <span className="text-[11px] font-semibold text-emerald-700">
-            {data.trend}
-          </span>
+        {/* TREND */}
+        <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-500">
+          <TrendingUp size={12} className="text-slate-400" />
+          {data.trend}
         </div>
       </div>
 
@@ -336,13 +341,15 @@ const StatCard = ({ data, index }) => {
       <div className="mt-8">
         <h3 className="text-[34px] font-semibold tracking-[-0.04em] text-slate-950">
           {data.prefix || ""}
-          {typeof data.value === "number" && data.value % 1 !== 0
-            ? count.toFixed(2)
-            : count.toLocaleString()}
+          {typeof data.value === "number"
+            ? data.value % 1 !== 0
+              ? count.toFixed(2)
+              : count.toLocaleString()
+            : count}
           {data.suffix || ""}
         </h3>
 
-        <p className="mt-3 text-[15px] font-semibold text-slate-900">
+        <p className="mt-3 text-[14px] font-semibold text-slate-900">
           {data.title}
         </p>
 
@@ -351,17 +358,18 @@ const StatCard = ({ data, index }) => {
         </p>
       </div>
 
-      {/* FOOTER STRIP (fintech signature element) */}
+      {/* SYSTEM FOOTER (BANK SIGNATURE ELEMENT) */}
       <div className="mt-7 pt-5 border-t border-slate-100 flex items-center justify-between">
+
         <div className="flex items-center gap-2">
-          <div className="h-2 w-2 rounded-full bg-emerald-500" />
-          <span className="text-[11px] text-slate-500 font-medium">
-            Live system metric
+          <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+          <span className="text-[11px] text-slate-500">
+            Live financial metric
           </span>
         </div>
 
         <span className="text-[11px] text-slate-400">
-          Real-time
+          real-time sync
         </span>
       </div>
     </motion.div>
@@ -373,48 +381,48 @@ const StatCard = ({ data, index }) => {
 ========================= */
 const Stats = () => {
   return (
-    <section className="relative bg-[#F8FAFC] py-28 overflow-hidden">
-      {/* subtle grid */}
+    <section className="relative bg-white py-28 overflow-hidden">
+
+      {/* CONTROLLED BACKGROUND (NO DISTRACTION) */}
       <div className="absolute inset-0 -z-10">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a05_1px,transparent_1px),linear-gradient(to_bottom,#0f172a05_1px,transparent_1px)] bg-[size:72px_72px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a03_1px,transparent_1px),linear-gradient(to_bottom,#0f172a03_1px,transparent_1px)] bg-[size:80px_80px]" />
+
+        {/* soft vertical fade only (institutional depth) */}
+        <div className="absolute inset-0 bg-gradient-to-b from-white via-white to-slate-50" />
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
         {/* HEADER */}
         <div className="max-w-3xl">
+
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-slate-200 bg-white">
-            <div className="h-2 w-2 rounded-full bg-emerald-500" />
+            <div className="h-2 w-2 rounded-full bg-slate-900" />
             <span className="text-[12px] font-semibold text-slate-600 uppercase tracking-wide">
-              Financial Intelligence Layer
+              Financial Systems Overview
             </span>
           </div>
 
-          <h2 className="mt-8 text-[44px] md:text-[58px] leading-[1.02] tracking-[-0.05em] font-semibold text-slate-950">
-            Trusted financial
+          <h2 className="mt-8 text-[46px] md:text-[58px] leading-[1.02] tracking-[-0.05em] font-semibold text-slate-950">
+            Financial infrastructure
             <br />
-            infrastructure built
-            <br />
-            for scale
+            built for measurable trust
           </h2>
 
-          <p className="mt-8 text-[16px] leading-7 text-slate-600 max-w-2xl">
-            SmartBudget provides enterprise-grade financial
-            tracking, secure transaction monitoring, and
-            intelligent budgeting systems designed for real
-            financial operations — not mock dashboards.
+          <p className="mt-7 text-[16px] leading-7 text-slate-600 max-w-2xl">
+            A structured financial intelligence layer designed to deliver
+            transparency, system stability, and consistent financial accuracy
+            across all user operations.
           </p>
         </div>
 
-        {/* 3-CARD GRID (FINTECH STANDARD) */}
+        {/* GRID */}
         <div className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-6">
           {statsData.map((item, index) => (
-            <StatCard
-              key={index}
-              data={item}
-              index={index}
-            />
+            <StatCard key={index} data={item} index={index} />
           ))}
         </div>
+
       </div>
     </section>
   );

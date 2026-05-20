@@ -2,22 +2,18 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link href="/src/style.css" rel="stylesheet">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Modern Smart Budget App for this Generation </title>
+
+    <title>Modern Smart Budget App for this Generation</title>
+
+    <link rel="stylesheet" href="/src/style.css" />
   </head>
+
   <body>
     <div id="root"></div>
 
-
-    <script>
-      const theme = localStorage.getItem("theme");
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-
-       if (theme === "dark" || (!theme || theme === "system") && prefersDark) {
-       document.documentElement.classList.add("dark");
-      }
-    </script>
+    <!-- React entry -->
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
