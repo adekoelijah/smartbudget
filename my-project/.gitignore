@@ -29,7 +29,13 @@ node_modules/
 
 # environment variables
 .env
-
+node_modules
+.env
+dist
+build
+coverage
+.vercel
+.DS_Store
 # logs
 npm-debug.log*
 
