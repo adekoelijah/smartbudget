@@ -1,44 +1,5 @@
 
 
-// const BudgetCard = ({ budget, onEdit, onDelete }) => {
-//   const percent = Math.min(
-//     (budget.spent / budget.limit) * 100,
-//     100
-//   );
-
-//   return (
-//     <div className="p-4 rounded-xl border dark:border-gray-800 bg-white dark:bg-gray-900">
-
-//       <div className="flex justify-between">
-//         <h3 className="font-medium">{budget.name}</h3>
-
-//         <div className="flex gap-2 text-xs">
-//           <button onClick={() => onEdit(budget)}>Edit</button>
-//           <button onClick={() => onDelete(budget._id)} className="text-red-500">
-//             Delete
-//           </button>
-//         </div>
-//       </div>
-
-//       {/* PROGRESS BAR */}
-//       <div className="mt-4 h-2 bg-gray-200 dark:bg-gray-800 rounded-full">
-//         <div
-//           className={`h-2 rounded-full ${
-//             percent > 80 ? "bg-red-500" : "bg-green-500"
-//           }`}
-//           style={{ width: `${percent}%` }}
-//         />
-//       </div>
-
-//       <p className="text-sm mt-2 text-gray-500">
-//         ₦{budget.spent} / ₦{budget.limit}
-//       </p>
-//     </div>
-//   );
-// };
-
-// export default BudgetCard;
-
 
 import { motion } from "framer-motion";
 import {

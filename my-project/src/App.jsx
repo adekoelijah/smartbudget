@@ -8,7 +8,7 @@ import AppLayout from "./layouts/AppLayout";
 import Navbar from "./components/landing/Navbar";
 import ProtectedRoute from "./routes/ProtectedRoute";
 
-// 🌐 PUBLIC PAGES
+// 🌐 PUBLIC PAGES 
 import Landing from "./pages/Landing";
 import Login from "./pages/auth/Login";
 import Signup from "./pages/auth/Signup";

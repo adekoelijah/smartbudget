@@ -1,6 +1,12 @@
 # Dependencies
 node_modules/
-
+node_modules
+.env
+dist
+build
+coverage
+.vercel
+.DS_Store
 # Environment variables (CRITICAL)
 .env
 .env.local

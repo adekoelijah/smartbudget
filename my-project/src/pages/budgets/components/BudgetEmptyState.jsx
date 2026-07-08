@@ -1,65 +1,6 @@
 
 
 
-// import Button from "../../../components/ui/Button";
-// import { motion } from "framer-motion";
-
-// const BudgetEmptyState = ({ onCreateClick }) => {
-//   return (
-//     <div className="flex flex-col items-center justify-center text-center py-16 sm:py-20 px-4 sm:px-6">
-
-//       {/* ILLUSTRATION */}
-//       <motion.div
-//         initial={{ opacity: 0, y: 20 }}
-//         animate={{ opacity: 1, y: 0 }}
-//         transition={{ duration: 0.5 }}
-//         className="mb-6"
-//       >
-//         <img
-//           src="/images/empty-budget.svg"
-//           alt="No budgets"
-//           className="w-40 sm:w-52 md:w-64 mx-auto opacity-90"
-//         />
-//       </motion.div>
-
-//       {/* ICON (fallback / accent) */}
-//       <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4 text-xl">
-//         📊
-//       </div>
-
-//       {/* TITLE */}
-//       <h2 className="text-base sm:text-lg md:text-xl font-semibold text-gray-900 dark:text-white">
-//         No budgets yet
-//       </h2>
-
-//       {/* DESCRIPTION */}
-//       <p className="text-sm sm:text-base text-gray-500 mt-2 max-w-sm sm:max-w-md leading-relaxed">
-//         Create your first budget to track spending, control expenses,
-//         and unlock AI-powered financial insights.
-//       </p>
-
-//       {/* CTA */}
-//       <div className="mt-6 w-full sm:w-auto">
-//         <Button
-//           onClick={onCreateClick}
-//           className="w-full sm:w-auto px-6 py-3"
-//         >
-//           Create your first budget
-//         </Button>
-//       </div>
-
-//       {/* SECONDARY HINT */}
-//       <p className="text-xs text-gray-400 mt-4">
-//         Takes less than 30 seconds
-//       </p>
-
-//     </div>
-//   );
-// };
-
-// export default BudgetEmptyState;
-
-
 import Button from "../../../components/ui/Button";
 import { motion } from "framer-motion";
 import { Wallet, Sparkles, ArrowRight } from "lucide-react";

@@ -1,12 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-//import { useAuth } from "../../context/AuthContext";
 import { useAuth } from "../../hooks/useAuth";
-// Navbar.jsx
 
-
-// Optional: replace emojis with lucide-react later
-// import { Bell, Search, Menu } from "lucide-react";
 
 const Navbar = ({ onToggleSidebar }) => {
   const { user, logout } = useAuth();
