@@ -1,6 +1,7 @@
 // backend/config/controllers/exportController.js
 
-import Transaction from "../../models/transaction.js";
+
+import Transaction from "../../models/Transaction.js";
 import ExcelJS from "exceljs";
 import PDFDocument from "pdfkit";
 
