@@ -1,1 +1,0 @@
-import{t as e}from"./api-DbUs-GAM.js";var t=async()=>(await e.get(`/transactions`)).data,n=async t=>(await e.post(`/transactions`,t)).data,r=async t=>(await e.delete(`/transactions/${t}`)).data;export{r as n,t as r,n as t};
