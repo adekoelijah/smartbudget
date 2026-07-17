@@ -123,6 +123,15 @@ app.use("/api/export", exportRoutes);
 
 app.use("/api/dashboard", dashboardRoutes);
 
+
+// ADD THIS
+app.get("/", (req, res) => {
+  res.json({
+    success: true,
+    message: "SmartBudget API is running 🚀",
+  });
+});
+
 /* ===============================
    404 HANDLER (API SAFE)
 ================================= */
