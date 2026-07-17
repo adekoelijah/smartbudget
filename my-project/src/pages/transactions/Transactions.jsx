@@ -1,7 +1,4 @@
 
-
-
-
 import { useEffect, useState, useMemo } from "react";
 
 import TransactionHeader from "./components/TransactionHeader";
@@ -55,7 +52,7 @@ const Transactions = () => {
 
   /* ===============================
      FILTER + SEARCH
-  =============================== */
+  // =============================== */
   const filteredTransactions = useMemo(() => {
     return transactions
       .filter((item) => {
@@ -67,6 +64,7 @@ const Transactions = () => {
       );
   }, [transactions, filter, search]);
 
+  
   /* ===============================
      SUMMARY METRICS
   =============================== */

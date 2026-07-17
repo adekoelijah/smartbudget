@@ -106,33 +106,65 @@ const handleEdit = (budget) => {
   }
 };
   /* ================= LIVE CALCULATION ENGINE ================= */
+  // const enrichedBudgets = useMemo(() => {
+  //   return budgets.map((budget) => {
+  //     const spent = transactions
+  //       .filter(
+  //         (t) =>
+  //           t.type === "expense" &&
+  //           t.category?.toLowerCase() === budget.name?.toLowerCase()
+  //       )
+  //       .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+  //     const limit = Number(budget.limit || 0);
+  //     const remaining = limit - spent;
+  //     const percent = limit > 0 ? (spent / limit) * 100 : 0;
+
+  //     let status = "safe";
+  //     if (percent >= 90) status = "critical";
+  //     else if (percent >= 70) status = "warning";
+
+  //     return {
+  //       ...budget,
+  //       spent,
+  //       remaining,
+  //       percent,
+  //       status,
+  //     };
+  //   });
+  // }, [budgets, transactions]);
+
   const enrichedBudgets = useMemo(() => {
-    return budgets.map((budget) => {
-      const spent = transactions
-        .filter(
-          (t) =>
-            t.type === "expense" &&
-            t.category?.toLowerCase() === budget.name?.toLowerCase()
-        )
-        .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+  const safeBudgets = Array.isArray(budgets) ? budgets : [];
 
-      const limit = Number(budget.limit || 0);
-      const remaining = limit - spent;
-      const percent = limit > 0 ? (spent / limit) * 100 : 0;
+  return safeBudgets.map((budget) => {
+    const spent = transactions
+      .filter(
+        (t) =>
+          t.type === "expense" &&
+          t.category?.toLowerCase() === budget.name?.toLowerCase()
+      )
+      .reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
-      let status = "safe";
-      if (percent >= 90) status = "critical";
-      else if (percent >= 70) status = "warning";
+    const limit = Number(budget.limit || 0);
+    const remaining = limit - spent;
+    const percent = limit > 0 ? (spent / limit) * 100 : 0;
 
-      return {
-        ...budget,
-        spent,
-        remaining,
-        percent,
-        status,
-      };
-    });
-  }, [budgets, transactions]);
+    let status = "safe";
+
+    if (percent >= 90) status = "critical";
+    else if (percent >= 70) status = "warning";
+
+    return {
+      ...budget,
+      spent,
+      remaining,
+      percent,
+      status,
+    };
+  });
+
+}, [budgets, transactions]);
 
   /* ================= FILTER ================= */
   const filteredBudgets = useMemo(() => {

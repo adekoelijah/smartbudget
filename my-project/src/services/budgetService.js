@@ -1,9 +1,17 @@
 import api from "./api.js";
 
 // 📥 GET ALL
+// export const getBudgets = async () => {
+//   const res = await api.get("/budgets");
+//   return res.data;
+// };
+
 export const getBudgets = async () => {
   const res = await api.get("/budgets");
-  return res.data;
+
+  return Array.isArray(res.data)
+    ? res.data
+    : res.data?.budgets || [];
 };
 
 // ➕ CREATE
