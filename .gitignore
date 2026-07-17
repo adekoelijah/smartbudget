@@ -1,0 +1,109 @@
+**/node_modules/
+smartbudget-backend/.env
+smartbudget-backend/.vercel
+smartbudget-backend/dist
+smartbudget-backend/node_modules
+my-project/.env
+my-project/node_modules
+my-project/.vercel
+.env
+.vercel
+dist
+build
+# Dependencies
+node_modules/
+
+# Build
+dist/
+
+# Environment
+.env
+
+# Vercel
+.vercel/
+
+# Dependencies
+node_modules/
+node_modules
+.env
+dist
+build
+coverage
+.vercel
+.DS_Store
+# Environment variables (CRITICAL)
+.env
+.env.local
+.env.production
+.README.md
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Build outputs
+dist/
+build/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# MongoDB backup files (if any)
+*.bak
+
+# Coverage
+coverage/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+.env.example
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+
+# dependencies
+node_modules/
+
+# environment variables
+.env
+node_modules
+.env
+dist
+build
+coverage
+.vercel
+.DS_Store
+# logs
+npm-debug.log*
+
+# build folders
+dist/
+build/
+
+# mac/windows files
+.DS_Store
+Thumbs.db
