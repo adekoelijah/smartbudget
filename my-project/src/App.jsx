@@ -12,7 +12,7 @@ import ProtectedRoute from "./routes/ProtectedRoute";
 import Landing from "./pages/Landing";
 import Login from "./pages/auth/Login";
 import Signup from "./pages/auth/Signup";
-import Onboarding from "./pages/Onboarding";
+// import Onboarding from "./pages/Onboarding";
 
 // ⚡ LAZY LOADED PRIVATE PAGES
 const Dashboard = lazy(() => import("./pages/dashboard/Dashboard.jsx"));
