@@ -42,7 +42,7 @@ app.use(express.urlencoded({ extended: true }));
 ================================= */
 
 const allowedOrigins = (
-  process.env.CORS_ORIGINS ||
+  process.env.CORS_ORIGINS || "http://localhost:5000",
   "https://smartbudgets.vercel.app/"
 )
   .split(",")
@@ -65,7 +65,23 @@ app.use(
   })
 );
 
-app.options("*", cors());
+// app.options("*", cors());
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`CORS blocked: ${origin}`));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 
 /* ===============================
    TRUST PROXY (for deploy)
