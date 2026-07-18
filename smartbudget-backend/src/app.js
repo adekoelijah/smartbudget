@@ -43,7 +43,7 @@ app.use(express.urlencoded({ extended: true }));
 
 const allowedOrigins = (
   process.env.CORS_ORIGINS ||
-  "http://localhost:5173,http://127.0.0.1:5173"
+  "https://smartbudgets.vercel.app/"
 )
   .split(",")
   .map((origin) => origin.trim());

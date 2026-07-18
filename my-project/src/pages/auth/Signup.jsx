@@ -24,7 +24,7 @@ const Signup = () => {
   const [error, setError] = useState("");
 
   const API_URL =
-    import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+    import.meta.env.VITE_API_URL || "https://smartbudgets.vercel.app/";
 
   const handleChange = (e) => {
     setForm((prev) => ({
@@ -138,9 +138,8 @@ const Signup = () => {
                 value={form.name}
                 onChange={handleChange}
                 className="mt-2 w-full h-12 px-4 rounded-xl bg-white/5 border border-white/10 text-white outline-none focus:border-white/30"
-              />
+              placeholder="Enter your full name"/>
             </div>
-
             {/* EMAIL */}
             <div>
               <label className="text-xs text-slate-400">Email address</label>
@@ -149,7 +148,7 @@ const Signup = () => {
                 value={form.email}
                 onChange={handleChange}
                 className="mt-2 w-full h-12 px-4 rounded-xl bg-white/5 border border-white/10 text-white outline-none focus:border-white/30"
-              />
+              placeholder="Enter your email addtres"/>
             </div>
 
             {/* PASSWORD */}
@@ -163,7 +162,8 @@ const Signup = () => {
                   value={form.password}
                   onChange={handleChange}
                   className="w-full h-12 px-4 rounded-xl bg-white/5 border border-white/10 text-white outline-none focus:border-white/30"
-                />
+                  placeholder="Enter your password"
+                  />
 
                 <button
                   type="button"
@@ -188,6 +188,7 @@ const Signup = () => {
                   value={form.confirmPassword}
                   onChange={handleChange}
                   className="w-full h-12 px-4 rounded-xl bg-white/5 border border-white/10 text-white outline-none focus:border-white/30"
+                  placeholder="Confirm your password"
                 />
 
                 <button
