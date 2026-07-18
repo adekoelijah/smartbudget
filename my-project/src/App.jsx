@@ -16,33 +16,33 @@ import Signup from "./pages/auth/Signup";
 
 // ⚡ LAZY LOADED PRIVATE PAGES
 const Dashboard = lazy(() => import("./pages/dashboard/Dashboard.jsx"));
-const Budgets = lazy(() => import("./pages/Budgets/Budgets.jsx"));
-const Transactions = lazy(() => import("./pages/Transactions/Transactions.jsx"));
-const AddTransaction = lazy(() => import("./pages/Transactions/AddTransaction.jsx"));
-const Reports = lazy(() => import("./pages/Reports/Reports.jsx"));
-const Settings = lazy(() => import("./pages/Settings/Settings.jsx"));
+const Budgets = lazy(() => import("./pages/budgets/Budgets.jsx"));
+const Transactions = lazy(() => import("./pages/transactions/Transactions.jsx"));
+const AddTransaction = lazy(() => import("./pages/transactions/AddTransaction.jsx"));
+const Reports = lazy(() => import("./pages/reports/Reports.jsx"));
+const Settings = lazy(() => import("./pages/settings/Settings.jsx"));
 
 
 //settings import
 
 const ProfileSettings = lazy(() =>
-  import("./pages/Settings/components/sections/ProfileSettings.jsx")
+  import("./pages/settings/components/sections/ProfileSettings.jsx")
 );
 
 const SecuritySettings = lazy(() =>
-  import("./pages/Settings/components/sections/SecuritySettings.jsx")
+  import("./pages/settings/components/sections/SecuritySettings.jsx")
 );
 
 const NotificationSettings = lazy(() =>
-  import("./pages/Settings/components/sections/NotificationSettings.jsx")
+  import("./pages/settings/components/sections/NotificationSettings.jsx")
 );
 
 const PreferenceSettings = lazy(() =>
-  import("./pages/Settings/components/sections/PreferenceSettings.jsx")
+  import("./pages/settings/components/sections/PreferenceSettings.jsx")
 );
 
 const BillingSettings = lazy(() =>
-  import("./pages/Settings/components/sections/BillingSettings.jsx")
+  import("./pages/settings/components/sections/BillingSettings.jsx")
 );
 
 const App = () => {
