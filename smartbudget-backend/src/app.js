@@ -42,8 +42,9 @@ app.use(express.urlencoded({ extended: true }));
 ================================= */
 
 const allowedOrigins = (
-  process.env.CORS_ORIGINS || "http://localhost:5000",
-  "https://smartbudgets.vercel.app/"
+  process.env.CORS_ORIGINS ||
+  "http://localhost:5173",
+ "https://nexatech-smartbudget.vercel.app"
 )
   .split(",")
   .map((origin) => origin.trim());
@@ -87,8 +88,57 @@ app.options("*", cors(corsOptions));
    TRUST PROXY (for deploy)
 ================================= */
 
-app.set("trust proxy", 1);
+/* ===============================
+   CORS CONFIG
+================================= */
+/* ===============================
+   CORS CONFIG
+================================= */
 
+// const allowedOrigins = [
+//   "http://localhost:5173",
+//   "https://nexatech-smartbudget.vercel.app"
+// ];
+
+
+// const corsOptions = {
+//   origin: (origin, callback) => {
+
+//     // Allow Postman, mobile apps, server requests
+//     if (!origin) {
+//       return callback(null, true);
+//     }
+
+//     if (allowedOrigins.includes(origin)) {
+//       return callback(null, true);
+//     }
+
+//     console.log("Blocked CORS Origin:", origin);
+
+//     return callback(null, false);
+//   },
+
+//   credentials: true,
+
+//   methods: [
+//     "GET",
+//     "POST",
+//     "PUT",
+//     "PATCH",
+//     "DELETE",
+//     "OPTIONS"
+//   ],
+
+//   allowedHeaders: [
+//     "Content-Type",
+//     "Authorization"
+//   ]
+// };
+
+
+// app.use(cors(corsOptions));
+
+// app.options("*", cors(corsOptions));
 /* ===============================
    HEALTH CHECKS (IMPORTANT FOR SAAS)
 ================================= */
