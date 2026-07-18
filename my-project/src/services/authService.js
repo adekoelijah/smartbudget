@@ -6,7 +6,7 @@ import axios from "axios";
 //   return res.data;
 // };
 const API_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+  import.meta.env.VITE_API_URL || "http://smartbudgets.vercel.app/api";
 
 export const loginUser = async (data) => {
   const res = await axios.post(`${API_URL}/auth/login`, data);

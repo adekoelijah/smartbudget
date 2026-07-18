@@ -14,7 +14,7 @@ class RealtimeService {
     if (this.socket) return;
 
     const WS_URL =
-      import.meta.env.VITE_WS_URL || "ws://localhost:5000";
+      import.meta.env.VITE_WS_URL || "wss://smartbudgets.vercel.app/api/realtime";
 
     this.socket = new WebSocket(`${WS_URL}?userId=${userId}`);
 
