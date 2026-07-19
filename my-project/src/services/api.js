@@ -3,8 +3,7 @@
 import axios from "axios";
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_URL ||
-  "https://smartbudgets.vercel.app/api";
+  import.meta.env.VITE_API_URL || "https://nexatech-smartbudget-backend.vercel.app/api";
   
 // const API_BASE_URL =
 //   import.meta.env.VITE_API_URL ||

@@ -1,7 +1,4 @@
 
-
-
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -55,6 +52,13 @@ const Signup = () => {
 
     return null;
   };
+
+
+  console.log("SIGNUP URL:", `${API_URL}/auth/signup`);
+console.log("FORM DATA:", {
+  name: form.name,
+  email: form.email
+});
 
   const handleSubmit = async (e) => {
     e.preventDefault();

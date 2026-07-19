@@ -4,7 +4,17 @@
 dist
 build
 
+# Dependencies
+node_modules/
 
+# Build
+dist/
+
+# Environment
+.env
+
+# Vercel
+.vercel/
 # Logs
 logs
 *.log

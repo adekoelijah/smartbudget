@@ -109,7 +109,6 @@ const Login = () => {
                 type="email"
                 value={form.email}
                 onChange={handleChange}
-                placeholder="user@domain.com"
                 className="mt-2 w-full h-12 px-4 rounded-xl bg-white/5 border border-white/10 text-white outline-none focus:border-white/30 transition"
                placeholder="user@domain.com" />
             </div>
@@ -126,7 +125,7 @@ const Login = () => {
                   onChange={handleChange}
                   placeholder="••••••••"
                   className="w-full h-12 px-4 rounded-xl bg-white/5 border border-white/10 text-white outline-none focus:border-white/30 transition"
-                 placeholder="Enter your password"/>
+                 />
 
                 <button
                   type="button"

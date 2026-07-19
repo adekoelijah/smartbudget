@@ -134,10 +134,19 @@ export const signup = async (req, res) => {
       user: sanitizeUser(user),
     });
 
-  } catch (error) {
-    console.error("SIGNUP_ERROR:", error);
-    return sendError(res, 500, "Signup failed");
-  }
+  // } catch (error) {
+  //   console.error("SIGNUP_ERROR:", error);
+  //   return sendError(res, 500, "Signup failed");
+   }catch (error) {
+  console.log("========== SIGNUP ERROR ==========");
+  console.log(error);
+
+  return res.status(500).json({
+    success: false,
+    message: error.message,
+    error,
+  });
+}
 };
 
 /* =========================================

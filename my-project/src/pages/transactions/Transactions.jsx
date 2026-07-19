@@ -23,7 +23,8 @@ const Transactions = () => {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
 
-  const { budgets } = useBudgets?.() || { budgets: [] };
+   const { budgets } = useBudgets?.() || { budgets: [] };
+  
 
   const [form, setForm] = useState({
     title: "",

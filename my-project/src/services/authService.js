@@ -1,15 +1,20 @@
 import api from "./api";
-import axios from "axios";
+// import axios from "axios";
 
 // export const loginUser = async (data) => {
 //   const res = await api.post("/auth/login", data);
 //   return res.data;
 // };
 const API_URL =
-  import.meta.env.VITE_API_URL || "http://smartbudgets.vercel.app/api";
+  import.meta.env.VITE_API_URL || "https://nexatech-smartbudget-backend.vercel.app/api";
+
+// export const loginUser = async (data) => {
+//   const res = await axios.post(`${API_URL}/auth/login`, data);
+//   return res.data;
+// };
 
 export const loginUser = async (data) => {
-  const res = await axios.post(`${API_URL}/auth/login`, data);
+  const res = await api.post("/auth/login", data);
   return res.data;
 };
 
@@ -17,7 +22,7 @@ export const loginUser = async (data) => {
 
 export const googleLogin = () => {
   const API_URL =
-    import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+    import.meta.env.VITE_API_URL || "https://nexatech-smartbudget-backend.vercel.app/api";
 
   // Redirect to backend OAuth flow
   window.location.href = `${API_URL}/auth/google`;

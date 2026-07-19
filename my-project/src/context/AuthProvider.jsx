@@ -1,7 +1,4 @@
 
-
-
-
 import { createContext, useEffect, useMemo, useState } from "react";
 import { loginUser, signupUser, getCurrentUser } from "../services/authService";
 
