@@ -28,7 +28,7 @@ const userSchema = new mongoose.Schema(
 
     password: {
       type: String,
-      minlength: 6,
+      minlength: 8,
       select: false,
     },
 
@@ -118,7 +118,7 @@ userSchema.methods.isLocked = function () {
 
 userSchema.methods.incLoginAttempts = async function () {
   const MAX_ATTEMPTS = 5;
-  const LOCK_TIME = 1 * 60 * 1000; // 30 mins
+  const LOCK_TIME = 1 * 60 * 1000; // 1 mins
 
   if (this.lockUntil && this.lockUntil < Date.now()) {
     return this.updateOne({

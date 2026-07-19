@@ -74,19 +74,19 @@ const rateLimitStore = new Map();
 const RATE_LIMITS = {
 
   login: {
-    windowMs: 15 * 60 * 1000,
-    maxRequests: 5,
+    windowMs: 1 * 60 * 1000,
+    maxRequests: 20,
   },
 
 
   signup: {
-    windowMs: 60 * 60 * 1000,
-    maxRequests: 3,
+    windowMs: 5 * 60 * 1000,
+    maxRequests: 10,
   },
 
 
   default: {
-    windowMs: 15 * 60 * 1000,
+    windowMs: 1 * 60 * 1000,
     maxRequests: 100,
   },
 
