@@ -522,6 +522,14 @@ app.get("/", (req,res)=>{
 });
 
 
+app.get("/api/", (req, res) => {
+  res.json({
+    success: true,
+    message: "SmartBudget API endpoint",
+    version: "1.0.0"
+  });
+});
+
 // ===============================
 // 404 HANDLER
 // ===============================
