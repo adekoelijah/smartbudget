@@ -1,5 +1,5 @@
 import Navbar from "../components/landing/Navbar";
-import Hero from "../components/landing/Hero";
+import Hero from "../components/landing/Hero/Hero";
 import Stats from "../components/landing/Stats";
 import Features from "../components/landing/Features";
 import Pricing from "../components/landing/Pricing";
@@ -24,15 +24,15 @@ const Landing = () => {
         <Stats />
       </div>
 
-      <div className="reveal">
+      <div className="reveal" id = "features">
         <Features />
       </div>
 
-      <div className="reveal">
-        <Pricing />
+      <div className="reveal" id = "pricing">
+        <Pricing  />
       </div>
 
-      <div className="reveal">
+      <div className="reveal" id = "testimonials">
         <Testimonials />
       </div>
 
