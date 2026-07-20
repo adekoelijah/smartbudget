@@ -425,7 +425,7 @@ const Footer = () => {
       gap-5
       text-xs
       text-white/50
-      p-12
+    
     "
   >
     <p >

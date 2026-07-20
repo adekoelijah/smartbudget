@@ -263,7 +263,7 @@ y:-40
 
 transition={{
 
-duration:.6,
+duration:.8,
 
 ease:[
 

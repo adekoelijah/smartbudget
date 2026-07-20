@@ -1,9 +1,19 @@
 
 
+
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, Lock, ShieldCheck } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  Lock,
+  ShieldCheck,
+  Fingerprint,
+  Sparkles,
+  ArrowRight,
+} from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 
 const Login = () => {
@@ -19,6 +29,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+
   const handleChange = (e) => {
     setForm((prev) => ({
       ...prev,
@@ -32,26 +43,33 @@ const Login = () => {
   const validate = () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+
     if (!form.email || !form.password) {
       return "All fields are required";
     }
+
 
     if (!emailRegex.test(form.email)) {
       return "Invalid email format";
     }
 
+
     if (form.password.length < 6) {
       return "Password must contain at least 6 characters";
     }
+
 
     return null;
   };
 
 
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+
     const validationError = validate();
+
 
     if (validationError) {
       setError(validationError);
@@ -60,13 +78,16 @@ const Login = () => {
 
 
     try {
+
       setLoading(true);
       setError("");
+
 
       const result = await login({
         email: form.email.trim().toLowerCase(),
         password: form.password,
       });
+
 
 
       if (!result.success) {
@@ -75,71 +96,189 @@ const Login = () => {
       }
 
 
+
       navigate("/app", {
-        replace: true,
+        replace:true,
       });
+
 
 
     } catch (error) {
 
       console.error("LOGIN ERROR:", error);
 
+
       setError(
         error?.message ||
         "Authentication failed. Please try again."
       );
 
+
     } finally {
+
       setLoading(false);
+
     }
+
   };
 
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0B1220] px-4">
 
-      <div className="absolute inset-0 opacity-[0.06] bg-[linear-gradient(to_right,#ffffff12_1px,transparent_1px),linear-gradient(to_bottom,#ffffff12_1px,transparent_1px)] bg-[size:70px_70px]" />
+  return (
+
+    <div className="relative min-h-screen overflow-hidden bg-[#050B18] flex items-center justify-center px-4">
+
+
+      {/* Background Effects */}
+
+      <div className="absolute inset-0">
+
+        <div className="
+          absolute
+          top-[-200px]
+          left-[-150px]
+          w-[500px]
+          h-[500px]
+          bg-blue-600/20
+          rounded-full
+          blur-[120px]
+        "/>
+
+
+        <div className="
+          absolute
+          bottom-[-200px]
+          right-[-150px]
+          w-[500px]
+          h-[500px]
+          bg-cyan-500/20
+          rounded-full
+          blur-[120px]
+        "/>
+
+
+        <div className="
+          absolute
+          inset-0
+          opacity-[0.04]
+          bg-[linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)]
+          bg-[size:60px_60px]
+        "/>
+
+
+      </div>
+
+
 
 
       <motion.div
+
         initial={{
-          opacity: 0,
-          y: 18,
+          opacity:0,
+          y:30,
+          scale:.96
         }}
+
         animate={{
-          opacity: 1,
-          y: 0,
+          opacity:1,
+          y:0,
+          scale:1
         }}
-        className="w-full max-w-md relative"
+
+        transition={{
+          duration:.6
+        }}
+
+        className="
+          relative
+          w-full
+          max-w-md
+        "
+
       >
 
 
-        <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-2xl shadow-[0_20px_80px_rgba(0,0,0,0.45)] p-8">
+
+        <div className="
+          rounded-3xl
+          border
+          border-white/10
+          bg-white/[0.06]
+          backdrop-blur-2xl
+          shadow-[0_30px_100px_rgba(0,0,0,.55)]
+          p-6
+          sm:p-8
+        ">
+
+
+
+          {/* Header */}
 
 
           <div className="text-center">
 
-            <div className="flex justify-center mb-4">
 
-              <div className="h-12 w-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
+            <motion.div
 
-                <Lock
-                  size={18}
-                  className="text-slate-200"
-                />
+              initial={{
+                rotate:-20,
+                scale:.8
+              }}
 
-              </div>
+              animate={{
+                rotate:0,
+                scale:1
+              }}
 
-            </div>
+              className="
+                mx-auto
+                mb-5
+                w-16
+                h-16
+                rounded-2xl
+                bg-gradient-to-br
+                from-blue-500
+                to-cyan-400
+                flex
+                items-center
+                justify-center
+                shadow-lg
+              "
+
+            >
+
+              <Fingerprint
+                size={30}
+                className="text-white"
+              />
+
+            </motion.div>
 
 
-            <h1 className="text-xl font-semibold text-white">
-              Secure Authentication
+
+
+            <h1 className="
+              text-2xl
+              font-bold
+              text-white
+              tracking-tight
+            ">
+
+              Welcome Back
+
             </h1>
 
 
-            <p className="text-sm text-slate-400 mt-2 leading-6">
-              Access your financial workspace through encrypted identity verification.
+
+            <p className="
+              mt-2
+              text-sm
+              text-slate-400
+              leading-6
+            ">
+
+              Securely access your SmartBudget financial workspace.
+
             </p>
 
 
@@ -147,85 +286,200 @@ const Login = () => {
 
 
 
-          <div className="mt-6 flex items-center justify-center gap-2 text-xs text-slate-400">
 
-            <ShieldCheck
-              size={14}
-              className="text-emerald-400"
-            />
 
-            Bank-grade encrypted session
+          {/* Security Badge */}
+
+
+          <div className="
+            mt-6
+            flex
+            items-center
+            justify-center
+            gap-2
+            rounded-xl
+            bg-emerald-500/10
+            border
+            border-emerald-400/20
+            py-3
+            text-xs
+            text-emerald-300
+          ">
+
+
+            <ShieldCheck size={15}/>
+
+            256-bit encrypted authentication
+
 
           </div>
 
 
 
+
+
           <form
             onSubmit={handleSubmit}
-            className="mt-8 space-y-4"
+            className="mt-7 space-y-5"
           >
+
+
+
+
+            {/* Email */}
 
 
             <div>
 
-              <label className="text-xs text-slate-400">
-                Email
+
+              <label className="
+                text-xs
+                text-slate-400
+                ml-1
+              ">
+
+                Email Address
+
               </label>
 
 
+
               <input
+
                 name="email"
+
                 type="email"
+
                 value={form.email}
+
                 onChange={handleChange}
-                placeholder="user@domain.com"
+
+                placeholder="name@example.com"
+
                 autoComplete="email"
-                className="mt-2 w-full h-12 px-4 rounded-xl bg-white/5 border border-white/10 text-white outline-none focus:border-white/30 transition"
+
+                className="
+                  mt-2
+                  w-full
+                  h-12
+                  rounded-xl
+                  bg-white/10
+                  border
+                  border-white/10
+                  px-4
+                  text-white
+                  placeholder:text-slate-500
+                  outline-none
+                  transition
+                  focus:border-blue-400
+                  focus:ring-4
+                  focus:ring-blue-500/20
+                "
+
               />
+
 
             </div>
 
 
 
 
+
+
+
+            {/* Password */}
+
+
+
             <div>
 
-              <label className="text-xs text-slate-400">
+
+              <label className="
+                text-xs
+                text-slate-400
+                ml-1
+              ">
+
                 Password
+
               </label>
+
+
 
 
               <div className="relative mt-2">
 
 
                 <input
+
                   name="password"
+
                   type={
                     showPassword
                     ? "text"
                     : "password"
                   }
+
                   value={form.password}
+
                   onChange={handleChange}
-                  placeholder="••••••••"
+
+                  placeholder="Enter your password"
+
                   autoComplete="current-password"
-                  className="w-full h-12 px-4 rounded-xl bg-white/5 border border-white/10 text-white outline-none focus:border-white/30 transition"
+
+                  className="
+                    w-full
+                    h-12
+                    rounded-xl
+                    bg-white/10
+                    border
+                    border-white/10
+                    px-4
+                    pr-12
+                    text-white
+                    placeholder:text-slate-500
+                    outline-none
+                    transition
+                    focus:border-blue-400
+                    focus:ring-4
+                    focus:ring-blue-500/20
+                  "
+
                 />
 
 
+
+
                 <button
+
                   type="button"
+
                   onClick={() =>
                     setShowPassword((prev)=>!prev)
                   }
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+
+                  className="
+                    absolute
+                    right-3
+                    top-1/2
+                    -translate-y-1/2
+                    text-slate-300
+                    hover:text-white
+                    transition
+                  "
+
                 >
+
 
                   {
                     showPassword
-                    ? <EyeOff size={18}/>
-                    : <Eye size={18}/>
+                    ?
+                    <EyeOff size={19}/>
+                    :
+                    <Eye size={19}/>
                   }
+
 
                 </button>
 
@@ -238,34 +492,109 @@ const Login = () => {
 
 
 
-            {error && (
 
-              <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 px-3 py-2 rounded-lg">
 
-                {error}
 
-              </div>
+            {
+              error && (
 
-            )}
+                <motion.div
+
+                  initial={{
+                    opacity:0,
+                    y:-10
+                  }}
+
+                  animate={{
+                    opacity:1,
+                    y:0
+                  }}
+
+                  className="
+                    rounded-xl
+                    border
+                    border-red-400/20
+                    bg-red-500/10
+                    px-4
+                    py-3
+                    text-sm
+                    text-red-300
+                  "
+
+                >
+
+                  {error}
+
+                </motion.div>
+
+              )
+            }
+
+
 
 
 
 
 
             <button
+
               type="submit"
+
               disabled={loading}
-              className="w-full h-12 rounded-xl bg-white text-black font-semibold hover:bg-slate-200 transition disabled:opacity-50"
+
+              className="
+                group
+                relative
+                w-full
+                h-12
+                rounded-xl
+                bg-gradient-to-r
+                from-blue-500
+                to-cyan-400
+                text-white
+                font-semibold
+                shadow-lg
+                shadow-blue-500/20
+                transition
+                hover:scale-[1.02]
+                disabled:opacity-50
+              "
+
             >
+
+
+              <span className="
+                flex
+                items-center
+                justify-center
+                gap-2
+              ">
+
 
               {
                 loading
-                ? "Authenticating..."
-                : "Sign in securely"
+                ?
+                "Authenticating..."
+                :
+                <>
+                  Sign in securely
+                  <ArrowRight
+                    size={18}
+                    className="
+                      group-hover:translate-x-1
+                      transition
+                    "
+                  />
+                </>
               }
 
 
+              </span>
+
+
             </button>
+
+
 
 
 
@@ -274,28 +603,61 @@ const Login = () => {
 
 
 
-          <div className="mt-8 pt-6 border-t border-white/10 text-center">
 
 
-            <p className="text-xs text-slate-500 leading-5">
-              Sessions are encrypted and monitored for fraud prevention.
-              Unauthorized access attempts are logged and blocked.
-            </p>
+          {/* Footer */}
+
+
+          <div className="
+            mt-7
+            pt-6
+            border-t
+            border-white/10
+            text-center
+          ">
+
+
+            <div className="
+              flex
+              items-center
+              justify-center
+              gap-2
+              text-xs
+              text-slate-500
+            ">
+
+              <Lock size={13}/>
+
+              Protected by enterprise security
+
+            </div>
 
 
 
             <button
+
               type="button"
+
               onClick={() => navigate("/signup")}
-              className="mt-4 text-xs text-slate-300 hover:text-white"
+
+              className="
+                mt-4
+                text-sm
+                text-blue-300
+                hover:text-white
+                transition
+              "
+
             >
 
-              Create new secure account
+              Create a new secure account
 
             </button>
 
 
           </div>
+
+
 
 
         </div>
@@ -304,7 +666,9 @@ const Login = () => {
       </motion.div>
 
 
+
     </div>
+
   );
 };
 
