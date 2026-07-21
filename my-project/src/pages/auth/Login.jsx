@@ -174,16 +174,14 @@ const Login = () => {
       <motion.div
 
         initial={{
-          opacity:0,
-          y:30,
-          scale:.96
-        }}
+       opacity:0,
+       y:20
+       }}
 
-        animate={{
-          opacity:1,
-          y:0,
-          scale:1
-        }}
+       animate={{
+       opacity:1,
+      y:0
+     }}
 
         transition={{
           duration:.6
@@ -200,14 +198,16 @@ const Login = () => {
 
 
         <div className="
-          rounded-3xl
-          border
-          border-white/10
-          bg-white/[0.06]
-          backdrop-blur-2xl
-          shadow-[0_30px_100px_rgba(0,0,0,.55)]
-          p-6
-          sm:p-8
+          relative
+ isolate
+ rounded-3xl
+ border
+ border-white/10
+ bg-white/[0.06]
+ backdrop-blur-xl
+ shadow-[0_30px_100px_rgba(0,0,0,.55)]
+ p-6
+ sm:p-8
         ">
 
 
@@ -221,14 +221,14 @@ const Login = () => {
             <motion.div
 
               initial={{
-                rotate:-20,
-                scale:.8
-              }}
+          opacity:0,
+       y:-10
+         }}
 
-              animate={{
-                rotate:0,
-                scale:1
-              }}
+       animate={{
+        opacity:1,
+      y:0
+     }}
 
               className="
                 mx-auto
