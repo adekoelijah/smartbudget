@@ -70,20 +70,11 @@ const Hero = ()=>{
 return (
 
 <section
-
-className="
-relative
-
-overflow-hidden
-
-bg-[#020617]
-
-pt-36
-
-pb-32
-
-"
-
+  className="
+    relative overflow-hidden
+    pt-36 pb-32
+    bg-[#020617]
+  "
 >
 
 
@@ -96,39 +87,20 @@ pb-32
 
 
 <div
-
-className="
-relative
-
-max-w-7xl
-
-mx-auto
-
-px-5
-
-sm:px-8
-
-lg:px-10
-
-"
-
+  className="
+    relative
+    max-w-7xl
+    mx-auto px-5 sm:px-8 lg:px-10
+  "
 >
 
 
 
 <div
-
-className="
-grid
-
-lg:grid-cols-[1fr_.95fr]
-
-gap-20
-
-items-center
-
-"
-
+  className="
+    grid lg:grid-cols-[1fr_.95fr] items-center
+    gap-20
+  "
 >
 
 
@@ -146,7 +118,8 @@ LEFT CONTENT
 {/* SECURITY BADGE */}
 
 
-<motion.div
+<motion
+  .div
 
 variants={fadeUp}
 
@@ -155,61 +128,33 @@ initial="hidden"
 animate="visible"
 
 custom={0}
-
-className="
-inline-flex
-
-items-center
-
-gap-3
-
-rounded-full
-
-border
-
-border-white/10
-
-bg-white/[0.05]
-
-backdrop-blur-xl
-
-px-5
-
-py-3
-
-"
-
+  className="
+    inline-flex items-center
+    px-5 py-3
+    bg-white/[0.05]
+    rounded-full border border-white/10
+    backdrop-blur-xl
+    gap-3
+  "
 >
 
 
 <div
-
-className="
-flex
-
-items-center
-
-justify-center
-
-h-8
-
-w-8
-
-rounded-full
-
-bg-emerald-500/20
-
-"
-
+  className="
+    flex items-center justify-center
+    h-8 w-8
+    bg-emerald-500/20
+    rounded-full
+  "
 >
 
 <ShieldCheck
-
-size={17}
-
-className="text-emerald-400"
-
-/>
+  size={17}
+  className="
+    text-emerald-400
+  "
+  /
+>
 
 
 </div>
@@ -217,16 +162,9 @@ className="text-emerald-400"
 
 
 <span
-
-className="
-text-sm
-
-font-medium
-
-text-slate-200
-
-"
-
+  className="
+    text-sm text-slate-200 font-medium
+  "
 >
 
 Secure intelligent money management
@@ -246,7 +184,8 @@ Secure intelligent money management
 {/* HEADLINE */}
 
 
-<motion.h1
+<motion
+  .h1
 
 variants={fadeUp}
 
@@ -255,50 +194,31 @@ initial="hidden"
 animate="visible"
 
 custom={.1}
-
-
-className="
-mt-10
-
-text-white
-
-font-semibold
-
-tracking-[-0.06em]
-
-leading-[.92]
-
-text-[52px]
-
-sm:text-[68px]
-
-lg:text-[82px]
-
-"
-
+  className="
+    mt-10
+    text-white text-[52px] sm:text-[68px] lg:text-[82px] font-semibold
+    tracking-[-0.06em] leading-[.92]
+  "
 >
 
 
-Smarter money.
+From daily chaos
 
 <br/>
 
 
-Zero
+to 
 
 <br/>
 
 
 <span
-
-className="
-text-emerald-400
-
-"
-
+  className="
+    text-emerald-400
+  "
 >
 
-Friction.
+structured clarity.
 
 </span>
 
@@ -315,7 +235,8 @@ Friction.
 
 
 
-<motion.p
+<motion
+  .p
 
 variants={fadeUp}
 
@@ -324,21 +245,11 @@ initial="hidden"
 animate="visible"
 
 custom={.2}
-
-
-className="
-mt-8
-
-max-w-xl
-
-text-lg
-
-leading-8
-
-text-slate-400
-
-"
-
+  className="
+    max-w-xl
+    mt-8
+    text-lg text-slate-400 leading-8
+  "
 >
 
 SmartBudget combines AI-powered financial
@@ -361,7 +272,8 @@ powerful financial operating system.
 
 
 
-<motion.div
+<motion
+  .div
 
 variants={fadeUp}
 
@@ -370,71 +282,35 @@ initial="hidden"
 animate="visible"
 
 custom={.3}
-
-
-className="
-mt-10
-
-flex
-
-flex-col
-
-sm:flex-row
-
-gap-4
-
-"
-
+  className="
+    flex flex-col sm:flex-row
+    mt-10
+    gap-4
+  "
 >
 
 
 
 <Link
-
-to="/signup"
-
-className="
-group
-
-relative
-
-overflow-hidden
-
-h-14
-
-px-8
-
-rounded-2xl
-
-bg-emerald-400
-
-text-black
-
-font-semibold
-
-flex
-
-items-center
-
-justify-center
-
-gap-3
-
-shadow-[0_20px_60px_rgba(16,185,129,.35)]
-
-transition
-
-hover:scale-[1.03]
-
-"
-
+  to="/signup"
+  className="
+    relative overflow-hidden flex items-center justify-center
+    h-14
+    px-8
+    text-black font-semibold
+    bg-emerald-400
+    rounded-2xl
+    shadow-[0_20px_60px_rgba(16,185,129,.35)] transition
+    hover:scale-[1.03]
+    group gap-3
+  "
 >
 
 
 <span
-
-className="relative z-10"
-
+  className="
+    relative z-10
+  "
 >
 
 Start Managing Money
@@ -444,45 +320,25 @@ Start Managing Money
 
 
 <ArrowRight
-
-size={18}
-
-className="
-relative
-
-z-10
-
-transition
-
-group-hover:translate-x-1
-
-"
-
-/>
+  size={18}
+  className="
+    relative z-10
+    transition
+    group-hover:translate-x-1
+  "
+  /
+>
 
 
 <div
-
-className="
-absolute
-
-inset-0
-
-bg-gradient-to-r
-
-from-emerald-300
-
-to-cyan-300
-
-opacity-0
-
-group-hover:opacity-100
-
-transition
-
-"
-
-/>
+  className="
+    absolute inset-0
+    bg-gradient-to-r from-emerald-300 to-cyan-300
+    opacity-0 transition
+    group-hover:opacity-100
+  "
+  /
+>
 
 
 </Link>
@@ -494,40 +350,16 @@ transition
 
 
 <Link
-
-to="/login"
-
-className="
-h-14
-
-px-8
-
-rounded-2xl
-
-border
-
-border-white/10
-
-bg-white/[0.05]
-
-backdrop-blur-xl
-
-text-white
-
-font-semibold
-
-flex
-
-items-center
-
-justify-center
-
-hover:bg-white/10
-
-transition
-
-"
-
+  to="/login"
+  className="
+    flex items-center justify-center
+    h-14
+    px-8
+    text-white font-semibold
+    bg-white/[0.05] hover:bg-white/10
+    rounded-2xl border border-white/10
+    backdrop-blur-xl transition
+  "
 >
 
 View Dashboard
@@ -549,7 +381,8 @@ View Dashboard
 
 {/* TRUST */}
 
-<motion.div
+<motion
+  .div
 
 variants={fadeUp}
 
@@ -558,18 +391,11 @@ initial="hidden"
 animate="visible"
 
 custom={.4}
-
-className="
-mt-12
-
-grid
-
-sm:grid-cols-2
-
-gap-4
-
-"
-
+  className="
+    grid sm:grid-cols-2
+    mt-12
+    gap-4
+  "
 >
 
 
@@ -579,42 +405,27 @@ trustPoints.map((item,index)=>(
 
 
 <div
-
-key={index}
-
-className="
-flex
-
-items-center
-
-gap-3
-
-"
-
+  key={index}
+  className="
+    flex items-center
+    gap-3
+  "
 >
 
 
 <CheckCircle2
-
-size={17}
-
-className="
-text-emerald-400
-
-"
-
-/>
+  size={17}
+  className="
+    text-emerald-400
+  "
+  /
+>
 
 
 <span
-
-className="
-text-sm
-
-text-slate-300
-
-"
-
+  className="
+    text-sm text-slate-300
+  "
 >
 
 {item}
@@ -654,7 +465,8 @@ RIGHT INTELLIGENCE AREA
 
 
 
-<motion.div
+<motion
+  .div
 
 initial={{
 opacity:0,
@@ -673,14 +485,9 @@ duration:1,
 delay:.3
 
 }}
-
-
-
-className="
-relative
-
-"
-
+  className="
+    relative
+  "
 >
 
 
@@ -692,16 +499,10 @@ relative
 
 
 <div
-
-className="
-absolute
-
-inset-0
-
-pointer-events-none
-
-"
-
+  className="
+    absolute inset-0
+    pointer-events-none
+  "
 >
 
 
@@ -732,20 +533,11 @@ BOTTOM INTELLIGENCE ROW
 
 
 <div
-
-className="
-mt-24
-
-grid
-
-lg:grid-cols-2
-
-gap-10
-
-items-center
-
-"
-
+  className="
+    grid lg:grid-cols-2 items-center
+    mt-24
+    gap-10
+  "
 >
 
 

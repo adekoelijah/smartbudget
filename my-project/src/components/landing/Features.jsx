@@ -140,30 +140,24 @@ const Icon = feature.icon;
 
 return (
 
-<motion.div
+<motion
+  .div
 
 variants={item}
 
 whileHover={{
  y:-8,
 }}
-
-className="
-group
-relative
-overflow-hidden
-rounded-[28px]
-border
-border-white/40
-bg-white/60
-backdrop-blur-xl
-p-7
-shadow-[0_20px_50px_rgba(15,23,42,0.08)]
-transition-all
-duration-500
-hover:shadow-[0_30px_70px_rgba(15,23,42,0.15)]
-"
-
+  className="
+    relative overflow-hidden
+    p-7
+    bg-white/60
+    rounded-[28px] border border-white/40
+    backdrop-blur-xl
+    shadow-[0_20px_50px_rgba(15,23,42,0.08)] hover:shadow-[0_30px_70px_rgba(15,23,42,0.15)]
+    transition-all duration-500
+    group
+  "
 >
 
 
@@ -195,42 +189,30 @@ transition
 {/* ICON */}
 
 <div
-className="
-relative
-flex
-items-center
-justify-between
-"
+  className="
+    relative flex items-center justify-between
+  "
 >
 
 
 <div
-
-className="
-h-14
-w-14
-rounded-2xl
-bg-white
-border
-border-slate-200
-shadow-sm
-flex
-items-center
-justify-center
-"
-
+  className="
+    flex items-center justify-center
+    h-14 w-14
+    bg-white
+    rounded-2xl border border-slate-200
+    shadow-sm
+  "
 >
 
 
 <Icon
-
-size={25}
-
-className="
-text-slate-700
-"
-
-/>
+  size={25}
+  className="
+    text-slate-700
+  "
+  /
+>
 
 
 </div>
@@ -239,20 +221,14 @@ text-slate-700
 
 
 <div
-
-className="
-h-8
-w-8
-rounded-full
-bg-slate-100
-flex
-items-center
-justify-center
-opacity-0
-group-hover:opacity-100
-transition
-"
-
+  className="
+    flex items-center justify-center
+    h-8 w-8
+    bg-slate-100
+    rounded-full
+    opacity-0 transition
+    group-hover:opacity-100
+  "
 >
 
 <ArrowUpRight
@@ -274,16 +250,11 @@ size={15}
 
 
 <h3
-
-className="
-relative
-mt-7
-text-lg
-font-semibold
-text-slate-900
-tracking-tight
-"
-
+  className="
+    relative
+    mt-7
+    text-lg text-slate-900 font-semibold tracking-tight
+  "
 >
 
 {feature.title}
@@ -295,15 +266,11 @@ tracking-tight
 
 
 <p
-
-className="
-relative
-mt-3
-text-sm
-leading-6
-text-slate-600
-"
-
+  className="
+    relative
+    mt-3
+    text-sm text-slate-600 leading-6
+  "
 >
 
 {feature.description}
@@ -320,26 +287,19 @@ text-slate-600
 
 
 <div
-
-className="
-relative
-mt-7
-flex
-items-center
-gap-2
-text-[10px]
-uppercase
-tracking-[0.18em]
-text-slate-400
-"
-
+  className="
+    relative flex items-center
+    mt-7
+    text-[10px] text-slate-400 uppercase tracking-[0.18em]
+    gap-2
+  "
 >
 
 <Sparkles
 size={12}
 />
 
-Smart financial module
+Smart financial Savings
 
 
 </div>
@@ -367,14 +327,11 @@ return (
 
 
 <section
-
-className="
-relative
-overflow-hidden
-py-32
-bg-[#F8FAFC]
-"
-
+  className="
+    relative overflow-hidden
+    py-32
+    bg-[#F8FAFC]
+  "
 >
 
 
@@ -384,61 +341,48 @@ bg-[#F8FAFC]
 
 
 <div
-className="
-absolute
-inset-0
-"
-
+  className="
+    absolute inset-0
+  "
 >
 
 
 <div
-
-className="
-absolute
-top-[-200px]
-left-1/2
--translate-x-1/2
-h-[600px]
-w-[600px]
-rounded-full
-bg-blue-400/20
-blur-[140px]
-"
-
-/>
+  className="
+    absolute top-[-200px] left-1/2
+    h-[600px] w-[600px]
+    bg-blue-400/20
+    rounded-full
+    blur-[140px]
+    -translate-x-1/2
+  "
+  /
+>
 
 
 
 <div
-
-className="
-absolute
-bottom-[-200px]
-right-[-100px]
-h-[500px]
-w-[500px]
-rounded-full
-bg-emerald-300/20
-blur-[120px]
-"
-
-/>
+  className="
+    absolute bottom-[-200px] right-[-100px]
+    h-[500px] w-[500px]
+    bg-emerald-300/20
+    rounded-full
+    blur-[120px]
+  "
+  /
+>
 
 
 
 <div
-
-className="
-absolute
-inset-0
-opacity-[0.35]
-bg-[linear-gradient(to_right,#cbd5e1_1px,transparent_1px),
-linear-gradient(to_bottom,#cbd5e1_1px,transparent_1px)]
-bg-[size:70px_70px]
-"
-
-/>
+  className="
+    absolute inset-0
+    bg-[linear-gradient(to_right,#cbd5e1_1px,transparent_1px), bg-[size:70px_70px]
+    opacity-[0.35]
+    linear-gradient(to_bottom,#cbd5e1_1px,transparent_1px)]
+  "
+  /
+>
 
 
 </div>
@@ -452,14 +396,11 @@ bg-[size:70px_70px]
 
 
 <div
-
-className="
-relative
-max-w-7xl
-mx-auto
-px-6
-"
-
+  className="
+    relative
+    max-w-7xl
+    mx-auto px-6
+  "
 >
 
 
@@ -469,38 +410,32 @@ px-6
 
 
 <div
-
-className="
-max-w-3xl
-"
-
+  className="
+    max-w-3xl
+  "
 >
 
 
 <div
-
-className="
-inline-flex
-items-center
-gap-2
-rounded-full
-bg-white
-border
-border-slate-200
-px-4
-py-2
-text-xs
-text-slate-600
-shadow-sm
-"
-
+  className="
+    inline-flex items-center
+    px-4 py-2
+    text-xs text-slate-600
+    bg-white
+    rounded-full border border-slate-200
+    shadow-sm
+    gap-2
+  "
 >
 
 
 <Sparkles
-size={14}
-className="text-blue-500"
-/>
+  size={14}
+  className="
+    text-blue-500
+  "
+  /
+>
 
 
 Smart financial ecosystem
@@ -512,24 +447,12 @@ Smart financial ecosystem
 
 
 <h2
-
-className="
-mt-8
-text-4xl
-md:text-6xl
-font-bold
-tracking-tight
-leading-[1.05]
-text-slate-900
-"
-
+  className="
+    mt-8
+    text-4xl text-slate-900 md:text-6xl font-bold tracking-tight leading-[1.05]
+  "
 >
-
-
-Everything you need
-to master your money.
-
-
+How It Works
 </h2>
 
 
@@ -537,15 +460,11 @@ to master your money.
 
 
 <p
-
-className="
-mt-6
-text-base
-leading-7
-text-slate-600
-max-w-2xl
-"
-
+  className="
+    max-w-2xl
+    mt-6
+    text-base text-slate-600 leading-7
+  "
 >
 
 
@@ -568,7 +487,8 @@ into one powerful personal finance platform.
 {/* FEATURE GRID */}
 
 
-<motion.div
+<motion
+  .div
 
 variants={container}
 
@@ -580,16 +500,11 @@ viewport={{
 once:true,
 amount:.2
 }}
-
-className="
-mt-16
-grid
-grid-cols-1
-md:grid-cols-2
-lg:grid-cols-3
-gap-7
-"
-
+  className="
+    grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3
+    mt-16
+    gap-7
+  "
 >
 
 

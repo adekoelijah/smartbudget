@@ -51,7 +51,8 @@ const AIPreview =()=>{
 
 return (
 
-<motion.div
+<motion
+  .div
 
 initial={{
 opacity:0,
@@ -70,42 +71,22 @@ once:true
 transition={{
 duration:.8
 }}
-
-
-className="
-relative
-w-full
-max-w-lg
-"
-
-
+  className="
+    relative
+    w-full max-w-lg
+  "
 >
 
 
 
 <div
-
-className="
-relative
-
-overflow-hidden
-
-rounded-[40px]
-
-border
-
-border-white/10
-
-bg-white/[0.06]
-
-backdrop-blur-3xl
-
-p-7
-
-shadow-[0_40px_120px_rgba(0,0,0,.5)]
-
-"
-
+  className="
+    relative overflow-hidden
+    p-7
+    bg-white/[0.06]
+    rounded-[40px] border border-white/10
+    backdrop-blur-3xl shadow-[0_40px_120px_rgba(0,0,0,.5)]
+  "
 >
 
 
@@ -113,7 +94,8 @@ shadow-[0_40px_120px_rgba(0,0,0,.5)]
 {/* AI AMBIENT LIGHT */}
 
 
-<motion.div
+<motion
+  .div
 
 animate={{
 
@@ -139,30 +121,16 @@ duration:5,
 repeat:Infinity
 
 }}
-
-
-className="
-absolute
-
-top-[-100px]
-
-left-1/2
-
--translate-x-1/2
-
-h-[350px]
-
-w-[350px]
-
-rounded-full
-
-bg-cyan-500/20
-
-blur-[100px]
-
-"
-
-/>
+  className="
+    absolute top-[-100px] left-1/2
+    h-[350px] w-[350px]
+    bg-cyan-500/20
+    rounded-full
+    blur-[100px]
+    -translate-x-1/2
+  "
+  /
+>
 
 
 
@@ -175,36 +143,22 @@ blur-[100px]
 
 
 <div
-
-className="
-relative
-
-flex
-
-items-center
-
-justify-between
-
-"
-
+  className="
+    relative flex items-center justify-between
+  "
 >
 
 
 <div
-
-className="
-flex
-
-items-center
-
-gap-4
-
-"
-
+  className="
+    flex items-center
+    gap-4
+  "
 >
 
 
-<motion.div
+<motion
+  .div
 
 animate={{
 
@@ -225,42 +179,23 @@ repeat:Infinity,
 ease:"linear"
 
 }}
-
-className="
-relative
-
-h-16
-
-w-16
-
-rounded-3xl
-
-bg-gradient-to-br
-
-from-cyan-400
-
-to-emerald-500
-
-flex
-
-items-center
-
-justify-center
-
-shadow-[0_20px_50px_rgba(34,211,238,.4)]
-
-"
-
+  className="
+    relative flex items-center justify-center
+    h-16 w-16
+    bg-gradient-to-br from-cyan-400 to-emerald-500
+    rounded-3xl
+    shadow-[0_20px_50px_rgba(34,211,238,.4)]
+  "
 >
 
 
 <BrainCircuit
-
-size={32}
-
-className="text-black"
-
-/>
+  size={32}
+  className="
+    text-black
+  "
+  /
+>
 
 
 </motion.div>
@@ -273,20 +208,9 @@ className="text-black"
 
 
 <p
-
-className="
-text-xs
-
-tracking-[0.3em]
-
-uppercase
-
-text-cyan-300
-
-font-semibold
-
-"
-
+  className="
+    text-xs text-cyan-300 tracking-[0.3em] uppercase font-semibold
+  "
 >
 Smart AI
 </p>
@@ -294,18 +218,10 @@ Smart AI
 
 
 <h3
-
-className="
-mt-1
-
-text-xl
-
-font-bold
-
-text-white
-
-"
-
+  className="
+    mt-1
+    text-xl text-white font-bold
+  "
 >
 
 Financial Intelligence
@@ -324,32 +240,18 @@ Financial Intelligence
 
 
 <div
-
-className="
-flex
-
-items-center
-
-gap-2
-
-rounded-full
-
-bg-cyan-500/10
-
-border
-
-border-cyan-400/20
-
-px-4
-
-py-2
-
-"
-
+  className="
+    flex items-center
+    px-4 py-2
+    bg-cyan-500/10
+    rounded-full border border-cyan-400/20
+    gap-2
+  "
 >
 
 
-<motion.span
+<motion
+  .span
 
 animate={{
 
@@ -368,33 +270,20 @@ duration:1.5,
 repeat:Infinity
 
 }}
-
-className="
-h-2
-
-w-2
-
-rounded-full
-
-bg-cyan-400
-
-"
-
-/>
+  className="
+    h-2 w-2
+    bg-cyan-400
+    rounded-full
+  "
+  /
+>
 
 
 
 <span
-
-className="
-text-xs
-
-font-semibold
-
-text-cyan-300
-
-"
-
+  className="
+    text-xs text-cyan-300 font-semibold
+  "
 >
 ANALYZING
 </span>
@@ -417,26 +306,16 @@ ANALYZING
 
 
 <div
-
-className="
-mt-10
-
-relative
-
-flex
-
-items-center
-
-justify-center
-
-h-48
-
-"
-
+  className="
+    relative flex items-center justify-center
+    h-48
+    mt-10
+  "
 >
 
 
-<motion.div
+<motion
+  .div
 
 animate={{
 
@@ -453,27 +332,18 @@ repeat:Infinity,
 ease:"linear"
 
 }}
-
-className="
-absolute
-
-h-40
-
-w-40
-
-rounded-full
-
-border
-
-border-cyan-400/30
-
-"
-
-/>
+  className="
+    absolute
+    h-40 w-40
+    rounded-full border border-cyan-400/30
+  "
+  /
+>
 
 
 
-<motion.div
+<motion
+  .div
 
 animate={{
 
@@ -493,39 +363,22 @@ duration:2,
 repeat:Infinity
 
 }}
-
-className="
-h-24
-
-w-24
-
-rounded-full
-
-bg-gradient-to-br
-
-from-cyan-400
-
-to-emerald-500
-
-flex
-
-items-center
-
-justify-center
-
-shadow-[0_0_80px_rgba(34,211,238,.8)]
-
-"
-
+  className="
+    flex items-center justify-center
+    h-24 w-24
+    bg-gradient-to-br from-cyan-400 to-emerald-500
+    rounded-full
+    shadow-[0_0_80px_rgba(34,211,238,.8)]
+  "
 >
 
 <Sparkles
-
-size={35}
-
-className="text-black"
-
-/>
+  size={35}
+  className="
+    text-black
+  "
+  /
+>
 
 
 </motion.div>
@@ -546,45 +399,24 @@ className="text-black"
 
 
 <div
-
-className="
-rounded-3xl
-
-border
-
-border-white/10
-
-bg-black/20
-
-p-5
-
-"
-
+  className="
+    p-5
+    bg-black/20
+    rounded-3xl border border-white/10
+  "
 >
 
 
 <div
-
-className="
-flex
-
-justify-between
-
-items-center
-
-"
-
+  className="
+    flex justify-between items-center
+  "
 >
 
 <p
-
-className="
-text-sm
-
-text-slate-400
-
-"
-
+  className="
+    text-sm text-slate-400
+  "
 >
 AI Confidence
 </p>
@@ -592,16 +424,9 @@ AI Confidence
 
 
 <h4
-
-className="
-text-xl
-
-font-bold
-
-text-white
-
-"
-
+  className="
+    text-xl text-white font-bold
+  "
 >
 98.7%
 </h4>
@@ -612,24 +437,18 @@ text-white
 
 
 <div
-
-className="
-mt-4
-
-h-2
-
-rounded-full
-
-bg-white/10
-
-overflow-hidden
-
-"
-
+  className="
+    overflow-hidden
+    h-2
+    mt-4
+    bg-white/10
+    rounded-full
+  "
 >
 
 
-<motion.div
+<motion
+  .div
 
 initial={{
 width:0
@@ -642,21 +461,13 @@ width:"98.7%"
 transition={{
 duration:1.5
 }}
-
-className="
-h-full
-
-rounded-full
-
-bg-gradient-to-r
-
-from-cyan-400
-
-to-emerald-400
-
-"
-
-/>
+  className="
+    h-full
+    bg-gradient-to-r from-cyan-400 to-emerald-400
+    rounded-full
+  "
+  /
+>
 
 
 </div>
@@ -677,14 +488,9 @@ to-emerald-400
 
 
 <div
-
-className="
-mt-6
-
-space-y-3
-
-"
-
+  className="
+    mt-6 space-y-3
+  "
 >
 
 
@@ -697,7 +503,8 @@ const Icon=item.icon;
 
 return (
 
-<motion.div
+<motion
+  .div
 
 
 key={index}
@@ -715,78 +522,50 @@ x:0
 transition={{
 delay:index*.15
 }}
-
-
-
-className="
-rounded-2xl
-
-border
-
-border-white/10
-
-bg-white/[0.04]
-
-p-4
-
-flex
-
-gap-4
-
-"
-
+  className="
+    flex
+    p-4
+    bg-white/[0.04]
+    rounded-2xl border border-white/10
+    gap-4
+  "
 >
 
 
 <div
-
-className="
-h-10
-
-w-10
-
-rounded-xl
-
-bg-cyan-500/10
-
-flex
-
-items-center
-
-justify-center
-
-"
-
+  className="
+    flex items-center justify-center
+    h-10 w-10
+    bg-cyan-500/10
+    rounded-xl
+  "
 >
 
 
 <Icon
-
-size={18}
-
-className="text-cyan-400"
-
-/>
+  size={18}
+  className="
+    text-cyan-400
+  "
+  /
+>
 
 
 </div>
 
 
 
-<div className="flex-1">
+<div
+  className="
+    flex-1
+  "
+>
 
 
 <h4
-
-className="
-text-sm
-
-font-semibold
-
-text-white
-
-"
-
+  className="
+    text-sm text-white font-semibold
+  "
 >
 
 {item.title}
@@ -795,18 +574,10 @@ text-white
 
 
 <p
-
-className="
-mt-1
-
-text-xs
-
-leading-5
-
-text-slate-400
-
-"
-
+  className="
+    mt-1
+    text-xs text-slate-400 leading-5
+  "
 >
 
 {item.text}
@@ -818,18 +589,9 @@ text-slate-400
 
 
 <span
-
-className="
-text-[10px]
-
-uppercase
-
-font-bold
-
-text-emerald-300
-
-"
-
+  className="
+    text-[10px] text-emerald-300 uppercase font-bold
+  "
 >
 
 {item.status}
@@ -859,37 +621,18 @@ text-emerald-300
 {/* FOOTER */}
 
 
-<motion.div
+<motion
+  .div
 
 whileHover={{
 scale:1.02
 }}
-
-className="
-mt-6
-
-rounded-2xl
-
-bg-gradient-to-r
-
-from-cyan-500/20
-
-to-emerald-500/20
-
-border
-
-border-white/10
-
-p-5
-
-flex
-
-items-center
-
-justify-between
-
-"
-
+  className="
+    flex items-center justify-between
+    mt-6 p-5
+    bg-gradient-to-r from-cyan-500/20 to-emerald-500/20
+    rounded-2xl border border-white/10
+  "
 >
 
 
@@ -897,14 +640,9 @@ justify-between
 
 
 <p
-
-className="
-text-xs
-
-text-slate-400
-
-"
-
+  className="
+    text-xs text-slate-400
+  "
 >
 AI Recommendation
 </p>
@@ -912,18 +650,10 @@ AI Recommendation
 
 
 <p
-
-className="
-mt-1
-
-text-sm
-
-font-semibold
-
-text-white
-
-"
-
+  className="
+    mt-1
+    text-sm text-white font-semibold
+  "
 >
 Save ₦20,000 this week
 </p>
@@ -934,12 +664,12 @@ Save ₦20,000 this week
 
 
 <ArrowRight
-
-size={20}
-
-className="text-emerald-400"
-
-/>
+  size={20}
+  className="
+    text-emerald-400
+  "
+  /
+>
 
 
 </motion.div>
@@ -960,3 +690,4 @@ className="text-emerald-400"
 
 
 export default AIPreview;
+

@@ -94,22 +94,12 @@ const Signup = () => {
           password: form.password,
         }),
       });
-
-
       const data = await res.json();
-
-
       if (!res.ok)
         throw new Error(data.message || "Account creation failed");
-
-
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
-
-
       navigate("/app");
-
-
     } catch (err) {
 
       setError(err.message || "System error occurred");
@@ -120,43 +110,59 @@ const Signup = () => {
 
     }
   };
-
-
   return (
-    <div className="min-h-screen relative flex items-center justify-center overflow-hidden bg-[#050B18] px-4 py-10">
-
-
+    <div
+      className="
+        relative flex justify-center items-center overflow-hidden
+        min-h-screen
+        px-4 py-10
+        bg-[#050B18]
+      "
+    >
       {/* PREMIUM BACKGROUND */}
 
-      <div className="absolute inset-0">
-
-        <div className="absolute top-[-150px] left-[-120px] 
-        w-[420px] h-[420px] bg-blue-500/20 rounded-full blur-[140px]" />
-
-
-        <div className="absolute bottom-[-120px] right-[-100px] 
-        w-[400px] h-[400px] bg-emerald-400/10 rounded-full blur-[130px]" />
-
+      <div
+        className="
+          absolute inset-0
+        "
+      >
 
         <div
           className="
-          absolute inset-0
-          opacity-[0.08]
-          bg-[linear-gradient(to_right,#ffffff12_1px,transparent_1px),
-          linear-gradient(to_bottom,#ffffff12_1px,transparent_1px)]
-          bg-[size:60px_60px]"
-        />
-
+            top-[-150px] left-[-120px] absolute
+            w-[420px] h-[420px]
+            bg-blue-500/20
+            rounded-full
+            blur-[140px]
+          "
+          /
+        >
+        <div
+          className="
+            right-[-100px] bottom-[-120px] absolute
+            w-[400px] h-[400px]
+            bg-emerald-400/10
+            rounded-full
+            blur-[130px]
+          "
+          /
+        >
+        <div
+          className="
+            absolute inset-0
+            bg-[linear-gradient(to_right,#ffffff12_1px,transparent_1px), bg-[size:60px_60px]
+            opacity-[0.08]
+            linear-gradient(to_bottom,#ffffff12_1px,transparent_1px)]
+          "
+          /
+        >
       </div>
-
-
-
-      <motion.div
+      <motion
+        .div
         initial={{
           opacity:0,
           y:30
         }}
-
         animate={{
           opacity:1,
           y:0
@@ -165,53 +171,48 @@ const Signup = () => {
         transition={{
           duration:.6
         }}
-
-        className="relative w-full max-w-lg"
+        className="
+          relative
+          w-full max-w-lg
+        "
       >
-
-
-
         {/* CARD */}
-
         <div
           className="
-          rounded-[28px]
-          border border-white/10
-          bg-white/[0.06]
-          backdrop-blur-2xl
-          shadow-[0_40px_120px_rgba(0,0,0,.6)]
-          p-7 sm:p-10
+            p-7 sm:p-10
+            bg-white/[0.06]
+            border border-white/10 rounded-[28px]
+            shadow-[0_40px_120px_rgba(0,0,0,.6)] backdrop-blur-2xl
           "
         >
-
-
-
           {/* HEADER */}
 
-          <div className="text-center">
-
-
-            <motion.div
+          <div
+            className="
+              text-center
+            "
+          >
+            <motion
+              .div
               whileHover={{
                 scale:1.08
               }}
-
               className="
-              mx-auto
-              h-16 w-16
-              rounded-2xl
-              bg-gradient-to-br
-              from-blue-500
-              to-cyan-400
-              flex items-center justify-center
-              shadow-xl
+                flex justify-center items-center
+                w-16 h-16
+                mx-auto
+                bg-gradient-to-br from-blue-500 to-cyan-400
+                rounded-2xl
+                shadow-xl
               "
             >
-
               <Sparkles
-                className="text-white"
+                className="
+                  text-white
+                "
                 size={28}
-              />
+              /
+              >
 
             </motion.div>
 
@@ -219,50 +220,30 @@ const Signup = () => {
 
             <h1
               className="
-              mt-6
-              text-2xl
-              font-bold
-              text-white
+                mt-6
+                font-bold text-white text-2xl
               "
-            >
-
-              Welcome to SmartBudget
-
-            </h1>
-
-
+            > Welcome to SmartBudget</h1>
             <p
               className="
-              mt-3
-              text-sm
-              text-slate-400
-              leading-6
+                mt-3
+                text-slate-400 text-sm leading-6
               "
             >
-
               Create your secure financial identity
               and take control of your money journey.
-
             </p>
-
-
           </div>
-
-
-
-
           {/* SECURITY BADGE */}
 
           <div
             className="
-            mt-7
-            flex items-center justify-center gap-2
-            rounded-xl
-            border border-emerald-400/20
-            bg-emerald-400/10
-            py-3
-            text-xs
-            text-emerald-300
+              flex justify-center items-center
+              mt-7 py-3
+              text-emerald-300 text-xs
+              bg-emerald-400/10
+              border border-emerald-400/20 rounded-xl
+              gap-2
             "
           >
 
@@ -271,22 +252,13 @@ const Signup = () => {
             Bank-grade encrypted onboarding
 
           </div>
-
-
-
-
-
-
           <form
             onSubmit={handleSubmit}
-            className="mt-8 space-y-5"
+            className="
+              space-y-5 mt-8
+            "
           >
-
-
-
-
             {/* NAME */}
-
             <Input
               icon={<User size={17}/>}
               label="Full name"
@@ -295,13 +267,7 @@ const Signup = () => {
               onChange={handleChange}
               placeholder="John Smith"
             />
-
-
-
-
-
             {/* EMAIL */}
-
             <Input
               icon={<Mail size={17}/>}
               label="Email address"
@@ -310,96 +276,48 @@ const Signup = () => {
               onChange={handleChange}
               placeholder="you@example.com"
             />
-
-
-
-
-
-
             {/* PASSWORD */}
-
-
             <PasswordInput
-
               label="Password"
-
               name="password"
-
               value={form.password}
-
               onChange={handleChange}
-
               show={showPassword}
-
               toggle={()=>setShowPassword(!showPassword)}
-
               placeholder="Create strong password"
 
             />
-
-
-
-
-
             {/* CONFIRM PASSWORD */}
-
             <PasswordInput
-
               label="Confirm password"
-
               name="confirmPassword"
-
               value={form.confirmPassword}
-
               onChange={handleChange}
-
               show={showConfirmPassword}
-
               toggle={()=>setShowConfirmPassword(!showConfirmPassword)}
-
               placeholder="Confirm password"
 
             />
-
-
-
-
-
             {/* ERROR */}
-
             {error && (
-
-              <motion.div
-
+              <motion
+                .div
                 initial={{opacity:0}}
-
                 animate={{opacity:1}}
-
                 className="
-                rounded-xl
-                border border-red-500/20
-                bg-red-500/10
-                px-4 py-3
-                text-sm
-                text-red-300
+                  px-4 py-3
+                  text-red-300 text-sm
+                  bg-red-500/10
+                  border border-red-500/20 rounded-xl
                 "
-
               >
-
                 {error}
-
               </motion.div>
-
             )}
-
-
-
-
-
-
             {/* BUTTON */}
 
-            <motion.button
+            <motion
+              .button
 
               whileHover={{
                 scale:1.02
@@ -410,24 +328,15 @@ const Signup = () => {
               }}
 
               disabled={loading}
-
               className="
-              mt-3
-              h-14
-              w-full
-              rounded-2xl
-              bg-gradient-to-r
-              from-blue-500
-              via-cyan-400
-              to-emerald-400
-              text-white
-              font-semibold
-              shadow-lg
-              shadow-blue-500/20
-              transition
-              cursor-pointer
+                w-full h-14
+                mt-3
+                font-semibold text-white
+                bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400
+                rounded-2xl
+                shadow-blue-500/20 shadow-lg transition
+                cursor-pointer
               "
-
             >
 
               {
@@ -440,120 +349,88 @@ const Signup = () => {
 
 
             </motion.button>
-
-
-
           </form>
-
-
-
-
-
-
           {/* TRUST AREA */}
-
-
           <div
             className="
-            mt-8
-            border-t border-white/10
-            pt-6
+              mt-8 pt-6
+              border-white/10 border-t
             "
           >
-
-
             <div
               className="
-              flex flex-col gap-3
-              text-xs
-              text-slate-400
+                flex flex-col
+                text-slate-400 text-xs
+                gap-3
               "
             >
-
-              <p className="flex gap-2 items-center">
-
-                <CheckCircle2
-                  size={14}
-                  className="text-emerald-400"
-                />
-
-                256-bit encrypted financial protection
-
-              </p>
-
-
-              <p className="flex gap-2 items-center">
+              <p
+                className="
+                  flex items-center
+                  gap-2
+                "
+              >
 
                 <CheckCircle2
                   size={14}
-                  className="text-emerald-400"
-                />
-
+                  className="
+                    text-emerald-400
+                  "
+                  /
+                >256-bit encrypted financial protection</p>
+              <p
+                className="
+                  flex items-center
+                  gap-2
+                "
+              >
+                <CheckCircle2
+                  size={14}
+                  className="
+                    text-emerald-400
+                  "
+                  /
+                >
                 Smart fraud monitoring enabled
-
               </p>
-
-
-              <p className="flex gap-2 items-center">
-
+              <p
+                className="
+                  flex items-center
+                  gap-2
+                "
+              >
                 <Lock
                   size={14}
-                  className="text-blue-400"
-                />
-
+                  className="
+                    text-blue-400
+                  "
+                  /
+                >
                 Your personal information stays private
-
               </p>
-
-
             </div>
-
-
-
-
             <p
               onClick={()=>navigate("/login")}
 
-              className="
-              mt-6
-              text-center
-              text-sm
-              text-slate-300
-              cursor-pointer
-              hover:text-white
-              transition
-              "
+              className="mt-6 text-slate-300 hover:text-white text-sm text-center transition cursor-pointer"
             >
-
               Already have an account?
-              <span className="ml-1 text-cyan-400">
+              <span
+                className="
+                  ml-1
+                  text-cyan-400
+                "
+              >
                 Sign in
               </span>
-
-
             </p>
-
-
-
           </div>
-
-
         </div>
-
-
       </motion.div>
-
-
-
     </div>
   );
 };
-
-
-
-
 // REUSABLE INPUT COMPONENT
-
 const Input = ({
   icon,
   label,
@@ -561,76 +438,43 @@ const Input = ({
 }) => (
 
 <div>
-
 <label
-className="
-text-xs
-text-slate-400
-"
+  className="
+    text-xs text-slate-400
+  "
 >
-
 {label}
-
 </label>
-
-
 <div
-className="
-relative
-mt-2
-"
+  className="
+    relative
+    mt-2
+  "
 >
-
-
 <span
-className="
-absolute
-left-4
-top-1/2
--translate-y-1/2
-text-slate-400
-"
+  className="
+    absolute left-4 top-1/2
+    text-slate-400
+    -translate-y-1/2
+  "
 >
-
 {icon}
-
 </span>
-
-
 <input
-
-{...props}
-
-className="
-h-14
-w-full
-rounded-2xl
-border
-border-white/10
-bg-white/5
-pl-12
-pr-4
-text-white
-placeholder:text-slate-500
-outline-none
-transition
-focus:border-cyan-400/50
-focus:bg-white/10
-"
-
-/>
-
-
+  {...props}
+  className="
+    h-14 w-full
+    pl-12 pr-4
+    text-white placeholder:text-slate-500
+    bg-white/5 focus:bg-white/10
+    rounded-2xl border border-white/10 focus:border-cyan-400/50 outline-none
+    transition
+  "
+  /
+>
 </div>
-
 </div>
-
 );
-
-
-
-
-
 const PasswordInput = ({
 label,
 show,
@@ -641,65 +485,42 @@ toggle,
 <div>
 
 <label
-className="
-text-xs
-text-slate-400
-"
+  className="
+    text-xs text-slate-400
+  "
 >
-
 {label}
-
 </label>
-
-
-<div className="relative mt-2">
-
-
+<div
+  className="
+    relative
+    mt-2
+  "
+>
 <input
-
-{...props}
+  {...props}
 
 type={show ? "text":"password"}
-
-className="
-h-14
-w-full
-rounded-2xl
-border
-border-white/10
-bg-white/5
-px-4
-pr-12
-text-white
-placeholder:text-slate-500
-outline-none
-transition
-focus:border-cyan-400/50
-focus:bg-white/10
-"
-
-/>
-
-
-
-<button
-
-type="button"
-
-onClick={toggle}
-
-className="
-absolute
- right-3
- top-1/2
--translate-y-1/2
-text-slate-300
- hover:text-white
- transition
-"
-
+  className="
+    h-14 w-full
+    px-4 pr-12
+    text-white placeholder:text-slate-500
+    bg-white/5 focus:bg-white/10
+    rounded-2xl border border-white/10 focus:border-cyan-400/50 outline-none
+    transition
+  "
+  /
 >
-
+<button
+  type="button"
+onClick={toggle}
+  className="
+    top-1/2 right-3 absolute
+    text-slate-300 hover:text-white
+    transition
+    -translate-y-1/2
+  "
+>
 {
 show
 ?
@@ -707,17 +528,8 @@ show
 :
 <Eye size={18}/>
 }
-
 </button>
-
-
 </div>
-
-
 </div>
-
 );
-
-
-
 export default Signup;

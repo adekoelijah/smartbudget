@@ -1,219 +1,5 @@
 
 
-// import { useEffect, useRef, useState } from "react";
-// import { motion } from "framer-motion";
-// import {
-//   Wallet2,
-//   Activity,
-//   ShieldCheck,
-//   TrendingUp,
-// } from "lucide-react";
-
-// /* =========================
-//    COUNT UP HOOK (UNCHANGED CORE)
-// ========================= */
-// const useCountUp = (end, duration = 1400) => {
-//   const [count, setCount] = useState(0);
-//   const ref = useRef(null);
-//   const started = useRef(false);
-
-//   useEffect(() => {
-//     const observer = new IntersectionObserver(
-//       ([entry]) => {
-//         if (entry.isIntersecting && !started.current) {
-//           started.current = true;
-
-//           let start = 0;
-//           const step = end / (duration / 16);
-
-//           const animate = () => {
-//             start += step;
-
-//             if (start < end) {
-//               setCount(Math.floor(start));
-//               requestAnimationFrame(animate);
-//             } else {
-//               setCount(end);
-//             }
-//           };
-
-//           animate();
-//         }
-//       },
-//       { threshold: 0.35 }
-//     );
-
-//     if (ref.current) observer.observe(ref.current);
-//     return () => observer.disconnect();
-//   }, [end, duration]);
-
-//   return { count, ref };
-// };
-
-// /* =========================
-//    DATA (FINANCIAL METRICS)
-// ========================= */
-// const statsData = [
-//   {
-//     title: "Total Assets Under Management",
-//     value: 285000000,
-//     prefix: "₦",
-//     subtitle: "Aggregated across verified accounts",
-//     icon: Wallet2,
-//     trend: "+18.2%",
-//   },
-//   {
-//     title: "Monthly Transaction Volume",
-//     value: 920000,
-//     suffix: "+",
-//     subtitle: "Processed through secured rails",
-//     icon: Activity,
-//     trend: "+11.6%",
-//   },
-//   {
-//     title: "System Integrity Score",
-//     value: 99.98,
-//     suffix: "%",
-//     subtitle: "Uptime + encryption reliability index",
-//     icon: ShieldCheck,
-//     trend: "Stable",
-//   },
-// ];
-
-// /* =========================
-//    CARD
-// ========================= */
-// const StatCard = ({ data, index }) => {
-//   const { count, ref } = useCountUp(data.value);
-
-//   return (
-//     <motion.div
-//       ref={ref}
-//       initial={{ opacity: 0, y: 18 }}
-//       whileInView={{ opacity: 1, y: 0 }}
-//       viewport={{ once: true, amount: 0.4 }}
-//       transition={{ duration: 0.45, delay: index * 0.05 }}
-//       className="
-//         relative
-//         rounded-2xl
-//         border border-slate-200
-//         bg-white
-//         p-7
-//         transition
-//         hover:border-slate-300
-//       "
-//     >
-//       {/* top structural line */}
-//       <div className="absolute inset-x-0 top-0 h-px bg-slate-100" />
-
-//       {/* HEADER */}
-//       <div className="flex items-start justify-between">
-
-//         {/* ICON BLOCK (controlled, not flashy) */}
-//         <div className="h-11 w-11 rounded-xl bg-slate-900 flex items-center justify-center">
-//           <data.icon size={18} className="text-white" />
-//         </div>
-
-//         {/* TREND */}
-//         <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-500">
-//           <TrendingUp size={12} className="text-slate-400" />
-//           {data.trend}
-//         </div>
-//       </div>
-
-//       {/* VALUE */}
-//       <div className="mt-8">
-//         <h3 className="text-[34px] font-semibold tracking-[-0.04em] text-slate-950">
-//           {data.prefix || ""}
-//           {typeof data.value === "number"
-//             ? data.value % 1 !== 0
-//               ? count.toFixed(2)
-//               : count.toLocaleString()
-//             : count}
-//           {data.suffix || ""}
-//         </h3>
-
-//         <p className="mt-3 text-[14px] font-semibold text-slate-900">
-//           {data.title}
-//         </p>
-
-//         <p className="mt-2 text-[13px] leading-6 text-slate-500">
-//           {data.subtitle}
-//         </p>
-//       </div>
-
-//       {/* SYSTEM FOOTER (BANK SIGNATURE ELEMENT) */}
-//       <div className="mt-7 pt-5 border-t border-slate-100 flex items-center justify-between">
-
-//         <div className="flex items-center gap-2">
-//           <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-//           <span className="text-[11px] text-slate-500">
-//             Live financial metric
-//           </span>
-//         </div>
-
-//         <span className="text-[11px] text-slate-400">
-//           real-time sync
-//         </span>
-//       </div>
-//     </motion.div>
-//   );
-// };
-
-// /* =========================
-//    SECTION
-// ========================= */
-// const Stats = () => {
-//   return (
-//     <section className="relative bg-white py-28 overflow-hidden">
-
-//       {/* CONTROLLED BACKGROUND (NO DISTRACTION) */}
-//       <div className="absolute inset-0 -z-10">
-//         <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a03_1px,transparent_1px),linear-gradient(to_bottom,#0f172a03_1px,transparent_1px)] bg-[size:80px_80px]" />
-
-//         {/* soft vertical fade only (institutional depth) */}
-//         <div className="absolute inset-0 bg-gradient-to-b from-white via-white to-slate-50" />
-//       </div>
-
-//       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-
-//         {/* HEADER */}
-//         <div className="max-w-3xl">
-
-//           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-slate-200 bg-white">
-//             <div className="h-2 w-2 rounded-full bg-slate-900" />
-//             <span className="text-[12px] font-semibold text-slate-600 uppercase tracking-wide">
-//               Financial Systems Overview
-//             </span>
-//           </div>
-
-//           <h2 className="mt-8 text-[46px] md:text-[58px] leading-[1.02] tracking-[-0.05em] font-semibold text-slate-950">
-//             Financial infrastructure
-//             <br />
-//             built for measurable trust
-//           </h2>
-
-//           <p className="mt-7 text-[16px] leading-7 text-slate-600 max-w-2xl">
-//             A structured financial intelligence layer designed to deliver
-//             transparency, system stability, and consistent financial accuracy
-//             across all user operations.
-//           </p>
-//         </div>
-
-//         {/* GRID */}
-//         <div className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-6">
-//           {statsData.map((item, index) => (
-//             <StatCard key={index} data={item} index={index} />
-//           ))}
-//         </div>
-
-//       </div>
-//     </section>
-//   );
-// };
-
-// export default Stats;
-
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
@@ -404,7 +190,8 @@ const Icon=data.icon;
 
 return (
 
-<motion.div
+<motion
+  .div
 
 ref={ref}
 
@@ -431,22 +218,14 @@ transition={{
 whileHover={{
  y:-8
 }}
-
-
-className="
-group
-relative
-overflow-hidden
-rounded-[30px]
-border
-border-white/60
-bg-white/70
-backdrop-blur-xl
-p-8
-shadow-[0_25px_70px_rgba(15,23,42,.08)]
-transition
-"
-
+  className="
+    relative overflow-hidden
+    p-8
+    bg-white/70
+    rounded-[30px] border border-white/60
+    backdrop-blur-xl shadow-[0_25px_70px_rgba(15,23,42,.08)] transition
+    group
+  "
 >
 
 
@@ -475,46 +254,39 @@ duration-700
 
 
 
-<div className="relative">
+<div
+  className="
+    relative
+  "
+>
 
 
 {/* HEADER */}
 
 <div
-className="
-flex
-items-center
-justify-between
-"
+  className="
+    flex items-center justify-between
+  "
 >
 
 
 <div
-
-className="
-h-14
-w-14
-rounded-2xl
-bg-white
-border
-border-slate-200
-shadow-sm
-flex
-items-center
-justify-center
-"
-
+  className="
+    flex items-center justify-center
+    h-14 w-14
+    bg-white
+    rounded-2xl border border-slate-200
+    shadow-sm
+  "
 >
 
 <Icon
-
-size={24}
-
-className="
-text-slate-800
-"
-
-/>
+  size={24}
+  className="
+    text-slate-800
+  "
+  /
+>
 
 </div>
 
@@ -523,20 +295,14 @@ text-slate-800
 
 
 <div
-
-className="
-flex
-items-center
-gap-1
-rounded-full
-bg-emerald-50
-px-3
-py-1.5
-text-xs
-font-medium
-text-emerald-600
-"
-
+  className="
+    flex items-center
+    px-3 py-1.5
+    text-xs text-emerald-600 font-medium
+    bg-emerald-50
+    rounded-full
+    gap-1
+  "
 >
 
 <TrendingUp size={13}/>
@@ -558,18 +324,17 @@ text-emerald-600
 
 {/* VALUE */}
 
-<div className="mt-10">
+<div
+  className="
+    mt-10
+  "
+>
 
 
 <h3
-
-className="
-text-4xl
-font-bold
-tracking-tight
-text-slate-950
-"
-
+  className="
+    text-4xl text-slate-950 font-bold tracking-tight
+  "
 >
 
 
@@ -599,14 +364,10 @@ count.toLocaleString()
 
 
 <p
-
-className="
-mt-4
-text-base
-font-semibold
-text-slate-900
-"
-
+  className="
+    mt-4
+    text-base text-slate-900 font-semibold
+  "
 >
 
 {data.title}
@@ -617,14 +378,10 @@ text-slate-900
 
 
 <p
-
-className="
-mt-2
-text-sm
-leading-6
-text-slate-500
-"
-
+  className="
+    mt-2
+    text-sm text-slate-500 leading-6
+  "
 >
 
 {data.subtitle}
@@ -643,40 +400,30 @@ text-slate-500
 {/* FOOTER */}
 
 <div
-
-className="
-mt-8
-pt-5
-border-t
-border-slate-200
-flex
-items-center
-justify-between
-"
-
+  className="
+    flex items-center justify-between
+    mt-8 pt-5
+    border-t border-slate-200
+  "
 >
 
 
 <div
-
-className="
-flex
-items-center
-gap-2
-text-xs
-text-slate-500
-"
-
+  className="
+    flex items-center
+    text-xs text-slate-500
+    gap-2
+  "
 >
 
 <div
-className="
-h-2
-w-2
-rounded-full
-bg-emerald-500
-"
-/>
+  className="
+    h-2 w-2
+    bg-emerald-500
+    rounded-full
+  "
+  /
+>
 
 
 Live monitoring
@@ -687,14 +434,12 @@ Live monitoring
 
 
 <Sparkles
-
-size={15}
-
-className="
-text-blue-400
-"
-
-/>
+  size={15}
+  className="
+    text-blue-400
+  "
+  /
+>
 
 
 </div>
@@ -730,14 +475,11 @@ const Stats =()=>{
 return (
 
 <section
-
-className="
-relative
-overflow-hidden
-py-32
-bg-[#F8FAFC]
-"
-
+  className="
+    relative overflow-hidden
+    py-32
+    bg-[#F8FAFC]
+  "
 >
 
 
@@ -747,57 +489,50 @@ bg-[#F8FAFC]
 {/* BACKGROUND SYSTEM */}
 
 
-<div className="absolute inset-0">
+<div
+  className="
+    absolute inset-0
+  "
+>
 
 
 <div
-
-className="
-absolute
-top-[-200px]
-left-1/2
--translate-x-1/2
-h-[600px]
-w-[600px]
-rounded-full
-bg-blue-400/20
-blur-[150px]
-"
-
-/>
+  className="
+    absolute top-[-200px] left-1/2
+    h-[600px] w-[600px]
+    bg-blue-400/20
+    rounded-full
+    blur-[150px]
+    -translate-x-1/2
+  "
+  /
+>
 
 
 
 <div
-
-className="
-absolute
-bottom-[-150px]
-right-[-100px]
-h-[450px]
-w-[450px]
-rounded-full
-bg-emerald-300/20
-blur-[120px]
-"
-
-/>
+  className="
+    absolute bottom-[-150px] right-[-100px]
+    h-[450px] w-[450px]
+    bg-emerald-300/20
+    rounded-full
+    blur-[120px]
+  "
+  /
+>
 
 
 
 
 <div
-
-className="
-absolute
-inset-0
-opacity-30
-bg-[linear-gradient(to_right,#cbd5e1_1px,transparent_1px),
-linear-gradient(to_bottom,#cbd5e1_1px,transparent_1px)]
-bg-[size:80px_80px]
-"
-
-/>
+  className="
+    absolute inset-0
+    bg-[linear-gradient(to_right,#cbd5e1_1px,transparent_1px), bg-[size:80px_80px]
+    opacity-30
+    linear-gradient(to_bottom,#cbd5e1_1px,transparent_1px)]
+  "
+  /
+>
 
 
 
@@ -811,14 +546,11 @@ bg-[size:80px_80px]
 
 
 <div
-
-className="
-relative
-max-w-7xl
-mx-auto
-px-6
-"
-
+  className="
+    relative
+    max-w-7xl
+    mx-auto px-6
+  "
 >
 
 
@@ -828,40 +560,31 @@ px-6
 {/* HEADER */}
 
 <div
-className="
-max-w-3xl
-"
+  className="
+    max-w-3xl
+  "
 >
 
 
 <div
-
-className="
-inline-flex
-items-center
-gap-2
-rounded-full
-bg-white
-border
-border-slate-200
-px-4
-py-2
-text-xs
-text-slate-600
-shadow-sm
-"
-
+  className="
+    inline-flex items-center
+    px-4 py-2
+    text-xs text-slate-600
+    bg-white
+    rounded-full border border-slate-200
+    shadow-sm
+    gap-2
+  "
 >
 
 <Sparkles
-
-size={14}
-
-className="
-text-blue-500
-"
-
-/>
+  size={14}
+  className="
+    text-blue-500
+  "
+  /
+>
 
 
 Financial intelligence layer
@@ -874,21 +597,13 @@ Financial intelligence layer
 
 
 <h2
-
-className="
-mt-8
-text-4xl
-md:text-6xl
-font-bold
-leading-[1.05]
-tracking-tight
-text-slate-950
-"
-
+  className="
+    mt-8
+    text-4xl text-slate-950 md:text-6xl font-bold leading-[1.05] tracking-tight
+  "
 >
 
-Built on visibility.
-Designed for financial confidence.
+How We Transform Your Daily Data into Financial Power
 
 
 </h2>
@@ -898,15 +613,11 @@ Designed for financial confidence.
 
 
 <p
-
-className="
-mt-6
-max-w-2xl
-text-base
-leading-7
-text-slate-600
-"
-
+  className="
+    max-w-2xl
+    mt-6
+    text-base text-slate-600 leading-7
+  "
 >
 
 
@@ -930,15 +641,11 @@ control, and improve their money decisions.
 {/* CARDS */}
 
 <div
-
-className="
-mt-20
-grid
-grid-cols-1
-md:grid-cols-3
-gap-7
-"
-
+  className="
+    grid grid-cols-1 md:grid-cols-3
+    mt-20
+    gap-7
+  "
 >
 
 

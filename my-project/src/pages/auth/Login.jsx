@@ -4,7 +4,6 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
 import {
   Eye,
   EyeOff,
@@ -171,22 +170,7 @@ const Login = () => {
 
 
 
-      <motion.div
-
-        initial={{
-       opacity:0,
-       y:20
-       }}
-
-       animate={{
-       opacity:1,
-      y:0
-     }}
-
-        transition={{
-          duration:.6
-        }}
-
+      <div
         className="
           relative
           w-full
@@ -218,18 +202,7 @@ const Login = () => {
           <div className="text-center">
 
 
-            <motion.div
-
-              initial={{
-          opacity:0,
-       y:-10
-         }}
-
-       animate={{
-        opacity:1,
-      y:0
-     }}
-
+            <div
               className="
                 mx-auto
                 mb-5
@@ -252,7 +225,7 @@ const Login = () => {
                 className="text-white"
               />
 
-            </motion.div>
+            </div>
 
 
 
@@ -498,17 +471,7 @@ const Login = () => {
             {
               error && (
 
-                <motion.div
-
-                  initial={{
-                    opacity:0,
-                    y:-10
-                  }}
-
-                  animate={{
-                    opacity:1,
-                    y:0
-                  }}
+                <div
 
                   className="
                     rounded-xl
@@ -525,7 +488,7 @@ const Login = () => {
 
                   {error}
 
-                </motion.div>
+                </div>
 
               )
             }
@@ -663,7 +626,7 @@ const Login = () => {
         </div>
 
 
-      </motion.div>
+      </div>
 
 
 

@@ -86,17 +86,22 @@ const testimonials = [
 const FinanceParticles = () => {
 
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+    <div
+      className="
+        absolute inset-0 overflow-hidden
+        pointer-events-none
+      "
+    >
 
       {[...Array(18)].map((_,i)=>(
-        <motion.div
+        <motion
+          .div
           key={i}
           className="
             absolute
-            h-2
-            w-2
-            rounded-full
+            h-2 w-2
             bg-blue-400/40
+            rounded-full
           "
           initial={{
             x:Math.random()*100+"%",
@@ -121,24 +126,22 @@ const FinanceParticles = () => {
             repeat:Infinity,
             ease:"easeInOut"
           }}
-        />
+        /
+        >
       ))}
 
 
       <div
-      className="
-      absolute
-      top-1/2
-      left-1/2
-      -translate-x-1/2
-      -translate-y-1/2
-      h-[500px]
-      w-[500px]
-      rounded-full
-      bg-blue-500/10
-      blur-3xl
-      "
-      />
+        className="
+          absolute top-1/2 left-1/2
+          h-[500px] w-[500px]
+          bg-blue-500/10
+          rounded-full
+          blur-3xl
+          -translate-x-1/2 -translate-y-1/2
+        "
+        /
+      >
 
 
     </div>
@@ -153,7 +156,8 @@ const FinanceParticles = () => {
 
 const Card = ({ item }) => {
   return (
-    <motion.div
+    <motion
+      .div
       whileHover={{
         y: -12,
         rotateX: 5,
@@ -165,21 +169,18 @@ const Card = ({ item }) => {
         stiffness: 180,
       }}
       className="
-      group
-      relative
-      rounded-[32px]
-      overflow-hidden
-      p-[1px]
-      bg-gradient-to-br
-      from-blue-400/40
-      via-cyan-300/10
-      to-emerald-400/40
+        relative overflow-hidden
+        p-[1px]
+        bg-gradient-to-br from-blue-400/40 via-cyan-300/10 to-emerald-400/40
+        rounded-[32px]
+        group
       "
     >
 
 
       {/* Animated border glow */}
-      <motion.div
+      <motion
+        .div
         animate={{
           rotate:360
         }}
@@ -189,24 +190,22 @@ const Card = ({ item }) => {
           ease:"linear"
         }}
         className="
-        absolute
-        inset-[-100%]
-        bg-[conic-gradient(from_90deg_at_50%_50%,transparent,rgba(59,130,246,.5),transparent)]
+          absolute inset-[-100%]
+          bg-[conic-gradient(from_90deg_at_50%_50%,transparent,rgba(59,130,246,.5),transparent)]
         "
-      />
+        /
+      >
 
 
 
       {/* Main card */}
       <div
         className="
-        relative
-        rounded-[31px]
-        overflow-hidden
-        bg-[#071426]
-        backdrop-blur-xl
-        p-7
-        shadow-2xl
+          relative overflow-hidden
+          p-7
+          bg-[#071426]
+          rounded-[31px]
+          backdrop-blur-xl shadow-2xl
         "
       >
 
@@ -216,49 +215,43 @@ const Card = ({ item }) => {
 
         <div
           className="
-          absolute
-          inset-0
-          opacity-40
+            absolute inset-0
+            opacity-40
           "
         >
 
           <div
-          className="
-          absolute
-          top-10
-          right-10
-          h-32
-          w-32
-          rounded-full
-          bg-blue-500/20
-          blur-3xl
-          "
-          />
+            className="
+              absolute top-10 right-10
+              h-32 w-32
+              bg-blue-500/20
+              rounded-full
+              blur-3xl
+            "
+            /
+          >
 
 
           <div
-          className="
-          absolute
-          bottom-0
-          left-0
-          h-40
-          w-40
-          rounded-full
-          bg-emerald-500/10
-          blur-3xl
-          "
-          />
+            className="
+              absolute bottom-0 left-0
+              h-40 w-40
+              bg-emerald-500/10
+              rounded-full
+              blur-3xl
+            "
+            /
+          >
 
 
           {/* grid */}
           <div
-          className="
-          absolute
-          inset-0
-          bg-[linear-gradient(rgba(255,255,255,.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.04)_1px,transparent_1px)]
-          bg-[size:40px_40px]
-          "
-          />
+            className="
+              absolute inset-0
+              bg-[linear-gradient(rgba(255,255,255,.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.04)_1px,transparent_1px)] bg-[size:40px_40px]
+            "
+            /
+          >
 
 
         </div>
@@ -266,58 +259,54 @@ const Card = ({ item }) => {
 
 
 
-        <div className="relative z-10">
+        <div
+          className="
+            relative z-10
+          "
+        >
 
 
         {/* Header */}
 
         <div
-        className="
-        flex
-        justify-between
-        items-start
-        "
+          className="
+            flex justify-between items-start
+          "
         >
 
 
-          <div className="flex gap-4">
+          <div
+            className="
+              flex
+              gap-4
+            "
+          >
 
 
             <div
-            className="
-            relative
-            h-14
-            w-14
-            rounded-2xl
-            bg-gradient-to-br
-            from-blue-500
-            to-cyan-400
-            flex
-            items-center
-            justify-center
-            text-white
-            text-xl
-            font-bold
-            shadow-lg
-            "
+              className="
+                relative flex items-center justify-center
+                h-14 w-14
+                text-white text-xl font-bold
+                bg-gradient-to-br from-blue-500 to-cyan-400
+                rounded-2xl
+                shadow-lg
+              "
             >
 
             {item.name.charAt(0)}
 
 
             <div
-            className="
-            absolute
-            -bottom-1
-            -right-1
-            h-5
-            w-5
-            rounded-full
-            bg-emerald-400
-            border-4
-            border-[#071426]
-            "
-            />
+              className="
+                absolute
+                h-5 w-5
+                bg-emerald-400
+                rounded-full border-4 border-[#071426]
+                -bottom-1 -right-1
+              "
+              /
+            >
 
 
             </div>
@@ -328,21 +317,18 @@ const Card = ({ item }) => {
             <div>
 
             <h3
-            className="
-            text-white
-            font-semibold
-            text-lg
-            "
+              className="
+                text-white text-lg font-semibold
+              "
             >
             {item.name}
             </h3>
 
 
             <p
-            className="
-            text-xs
-            text-slate-400
-            "
+              className="
+                text-xs text-slate-400
+              "
             >
             {item.role}
             </p>
@@ -350,11 +336,10 @@ const Card = ({ item }) => {
 
 
             <p
-            className="
-            mt-1
-            text-[11px]
-            text-blue-300
-            "
+              className="
+                mt-1
+                text-[11px] text-blue-300
+              "
             >
             {item.company}
             </p>
@@ -368,29 +353,27 @@ const Card = ({ item }) => {
 
 
           <div
-          className="
-          flex
-          items-center
-          gap-1
-          rounded-full
-          px-3
-          py-1
-          bg-emerald-400/10
-          border
-          border-emerald-400/20
-          "
+            className="
+              flex items-center
+              px-3 py-1
+              bg-emerald-400/10
+              rounded-full border border-emerald-400/20
+              gap-1
+            "
           >
 
           <ShieldCheck
-          size={14}
-          className="text-emerald-400"
-          />
+            size={14}
+            className="
+              text-emerald-400
+            "
+            /
+          >
 
           <span
-          className="
-          text-[10px]
-          text-emerald-300
-          "
+            className="
+              text-[10px] text-emerald-300
+            "
           >
           VERIFIED
           </span>
@@ -408,17 +391,15 @@ const Card = ({ item }) => {
         {/* Statement */}
 
         <div
-        className="
-        mt-8
-        "
+          className="
+            mt-8
+          "
         >
 
         <p
-        className="
-        text-slate-300
-        leading-7
-        text-sm
-        "
+          className="
+            text-slate-300 text-sm leading-7
+          "
         >
 
         "{item.statement}"
@@ -436,17 +417,12 @@ const Card = ({ item }) => {
         {/* AI Financial Insight */}
 
         <div
-        className="
-        mt-7
-        flex
-        items-center
-        justify-between
-        rounded-2xl
-        bg-white/[0.05]
-        border
-        border-white/10
-        p-4
-        "
+          className="
+            flex items-center justify-between
+            mt-7 p-4
+            bg-white/[0.05]
+            rounded-2xl border border-white/10
+          "
         >
 
 
@@ -454,24 +430,19 @@ const Card = ({ item }) => {
 
 
         <p
-        className="
-        text-[10px]
-        uppercase
-        tracking-widest
-        text-slate-500
-        "
+          className="
+            text-[10px] text-slate-500 uppercase tracking-widest
+          "
         >
         SmartBudget AI Insight
         </p>
 
 
         <p
-        className="
-        mt-2
-        text-sm
-        font-semibold
-        text-white
-        "
+          className="
+            mt-2
+            text-sm text-white font-semibold
+          "
         >
 
         {item.impact}
@@ -484,22 +455,20 @@ const Card = ({ item }) => {
 
 
         <div
-        className="
-        h-12
-        w-12
-        rounded-xl
-        bg-gradient-to-br
-        from-emerald-400
-        to-green-600
-        flex
-        items-center
-        justify-center
-        "
+          className="
+            flex items-center justify-center
+            h-12 w-12
+            bg-gradient-to-br from-emerald-400 to-green-600
+            rounded-xl
+          "
         >
 
         <TrendingUp
-        className="text-white"
-        />
+          className="
+            text-white
+          "
+          /
+        >
 
 
         </div>
@@ -515,22 +484,29 @@ const Card = ({ item }) => {
         {/* Bottom banking metrics */}
 
         <div
-        className="
-        mt-5
-        flex
-        justify-between
-        text-xs
-        "
+          className="
+            flex justify-between
+            mt-5
+            text-xs
+          "
         >
 
 
         <div>
 
-        <p className="text-slate-500">
+        <p
+          className="
+            text-slate-500
+          "
+        >
         Status
         </p>
 
-        <p className="text-emerald-400 font-medium">
+        <p
+          className="
+            text-emerald-400 font-medium
+          "
+        >
         Financial Growth
         </p>
 
@@ -539,13 +515,25 @@ const Card = ({ item }) => {
 
 
 
-        <div className="text-right">
+        <div
+          className="
+            text-right
+          "
+        >
 
-        <p className="text-slate-500">
+        <p
+          className="
+            text-slate-500
+          "
+        >
         AI Score
         </p>
 
-        <p className="text-blue-300 font-bold">
+        <p
+          className="
+            text-blue-300 font-bold
+          "
+        >
         98.4%
         </p>
 
@@ -588,15 +576,11 @@ const visible=testimonials.slice(0,visibleCount);
 return (
 
 <section
-className="
-relative
-overflow-hidden
-py-32
-bg-gradient-to-b
-from-slate-950
-via-slate-900
-to-slate-950
-"
+  className="
+    relative overflow-hidden
+    py-32
+    bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950
+  "
 >
 
 
@@ -605,36 +589,30 @@ to-slate-950
 
 
 <div
-className="
-relative
-max-w-7xl
-mx-auto
-px-6
-"
+  className="
+    relative
+    max-w-7xl
+    mx-auto px-6
+  "
 >
 
 
 <div
-className="
-max-w-3xl
-"
+  className="
+    max-w-3xl
+  "
 >
 
 
 <div
-className="
-inline-flex
-items-center
-gap-2
-rounded-full
-px-4
-py-2
-bg-white/10
-border
-border-white/20
-text-white
-text-xs
-"
+  className="
+    inline-flex items-center
+    px-4 py-2
+    text-white text-xs
+    bg-white/10
+    rounded-full border border-white/20
+    gap-2
+  "
 >
 
 <Sparkles size={14}/>
@@ -646,31 +624,26 @@ AI Verified Financial Experiences
 
 
 <h2
-className="
-mt-8
-text-5xl
-md:text-6xl
-font-bold
-tracking-tight
-text-white
-"
+  className="
+    mt-8
+    text-5xl text-white md:text-6xl font-bold tracking-tight
+  "
 >
 
-Thousands of decisions.
+What Our Users
 <br/>
 
-One smarter financial future.
+Have To Say
 
 </h2>
 
 
 
 <p
-className="
-mt-5
-text-slate-300
-text-lg
-"
+  className="
+    mt-5
+    text-slate-300 text-lg
+  "
 >
 
 SmartBudget transforms everyday money management
@@ -684,16 +657,14 @@ into an intelligent financial operating system.
 
 
 
-<motion.div
+<motion
+  .div
 layout
-className="
-mt-16
-grid
-grid-cols-1
-md:grid-cols-2
-lg:grid-cols-3
-gap-7
-"
+  className="
+    grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3
+    mt-16
+    gap-7
+  "
 >
 
 
@@ -738,11 +709,10 @@ y:0
 visibleCount < testimonials.length &&
 
 <div
-className="
-flex
-justify-center
-mt-14
-"
+  className="
+    flex justify-center
+    mt-14
+  "
 >
 
 <button
@@ -768,12 +738,13 @@ transition
 View more financial journeys
 
 <ArrowRight
-size={17}
-className="
-group-hover:translate-x-1
-transition
-"
-/>
+  size={17}
+  className="
+    transition
+    group-hover:translate-x-1
+  "
+  /
+>
 
 </button>
 
