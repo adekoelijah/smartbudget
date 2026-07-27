@@ -116,7 +116,7 @@ const AuthSuccess = () => {
 
         setTimeout(()=>{
 
-          navigate("/dashboard",{
+          navigate("/app",{
             replace:true,
           });
 
