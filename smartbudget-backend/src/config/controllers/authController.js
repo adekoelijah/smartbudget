@@ -119,9 +119,10 @@ export const googleCallback = async (req, res) => {
 
 
     const { tokens } = await client.getToken({
-      code,
-      redirect_uri: process.env.GOOGLE_REDIRECT_URI,
-    });
+  code,
+  redirect_uri:
+    "https://nexatech-smartbudget-backend.vercel.app/api/auth/google/callback",
+});
 
 
     console.log("GOOGLE TOKENS RECEIVED");
