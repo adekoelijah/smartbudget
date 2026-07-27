@@ -219,7 +219,6 @@ refreshSubscribers=[];
 RESPONSE INTERCEPTOR
 =========================================
 */
-
 api.interceptors.response.use(
 
 (response)=>response,
@@ -227,14 +226,9 @@ api.interceptors.response.use(
 
 async(error)=>{
 
+const originalRequest = error.config;
 
-const originalRequest =
-error.config;
-
-
-const status =
-error.response?.status;
-
+const status = error.response?.status;
 
 
 /*
@@ -242,86 +236,81 @@ Only handle expired access tokens
 */
 
 if(
-status === 401 &&
-!originalRequest._retry
+  status === 401 &&
+  !originalRequest._retry
 ){
 
-
 originalRequest._retry = true;
-
 
 
 try{
 
 
+let newToken;
+
+
 if(!isRefreshing){
 
 
-isRefreshing = true;
+  isRefreshing = true;
 
 
+  const response =
+  await axios.post(
 
-const response =
-await axios.post(
+    `${API_BASE_URL}/auth/refresh-token`,
 
-`${API_BASE_URL}/auth/refresh-token`,
+    {},
 
-{},
+    {
+      withCredentials:true,
+    }
 
-{
-withCredentials:true,
-}
-
-);
-
+  );
 
 
-const newToken =
-response.data.token;
+  newToken =
+  response.data.token;
 
 
-
-setToken(newToken);
-
+  setToken(newToken);
 
 
-isRefreshing=false;
+  isRefreshing = false;
 
 
+  onTokenRefreshed(newToken);
 
-onTokenRefreshed(newToken);
 
 
 }
 else{
 
 
-return new Promise((resolve)=>{
+ return new Promise((resolve)=>{
 
 
-subscribeTokenRefresh(
-(token)=>{
+  subscribeTokenRefresh(
+    (token)=>{
 
 
-originalRequest.headers.Authorization =
-`Bearer ${token}`;
+      originalRequest.headers.Authorization =
+      `Bearer ${token}`;
 
 
-resolve(
-api(originalRequest)
-);
+      resolve(
+        api(originalRequest)
+      );
+
+
+    }
+  );
+
+
+ });
 
 
 }
-
-);
-
-
-});
-
-
-}
-
 
 
 /*
@@ -342,29 +331,21 @@ catch(refreshError){
 
 isRefreshing=false;
 
-
 removeToken();
 
 
 window.location.href="/login";
 
 
-return Promise.reject(
-refreshError
-);
+return Promise.reject(refreshError);
 
 
 }
 
 
-
 }
 
 
-
-/*
-Rate limit
-*/
 
 if(status===429){
 
@@ -375,10 +356,6 @@ console.warn(
 }
 
 
-
-/*
-Network error
-*/
 
 if(!error.response){
 

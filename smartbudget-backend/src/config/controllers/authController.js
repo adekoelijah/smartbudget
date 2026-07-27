@@ -160,32 +160,30 @@ export const googleCallback = async (req, res) => {
 
     if (!user) {
 
-      user = await User.create({
+  user = await User.create({
 
-        firstName:
-          payload.given_name || "Google",
+    firstName: payload.given_name || "Google",
+    lastName: payload.family_name || "User",
+    email: payload.email,
+    avatar: payload.picture,
+    authProvider: "google",
+    isEmailVerified: true,
+    lastLogin: new Date(),
 
-        lastName:
-          payload.family_name || "User",
+  });
 
-        email:
-          payload.email,
+} else {
 
-        avatar:
-          payload.picture,
+  user.authProvider = "google";
+  user.avatar = payload.picture;
+  user.isEmailVerified = true;
+  user.lastLogin = new Date();
 
-        authProvider:
-          "google",
+  await user.save({
+    validateBeforeSave:false,
+  });
 
-        isEmailVerified:
-          true,
-
-        lastLogin:
-          new Date(),
-
-      });
-
-    }
+}
 
 
     const token =
