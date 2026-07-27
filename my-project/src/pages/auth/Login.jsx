@@ -10,10 +10,10 @@ import {
   Lock,
   ShieldCheck,
   Fingerprint,
-  Sparkles,
   ArrowRight,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
+import { googleLogin } from "../../services/authService";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -53,9 +53,9 @@ const Login = () => {
     }
 
 
-    if (form.password.length < 6) {
-      return "Password must contain at least 6 characters";
-    }
+    if (form.password.length < 8) {
+  return "Invalid email or password";
+}
 
 
     return null;
@@ -89,10 +89,30 @@ const Login = () => {
 
 
 
-      if (!result.success) {
-        setError(result.message);
-        return;
-      }
+     if (!result.success) {
+
+
+setError(result.message);
+
+
+if(
+result.message.includes("verify")
+){
+
+setTimeout(()=>{
+
+navigate(
+"/verify-email"
+);
+
+},1500);
+
+}
+
+
+return;
+
+}
 
 
 
@@ -125,44 +145,56 @@ const Login = () => {
 
   return (
 
-    <div className="relative min-h-screen overflow-hidden bg-[#050B18] flex items-center justify-center px-4">
+    <div
+      className="
+        relative flex justify-center items-center overflow-hidden
+        min-h-screen
+        px-4
+        bg-[#050B18]
+      "
+    >
 
 
       {/* Background Effects */}
 
-      <div className="absolute inset-0">
+      <div
+        className="
+          absolute inset-0
+        "
+      >
 
-        <div className="
-          absolute
-          top-[-200px]
-          left-[-150px]
-          w-[500px]
-          h-[500px]
-          bg-blue-600/20
-          rounded-full
-          blur-[120px]
-        "/>
-
-
-        <div className="
-          absolute
-          bottom-[-200px]
-          right-[-150px]
-          w-[500px]
-          h-[500px]
-          bg-cyan-500/20
-          rounded-full
-          blur-[120px]
-        "/>
+        <div
+          className="
+            top-[-200px] left-[-150px] absolute
+            w-[500px] h-[500px]
+            bg-blue-600/20
+            rounded-full
+            blur-[120px]
+          "
+          /
+        >
 
 
-        <div className="
-          absolute
-          inset-0
-          opacity-[0.04]
-          bg-[linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)]
-          bg-[size:60px_60px]
-        "/>
+        <div
+          className="
+            right-[-150px] bottom-[-200px] absolute
+            w-[500px] h-[500px]
+            bg-cyan-500/20
+            rounded-full
+            blur-[120px]
+          "
+          /
+        >
+
+
+        <div
+          className="
+            absolute inset-0
+            bg-[linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] bg-[size:60px_60px]
+            opacity-[0.04]
+          "
+          /
+        >
 
 
       </div>
@@ -173,69 +205,63 @@ const Login = () => {
       <div
         className="
           relative
-          w-full
-          max-w-md
+          w-full max-w-md
         "
-
       >
 
 
 
-        <div className="
-          relative
- isolate
- rounded-3xl
- border
- border-white/10
- bg-white/[0.06]
- backdrop-blur-xl
- shadow-[0_30px_100px_rgba(0,0,0,.55)]
- p-6
- sm:p-8
-        ">
+        <div
+          className="
+            isolate relative
+            p-6 sm:p-8
+            bg-white/[0.06]
+            border border-white/10 rounded-3xl
+            shadow-[0_30px_100px_rgba(0,0,0,.55)] backdrop-blur-xl
+          "
+        >
 
 
 
           {/* Header */}
 
 
-          <div className="text-center">
+          <div
+            className="
+              text-center
+            "
+          >
 
 
             <div
               className="
-                mx-auto
-                mb-5
-                w-16
-                h-16
+                flex justify-center items-center
+                w-16 h-16
+                mx-auto mb-5
+                bg-gradient-to-br from-blue-500 to-cyan-400
                 rounded-2xl
-                bg-gradient-to-br
-                from-blue-500
-                to-cyan-400
-                flex
-                items-center
-                justify-center
                 shadow-lg
               "
-
             >
 
               <Fingerprint
                 size={30}
-                className="text-white"
-              />
+                className="
+                  text-white
+                "
+                /
+              >
 
             </div>
 
 
 
 
-            <h1 className="
-              text-2xl
-              font-bold
-              text-white
-              tracking-tight
-            ">
+            <h1
+              className="
+                font-bold text-white text-2xl tracking-tight
+              "
+            >
 
               Welcome Back
 
@@ -243,12 +269,12 @@ const Login = () => {
 
 
 
-            <p className="
-              mt-2
-              text-sm
-              text-slate-400
-              leading-6
-            ">
+            <p
+              className="
+                mt-2
+                text-slate-400 text-sm leading-6
+              "
+            >
 
               Securely access your SmartBudget financial workspace.
 
@@ -264,20 +290,16 @@ const Login = () => {
           {/* Security Badge */}
 
 
-          <div className="
-            mt-6
-            flex
-            items-center
-            justify-center
-            gap-2
-            rounded-xl
-            bg-emerald-500/10
-            border
-            border-emerald-400/20
-            py-3
-            text-xs
-            text-emerald-300
-          ">
+          <div
+            className="
+              flex justify-center items-center
+              mt-6 py-3
+              text-emerald-300 text-xs
+              bg-emerald-500/10
+              border border-emerald-400/20 rounded-xl
+              gap-2
+            "
+          >
 
 
             <ShieldCheck size={15}/>
@@ -293,7 +315,9 @@ const Login = () => {
 
           <form
             onSubmit={handleSubmit}
-            className="mt-7 space-y-5"
+            className="
+              space-y-5 mt-7
+            "
           >
 
 
@@ -305,11 +329,12 @@ const Login = () => {
             <div>
 
 
-              <label className="
-                text-xs
-                text-slate-400
-                ml-1
-              ">
+              <label
+                className="
+                  ml-1
+                  text-slate-400 text-xs
+                "
+              >
 
                 Email Address
 
@@ -318,7 +343,6 @@ const Login = () => {
 
 
               <input
-
                 name="email"
 
                 type="email"
@@ -330,26 +354,17 @@ const Login = () => {
                 placeholder="name@example.com"
 
                 autoComplete="email"
-
                 className="
-                  mt-2
-                  w-full
-                  h-12
-                  rounded-xl
+                  w-full h-12
+                  mt-2 px-4
+                  text-white placeholder:text-slate-500
                   bg-white/10
-                  border
-                  border-white/10
-                  px-4
-                  text-white
-                  placeholder:text-slate-500
-                  outline-none
+                  border border-white/10 focus:border-blue-400 rounded-xl
+                  outline-none focus:ring-4 focus:ring-blue-500/20
                   transition
-                  focus:border-blue-400
-                  focus:ring-4
-                  focus:ring-blue-500/20
                 "
-
-              />
+                /
+              >
 
 
             </div>
@@ -367,11 +382,12 @@ const Login = () => {
             <div>
 
 
-              <label className="
-                text-xs
-                text-slate-400
-                ml-1
-              ">
+              <label
+                className="
+                  ml-1
+                  text-slate-400 text-xs
+                "
+              >
 
                 Password
 
@@ -380,11 +396,15 @@ const Login = () => {
 
 
 
-              <div className="relative mt-2">
+              <div
+                className="
+                  relative
+                  mt-2
+                "
+              >
 
 
                 <input
-
                   name="password"
 
                   type={
@@ -400,26 +420,17 @@ const Login = () => {
                   placeholder="Enter your password"
 
                   autoComplete="current-password"
-
                   className="
-                    w-full
-                    h-12
-                    rounded-xl
+                    w-full h-12
+                    px-4 pr-12
+                    text-white placeholder:text-slate-500
                     bg-white/10
-                    border
-                    border-white/10
-                    px-4
-                    pr-12
-                    text-white
-                    placeholder:text-slate-500
-                    outline-none
+                    border border-white/10 focus:border-blue-400 rounded-xl
+                    outline-none focus:ring-4 focus:ring-blue-500/20
                     transition
-                    focus:border-blue-400
-                    focus:ring-4
-                    focus:ring-blue-500/20
                   "
-
-                />
+                  /
+                >
 
 
 
@@ -432,15 +443,7 @@ const Login = () => {
                     setShowPassword((prev)=>!prev)
                   }
 
-                  className="
-                    absolute
-                    right-3
-                    top-1/2
-                    -translate-y-1/2
-                    text-slate-300
-                    hover:text-white
-                    transition
-                  "
+                  className="top-1/2 right-3 absolute text-slate-300 hover:text-white transition -translate-y-1/2"
 
                 >
 
@@ -472,18 +475,12 @@ const Login = () => {
               error && (
 
                 <div
-
                   className="
-                    rounded-xl
-                    border
-                    border-red-400/20
+                    px-4 py-3
+                    text-red-300 text-sm
                     bg-red-500/10
-                    px-4
-                    py-3
-                    text-sm
-                    text-red-300
+                    border border-red-400/20 rounded-xl
                   "
-
                 >
 
                   {error}
@@ -494,44 +491,63 @@ const Login = () => {
             }
 
 
+            <div
+              className="
+                flex justify-end
+              "
+            >
+
+<button
+
+type="button"
+
+onClick={()=>navigate("/forgot-password")}
+
+className="
+text-xs
+text-blue-300
+hover:text-white
+transition
+"
+
+>
+
+Forgot password?
+
+</button>
+
+
+</div>
+
+
 
 
 
 
 
             <button
-
               type="submit"
 
               disabled={loading}
-
               className="
-                group
                 relative
-                w-full
-                h-12
+                w-full h-12
+                font-semibold text-white
+                bg-gradient-to-r from-blue-500 to-cyan-400
                 rounded-xl
-                bg-gradient-to-r
-                from-blue-500
-                to-cyan-400
-                text-white
-                font-semibold
-                shadow-lg
-                shadow-blue-500/20
-                transition
+                disabled:opacity-50 shadow-blue-500/20 shadow-lg transition
                 hover:scale-[1.02]
-                disabled:opacity-50
+                group
               "
-
             >
 
 
-              <span className="
-                flex
-                items-center
-                justify-center
-                gap-2
-              ">
+              <span
+                className="
+                  flex justify-center items-center
+                  gap-2
+                "
+              >
 
 
               {
@@ -544,10 +560,11 @@ const Login = () => {
                   <ArrowRight
                     size={18}
                     className="
-                      group-hover:translate-x-1
                       transition
+                      group-hover:translate-x-1
                     "
-                  />
+                    /
+                  >
                 </>
               }
 
@@ -556,6 +573,63 @@ const Login = () => {
 
 
             </button>
+
+
+            <div
+              className="
+                flex items-center
+                my-6
+                gap-3
+              "
+            >
+
+<div
+  className="
+    flex-1
+    h-px
+    bg-white/10
+  "
+  /
+>
+
+<span
+  className="
+    text-slate-500 text-xs
+  "
+>
+OR
+</span>
+
+<div
+  className="
+    flex-1
+    h-px
+    bg-white/10
+  "
+  /
+>
+
+</div>
+
+
+
+<button
+  type="button"
+
+onClick={googleLogin}
+  className="
+    w-full h-12
+    font-medium text-white
+    bg-white/5 hover:bg-white/10
+    border border-white/10 rounded-xl
+    transition
+    curson-pointer
+  "
+>
+
+Continue with Google 
+
+</button>
 
 
 
@@ -571,23 +645,22 @@ const Login = () => {
           {/* Footer */}
 
 
-          <div className="
-            mt-7
-            pt-6
-            border-t
-            border-white/10
-            text-center
-          ">
+          <div
+            className="
+              mt-7 pt-6
+              text-center
+              border-white/10 border-t
+            "
+          >
 
 
-            <div className="
-              flex
-              items-center
-              justify-center
-              gap-2
-              text-xs
-              text-slate-500
-            ">
+            <div
+              className="
+                flex justify-center items-center
+                text-slate-500 text-xs
+                gap-2
+              "
+            >
 
               <Lock size={13}/>
 
@@ -603,19 +676,15 @@ const Login = () => {
 
               onClick={() => navigate("/signup")}
 
-              className="
-                mt-4
-                text-sm
-                text-blue-300
-                hover:text-white
-                transition
-              "
+              className="mt-4 text-blue-300 hover:text-white text-sm transition"
 
             >
 
               Create a new secure account
 
             </button>
+
+            
 
 
           </div>

@@ -261,7 +261,7 @@
 
 // export default app;
 
-
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -281,9 +281,13 @@ import budgetRoutes from "./routes/budgetRoutes.js";
 import transactionRoutes from "./routes/transactionRoutes.js";
 import dashboardRoutes from "./routes/dashboardRoutes.js";
 import exportRoutes from "./routes/exportRoutes.js";
-
+import cookieParser from "cookie-parser";
 
 const app = express();
+
+//cookie
+app.use(cookieParser());
+
 
 app.use((req, res, next) => {
 
@@ -335,6 +339,7 @@ const allowedOrigins = [
   "http://localhost:5173",
   "https://nexatech-smartbudget.vercel.app",
 ];
+credentials:true
 
 
 const corsOptions = {

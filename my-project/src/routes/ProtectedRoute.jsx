@@ -1,30 +1,103 @@
 
 
-import { Navigate, Outlet } from "react-router-dom";
-import { useAuth } from "../hooks/useAuth";
+import {
+  Navigate,
+  Outlet,
+  useLocation,
+} from "react-router-dom";
 
-const ProtectedRoute = () => {
-  const { isAuthenticated, initializing } = useAuth();
+import { useAuth } from "../hooks/useAuth";
+import AuthLoading from "../components/auth/AuthLoading";
+
+
+
+const ProtectedRoute = ({
+  allowedRoles,
+}) => {
+
+
+  const {
+    user,
+    isAuthenticated,
+    initializing,
+  } = useAuth();
+
+
+  const location = useLocation();
+
+
+
+  /*
+  =========================================
+  SESSION RESTORATION
+  =========================================
+  */
 
   if (initializing) {
-    return (
-      <div
-        className="
-          flex items-center justify-center
-          h-screen
-          text-sm text-gray-500
-        "
-      >
-        Loading account...
-      </div>
-    );
-  }
+  return (
+    <AuthLoading
+      message="Loading your financial dashboard..."
+    />
+  );
+}
+
+
+
+  /*
+  =========================================
+  NOT AUTHENTICATED
+  =========================================
+  */
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+
+
+    return (
+
+      <Navigate
+        to="/login"
+        replace
+        state={{
+          from: location,
+        }}
+      />
+
+    );
+
   }
 
+
+
+
+  /*
+  =========================================
+  ROLE PROTECTION
+  =========================================
+  */
+
+  if (
+    allowedRoles &&
+    !allowedRoles.includes(user?.role)
+  ) {
+
+
+    return (
+
+      <Navigate
+        to="/unauthorized"
+        replace
+      />
+
+    );
+
+  }
+
+
+
   return <Outlet />;
+
+
 };
+
 
 export default ProtectedRoute;

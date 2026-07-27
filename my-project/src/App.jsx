@@ -12,6 +12,13 @@ import ProtectedRoute from "./routes/ProtectedRoute";
 import Landing from "./pages/Landing";
 import Login from "./pages/auth/Login";
 import Signup from "./pages/auth/Signup";
+import VerifyEmail from "./pages/auth/VerifyEmail.jsx";
+import EmailVerificationSuccess from "./pages/auth/EmailVerificationSuccess.jsx";
+import ForgotPassword from "./pages/auth/ForgotPassword.jsx";
+import ResetPassword from "./pages/auth/ResetPassword.jsx";
+import AuthSuccess from "./pages/auth/AuthSuccess.jsx";
+
+
 // import Onboarding from "./pages/Onboarding";
 
 // ⚡ LAZY LOADED PRIVATE PAGES
@@ -56,6 +63,11 @@ const App = () => {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/verify-email" element ={<VerifyEmail/>}/>
+        <Route path="/email-verified" element={<EmailVerificationSuccess />}/>
+        <Route path="/forgot-password" element={<ForgotPassword />}/>
+        <Route path="/reset-password/:token" element={<ResetPassword />}/>
+        <Route path="/auth/success" element={<AuthSuccess />}/>
 
         {/* =========================
             🔒 PROTECTED APP ROUTES

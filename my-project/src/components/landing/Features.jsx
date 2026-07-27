@@ -148,16 +148,7 @@ variants={item}
 whileHover={{
  y:-8,
 }}
-  className="
-    relative overflow-hidden
-    p-7
-    bg-white/60
-    rounded-[28px] border border-white/40
-    backdrop-blur-xl
-    shadow-[0_20px_50px_rgba(15,23,42,0.08)] hover:shadow-[0_30px_70px_rgba(15,23,42,0.15)]
-    transition-all duration-500
-    group
-  "
+  className="group relative bg-white/60 shadow-[0_20px_50px_rgba(15,23,42,0.08)] hover:shadow-[0_30px_70px_rgba(15,23,42,0.15)] backdrop-blur-xl p-7 border border-white/40 rounded-[28px] overflow-hidden transition-all duration-500"
 >
 
 
@@ -189,28 +180,18 @@ transition
 {/* ICON */}
 
 <div
-  className="
-    relative flex items-center justify-between
-  "
+  className="relative flex justify-between items-center"
 >
 
 
 <div
-  className="
-    flex items-center justify-center
-    h-14 w-14
-    bg-white
-    rounded-2xl border border-slate-200
-    shadow-sm
-  "
+  className="flex justify-center items-center bg-white shadow-sm border border-slate-200 rounded-2xl w-14 h-14"
 >
 
 
 <Icon
   size={25}
-  className="
-    text-slate-700
-  "
+  className="text-slate-700"
   /
 >
 
@@ -221,14 +202,7 @@ transition
 
 
 <div
-  className="
-    flex items-center justify-center
-    h-8 w-8
-    bg-slate-100
-    rounded-full
-    opacity-0 transition
-    group-hover:opacity-100
-  "
+  className="flex justify-center items-center bg-slate-100 opacity-0 group-hover:opacity-100 rounded-full w-8 h-8 transition"
 >
 
 <ArrowUpRight
@@ -250,11 +224,7 @@ size={15}
 
 
 <h3
-  className="
-    relative
-    mt-7
-    text-lg text-slate-900 font-semibold tracking-tight
-  "
+  className="relative mt-7 font-semibold text-slate-900 text-lg tracking-tight"
 >
 
 {feature.title}
@@ -266,11 +236,7 @@ size={15}
 
 
 <p
-  className="
-    relative
-    mt-3
-    text-sm text-slate-600 leading-6
-  "
+  className="relative mt-3 text-slate-600 text-sm leading-6"
 >
 
 {feature.description}
@@ -287,12 +253,7 @@ size={15}
 
 
 <div
-  className="
-    relative flex items-center
-    mt-7
-    text-[10px] text-slate-400 uppercase tracking-[0.18em]
-    gap-2
-  "
+  className="relative flex items-center gap-2 mt-7 text-[10px] text-slate-400 uppercase tracking-[0.18em]"
 >
 
 <Sparkles
@@ -327,11 +288,7 @@ return (
 
 
 <section
-  className="
-    relative overflow-hidden
-    py-32
-    bg-[#F8FAFC]
-  "
+  className="relative bg-[#F8FAFC] py-32 overflow-hidden"
 >
 
 
@@ -341,34 +298,19 @@ return (
 
 
 <div
-  className="
-    absolute inset-0
-  "
+  className="absolute inset-0"
 >
 
 
 <div
-  className="
-    absolute top-[-200px] left-1/2
-    h-[600px] w-[600px]
-    bg-blue-400/20
-    rounded-full
-    blur-[140px]
-    -translate-x-1/2
-  "
+  className="top-[-200px] left-1/2 absolute bg-blue-400/20 blur-[140px] rounded-full w-[600px] h-[600px] -translate-x-1/2"
   /
 >
 
 
 
 <div
-  className="
-    absolute bottom-[-200px] right-[-100px]
-    h-[500px] w-[500px]
-    bg-emerald-300/20
-    rounded-full
-    blur-[120px]
-  "
+  className="right-[-100px] bottom-[-200px] absolute bg-emerald-300/20 blur-[120px] rounded-full w-[500px] h-[500px]"
   /
 >
 
@@ -396,11 +338,7 @@ return (
 
 
 <div
-  className="
-    relative
-    max-w-7xl
-    mx-auto px-6
-  "
+  className="relative mx-auto px-6 max-w-7xl"
 >
 
 
@@ -410,30 +348,18 @@ return (
 
 
 <div
-  className="
-    max-w-3xl
-  "
+  className="max-w-3xl"
 >
 
 
 <div
-  className="
-    inline-flex items-center
-    px-4 py-2
-    text-xs text-slate-600
-    bg-white
-    rounded-full border border-slate-200
-    shadow-sm
-    gap-2
-  "
+  className="inline-flex items-center gap-2 bg-white shadow-sm px-4 py-2 border border-slate-200 rounded-full text-slate-600 text-xs"
 >
 
 
 <Sparkles
   size={14}
-  className="
-    text-blue-500
-  "
+  className="text-blue-500"
   /
 >
 
@@ -447,24 +373,13 @@ Smart financial ecosystem
 
 
 <h2
-  className="
-    mt-8
-    text-4xl text-slate-900 md:text-6xl font-bold tracking-tight leading-[1.05]
-  "
+  className="mt-8 font-bold text-slate-900 text-4xl md:text-6xl leading-[1.05] tracking-tight"
 >
 How It Works
 </h2>
 
-
-
-
-
 <p
-  className="
-    max-w-2xl
-    mt-6
-    text-base text-slate-600 leading-7
-  "
+  className="mt-6 max-w-2xl text-slate-600 text-base leading-7"
 >
 
 
@@ -500,11 +415,7 @@ viewport={{
 once:true,
 amount:.2
 }}
-  className="
-    grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3
-    mt-16
-    gap-7
-  "
+  className="gap-7 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 mt-16"
 >
 
 

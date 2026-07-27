@@ -6,12 +6,18 @@ smartbudget-backend/node_modules
 my-project/.env
 my-project/node_modules
 my-project/.vercel
+
+
+smartbudget-backend/.env.development
+my-project/.env.development
 .env
 .vercel
 dist
 build
 # Dependencies
 node_modules/
+
+.env.development
 
 # Build
 dist/

@@ -1,63 +1,255 @@
-import api from "./api";
-// import axios from "axios";
+// import api from "./api";
+// // import axios from "axios";
+
+
+// const API_URL =
+//   import.meta.env.VITE_API_URL || "https://nexatech-smartbudget-backend.vercel.app/api";
+
 
 // export const loginUser = async (data) => {
 //   const res = await api.post("/auth/login", data);
 //   return res.data;
 // };
-const API_URL =
-  import.meta.env.VITE_API_URL || "https://nexatech-smartbudget-backend.vercel.app/api";
 
-// export const loginUser = async (data) => {
-//   const res = await axios.post(`${API_URL}/auth/login`, data);
+// //google 
+
+// export const googleLogin = () => {
+//   // const API_URL =
+//   //   import.meta.env.VITE_API_URL || "https://nexatech-smartbudget-backend.vercel.app/api";
+
+//   // Redirect to backend OAuth flow
+//   window.location.href = `${API_URL}/auth/google`;
+// };
+
+// export const signupUser = async (data) => {
+//   const res = await api.post("/auth/signup", data);
 //   return res.data;
 // };
 
-export const loginUser = async (data) => {
-  const res = await api.post("/auth/login", data);
-  return res.data;
+
+// export const getCurrentUser = async () => {
+//   const token = localStorage.getItem("token");
+
+//   if (!token) {
+//     throw new Error("No token found");
+//   }
+
+//   try {
+//     const res = await api.get("/auth/me", {
+//       headers: {
+//         Authorization: `Bearer ${token}`,
+//       },
+//     });
+
+//     return res.data.user || res.data;
+//   } catch (error) {
+//     console.log("CURRENT USER ERROR:", error?.response?.data);
+
+//     // Only clear auth if backend says unauthorized
+//     if (error?.response?.status === 401) {
+//       localStorage.removeItem("token");
+//       localStorage.removeItem("user");
+//     }
+
+//     throw error;
+//   }
+// };
+
+
+
+
+import api from "./api";
+
+
+
+/*
+=========================================
+LOGIN
+=========================================
+*/
+
+export const loginUser = async(data)=>{
+
+const res =
+await api.post(
+"/auth/login",
+data
+);
+
+return res.data;
+
 };
 
-//google 
 
-export const googleLogin = () => {
-  const API_URL =
-    import.meta.env.VITE_API_URL || "https://nexatech-smartbudget-backend.vercel.app/api";
 
-  // Redirect to backend OAuth flow
-  window.location.href = `${API_URL}/auth/google`;
+/*
+=========================================
+SIGNUP
+=========================================
+*/
+
+export const signupUser = async(data)=>{
+
+const res =
+await api.post(
+"/auth/signup",
+data
+);
+
+return res.data;
+
 };
 
-export const signupUser = async (data) => {
-  const res = await api.post("/auth/signup", data);
-  return res.data;
+
+
+/*
+=========================================
+GOOGLE LOGIN
+=========================================
+*/
+
+export const googleLogin = ()=>{
+
+
+const API_URL =
+import.meta.env.VITE_API_URL ||
+"https://nexatech-smartbudget-backend.vercel.app/api";
+
+
+window.location.href =
+`${API_URL}/auth/google`;
+
+
 };
 
 
-export const getCurrentUser = async () => {
-  const token = localStorage.getItem("token");
 
-  if (!token) {
-    throw new Error("No token found");
-  }
 
-  try {
-    const res = await api.get("/auth/me", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+/*
+=========================================
+CURRENT USER
+=========================================
+*/
 
-    return res.data.user || res.data;
-  } catch (error) {
-    console.log("CURRENT USER ERROR:", error?.response?.data);
+export const getCurrentUser = async()=>{
 
-    // Only clear auth if backend says unauthorized
-    if (error?.response?.status === 401) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-    }
 
-    throw error;
-  }
+const res =
+await api.get(
+"/auth/me"
+);
+
+
+return res.data.user || res.data;
+
+
 };
+
+
+
+
+/*
+=========================================
+LOGOUT
+=========================================
+*/
+
+export const logoutUser = async()=>{
+
+
+const res =
+await api.post(
+"/auth/logout"
+);
+return res.data;
+};
+/*
+=========================================
+EMAIL VERIFICATION
+=========================================
+*/
+export const verifyEmail = async(token)=>{
+
+
+const res =
+await api.get(
+`/auth/verify-email/${token}`
+);
+
+
+return res.data;
+
+
+};
+/*
+=========================================
+RESEND VERIFICATION EMAIL
+=========================================
+*/
+export const resendVerificationEmail =
+async(email)=>{
+
+
+const res =
+await api.post(
+"/auth/resend-verification",
+{
+email,
+}
+);
+return res.data;
+};
+/*
+=========================================
+FORGOT PASSWORD
+=========================================
+*/
+export const forgotPassword =
+async(email)=>{
+const res =
+await api.post(
+"/auth/forgot-password",
+{
+email,
+}
+);
+return res.data;
+
+};
+
+/*
+=========================================
+RESET PASSWORD
+=========================================
+*/
+export const resetPassword =
+async(token,password)=>{
+
+
+const res =
+await api.patch(
+`/auth/reset-password/${token}`,
+{
+password,
+}
+);
+return res.data;
+
+
+};
+/*
+=========================================
+REFRESH TOKEN
+=========================================
+*/
+
+export const refreshAccessToken =
+async()=>{
+const res =
+await api.post(
+"/auth/refresh-token"
+);
+return res.data;
+};
+
+

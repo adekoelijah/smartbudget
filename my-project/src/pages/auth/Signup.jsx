@@ -1,6 +1,5 @@
-
-
-
+import { signupUser } from "../../services/authService";
+import { googleLogin } from "../../services/authService";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -18,12 +17,15 @@ import {
 const Signup = () => {
   const navigate = useNavigate();
 
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-  });
+  const [form,setForm] = useState({
+ firstName:"",
+ lastName:"",
+ email:"",
+ password:"",
+ confirmPassword:"",
+});
+
+
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -31,9 +33,9 @@ const Signup = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const API_URL =
-    import.meta.env.VITE_API_URL ||
-    "https://nexatech-smartbudget-backend.vercel.app/api";
+  // const API_URL =
+  //   import.meta.env.VITE_API_URL ||
+  //   "https://nexatech-smartbudget-backend.vercel.app/api";
 
 
   const handleChange = (e) => {
@@ -49,17 +51,28 @@ const Signup = () => {
   const validate = () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-    if (!form.name || !form.email || !form.password || !form.confirmPassword) {
-      return "All required fields must be completed";
-    }
+   if (
+!form.firstName ||
+!form.lastName ||
+!form.email ||
+!form.password ||
+!form.confirmPassword
+)
+{
+ return "All required fields must be completed";
+}
 
     if (!emailRegex.test(form.email)) {
       return "Email format is invalid";
     }
 
-    if (form.password.length < 8) {
-      return "Password must be at least 8 characters";
-    }
+   const passwordRules =
+/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
+
+
+if(!passwordRules.test(form.password)){
+ return "Password must contain uppercase, lowercase, number and special character";
+}
 
     if (form.password !== form.confirmPassword) {
       return "Password confirmation does not match";
@@ -69,47 +82,70 @@ const Signup = () => {
   };
 
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async(e)=>{
 
-    const err = validate();
-
-    if (err) return setError(err);
+e.preventDefault();
 
 
-    try {
-      setLoading(true);
+const err = validate();
+
+if(err){
+ setError(err);
+ return;
+}
 
 
-      const res = await fetch(`${API_URL}/auth/signup`, {
-        method: "POST",
+try{
 
-        headers: {
-          "Content-Type": "application/json",
-        },
+setLoading(true);
 
-        body: JSON.stringify({
-          name: form.name.trim(),
-          email: form.email.trim().toLowerCase(),
-          password: form.password,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok)
-        throw new Error(data.message || "Account creation failed");
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
-      navigate("/app");
-    } catch (err) {
 
-      setError(err.message || "System error occurred");
+const res =
+await signupUser({
 
-    } finally {
+firstName:form.firstName.trim(),
 
-      setLoading(false);
+lastName:form.lastName.trim(),
 
-    }
-  };
+email:form.email.trim().toLowerCase(),
+
+password:form.password,
+
+});
+
+
+if(!res.success){
+
+throw new Error(res.message);
+
+}
+
+
+// IMPORTANT
+// No token storage here
+
+navigate("/verify-email",{
+state:{
+email:form.email
+}
+});
+
+
+}catch(err){
+
+setError(
+err?.message ||
+"Account creation failed"
+);
+
+
+}finally{
+
+setLoading(false);
+
+}
+
+};
   return (
     <div
       className="
@@ -216,8 +252,6 @@ const Signup = () => {
 
             </motion.div>
 
-
-
             <h1
               className="
                 mt-6
@@ -260,13 +294,23 @@ const Signup = () => {
           >
             {/* NAME */}
             <Input
-              icon={<User size={17}/>}
-              label="Full name"
-              name="name"
-              value={form.name}
-              onChange={handleChange}
-              placeholder="John Smith"
-            />
+ icon={<User size={17}/>}
+ label="First name"
+ name="firstName"
+ value={form.firstName}
+ onChange={handleChange}
+ placeholder="John"
+/>
+
+
+<Input
+ icon={<User size={17}/>}
+ label="Last name"
+ name="lastName"
+ value={form.lastName}
+ onChange={handleChange}
+ placeholder="Smith"
+/>
             {/* EMAIL */}
             <Input
               icon={<Mail size={17}/>}
@@ -349,6 +393,18 @@ const Signup = () => {
 
 
             </motion.button>
+            <button
+              type="button"
+onClick={googleLogin}
+              className="
+                w-full h-12
+                mt-5
+                text-white
+                bg-white/5 hover:bg-white/10
+                border border-white/10 rounded-xl
+                transition
+              "
+            > Continue with Google</button> 
           </form>
           {/* TRUST AREA */}
           <div
@@ -430,7 +486,7 @@ const Signup = () => {
     </div>
   );
 };
-// REUSABLE INPUT COMPONENT
+{/* // REUSABLE INPUT COMPONENT */}
 const Input = ({
   icon,
   label,
@@ -440,7 +496,7 @@ const Input = ({
 <div>
 <label
   className="
-    text-xs text-slate-400
+    text-slate-400 text-xs
   "
 >
 {label}
@@ -453,7 +509,7 @@ const Input = ({
 >
 <span
   className="
-    absolute left-4 top-1/2
+    top-1/2 left-4 absolute
     text-slate-400
     -translate-y-1/2
   "
@@ -463,11 +519,11 @@ const Input = ({
 <input
   {...props}
   className="
-    h-14 w-full
-    pl-12 pr-4
+    w-full h-14
+    pr-4 pl-12
     text-white placeholder:text-slate-500
     bg-white/5 focus:bg-white/10
-    rounded-2xl border border-white/10 focus:border-cyan-400/50 outline-none
+    border border-white/10 focus:border-cyan-400/50 rounded-2xl outline-none
     transition
   "
   /
@@ -486,7 +542,7 @@ toggle,
 
 <label
   className="
-    text-xs text-slate-400
+    text-slate-400 text-xs
   "
 >
 {label}
@@ -502,11 +558,11 @@ toggle,
 
 type={show ? "text":"password"}
   className="
-    h-14 w-full
+    w-full h-14
     px-4 pr-12
     text-white placeholder:text-slate-500
     bg-white/5 focus:bg-white/10
-    rounded-2xl border border-white/10 focus:border-cyan-400/50 outline-none
+    border border-white/10 focus:border-cyan-400/50 rounded-2xl outline-none
     transition
   "
   /

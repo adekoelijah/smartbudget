@@ -16,6 +16,14 @@ import StatCard from "../components/ui/StatCard";
 import Transactions from "../pages/Transactions";
 import Reports from "../pages/reports/Reports";
 import Settings from "../pages/settings/Settings";
+import VerifyEmail from "./pages/auth/VerifyEmail";
+import EmailVerificationSuccess from "./pages/auth/EmailVerificationSuccess";
+import ForgotPassword from "./pages/auth/ForgotPassword";
+import ResetPassword from "./pages/auth/ResetPassword";
+import AuthSuccess from "./pages/auth/AuthSuccess";
+
+
+
 
 //settings part
 
@@ -35,6 +43,11 @@ const AppRoutes = () => {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/verify-email" element={<VerifyEmail />}/>
+        <Route path="/email-verified" element={<EmailVerificationSuccess />}/>
+        <Route path="/forgot-password" element={<ForgotPassword />}/>
+        <Route path="/reset-password/:token" element={<ResetPassword />}/>
+        <Route path="/auth/success" element={<AuthSuccess />}/>
 
 
         //settings
