@@ -28,10 +28,6 @@ const token = authHeader.split(" ")[1];
 
     const user = await User.findById(decoded.id).select("-password");
 
-    // if (!user) {
-    //   return res.status(401).json({ message: "User not found" });
-    // }
-
     if (!user) {
   return res.status(401).json({
     success: false,
@@ -45,12 +41,6 @@ if (!user.isEmailVerified) {
     message: "Please verify your email before continuing.",
   });
 }
-
-req.user = user;
-
-next();
-  
-
     req.user = user; // ✅ STANDARDIZED
 
     next();
@@ -62,7 +52,6 @@ next();
       message: "Session expired. Please login again.",
     });
   }
-
   if (err.name === "JsonWebTokenError") {
     return res.status(401).json({
       success: false,
