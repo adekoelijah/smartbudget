@@ -479,11 +479,39 @@ return sendSuccess(
 ========================================= */
 export const getCurrentUser = async (req, res) => {
   try {
-    return sendSuccess(res, 200, "User fetched", {
-      user: req.user,
-    });
+
+    if (!req.user) {
+      return sendError(
+        res,
+        404,
+        "User not found"
+      );
+    }
+
+
+    return sendSuccess(
+      res,
+      200,
+      "User fetched",
+      {
+        user: sanitizeUser(req.user),
+      }
+    );
+
+
   } catch (error) {
-    return sendError(res, 500, "Failed to fetch user");
+
+    console.error(
+      "GET_CURRENT_USER_ERROR:",
+      error
+    );
+
+    return sendError(
+      res,
+      500,
+      "Failed to fetch user"
+    );
+
   }
 };
 

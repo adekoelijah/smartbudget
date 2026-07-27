@@ -1,8 +1,23 @@
 
 
+// import {
+//   createContext,
+//   useContext,
+//   useEffect,
+//   useRef,
+//   useState,
+//   useCallback,
+//   useMemo,
+// } from "react";
+
+// import {
+//   updateProfile,
+//   uploadAvatar,
+// } from "../services/profileService";
+// import { useUser } from "../hooks/useUser";
+
 import {
   createContext,
-  useContext,
   useEffect,
   useRef,
   useState,
@@ -11,15 +26,16 @@ import {
 } from "react";
 
 import {
-  getUser,
   updateProfile,
   uploadAvatar,
+  getUser,
 } from "../services/profileService";
 
 /* =========================================
    CONTEXT
 ========================================= */
 const UserContext = createContext(null);
+
 
 /* =========================================
    NORMALIZE USER (STRICT CONTRACT)
@@ -191,7 +207,14 @@ export const UserProvider = ({ children }) => {
     [user, authStatus, error, loadUser, saveProfile, changeAvatar]
   );
 
-  return (
+//   return (
+//     <UserContext.Provider value={value}>
+//       {children}
+//     </UserContext.Provider>
+//   );
+// };
+
+ return (
     <UserContext.Provider value={value}>
       {children}
     </UserContext.Provider>
@@ -201,12 +224,12 @@ export const UserProvider = ({ children }) => {
 /* =========================================
    HOOK
 ========================================= */
-export const useUser = () => {
-  const context = useContext(UserContext);
+// export const useUser = () => {
+//   const context = useContext(UserContext);
 
-  if (!context) {
-    throw new Error("useUser must be used within UserProvider");
-  }
+//   if (!context) {
+//     throw new Error("useUser must be used within UserProvider");
+//   }
 
-  return context;
-};
+//   return context;
+// };
