@@ -28,12 +28,13 @@ const token = authHeader.split(" ")[1];
 
     const user = await User.findById(decoded.id).select("-password");
 
-    if (!user) {
+ if (!user) {
   return res.status(401).json({
     success: false,
     message: "User not found",
   });
 }
+
 
 if (!user.isEmailVerified) {
   return res.status(403).json({
@@ -41,28 +42,41 @@ if (!user.isEmailVerified) {
     message: "Please verify your email before continuing.",
   });
 }
-    req.user = user; // ✅ STANDARDIZED
 
-    next();
- } catch (err) {
 
-  if (err.name === "TokenExpiredError") {
-    return res.status(401).json({
-      success: false,
-      message: "Session expired. Please login again.",
-    });
-  }
-  if (err.name === "JsonWebTokenError") {
-    return res.status(401).json({
-      success: false,
-      message: "Invalid authentication token.",
-    });
-  }
+req.user = user;
 
-  return res.status(401).json({
-    success: false,
-    message: "Authentication failed.",
-  });
+
+return next();
+
+
+} catch (err) {
+
+if (err.name === "TokenExpiredError") {
+
+return res.status(401).json({
+  success:false,
+  message:"Session expired. Please login again."
+});
+
+}
+
+
+if (err.name === "JsonWebTokenError") {
+
+return res.status(401).json({
+ success:false,
+ message:"Invalid authentication token."
+});
+
+}
+
+
+return res.status(401).json({
+ success:false,
+ message:"Authentication failed."
+});
+
 }
 
 }
