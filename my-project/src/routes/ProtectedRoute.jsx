@@ -7,7 +7,8 @@ import {
 } from "react-router-dom";
 
 import { useAuth } from "../hooks/useAuth";
-import AuthLoading from "../components/auth/AuthLoading";
+
+import AuthLoading from "../pages/auth/AuthLoading"
 
 
 
