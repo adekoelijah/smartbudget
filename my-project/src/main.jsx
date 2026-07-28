@@ -56,7 +56,8 @@ import {
   QueryClientProvider,
 } from "@tanstack/react-query";
 
-import { UserProvider } from "./context/UserContext";
+// import { UserProvider } from "./context/UserContext";
+
 
 import setupRefreshTokenInterceptor from "./services/refreshTokenInterceptor";
 
@@ -93,11 +94,11 @@ ReactDOM.createRoot(
 
         <QueryClientProvider client={queryClient}>
 
-          <UserProvider>
+       
 
             <App />
 
-          </UserProvider>
+        
 
         </QueryClientProvider>
 

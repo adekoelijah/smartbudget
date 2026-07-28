@@ -23,7 +23,8 @@ import {
 import { useProfileSettings } from "../../hooks/useProfileSettings";
 import { usePreferences } from "../../hooks/usePreferences";
 //import { useUser } from "../../context/UserContext";
-import { useUser } from "../../../../context/UserContext";
+// import { useUser } from "../../../../context/UserContext";
+import { useAuth } from "../../../../hooks/useAuth";
 
 /* =========================================
    TRANSLATIONS
@@ -197,9 +198,10 @@ const ProfileSettings = () => {
     prefs,
   } = usePreferences();
 
-  const {
-    user,
-  } = useUser();
+  // const {
+  //   user,
+  // } = useUser();
+  const { user, } = useAuth();
 
   const [focused, setFocused] =
     useState("");
@@ -280,7 +282,7 @@ const ProfileSettings = () => {
     return (
       <div
         className="
-          flex items-center justify-center
+          flex justify-center items-center
           py-24
         "
       >
@@ -291,7 +293,7 @@ const ProfileSettings = () => {
             px-6 py-4
             text-slate-300
             bg-slate-900
-            rounded-2xl border border-slate-800
+            border border-slate-800 rounded-2xl
             gap-3
           "
         >
@@ -336,7 +338,7 @@ const ProfileSettings = () => {
           relative overflow-hidden
           p-8
           bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950
-          rounded-[32px] border border-slate-800
+          border border-slate-800 rounded-[32px]
           shadow-[0_20px_80px_rgba(0,0,0,0.45)]
         "
       >
@@ -344,8 +346,8 @@ const ProfileSettings = () => {
         {/* BACKGROUND */}
         <div
           className="
-            absolute right-0
-            h-72 w-72
+            right-0 absolute
+            w-72 h-72
             bg-cyan-500/10
             rounded-full
             blur-3xl
@@ -356,8 +358,8 @@ const ProfileSettings = () => {
 
         <div
           className="
-            absolute bottom-0 left-0
-            h-56 w-56
+            bottom-0 left-0 absolute
+            w-56 h-56
             bg-emerald-500/10
             rounded-full
             blur-3xl
@@ -367,8 +369,8 @@ const ProfileSettings = () => {
 
         <div
           className="
-            relative z-10 flex flex-col xl:flex-row xl:items-center
-            xl:justify-between
+            z-10 relative flex flex-col xl:flex-row xl:justify-between
+            xl:items-center
             gap-8
           "
         >
@@ -395,9 +397,9 @@ const ProfileSettings = () => {
                 }}
                 className="
                   overflow-hidden
-                  h-24 w-24
+                  w-24 h-24
                   bg-gradient-to-br from-slate-800 to-slate-900
-                  rounded-3xl border border-white/10
+                  border border-white/10 rounded-3xl
                   shadow-2xl
                 "
               >
@@ -411,16 +413,16 @@ const ProfileSettings = () => {
                     alt="avatar"
                     className="
                       object-cover
-                      h-full w-full
+                      w-full h-full
                     "
                     /
                   >
                 ) : (
                   <div
                     className="
-                      flex items-center justify-center
-                      h-full w-full
-                      text-2xl text-white font-bold
+                      flex justify-center items-center
+                      w-full h-full
+                      font-bold text-white text-2xl
                     "
                   >
                     {initials}
@@ -431,15 +433,15 @@ const ProfileSettings = () => {
               {/* CAMERA */}
               <label
                 className="
-                  absolute flex items-center justify-center
-                  h-10 w-10
+                  absolute flex justify-center items-center
+                  w-10 h-10
                   text-white
                   bg-black
-                  rounded-2xl border border-white/10
+                  border border-white/10 rounded-2xl
                   shadow-lg transition
                   hover:scale-105
                   cursor-pointer
-                  -bottom-2 -right-2
+                  -right-2 -bottom-2
                 "
               >
                 <Camera size={16} />
@@ -479,7 +481,7 @@ const ProfileSettings = () => {
 
                 <h2
                   className="
-                    text-2xl text-white font-bold
+                    font-bold text-white text-2xl
                   "
                 >
                   {profile?.name ||
@@ -498,7 +500,7 @@ const ProfileSettings = () => {
 
               <p
                 className="
-                  text-sm text-slate-400
+                  text-slate-400 text-sm
                 "
               >
                 {profile?.email}
@@ -516,9 +518,9 @@ const ProfileSettings = () => {
                   className="
                     flex items-center
                     px-3 py-1.5
-                    text-xs text-cyan-400 font-semibold
+                    font-semibold text-cyan-400 text-xs
                     bg-cyan-500/10
-                    rounded-full border border-cyan-500/20
+                    border border-cyan-500/20 rounded-full
                     gap-2
                   "
                 >
@@ -540,9 +542,9 @@ const ProfileSettings = () => {
                   className="
                     flex items-center
                     px-3 py-1.5
-                    text-xs text-emerald-400 font-semibold
+                    font-semibold text-emerald-400 text-xs
                     bg-emerald-500/10
-                    rounded-full border border-emerald-500/20
+                    border border-emerald-500/20 rounded-full
                     gap-2
                   "
                 >
@@ -556,9 +558,9 @@ const ProfileSettings = () => {
                   className="
                     flex items-center
                     px-3 py-1.5
-                    text-xs text-violet-400 font-semibold
+                    font-semibold text-violet-400 text-xs
                     bg-violet-500/10
-                    rounded-full border border-violet-500/20
+                    border border-violet-500/20 rounded-full
                     gap-2
                   "
                 >
@@ -582,9 +584,9 @@ const ProfileSettings = () => {
                   className="
                     flex items-center
                     px-3 py-1.5
-                    text-xs text-emerald-400 font-semibold
+                    font-semibold text-emerald-400 text-xs
                     bg-emerald-500/10
-                    rounded-full border border-emerald-500/20
+                    border border-emerald-500/20 rounded-full
                     gap-2
                   "
                 >
@@ -599,9 +601,9 @@ const ProfileSettings = () => {
                   className="
                     flex items-center
                     px-3 py-1.5
-                    text-xs text-cyan-400 font-semibold
+                    font-semibold text-cyan-400 text-xs
                     bg-cyan-500/10
-                    rounded-full border border-cyan-500/20
+                    border border-cyan-500/20 rounded-full
                     gap-2
                   "
                 >
@@ -623,7 +625,7 @@ const ProfileSettings = () => {
             className="
               p-5
               bg-white/[0.03]
-              rounded-3xl border border-white/10
+              border border-white/10 rounded-3xl
               backdrop-blur-xl
             "
           >
@@ -637,8 +639,8 @@ const ProfileSettings = () => {
 
               <div
                 className="
-                  flex items-center justify-center
-                  h-12 w-12
+                  flex justify-center items-center
+                  w-12 h-12
                   text-emerald-400
                   bg-emerald-500/10
                   rounded-2xl
@@ -650,7 +652,7 @@ const ProfileSettings = () => {
               <div>
                 <p
                   className="
-                    text-xs text-slate-500 uppercase tracking-widest
+                    text-slate-500 text-xs uppercase tracking-widest
                   "
                 >
                   {t.secureCore}
@@ -658,7 +660,7 @@ const ProfileSettings = () => {
 
                 <h3
                   className="
-                    text-lg text-white font-semibold
+                    font-semibold text-white text-lg
                   "
                 >
                   {t.vault}
@@ -685,7 +687,7 @@ const ProfileSettings = () => {
               >
                 <p
                   className="
-                    text-xs text-slate-500
+                    text-slate-500 text-xs
                   "
                 >
                   {t.accountStatus}
@@ -700,7 +702,7 @@ const ProfileSettings = () => {
                 >
                   <span
                     className="
-                      h-2 w-2
+                      w-2 h-2
                       bg-emerald-400
                       rounded-full
                       animate-pulse
@@ -710,7 +712,7 @@ const ProfileSettings = () => {
 
                   <p
                     className="
-                      text-sm text-emerald-400 font-semibold
+                      font-semibold text-emerald-400 text-sm
                     "
                   >
                     {t.active}
@@ -728,7 +730,7 @@ const ProfileSettings = () => {
               >
                 <p
                   className="
-                    text-xs text-slate-500
+                    text-slate-500 text-xs
                   "
                 >
                   {t.securityLevel}
@@ -737,7 +739,7 @@ const ProfileSettings = () => {
                 <p
                   className="
                     mt-1
-                    text-sm text-cyan-400 font-semibold
+                    font-semibold text-cyan-400 text-sm
                   "
                 >
                   Tier IV
@@ -770,7 +772,7 @@ const ProfileSettings = () => {
         }}
         className="
           bg-[#020617]
-          rounded-[32px] border border-slate-800
+          border border-slate-800 rounded-[32px]
           shadow-[0_20px_60px_rgba(0,0,0,0.35)]
         "
       >
@@ -779,7 +781,7 @@ const ProfileSettings = () => {
         <div
           className="
             p-6
-            border-b border-slate-800
+            border-slate-800 border-b
           "
         >
 
@@ -804,7 +806,7 @@ const ProfileSettings = () => {
             <div>
               <h3
                 className="
-                  text-lg text-white font-semibold
+                  font-semibold text-white text-lg
                 "
               >
                 {t.personalInfo}
@@ -813,7 +815,7 @@ const ProfileSettings = () => {
               <p
                 className="
                   mt-1
-                  text-sm text-slate-400
+                  text-slate-400 text-sm
                 "
               >
                 {t.syncDesc}
@@ -842,7 +844,7 @@ const ProfileSettings = () => {
             <label
               className="
                 flex items-center
-                text-xs text-slate-500 font-medium uppercase tracking-wider
+                font-medium text-slate-500 text-xs uppercase tracking-wider
                 gap-2
               "
             >
@@ -882,13 +884,7 @@ const ProfileSettings = () => {
                     e.target.value
                   )
                 }
-                className="
-                  w-full bg-transparent
-                  px-5 py-4
-                  text-white
-                  outline-none
-                  placeholder:text-slate-600
-                "
+                className="bg-transparent px-5 py-4 outline-none w-full text-white placeholder:text-slate-600"
                 placeholder={
                   t.enterName
                 }
@@ -908,7 +904,7 @@ const ProfileSettings = () => {
             <label
               className="
                 flex items-center
-                text-xs text-slate-500 font-medium uppercase tracking-wider
+                font-medium text-slate-500 text-xs uppercase tracking-wider
                 gap-2
               "
             >
@@ -950,13 +946,7 @@ const ProfileSettings = () => {
                     e.target.value
                   )
                 }
-                className="
-                  w-full bg-transparent
-                  px-5 py-4
-                  text-white
-                  outline-none
-                  placeholder:text-slate-600
-                "
+                className="bg-transparent px-5 py-4 outline-none w-full text-white placeholder:text-slate-600"
                 placeholder={
                   t.enterEmail
                 }
@@ -972,7 +962,7 @@ const ProfileSettings = () => {
               flex items-start
               p-4
               bg-amber-500/5
-              rounded-2xl border border-amber-500/10
+              border border-amber-500/10 rounded-2xl
               gap-3
             "
           >
@@ -990,7 +980,7 @@ const ProfileSettings = () => {
 
               <p
                 className="
-                  text-sm text-amber-300 font-semibold
+                  font-semibold text-amber-300 text-sm
                 "
               >
                 {t.secureProfile}
@@ -999,7 +989,7 @@ const ProfileSettings = () => {
               <p
                 className="
                   mt-1
-                  text-xs text-slate-400 leading-relaxed
+                  text-slate-400 text-xs leading-relaxed
                 "
               >
                 {t.secureDesc}
@@ -1012,7 +1002,7 @@ const ProfileSettings = () => {
           {/* ACTIONS */}
           <div
             className="
-              flex flex-col md:flex-row md:items-center md:justify-between
+              flex flex-col md:flex-row md:justify-between md:items-center
               pt-2
               gap-4
             "
@@ -1083,11 +1073,11 @@ const ProfileSettings = () => {
               className="
                 relative overflow-hidden
                 px-7 py-4
-                text-sm text-black font-semibold
+                font-semibold text-black text-sm
                 bg-gradient-to-r from-emerald-400 via-cyan-400 to-teal-400
                 rounded-2xl
-                shadow-[0_10px_40px_rgba(45,212,191,0.25)] transition-all
-                duration-300 disabled:opacity-40
+                disabled:opacity-40 shadow-[0_10px_40px_rgba(45,212,191,0.25)]
+                transition-all duration-300
                 hover:scale-[1.02] active:scale-[0.98]
                 disabled:cursor-not-allowed
                 group
@@ -1096,7 +1086,7 @@ const ProfileSettings = () => {
 
               <span
                 className="
-                  relative z-10 flex items-center
+                  z-10 relative flex items-center
                   gap-2
                 "
               >
@@ -1140,13 +1130,13 @@ const ProfileSettings = () => {
         className="
           p-6
           bg-gradient-to-r from-slate-950 to-slate-900
-          rounded-[28px] border border-slate-800
+          border border-slate-800 rounded-[28px]
         "
       >
 
         <div
           className="
-            flex flex-col lg:flex-row lg:items-center lg:justify-between
+            flex flex-col lg:flex-row lg:justify-between lg:items-center
             gap-5
           "
         >
@@ -1155,7 +1145,7 @@ const ProfileSettings = () => {
 
             <h3
               className="
-                text-sm text-white font-semibold
+                font-semibold text-white text-sm
               "
             >
               {t.infrastructure}
@@ -1164,7 +1154,7 @@ const ProfileSettings = () => {
             <p
               className="
                 mt-1
-                text-sm text-slate-400
+                text-slate-400 text-sm
               "
             >
               {t.infrastructureDesc}
@@ -1191,13 +1181,13 @@ const ProfileSettings = () => {
                   px-4 py-3
                   text-center
                   bg-white/[0.03]
-                  rounded-2xl border border-white/5
+                  border border-white/5 rounded-2xl
                 "
               >
 
                 <p
                   className="
-                    text-xs text-slate-500
+                    text-slate-500 text-xs
                   "
                 >
                   Status
@@ -1206,7 +1196,7 @@ const ProfileSettings = () => {
                 <p
                   className="
                     mt-1
-                    text-sm text-emerald-400 font-semibold
+                    font-semibold text-emerald-400 text-sm
                   "
                 >
                   {item}

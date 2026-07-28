@@ -9,38 +9,86 @@ const navigate=useNavigate();
 const {hydrateUser}=useAuth();
 
 
-useEffect(()=>{
+// useEffect(()=>{
 
-const token=params.get("token");
-
-
-if(token){
-
-localStorage.setItem(
-"token",
-token
-);
+// const token=params.get("token");
 
 
-hydrateUser();
+// if(token){
+
+// localStorage.setItem(
+// "token",
+// token
+// );
+// hydrateUser();
 
 
-navigate("/app");
+// navigate("/dashboard");
 
 
-}else{
+// }else{
 
-navigate("/login");
+// navigate("/login");
 
-}
+// }
+
+// },[hydrateUser,navigate,params]);
 
 
-},[hydrateUser,navigate,params]);
+useEffect(() => {
 
+  const completeAuth = async () => {
+
+    const token = params.get("token");
+
+    if (!token) {
+      navigate("/login", { replace:true });
+      return;
+    }
+
+
+    try {
+
+      localStorage.setItem(
+        "token",
+        token
+      );
+
+
+      await hydrateUser();
+
+
+      navigate("/app", {
+        replace:true,
+      });
+
+
+    } catch(error) {
+
+      console.error(
+        "GOOGLE AUTH HYDRATION ERROR:",
+        error
+      );
+
+
+      localStorage.removeItem("token");
+
+      navigate("/login", {
+        replace:true,
+      });
+
+    }
+
+  };
+
+
+  completeAuth();
+
+
+}, [hydrateUser, navigate, params]);
 
 return <p>Authenticating...</p>;
 
 };
-
 
 export default AuthSuccess;

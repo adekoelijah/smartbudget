@@ -9,17 +9,6 @@ import crypto from "crypto";
 ========================================= */
 const userSchema = new mongoose.Schema(
   {
-    /* BASIC INFO */
-    // name: {
-    //   type: String,
-    //   required: true,
-    //   trim: true,
-    //   minlength: 2,
-    //   maxlength: 80,
-    // },
-
-    // the above is the first production ready app
-
     firstName: {
     type: String,
     required: true,

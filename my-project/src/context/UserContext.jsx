@@ -1,23 +1,6 @@
-
-
-// import {
-//   createContext,
-//   useContext,
-//   useEffect,
-//   useRef,
-//   useState,
-//   useCallback,
-//   useMemo,
-// } from "react";
-
-// import {
-//   updateProfile,
-//   uploadAvatar,
-// } from "../services/profileService";
-// import { useUser } from "../hooks/useUser";
-
 import {
   createContext,
+  useContext,
   useEffect,
   useRef,
   useState,
@@ -26,22 +9,21 @@ import {
 } from "react";
 
 import {
+  getUser,
   updateProfile,
   uploadAvatar,
-  getUser,
 } from "../services/profileService";
 
 /* =========================================
    CONTEXT
 ========================================= */
-const UserContext = createContext(null);
-
+export const UserContext = createContext(null);
 
 /* =========================================
-   NORMALIZE USER (STRICT CONTRACT)
+   NORMALIZE USER
 ========================================= */
-const normalizeUser = (res) => {
-  return res?.user || res || null;
+const normalizeUser = (response) => {
+  return response?.user || response || null;
 };
 
 /* =========================================
@@ -49,18 +31,15 @@ const normalizeUser = (res) => {
 ========================================= */
 export const UserProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-
   const [authStatus, setAuthStatus] = useState("loading");
   const [error, setError] = useState(null);
 
   const initialized = useRef(false);
 
   /* =========================================
-     GET TOKEN (SINGLE SOURCE OF TRUTH)
+     TOKEN
   ========================================= */
-  const getToken = () => {
-    return localStorage.getItem("token");
-  };
+  const getToken = () => localStorage.getItem("token");
 
   /* =========================================
      LOAD USER
@@ -69,16 +48,16 @@ export const UserProvider = ({ children }) => {
     const token = getToken();
 
     if (!token) {
-      setAuthStatus("unauthenticated");
       setUser(null);
+      setAuthStatus("unauthenticated");
       return;
     }
 
     try {
       setError(null);
 
-      const res = await getUser();
-      const normalized = normalizeUser(res);
+      const response = await getUser();
+      const normalized = normalizeUser(response);
 
       setUser(normalized);
       setAuthStatus("authenticated");
@@ -89,7 +68,9 @@ export const UserProvider = ({ children }) => {
       setAuthStatus("unauthenticated");
 
       setError(
-        err?.message || "Session expired. Please login again."
+        err?.response?.data?.message ||
+          err?.message ||
+          "Session expired. Please login again."
       );
     }
   }, []);
@@ -101,11 +82,11 @@ export const UserProvider = ({ children }) => {
     try {
       setError(null);
 
-      const res = await updateProfile(payload);
-      const updated = normalizeUser(res);
+      const response = await updateProfile(payload);
+      const updated = normalizeUser(response);
 
       if (!updated) {
-        throw new Error("Invalid server response");
+        throw new Error("Invalid server response.");
       }
 
       setUser((prev) => ({
@@ -120,9 +101,10 @@ export const UserProvider = ({ children }) => {
       const message =
         err?.response?.data?.message ||
         err?.message ||
-        "Profile update failed";
+        "Profile update failed.";
 
       setError(message);
+
       throw err;
     }
   }, []);
@@ -131,27 +113,27 @@ export const UserProvider = ({ children }) => {
      CHANGE AVATAR
   ========================================= */
   const changeAvatar = useCallback(async (file) => {
-    if (!file) return;
+    if (!file) return null;
 
     try {
       setError(null);
 
-      const previewUrl = URL.createObjectURL(file);
+      const preview = URL.createObjectURL(file);
 
       setUser((prev) => ({
         ...prev,
-        avatar: previewUrl,
+        avatar: preview,
       }));
 
-      const uploadRes = await uploadAvatar(file);
+      const uploadResponse = await uploadAvatar(file);
 
       const avatarUrl =
-        uploadRes?.url ||
-        uploadRes?.avatar ||
-        uploadRes?.data?.url;
+        uploadResponse?.url ||
+        uploadResponse?.avatar ||
+        uploadResponse?.data?.url;
 
       if (!avatarUrl) {
-        throw new Error("Avatar upload failed");
+        throw new Error("Avatar upload failed.");
       }
 
       const updated = await updateProfile({
@@ -172,7 +154,8 @@ export const UserProvider = ({ children }) => {
 
       setError(
         err?.response?.data?.message ||
-        "Avatar upload failed"
+          err?.message ||
+          "Avatar upload failed."
       );
 
       throw err;
@@ -180,7 +163,7 @@ export const UserProvider = ({ children }) => {
   }, []);
 
   /* =========================================
-     INIT
+     INITIALIZE
   ========================================= */
   useEffect(() => {
     if (initialized.current) return;
@@ -191,30 +174,29 @@ export const UserProvider = ({ children }) => {
   }, [loadUser]);
 
   /* =========================================
-     VALUE
+     CONTEXT VALUE
   ========================================= */
   const value = useMemo(
     () => ({
       user,
       authStatus,
       error,
-
       setUser,
       loadUser,
       saveProfile,
       changeAvatar,
     }),
-    [user, authStatus, error, loadUser, saveProfile, changeAvatar]
+    [
+      user,
+      authStatus,
+      error,
+      loadUser,
+      saveProfile,
+      changeAvatar,
+    ]
   );
 
-//   return (
-//     <UserContext.Provider value={value}>
-//       {children}
-//     </UserContext.Provider>
-//   );
-// };
-
- return (
+  return (
     <UserContext.Provider value={value}>
       {children}
     </UserContext.Provider>
@@ -222,14 +204,14 @@ export const UserProvider = ({ children }) => {
 };
 
 /* =========================================
-   HOOK
+   CUSTOM HOOK
 ========================================= */
-// export const useUser = () => {
-//   const context = useContext(UserContext);
+export const useUser = () => {
+  const context = useContext(UserContext);
 
-//   if (!context) {
-//     throw new Error("useUser must be used within UserProvider");
-//   }
+  if (!context) {
+    throw new Error("useUser must be used inside UserProvider.");
+  }
 
-//   return context;
-// };
+  return context;
+};
