@@ -10,7 +10,9 @@ import {
 
 
 
-import { useUser } from "../../../../context/UserContext";
+// import { useUser } from "../../../../context/UserContext";
+import { useAuth } from "../../../../hooks/useAuth";
+
 import { useProfileSettings } from "../../hooks/useProfileSettings";
 
 
@@ -29,11 +31,16 @@ import EmptyState from "./components/EmptyState";
 
 
 const ProfileSettings = () => {
+// const {
+//   user,
+//   loading,
+//   updateNotificationSettings,
+// } = useUser();
 const {
-  user,
-  loading,
-  updateNotificationSettings,
-} = useUser();
+ user,
+ loading,
+ updateUser,
+}=useAuth();
 
 
 
@@ -378,9 +385,7 @@ setShowPhotoModal(false);
 
 user={user}
 
-onUpdate={
-updateNotificationSettings
-}
+onUpdate={updateUser}
 
 />
 

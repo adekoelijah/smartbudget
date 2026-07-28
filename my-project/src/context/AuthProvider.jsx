@@ -784,7 +784,28 @@ setLoading(false);
 
 
 
+const updateNotificationSettings = useCallback(
+(settings)=>{
 
+setUser(prev=>({
+
+...prev,
+
+notificationSettings:settings
+
+}));
+
+localStorage.setItem(
+"user",
+JSON.stringify({
+...user,
+notificationSettings:settings
+})
+);
+
+},
+[user]
+);
 
 /*
 =========================================
