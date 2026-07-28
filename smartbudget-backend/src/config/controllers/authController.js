@@ -2,11 +2,13 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
 import User from "../../models/User.js";
+import Session from "../../models/Session.js";
 import generateToken from "../../utils/generateToken.js";
 import generateRefreshToken from "../../utils/generateRefreshToken.js";
 import validatePassword from "../../utils/passwordValidator.js";
 import { sendEmail } from "../../services/emailService.js";
-import { verificationEmailTemplate, } from "../../services/authEmailTemplates.js";
+// import { verificationEmailTemplate, } from "../../services/authEmailTemplates.js";
+import { verificationEmailTemplate, passwordResetTemplate,} from "../../services/authEmailTemplates.js";
 import setRefreshCookie from "../../utils/setRefreshCookie.js";
 
 
@@ -23,13 +25,45 @@ const client = new OAuth2Client(
 /* =========================================
    RESPONSE HELPERS (CONSISTENT API)
 ========================================= */
-const sendSuccess = (res, status, message, data = {}) => {
-  return res.status(status).json({
-    success: true,
-    message,
-    ...data,
+const SESSION_DURATION =
+  30 * 24 * 60 * 60 * 1000;
+
+
+const createSession = async ({
+  user,
+  refreshToken,
+  req,
+}) => {
+
+  return await Session.create({
+
+    user:user._id,
+
+    refreshToken,
+
+    userAgent:
+      req.headers["user-agent"] || "unknown",
+
+    ipAddress:
+      req.ip,
+
+    device:
+      req.headers["user-agent"] || "unknown",
+
+    expiresAt:
+      new Date(
+        Date.now() + SESSION_DURATION
+      ),
+
+    lastUsedAt:
+      new Date(),
+
   });
+
 };
+
+
+
 
 const sendError = (res, status, message) => {
   return res.status(status).json({
@@ -41,13 +75,6 @@ const sendError = (res, status, message) => {
 /* =========================================
    SANITIZE USER new lines of code
 ========================================= */
-// const sanitizeUser = (user) => ({
-//   id: user._id,
-//   name: user.name,
-//   email: user.email,
-//   avatar: user.avatar || "",
-//   role: user.role || "user",
-// });
 
 const sanitizeUser = (user) => ({
   id: user._id,
@@ -194,20 +221,12 @@ export const googleCallback = async (req, res) => {
       generateRefreshToken(user._id);
 
 
-    user.refreshToken =
-      refreshToken;
+   await createSession({
+  user,
+  refreshToken,
+  req,
+});
 
-
-    user.refreshTokenExpiry =
-      new Date(
-        Date.now() +
-        30 * 24 * 60 * 60 * 1000
-      );
-
-
-    await user.save({
-      validateBeforeSave:false,
-    });
 
 
     setRefreshCookie(
@@ -431,14 +450,10 @@ const refreshToken =
 
 // Store refresh token information
 
-user.refreshToken = refreshToken;
-
-user.refreshTokenExpiry =
-  new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-
-
-await user.save({
-  validateBeforeSave: false,
+await createSession({
+ user,
+ refreshToken,
+ req,
 });
 
 
@@ -518,23 +533,25 @@ export const getCurrentUser = async (req, res) => {
 /* =========================================
    LOGOUT
 ========================================= */
-export const logout = async (req,res)=>{
+export const logout = async(req,res)=>{
 
 try {
 
-const user =
-await User.findById(req.user.id);
+const refreshToken =
+req.cookies.refreshToken;
 
 
-if(user){
+if(refreshToken){
 
-user.refreshToken = undefined;
-
-user.refreshTokenExpiry = undefined;
-
-await user.save({
-validateBeforeSave:false,
-});
+await Session.findOneAndUpdate(
+{
+refreshToken,
+user:req.user.id,
+},
+{
+revoked:true,
+}
+);
 
 }
 
@@ -547,7 +564,7 @@ secure:
 process.env.NODE_ENV === "production",
 sameSite:
 process.env.NODE_ENV === "production"
-? "none"
+?"none"
 :"lax",
 }
 );
@@ -561,6 +578,12 @@ res,
 
 
 }catch(error){
+
+console.error(
+"LOGOUT_ERROR:",
+error
+);
+
 
 return sendError(
 res,
@@ -600,7 +623,14 @@ if (!passwordCheck.isValid) {
     }
 
     user.password = newPassword;
-    user.refreshToken = null;
+   await Session.updateMany(
+{
+user:user._id,
+},
+{
+revoked:true,
+}
+);
     await user.save();
 
     return sendSuccess(res, 200, "Password updated successfully");
@@ -938,7 +968,14 @@ export const resetPassword = async (req, res) => {
 
     user.passwordChangedAt = new Date();
 
-    user.refreshToken = undefined;
+    await Session.updateMany(
+{
+user:user._id,
+},
+{
+revoked:true,
+}
+);
 
 
     await user.save();
@@ -971,87 +1008,134 @@ export const resetPassword = async (req, res) => {
 /* =========================================
    REFRESH ACCESS TOKEN
 ========================================= */
-export const refreshAccessToken = async (req, res) => {
+export const refreshAccessToken = async(req,res)=>{
 
-  try {
-
-    // const { refreshToken } = req.body;
-    const refreshToken =
-  req.cookies.refreshToken;
+try {
 
 
-    if (!refreshToken) {
-      return sendError(
-        res,
-        401,
-        "Refresh token required."
-      );
-    }
+const refreshToken =
+req.cookies.refreshToken;
 
 
-    const decoded =
-      jwt.verify(
-        refreshToken,
-        process.env.JWT_REFRESH_SECRET
-      );
+if(!refreshToken){
+
+return sendError(
+res,
+401,
+"Refresh token required."
+);
+
+}
 
 
-    const user = await User.findById(decoded.id)
-      .select("+refreshToken +refreshTokenExpiry");
+const decoded =
+jwt.verify(
+refreshToken,
+process.env.JWT_REFRESH_SECRET
+);
 
 
-    if (!user) {
-      return sendError(
-        res,
-        401,
-        "User not found."
-      );
-    }
+
+const session =
+await Session.findOne({
+
+user:decoded.id,
+
+refreshToken,
+
+revoked:false,
+
+});
 
 
-    if (
-      user.refreshToken !== refreshToken ||
-      user.refreshTokenExpiry < Date.now()
-    ) {
 
-      return sendError(
-        res,
-        401,
-        "Invalid refresh token."
-      );
+if(!session){
 
-    }
+return sendError(
+res,
+401,
+"Invalid session."
+);
+
+}
 
 
-    const accessToken =
-      generateToken(user._id);
+
+if(
+session.expiresAt < Date.now()
+){
+
+session.revoked=true;
+
+await session.save();
 
 
-    return sendSuccess(
-      res,
-      200,
-      "Token refreshed successfully.",
-      {
-        token: accessToken,
-      }
-    );
+return sendError(
+res,
+401,
+"Session expired."
+);
+
+}
 
 
-  } catch(error) {
 
-    console.error(
-      "REFRESH_TOKEN_ERROR:",
-      error
-    );
+const user =
+await User.findById(decoded.id);
 
 
-    return sendError(
-      res,
-      401,
-      "Invalid refresh token."
-    );
 
-  }
+if(!user){
+
+return sendError(
+res,
+401,
+"User not found."
+);
+
+}
+
+
+
+session.lastUsedAt =
+new Date();
+
+
+await session.save();
+
+
+
+const accessToken =
+generateToken(user._id);
+
+
+
+return sendSuccess(
+res,
+200,
+"Token refreshed successfully.",
+{
+token:accessToken,
+}
+);
+
+
+
+}catch(error){
+
+console.error(
+"REFRESH_TOKEN_ERROR:",
+error
+);
+
+
+return sendError(
+res,
+401,
+"Invalid refresh token."
+);
+
+}
 
 };
 
