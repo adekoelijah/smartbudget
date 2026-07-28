@@ -17,21 +17,54 @@ import { usePreferences } from "../../hooks/usePreferences";
 ========================================= */
 const Field = ({ icon: Icon, label, description, children }) => {
   return (
-    <div className="flex flex-col gap-3 py-5 border-b border-slate-200 last:border-b-0">
+    <div
+      className="
+        flex flex-col
+        py-5
+        border-slate-200 border-b last:border-b-0
+        gap-3
+      "
+    >
 
       {/* HEADER */}
-      <div className="flex items-start gap-3">
+      <div
+        className="
+          flex items-start
+          gap-3
+        "
+      >
 
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700 shrink-0">
+        <div
+          className="
+            flex justify-center items-center
+            w-10 h-10
+            text-slate-700
+            bg-slate-100
+            rounded-xl
+            shrink-0
+          "
+        >
           <Icon size={18} />
         </div>
 
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-slate-900">
+        <div
+          className="
+            min-w-0
+          "
+        >
+          <p
+            className="
+              font-semibold text-slate-900 text-sm
+            "
+          >
             {label}
           </p>
 
-          <p className="text-xs text-slate-500 leading-relaxed break-words">
+          <p
+            className="
+              text-slate-500 text-xs break-words leading-relaxed
+            "
+          >
             {description}
           </p>
         </div>
@@ -39,8 +72,17 @@ const Field = ({ icon: Icon, label, description, children }) => {
       </div>
 
       {/* CONTROL (FULL WIDTH MOBILE, RIGHT ALIGNED DESKTOP) */}
-      <div className="w-full md:flex md:justify-end">
-        <div className="w-full md:w-[220px]">
+      <div
+        className="
+          md:flex md:justify-end
+          w-full
+        "
+      >
+        <div
+          className="
+            w-full md:w-[220px]
+          "
+        >
           {children}
         </div>
       </div>
@@ -121,16 +163,19 @@ const PreferenceSettings = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div
+      className="
+        space-y-6
+      "
+    >
 
       {/* HEADER */}
       <div
         className="
           relative overflow-hidden
-          rounded-3xl
-          border border-slate-200
-          bg-white
           p-6
+          bg-white
+          border border-slate-200 rounded-3xl
           shadow-sm
         "
       >
@@ -138,23 +183,29 @@ const PreferenceSettings = () => {
         {/* BACKGROUND EFFECT */}
         <div
           className="
-            absolute right-0 top-0
-            h-40 w-40
-            rounded-full
+            top-0 right-0 absolute
+            w-40 h-40
             bg-emerald-100/40
+            rounded-full
             blur-3xl
           "
-        />
+          /
+        >
 
-        <div className="relative z-10 flex gap-4">
+        <div
+          className="
+            z-10 relative flex
+            gap-4
+          "
+        >
 
           <div
             className="
-              flex h-14 w-14
-              items-center justify-center
-              rounded-2xl
-              bg-slate-900
+              flex justify-center items-center
+              w-14 h-14
               text-white
+              bg-slate-900
+              rounded-2xl
               shadow-lg
             "
           >
@@ -164,9 +215,7 @@ const PreferenceSettings = () => {
           <div>
             <h2
               className="
-                text-xl font-bold
-                tracking-tight
-                text-slate-900
+                font-bold text-slate-900 text-xl tracking-tight
               "
             >
               Preferences Center
@@ -174,9 +223,9 @@ const PreferenceSettings = () => {
 
             <p
               className="
-                mt-2 max-w-2xl
-                text-sm leading-relaxed
-                text-slate-500
+                max-w-2xl
+                mt-2
+                text-slate-500 text-sm leading-relaxed
               "
             >
               Personalize how SmartBudget
@@ -193,21 +242,22 @@ const PreferenceSettings = () => {
       {/* DISPLAY SETTINGS */}
       <div
         className="
-          rounded-3xl
-          border border-slate-200
-          bg-white
           p-6
+          bg-white
+          border border-slate-200 rounded-3xl
           shadow-sm
         "
       >
 
         {/* TITLE */}
-        <div className="mb-3">
+        <div
+          className="
+            mb-3
+          "
+        >
           <h3
             className="
-              text-xs font-semibold
-              uppercase tracking-[0.2em]
-              text-slate-400
+              font-semibold text-slate-400 text-xs uppercase tracking-[0.2em]
             "
           >
             Display Settings
@@ -232,20 +282,7 @@ const PreferenceSettings = () => {
                 e.target.value
               )
             }
-            className="
-              h-11 w-full md:w-[220px]
-              rounded-2xl
-              border border-slate-200
-              bg-slate-50
-              px-4
-              text-sm
-              font-medium
-              text-slate-800
-              outline-none
-              transition
-              focus:border-slate-400
-              focus:bg-white
-            "
+            className="bg-slate-50 focus:bg-white px-4 border border-slate-200 focus:border-slate-400 rounded-2xl outline-none w-full md:w-[220px] h-11 font-medium text-slate-800 text-sm transition"
           >
             <option value="comfortable">
               Comfortable
@@ -262,21 +299,22 @@ const PreferenceSettings = () => {
       {/* REGIONAL SETTINGS */}
       <div
         className="
-          rounded-3xl
-          border border-slate-200
-          bg-white
           p-6
+          bg-white
+          border border-slate-200 rounded-3xl
           shadow-sm
         "
       >
 
         {/* TITLE */}
-        <div className="mb-3">
+        <div
+          className="
+            mb-3
+          "
+        >
           <h3
             className="
-              text-xs font-semibold
-              uppercase tracking-[0.2em]
-              text-slate-400
+              font-semibold text-slate-400 text-xs uppercase tracking-[0.2em]
             "
           >
             Regional & Localization
@@ -302,20 +340,7 @@ const PreferenceSettings = () => {
                 e.target.value
               )
             }
-            className="
-              h-11 w-full md:w-[220px]
-              rounded-2xl
-              border border-slate-200
-              bg-slate-50
-              px-4
-              text-sm
-              font-medium
-              text-slate-800
-              outline-none
-              transition
-              focus:border-slate-400
-              focus:bg-white
-            "
+            className="bg-slate-50 focus:bg-white px-4 border border-slate-200 focus:border-slate-400 rounded-2xl outline-none w-full md:w-[220px] h-11 font-medium text-slate-800 text-sm transition"
           >
             <option value="NGN">
               ₦ NGN
@@ -354,20 +379,7 @@ const PreferenceSettings = () => {
                 e.target.value
               )
             }
-            className="
-              h-11 w-full md:w-[220px]
-              rounded-2xl
-              border border-slate-200
-              bg-slate-50
-              px-4
-              text-sm
-              font-medium
-              text-slate-800
-              outline-none
-              transition
-              focus:border-slate-400
-              focus:bg-white
-            "
+            className="bg-slate-50 focus:bg-white px-4 border border-slate-200 focus:border-slate-400 rounded-2xl outline-none w-full md:w-[220px] h-11 font-medium text-slate-800 text-sm transition"
           >
             <option value="Africa/Lagos">
               Africa/Lagos
@@ -405,20 +417,7 @@ const PreferenceSettings = () => {
                 e.target.value
               )
             }
-            className="
-              h-11 w-full md:w-[220px]
-              rounded-2xl
-              border border-slate-200
-              bg-slate-50
-              px-4
-              text-sm
-              font-medium
-              text-slate-800
-              outline-none
-              transition
-              focus:border-slate-400
-              focus:bg-white
-            "
+            className="bg-slate-50 focus:bg-white px-4 border border-slate-200 focus:border-slate-400 rounded-2xl outline-none w-full md:w-[220px] h-11 font-medium text-slate-800 text-sm transition"
           >
             <option value="en">
               English
@@ -443,12 +442,11 @@ const PreferenceSettings = () => {
           <div
             className="
               inline-flex items-center
-              gap-2 rounded-2xl
-              border border-emerald-100
-              bg-emerald-50
               px-4 py-2
-              text-xs font-semibold
-              text-emerald-700
+              font-semibold text-emerald-700 text-xs
+              bg-emerald-50
+              border border-emerald-100 rounded-2xl
+              gap-2
             "
           >
             Smart Regional Sync Active
@@ -458,23 +456,24 @@ const PreferenceSettings = () => {
       </div>
 
       {/* SAVE BUTTON */}
-      <div className="flex justify-end">
+      <div
+        className="
+          flex justify-end
+        "
+      >
 
         <button
           onClick={handleSave}
           disabled={loading}
           className="
             inline-flex items-center
-            gap-2
-            rounded-2xl
-            bg-slate-900
             px-6 py-3
-            text-sm font-semibold
-            text-white
-            transition-all
-            hover:bg-black
+            font-semibold text-white text-sm
+            bg-slate-900 hover:bg-black
+            rounded-2xl
+            disabled:opacity-60 transition-all
             disabled:cursor-not-allowed
-            disabled:opacity-60
+            gap-2
           "
         >
           <Save size={18} />
@@ -490,13 +489,10 @@ const PreferenceSettings = () => {
       {message && (
         <div
           className="
-            rounded-2xl
-            border border-emerald-100
-            bg-emerald-50
             px-4 py-3
-            text-center
-            text-sm font-medium
-            text-emerald-700
+            font-medium text-emerald-700 text-sm text-center
+            bg-emerald-50
+            border border-emerald-100 rounded-2xl
           "
         >
           {message}

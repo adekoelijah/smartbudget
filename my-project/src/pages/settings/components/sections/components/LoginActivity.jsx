@@ -13,15 +13,12 @@ import {
   useState,
 } from "react";
 
-
-import SectionCard from "../common/SectionCard";
-
-import LoadingSkeleton from "../common/LoadingSkeleton";
-
-import EmptyState from "../common/EmptyState";
-
-import ConfirmDialog from "../common/ConfirmDialog";
+import SectionCard from "./SectionCard";
+import LoadingSkeleton from "./LoadingSkeleton";
+import EmptyState from "./EmptyState";
+import ConfirmDialog from "./ConfirmDialog";
 import DeviceSessionCard from "./DeviceSessionCard";
+
 
 
 

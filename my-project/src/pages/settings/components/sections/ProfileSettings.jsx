@@ -8,53 +8,32 @@ import {
   useState,
 } from "react";
 
-import {
-  useUser,
-} from "../../context/UserContext";
 
 
-import {
-  useProfileSettings,
-} from "../../hooks/profile/useProfileSettings";
+import { useUser } from "../../../../context/UserContext";
+import { useProfileSettings } from "../../hooks/useProfileSettings";
 
 
+import ProfileCard from "./components/ProfileCard"
+import PersonalInformation from "./components/PersonalInformation";
+import ProfileCompletion from "./components/ProfileCompletion";
+import SecurityOverview from "./components/SecurityOverview";
+import ChangePhotoModal from "./components/ChangePhotoModal";
+import NotificationSettings from "./NotificationSettings";
+import SecuritySettings from "./SecuritySettings";
+import SectionCard from "./components/SectionCard";
+import LoadingSkeleton from "./components/LoadingSkeleton";
+import EmptyState from "./components/EmptyState";
 
-import ProfileCard from "../../components/profile/ProfileCard";
-
-import PersonalInformation from "../../components/profile/PersonalInformation";
-
-import ProfileCompletion from "../../components/profile/ProfileCompletion";
-
-import SecurityOverview from "../../components/profile/SecurityOverview";
-
-import ChangePhotoModal from "../../components/profile/ChangePhotoModal";
-import NotificationSettings from "../../components/profile/NotificationSettings";
-import SecuritySettings from "../../components/profile/SecuritySettings";
-
-
-
-
-import SectionCard from "../../components/common/SectionCard";
-
-import LoadingSkeleton from "../../components/common/LoadingSkeleton";
-
-import EmptyState from "../../components/common/EmptyState";
 
 
 
 const ProfileSettings = () => {
-
-
-
-
 const {
   user,
   loading,
   updateNotificationSettings,
 } = useUser();
-
-
-
 
 
 
@@ -70,20 +49,10 @@ useProfileSettings();
 
 
 
-
-
-
-
 const [
 showPhotoModal,
 setShowPhotoModal
 ]=useState(false);
-
-
-
-
-
-
 
 
 

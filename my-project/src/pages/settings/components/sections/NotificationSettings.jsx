@@ -13,8 +13,8 @@ import {
   useState,
 } from "react";
 
-import SectionCard from "../common/SectionCard";
-import SaveBar from "../common/SaveBar";
+import SectionCard from "./components/SectionCard";
+import SaveBar from "./components/SaveBar";
 
 
 

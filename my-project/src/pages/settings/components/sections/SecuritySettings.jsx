@@ -12,13 +12,11 @@ import {
   useState,
 } from "react";
 
+import SectionCard from "./components/SectionCard";
+import ConfirmDialog from "./components/ConfirmDialog";
+import VerificationBadge from "./components/VerificationBadge";
+import LoginActivity from "./components/LoginActivity";
 
-import SectionCard from "../common/SectionCard";
-
-import ConfirmDialog from "../common/ConfirmDialog";
-
-import VerificationBadge from "./VerificationBadge";
-import LoginActivity from "./LoginActivity";
 
 
 const SecuritySettings = ({

@@ -1,567 +1,870 @@
-
-
-
-import { useMemo, useState } from "react";
 import {
-  Check,
-  Sparkles,
   CreditCard,
   ShieldCheck,
   Receipt,
+  CheckCircle2,
+  Sparkles,
+  ArrowRight,
+  Download,
 } from "lucide-react";
 
-import { usePreferences } from "../../hooks/usePreferences";
+import { useState } from "react";
 
-/* =========================================
-   TRANSLATIONS
-========================================= */
-const translations = {
-  en: {
-    currentPlan: "Current Plan",
-    active: "Active",
-    plans: "Plans",
-    monthly: "monthly",
-    yearly: "yearly",
-    recommended: "Recommended",
-    free: "Free",
-    currentPlanBtn: "Current Plan",
-    processing: "Processing...",
-    upgrade: "Upgrade",
-    paymentMethod: "Payment Method",
-    addPaymentMethod: "Add Payment Method",
-    noPaymentMethod: "No payment method added yet",
-    billingHistory: "Billing History",
-    noInvoices: "No invoices yet",
-    starter: "Starter",
-    pro: "Premium",
-    business: "Business",
-    starterDesc: "Basic budgeting & expense tracking",
-    proDesc: "Advanced fintech analytics & automation",
-    businessDesc: "Enterprise-grade finance management",
-    securePayments: "Secure bank-grade billing",
-    yearlyDiscount: "Save more yearly",
-  },
 
-  yo: {
-    currentPlan: "Ètò Tó Wà Lọ́wọ́",
-    active: "Ń Ṣiṣẹ́",
-    plans: "Àwọn Ètò",
-    monthly: "oṣooṣu",
-    yearly: "lọ́dọọdún",
-    recommended: "A Ṣeduro",
-    free: "Ọfẹ",
-    currentPlanBtn: "Ètò Tó Wà",
-    processing: "Ń Ṣiṣẹ́...",
-    upgrade: "Ṣe Igbesoke",
-    paymentMethod: "Ọ̀nà Ìsanwó",
-    addPaymentMethod: "Fi Ọ̀nà Ìsanwó Kún",
-    noPaymentMethod: "Kò sí ọ̀nà ìsanwó tí a fi kún",
-    billingHistory: "Ìtàn Ìsanwó",
-    noInvoices: "Kò sí invoice kankan",
-    starter: "Básíkì",
-    pro: "Pírémíọ́mù",
-    business: "Iṣòwò",
-    starterDesc: "Ìṣàkóso inawo ipilẹ",
-    proDesc: "Ìtúpalẹ̀ fintech tó gíga",
-    businessDesc: "Ìṣàkóso owó ipele ilé-ifowopamọ",
-    securePayments: "Ìsanwó tó ni aabo bi banki",
-    yearlyDiscount: "Fipamọ diẹ sii lọ́dọọdún",
-  },
-};
-
-/* =========================================
-   COMPONENT
-========================================= */
 const BillingSettings = () => {
-  const { prefs } = usePreferences();
 
-  const language = prefs?.language || "en";
-  const currency = prefs?.currency || "NGN";
-
-  const t = translations[language];
-
-  const [billingCycle, setBillingCycle] =
-    useState("monthly");
-
-  const [currentPlan, setCurrentPlan] =
-    useState("starter");
 
   const [loading, setLoading] = useState(false);
 
-  /* =========================================
-     FINTECH PLAN CONFIG
-  ========================================= */
-  const plans = useMemo(
-    () => [
-      {
-        id: "starter",
-        name: t.starter,
-        description: t.starterDesc,
-        priceMonthly: 0,
-        priceYearly: 0,
-        highlight: false,
 
-        features: [
-          "Budget tracking",
-          "Expense monitoring",
-          "Basic reports",
-        ],
-      },
 
-      {
-        id: "pro",
-        name: t.pro,
-        description: t.proDesc,
-        priceMonthly: 1000,
-        priceYearly: 10000,
-        highlight: true,
+  /*
+  ========================================
+  MOCK DATA
+  Replace with API later
+  ========================================
+  */
 
-        features: [
-          "AI financial insights",
-          "Unlimited budgets",
-          "Advanced analytics",
-          "Priority notifications",
-        ],
-      },
 
-      {
-        id: "business",
-        name: t.business,
-        description: t.businessDesc,
-        priceMonthly: 2000,
-        priceYearly: 20000,
-        highlight: false,
+  const subscription = {
 
-        features: [
-          "Team collaboration",
-          "Bank-grade reports",
-          "Priority support",
-          "Enterprise analytics",
-        ],
-      },
+    plan: "SmartBudget Premium",
+
+    status: "Active",
+
+    price: "₦1,000",
+
+    cycle: "month",
+
+    renewalDate: "August 28, 2026",
+
+    features: [
+
+      "AI financial insights",
+
+      "Unlimited budgets",
+
+      "Advanced analytics",
+
+      "Smart recommendations",
+
+      "Priority support",
+
     ],
-    [t]
-  );
 
-  /* =========================================
-     CURRENCY FORMATTER
-  ========================================= */
-  const formatPrice = (amount) => {
-    if (amount === 0) return t.free;
-
-    return new Intl.NumberFormat(
-      language === "yo" ? "yo-NG" : "en-NG",
-      {
-        style: "currency",
-        currency,
-        maximumFractionDigits: 0,
-      }
-    ).format(amount);
   };
 
-  /* =========================================
-     PLAN SWITCH
-  ========================================= */
-  const handlePlanChange = async (planId) => {
-    if (planId === currentPlan) return;
 
-    try {
+
+  const paymentMethod = {
+
+    type: "Visa",
+
+    last4: "4242",
+
+    expiry: "08/28",
+
+  };
+
+
+
+  const invoices = [
+
+    {
+
+      id:"INV-001",
+
+      date:"July 28, 2026",
+
+      amount:"₦1,000",
+
+      status:"Paid",
+
+    },
+
+    {
+
+      id:"INV-002",
+
+      date:"June 28, 2026",
+
+      amount:"₦1,000",
+
+      status:"Paid",
+
+    },
+
+  ];
+
+
+
+
+  const handleManageSubscription = async()=>{
+
+
+    try{
+
       setLoading(true);
 
-      /**
-       * TODO:
-       * Replace with:
-       * - Paystack
-       * - Flutterwave
-       * - Stripe
-       * Checkout Flow
-       */
 
-      setTimeout(() => {
-        setCurrentPlan(planId);
-        window.location.assign("/checkout");
-      }, 800);
-    } finally {
-      setLoading(false);
+      /*
+        TODO:
+        Connect Paystack customer portal
+      */
+
+
+      console.log(
+        "Manage subscription"
+      );
+
+
     }
+
+    finally{
+
+      setLoading(false);
+
+    }
+
   };
 
-  return (
-    <div className="space-y-8 text-white">
 
-      {/* CURRENT PLAN */}
-      <div
-        className="
-          rounded-3xl
-          border border-white/10
-          bg-[#0f172a]
-          p-6
-          shadow-xl
-        "
-      >
-        <div className="flex items-center justify-between">
 
-          <div>
-            <h2 className="text-lg font-semibold">
-              {t.currentPlan}
-            </h2>
 
-            <p className="mt-1 text-sm text-slate-400">
-              {language === "yo"
-                ? "O wa lori eto"
-                : "You are currently on the"}{" "}
+return (
 
-              <span className="font-semibold text-white capitalize">
-                {currentPlan}
-              </span>
-            </p>
-          </div>
+<div
+  className="
+    space-y-8
+    text-white
+  "
+>
 
-          <div
-            className="
-              flex items-center gap-2
-              rounded-full
-              border border-emerald-500/20
-              bg-emerald-500/10
-              px-3 py-2
-              text-sm text-emerald-400
-            "
-          >
-            <Sparkles size={16} />
-            {t.active}
-          </div>
 
-        </div>
-      </div>
+{/* HEADER */}
 
-      {/* BILLING TOGGLE */}
-      <div className="flex items-center justify-between">
+<div>
 
-        <div>
-          <h2 className="text-xl font-semibold">
-            {t.plans}
-          </h2>
+<h1
+  className="
+    font-bold text-3xl tracking-tight
+  "
+>
 
-          <p className="mt-1 text-sm text-slate-400">
-            {t.securePayments}
-          </p>
-        </div>
+Billing & Subscription
 
-        <div
-          className="
-            flex items-center
-            rounded-2xl
-            border border-white/10
-            bg-[#0f172a]
-            p-1
-          "
-        >
-          {["monthly", "yearly"].map((cycle) => (
-            <button
-              key={cycle}
-              onClick={() =>
-                setBillingCycle(cycle)
-              }
-              className={`
-                px-4 py-2 rounded-xl text-sm transition-all
-                ${
-                  billingCycle === cycle
-                    ? "bg-emerald-500 text-black font-semibold"
-                    : "text-slate-400 hover:text-white"
-                }
-              `}
-            >
-              {cycle === "monthly"
-                ? t.monthly
-                : t.yearly}
-            </button>
-          ))}
-        </div>
+</h1>
 
-      </div>
 
-      {/* PLANS */}
-      <div className="grid gap-6 lg:grid-cols-3">
+<p
+  className="
+    mt-2
+    text-slate-400 text-sm
+  "
+>
 
-        {plans.map((plan) => {
-          const isCurrent =
-            currentPlan === plan.id;
+Manage your SmartBudget membership,
+payments and invoices.
 
-          const price =
-            billingCycle === "monthly"
-              ? plan.priceMonthly
-              : plan.priceYearly;
+</p>
 
-          return (
-            <div
-              key={plan.id}
-              className={`
-                relative overflow-hidden
-                rounded-3xl
-                border border-white/10
-                bg-[#0f172a]
-                p-6
-                transition-all duration-300
-                hover:-translate-y-1
-                hover:border-emerald-500/30
-                hover:shadow-2xl
-                ${
-                  plan.highlight
-                    ? "ring-2 ring-emerald-500/30"
-                    : ""
-                }
-              `}
-            >
 
-              {/* BADGE */}
-              {plan.highlight && (
-                <div
-                  className="
-                    absolute left-5 top-5
-                    rounded-full
-                    bg-emerald-500
-                    px-3 py-1
-                    text-xs font-semibold
-                    text-black
-                  "
-                >
-                  {t.recommended}
-                </div>
-              )}
+</div>
 
-              <div className="pt-8">
 
-                <h3 className="text-2xl font-bold">
-                  {plan.name}
-                </h3>
 
-                <p className="mt-2 text-sm text-slate-400">
-                  {plan.description}
-                </p>
 
-                <div className="mt-6">
-                  <h2 className="text-4xl font-bold tracking-tight">
-                    {formatPrice(price)}
-                  </h2>
 
-                  <p className="mt-1 text-sm text-slate-400">
-                    /{billingCycle === "monthly"
-                      ? t.monthly
-                      : t.yearly}
-                  </p>
-                </div>
+{/* SUBSCRIPTION CARD */}
 
-                {/* FEATURES */}
-                <ul className="mt-6 space-y-3">
-                  {plan.features.map(
-                    (feature, index) => (
-                      <li
-                        key={index}
-                        className="
-                          flex items-start gap-3
-                          text-sm text-slate-300
-                        "
-                      >
-                        <Check
-                          size={16}
-                          className="
-                            mt-0.5
-                            text-emerald-400
-                          "
-                        />
+<div
+  className="
+    relative overflow-hidden
+    p-8
+    bg-white/[0.04]
+    border border-white/10 rounded-[32px]
+    shadow-xl backdrop-blur-xl
+  "
+>
 
-                        <span>{feature}</span>
-                      </li>
-                    )
-                  )}
-                </ul>
 
-                {/* CTA */}
-                <button
-                  onClick={() =>
-                    handlePlanChange(plan.id)
-                  }
-                  disabled={loading || isCurrent}
-                  className={`
-                    mt-8
-                    w-full
-                    rounded-2xl
-                    py-3
-                    text-sm
-                    font-semibold
-                    transition-all
-                    ${
-                      isCurrent
-                        ? `
-                          cursor-not-allowed
-                          bg-white/10
-                          text-slate-500
-                        `
-                        : plan.highlight
-                        ? `
-                          bg-emerald-500
-                          text-black
-                          hover:opacity-90
-                        `
-                        : `
-                          bg-white/5
-                          text-white
-                          hover:bg-white/10
-                        `
-                    }
-                  `}
-                >
-                  {isCurrent
-                    ? t.currentPlanBtn
-                    : loading
-                    ? t.processing
-                    : t.upgrade}
-                </button>
+<div
+  className="
+    top-0 right-0 absolute
+    w-40 h-40
+    bg-blue-500/20
+    rounded-full
+    blur-3xl
+  "
+  /
+>
 
-              </div>
-            </div>
-          );
-        })}
 
-      </div>
 
-      {/* PAYMENT + HISTORY */}
-      <div className="grid gap-6 md:grid-cols-2">
+<div
+  className="
+    relative flex flex-col lg:flex-row lg:justify-between lg:items-center
+    gap-8
+  "
+>
 
-        {/* PAYMENT */}
-        <div
-          className="
-            rounded-3xl
-            border border-white/10
-            bg-[#0f172a]
-            p-6
-          "
-        >
-          <div className="mb-5 flex items-center gap-3">
 
-            <div
-              className="
-                rounded-xl
-                bg-white/5
-                p-3
-              "
-            >
-              <CreditCard
-                size={18}
-                className="text-slate-300"
-              />
-            </div>
+<div>
 
-            <div>
-              <h2 className="font-semibold">
-                {t.paymentMethod}
-              </h2>
 
-              <p className="text-sm text-slate-400">
-                {t.securePayments}
-              </p>
-            </div>
+<div
+  className="
+    flex items-center
+    gap-3
+  "
+>
 
-          </div>
 
-          <div
-            className="
-              rounded-2xl
-              border border-dashed border-white/10
-              bg-white/[0.02]
-              p-5
-            "
-          >
-            <p className="text-sm text-slate-400">
-              {t.noPaymentMethod}
-            </p>
+<div
+  className="
+    p-3
+    bg-blue-500/20
+    rounded-2xl
+  "
+>
 
-            <button
-              className="
-                mt-5
-                w-full
-                rounded-2xl
-                bg-white/5
-                py-3
-                text-sm font-medium
-                transition
-                hover:bg-white/10
-              "
-            >
-              {t.addPaymentMethod}
-            </button>
-          </div>
+<Sparkles
+  size={22}
+  className="
+    text-blue-400
+  "
+  /
+>
 
-        </div>
+</div>
 
-        {/* BILLING HISTORY */}
-        <div
-          className="
-            rounded-3xl
-            border border-white/10
-            bg-[#0f172a]
-            p-6
-          "
-        >
-          <div className="mb-5 flex items-center gap-3">
 
-            <div
-              className="
-                rounded-xl
-                bg-white/5
-                p-3
-              "
-            >
-              <Receipt
-                size={18}
-                className="text-slate-300"
-              />
-            </div>
+<div>
 
-            <div>
-              <h2 className="font-semibold">
-                {t.billingHistory}
-              </h2>
+<h2
+  className="
+    font-semibold text-xl
+  "
+>
 
-              <p className="text-sm text-slate-400">
-                Transaction invoices & receipts
-              </p>
-            </div>
+{subscription.plan}
 
-          </div>
+</h2>
 
-          <div
-            className="
-              flex min-h-[140px]
-              items-center justify-center
-              rounded-2xl
-              border border-dashed border-white/10
-              bg-white/[0.02]
-            "
-          >
-            <div className="text-center">
 
-              <ShieldCheck
-                size={26}
-                className="
-                  mx-auto mb-3
-                  text-emerald-400
-                "
-              />
+<div
+  className="
+    flex items-center
+    mt-1
+    text-emerald-400 text-sm
+    gap-2
+  "
+>
 
-              <p className="text-sm text-slate-400">
-                {t.noInvoices}
-              </p>
+<CheckCircle2 size={16}/>
 
-            </div>
-          </div>
+{subscription.status}
 
-        </div>
+</div>
 
-      </div>
 
-    </div>
-  );
+</div>
+
+
+</div>
+
+
+
+<div
+  className="
+    flex items-end
+    mt-6
+    gap-2
+  "
+>
+
+
+<span
+  className="
+    font-bold text-4xl
+  "
+>
+
+{subscription.price}
+
+</span>
+
+
+<span
+  className="
+    mb-1
+    text-slate-400
+  "
+>
+
+/ {subscription.cycle}
+
+</span>
+
+
+</div>
+
+
+
+<p
+  className="
+    mt-3
+    text-slate-400 text-sm
+  "
+>
+
+Next billing date:
+<span
+  className="
+    ml-2
+    font-medium text-white
+  "
+>
+
+{subscription.renewalDate}
+
+</span>
+
+</p>
+
+
+
+</div>
+
+
+
+
+
+<button
+  onClick={handleManageSubscription}
+
+disabled={loading}
+  className="
+    flex justify-center items-center
+    px-6 py-3
+    font-semibold text-white
+    bg-blue-500 hover:bg-blue-400
+    rounded-2xl
+    disabled:opacity-50 transition
+    gap-2
+  "
+>
+
+{loading
+?
+"Processing..."
+:
+"Manage Subscription"
+}
+
+
+<ArrowRight size={18}/>
+
+
+</button>
+
+
+
+</div>
+
+
+
+
+
+{/* FEATURES */}
+
+<div
+  className="
+    grid sm:grid-cols-2 lg:grid-cols-5
+    mt-8
+    gap-4
+  "
+>
+
+
+{
+subscription.features.map(
+(feature)=>(
+<div
+  key={feature}
+  className="
+    flex items-center
+    px-4 py-3
+    text-slate-300 text-sm
+    bg-black/20
+    border border-white/10 rounded-2xl
+    gap-2
+  "
+>
+
+<CheckCircle2
+  size={16}
+  className="
+    text-blue-400
+  "
+  /
+>
+
+
+{feature}
+
+
+</div>
+)
+
+)
+
+}
+
+
+</div>
+
+
+</div>
+
+
+
+
+
+
+
+
+
+{/* LOWER GRID */}
+
+
+<div
+  className="
+    grid lg:grid-cols-2
+    gap-8
+  "
+>
+
+
+
+
+
+
+{/* PAYMENT METHOD */}
+
+
+<div
+  className="
+    p-7
+    bg-white/[0.04]
+    border border-white/10 rounded-[32px]
+    backdrop-blur-xl
+  "
+>
+
+
+<div
+  className="
+    flex items-center
+    mb-6
+    gap-3
+  "
+>
+
+<div
+  className="
+    p-3
+    bg-blue-500/20
+    rounded-xl
+  "
+>
+
+<CreditCard
+  size={20}
+  className="
+    text-blue-400
+  "
+  /
+>
+
+</div>
+
+
+<div>
+
+<h3
+  className="
+    font-semibold
+  "
+>
+
+Payment Method
+
+</h3>
+
+
+<p
+  className="
+    text-slate-400 text-sm
+  "
+>
+
+Secure payment information
+
+</p>
+
+
+</div>
+
+
+</div>
+
+
+
+
+<div
+  className="
+    p-5
+    bg-black/20
+    border border-white/10 rounded-2xl
+  "
+>
+
+
+<p
+  className="
+    text-slate-400 text-sm
+  "
+>
+
+Card
+
+</p>
+
+
+<h4
+  className="
+    mt-2
+    font-semibold text-lg
+  "
+>
+
+{paymentMethod.type}
+
+**** {paymentMethod.last4}
+
+</h4>
+
+
+<p
+  className="
+    mt-2
+    text-slate-400 text-sm
+  "
+>
+
+Expires {paymentMethod.expiry}
+
+</p>
+
+
+
+<button
+  className="
+    w-full
+    mt-5 py-3
+    font-medium text-sm
+    hover:bg-white/5
+    border border-white/10 rounded-xl
+    transition
+  "
+>
+
+Update Card
+
+</button>
+
+
+</div>
+
+
+</div>
+
+
+
+
+
+
+
+
+
+{/* BILLING HISTORY */}
+
+
+<div
+  className="
+    p-7
+    bg-white/[0.04]
+    border border-white/10 rounded-[32px]
+    backdrop-blur-xl
+  "
+>
+
+
+<div
+  className="
+    flex items-center
+    mb-6
+    gap-3
+  "
+>
+
+
+<div
+  className="
+    p-3
+    bg-blue-500/20
+    rounded-xl
+  "
+>
+
+<Receipt
+  size={20}
+  className="
+    text-blue-400
+  "
+  /
+>
+
+
+</div>
+
+
+<div>
+
+<h3
+  className="
+    font-semibold
+  "
+>
+
+Billing History
+
+</h3>
+
+
+<p
+  className="
+    text-slate-400 text-sm
+  "
+>
+
+Your recent payments
+
+</p>
+
+
+</div>
+
+
+</div>
+
+
+
+
+
+<div
+  className="
+    space-y-4
+  "
+>
+
+
+{
+invoices.map(
+(invoice)=>(
+<div
+  key={invoice.id}
+  className="
+    flex justify-between items-center
+    p-4
+    bg-black/20
+    border border-white/10 rounded-2xl
+  "
+>
+
+
+<div>
+
+<p
+  className="
+    font-medium
+  "
+>
+
+{invoice.id}
+
+</p>
+
+
+<p
+  className="
+    text-slate-400 text-sm
+  "
+>
+
+{invoice.date}
+
+</p>
+
+
+</div>
+
+
+<div
+  className="
+    text-right
+  "
+>
+
+
+<p
+  className="
+    font-semibold
+  "
+>
+
+{invoice.amount}
+
+</p>
+
+
+<div
+  className="
+    flex justify-end items-center
+    text-emerald-400 text-sm
+    gap-2
+  "
+>
+
+<CheckCircle2 size={14}/>
+
+{invoice.status}
+
+</div>
+
+
+</div>
+
+
+<button
+  className="
+    ml-4
+    text-slate-400 hover:text-white
+  "
+>
+
+<Download size={18}/>
+
+</button>
+
+
+
+</div>
+
+)
+
+)
+
+}
+
+
+</div>
+
+
+</div>
+
+
+</div>
+
+
+
+
+
+
+
+
+
+
+{/* SECURITY */}
+
+
+<div
+  className="
+    p-7
+    bg-white/[0.04]
+    border border-white/10 rounded-[32px]
+    backdrop-blur-xl
+  "
+>
+
+
+<div
+  className="
+    flex items-center
+    gap-3
+  "
+>
+
+
+<ShieldCheck
+  size={24}
+  className="
+    text-blue-400
+  "
+  /
+>
+
+
+<div>
+
+<h3
+  className="
+    font-semibold
+  "
+>
+
+Bank-grade payment security
+
+</h3>
+
+
+<p
+  className="
+    mt-1
+    text-slate-400 text-sm
+  "
+>
+
+Your financial information is protected
+with secure encryption.
+
+</p>
+
+
+</div>
+
+
+</div>
+
+
+</div>
+
+</div>
+
+);
+
 };
+
 
 export default BillingSettings;
