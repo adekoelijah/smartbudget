@@ -1,166 +1,965 @@
-import { useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 
-const defaultSecurity = {
-  currentPassword: "",
-  newPassword: "",
-  confirmPassword: "",
-  twoFA: false,
+
+import {
+  changePasswordRequest,
+  enableTwoFactorRequest,
+  disableTwoFactorRequest,
+  getLoginSessions,
+  revokeSessionRequest,
+  logoutAllDevicesRequest,
+} from "../../services/securityService";
+
+
+
+
+
+const initialPasswordState = {
+
+  currentPassword:"",
+  newPassword:"",
+  confirmPassword:"",
+
 };
 
-/**
- * Safe localStorage loader (runs once during init)
- */
-const loadSecurity = () => {
-  try {
-    const stored = localStorage.getItem("user_security");
-    return stored ? JSON.parse(stored) : defaultSecurity;
-  } catch {
-    return defaultSecurity;
-  }
+
+
+
+
+const initialLoadingState = {
+
+  password:false,
+
+  sessions:false,
+
+  twoFactor:false,
+
+  logout:false,
+
+  revoke:null,
+
 };
 
-/**
- * SaaS-grade Security Hook
- * - no effect-based hydration needed
- * - avoids cascading renders
- */
-export const useSecuritySettings = () => {
-  const [security, setSecurity] = useState(() => loadSecurity());
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
 
-  /**
-   * Generic field update
-   */
-  const updateField = (key, value) => {
-    setSecurity((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
-  };
 
-  /**
-   * Toggle 2FA
-   */
-  const toggle2FA = () => {
-    setSecurity((prev) => ({
-      ...prev,
-      twoFA: !prev.twoFA,
-    }));
-  };
 
-  /**
-   * Validation layer
-   */
-  const validatePasswordChange = () => {
-    if (!security.currentPassword) return "Current password is required";
-    if (!security.newPassword) return "New password is required";
-    if (security.newPassword.length < 6)
-      return "Password must be at least 6 characters";
-    if (security.newPassword !== security.confirmPassword)
-      return "Passwords do not match";
 
-    return null;
-  };
 
-  /**
-   * Change password (API-ready)
-   */
-  const changePassword = async () => {
-    setMessage("");
-    setError("");
+export const useSecuritySettings = (
+  user
+)=>{
 
-    const validationError = validatePasswordChange();
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
 
-    try {
-      setLoading(true);
 
-      await new Promise((res) => setTimeout(res, 1000));
+/*
+==================================
+PASSWORD STATE
+==================================
+*/
 
-      setSecurity((prev) => ({
-        ...prev,
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: "",
-      }));
 
-      setMessage("Password updated successfully");
-    } catch {
-      setError("Failed to update password");
-    } finally {
-      setLoading(false);
-    }
-  };
+const [
+passwordForm,
+setPasswordForm
+]=useState(
+initialPasswordState
+);
 
-  /**
-   * Save 2FA state
-   */
-  const save2FA = async () => {
-    try {
-      setLoading(true);
 
-      await new Promise((res) => setTimeout(res, 600));
 
-      localStorage.setItem(
-        "user_security",
-        JSON.stringify({
-          ...security,
-          twoFA: security.twoFA,
-        })
-      );
 
-      setMessage(
-        security.twoFA
-          ? "Two-factor authentication enabled"
-          : "Two-factor authentication disabled"
-      );
-    } catch {
-      setError("Failed to update 2FA settings");
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  /**
-   * Logout all devices (SaaS auth control)
-   */
-  const logoutAllDevices = async () => {
-    try {
-      setLoading(true);
 
-      await new Promise((res) => setTimeout(res, 900));
+/*
+==================================
+SESSION STATE
+==================================
+*/
 
-      setMessage("Logged out from all devices");
-    } catch {
-      setError("Failed to logout sessions");
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  /**
-   * Reset security
-   */
-  const resetSecurity = () => {
-    setSecurity(defaultSecurity);
-    localStorage.removeItem("user_security");
-  };
+const [
+sessions,
+setSessions
+]=useState([]);
 
-  return {
-    security,
-    loading,
-    message,
-    error,
-    updateField,
-    toggle2FA,
-    changePassword,
-    save2FA,
-    logoutAllDevices,
-    resetSecurity,
-  };
+
+
+
+
+
+
+/*
+==================================
+SECURITY STATES
+==================================
+*/
+
+
+const [
+twoFactorEnabled,
+setTwoFactorEnabled
+]=useState(
+Boolean(user?.twoFactorEnabled)
+);
+
+
+
+
+
+const [
+loading,
+setLoading
+]=useState(
+initialLoadingState
+);
+
+
+
+
+
+
+const [
+message,
+setMessage
+]=useState("");
+
+
+
+const [
+error,
+setError
+]=useState("");
+
+
+
+
+
+
+
+
+
+/*
+==================================
+SYNC USER SECURITY STATE
+==================================
+*/
+
+
+useEffect(()=>{
+
+
+if(!user)
+return;
+
+
+
+setTwoFactorEnabled(
+Boolean(
+user.twoFactorEnabled
+)
+);
+
+
+},[
+user
+]);
+
+
+
+
+
+
+
+
+
+/*
+==================================
+MESSAGE CLEANUP
+==================================
+*/
+
+
+useEffect(()=>{
+
+
+if(!message)
+return;
+
+
+
+const timer =
+setTimeout(()=>{
+
+setMessage("");
+
+},5000);
+
+
+
+return ()=>clearTimeout(timer);
+
+
+
+},[
+message
+]);
+
+
+
+
+
+
+
+
+
+/*
+==================================
+HELPERS
+==================================
+*/
+
+
+const clearStatus = ()=>{
+
+setMessage("");
+
+setError("");
+
+};
+
+
+
+
+
+
+const setLoadingState = (
+key,
+value
+)=>{
+
+
+setLoading(prev=>({
+
+...prev,
+
+[key]:value,
+
+}));
+
+};
+
+
+
+
+
+
+
+
+
+
+
+/*
+==================================
+PASSWORD FIELD UPDATE
+==================================
+*/
+
+
+const updatePasswordField =
+useCallback(
+(
+key,
+value
+)=>{
+
+
+setPasswordForm(prev=>({
+
+...prev,
+
+[key]:value,
+
+}));
+
+
+setError("");
+
+},
+[]
+);
+
+
+
+
+
+
+
+
+
+
+
+/*
+==================================
+PASSWORD VALIDATION
+==================================
+*/
+
+
+const validatePassword =
+useCallback(()=>{
+
+
+if(
+!passwordForm.currentPassword
+)
+return "Current password is required";
+
+
+
+if(
+!passwordForm.newPassword
+)
+return "New password is required";
+
+
+
+if(
+passwordForm.newPassword.length < 8
+)
+return "Password must contain at least 8 characters";
+
+
+
+if(
+passwordForm.newPassword !==
+passwordForm.confirmPassword
+)
+return "Passwords do not match";
+
+
+
+return null;
+
+
+
+},[
+passwordForm
+]);
+
+
+
+
+
+
+
+
+
+/*
+==================================
+CHANGE PASSWORD
+==================================
+*/
+
+
+const changePassword =
+useCallback(
+async()=>{
+
+
+const validation =
+validatePassword();
+
+
+
+if(validation){
+
+setError(validation);
+
+return;
+
+}
+
+
+
+
+
+try{
+
+
+setLoadingState(
+"password",
+true
+);
+
+
+clearStatus();
+
+
+
+
+
+await changePasswordRequest(
+passwordForm
+);
+
+
+
+
+
+setPasswordForm(
+initialPasswordState
+);
+
+
+
+
+
+setMessage(
+"Password updated successfully"
+);
+
+
+
+}
+
+catch(error){
+
+
+console.error(
+"Password update failed:",
+error
+);
+
+
+
+setError(
+error?.response?.data?.message ||
+"Unable to update password"
+);
+
+
+
+}
+
+finally{
+
+
+setLoadingState(
+"password",
+false
+);
+
+
+}
+
+
+},
+[
+passwordForm,
+validatePassword
+]
+);
+
+
+
+
+
+
+
+
+
+
+
+/*
+==================================
+FETCH SESSIONS
+==================================
+*/
+
+
+const fetchSessions =
+useCallback(
+async()=>{
+
+
+try{
+
+
+setLoadingState(
+"sessions",
+true
+);
+
+
+clearStatus();
+
+
+
+
+
+const response =
+await getLoginSessions();
+
+
+
+
+
+setSessions(
+response?.sessions || []
+);
+
+
+
+
+}
+
+catch(error){
+
+
+console.error(
+"Session loading failed:",
+error
+);
+
+
+
+setError(
+"Unable to load login activity"
+);
+
+
+
+}
+
+finally{
+
+
+setLoadingState(
+"sessions",
+false
+);
+
+
+}
+
+
+
+},
+[]
+);
+
+
+
+
+
+
+
+
+
+
+
+/*
+==================================
+REVOKE DEVICE
+==================================
+*/
+
+
+const revokeSession =
+useCallback(
+async(
+sessionId
+)=>{
+
+
+try{
+
+
+setLoading(prev=>({
+
+...prev,
+
+revoke:sessionId,
+
+}));
+
+
+
+await revokeSessionRequest(
+sessionId
+);
+
+
+
+
+
+setSessions(prev=>
+
+prev.filter(
+session=>
+
+String(session._id)
+!==
+String(sessionId)
+
+)
+
+);
+
+
+
+
+
+setMessage(
+"Device removed successfully"
+);
+
+
+
+}
+
+catch(error){
+
+
+setError(
+"Unable to remove device"
+);
+
+
+}
+
+finally{
+
+
+setLoading(prev=>({
+
+...prev,
+
+revoke:null,
+
+}));
+
+
+}
+
+
+
+},
+[]
+);
+
+
+
+
+
+
+
+
+
+
+
+/*
+==================================
+LOGOUT ALL DEVICES
+==================================
+*/
+
+
+const logoutAllDevices =
+useCallback(
+async()=>{
+
+
+try{
+
+
+setLoadingState(
+"logout",
+true
+);
+
+
+
+await logoutAllDevicesRequest();
+
+
+
+
+setSessions([]);
+
+
+
+
+setMessage(
+"All devices logged out"
+);
+
+
+
+}
+
+catch(error){
+
+
+setError(
+"Unable to logout devices"
+);
+
+
+}
+
+finally{
+
+
+setLoadingState(
+"logout",
+false
+);
+
+
+}
+
+
+
+},
+[]
+);
+
+
+
+
+
+
+
+
+
+/*
+==================================
+ENABLE 2FA
+==================================
+*/
+
+
+const enable2FA =
+useCallback(
+async()=>{
+
+
+try{
+
+
+setLoadingState(
+"twoFactor",
+true
+);
+
+
+
+await enableTwoFactorRequest();
+
+
+
+setTwoFactorEnabled(true);
+
+
+
+setMessage(
+"Two-factor authentication enabled"
+);
+
+
+
+}
+
+catch(error){
+
+
+setError(
+"Unable to enable 2FA"
+);
+
+
+}
+
+finally{
+
+
+setLoadingState(
+"twoFactor",
+false
+);
+
+
+}
+
+
+
+},
+[]
+);
+
+
+
+
+
+
+
+
+
+
+
+/*
+==================================
+DISABLE 2FA
+==================================
+*/
+
+
+const disable2FA =
+useCallback(
+async()=>{
+
+
+try{
+
+
+setLoadingState(
+"twoFactor",
+true
+);
+
+
+
+await disableTwoFactorRequest();
+
+
+
+
+setTwoFactorEnabled(false);
+
+
+
+setMessage(
+"Two-factor authentication disabled"
+);
+
+
+
+}
+
+catch(error){
+
+
+setError(
+"Unable to disable 2FA"
+);
+
+
+}
+
+finally{
+
+
+setLoadingState(
+"twoFactor",
+false
+);
+
+
+}
+
+
+
+},
+[]
+);
+
+
+
+
+
+
+
+
+
+
+
+/*
+==================================
+INITIAL SESSION LOAD
+==================================
+*/
+
+
+useEffect(()=>{
+
+
+fetchSessions();
+
+
+},[
+fetchSessions
+]);
+
+
+
+
+
+
+
+
+
+
+
+return {
+
+
+passwordForm,
+
+
+sessions,
+
+
+twoFactorEnabled,
+
+
+
+loading,
+
+
+message,
+
+
+error,
+
+
+
+updatePasswordField,
+
+
+changePassword,
+
+
+fetchSessions,
+
+
+revokeSession,
+
+
+logoutAllDevices,
+
+
+enable2FA,
+
+
+disable2FA,
+
+
+
+};
+
 };

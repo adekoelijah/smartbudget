@@ -1,162 +1,508 @@
-
-
-
+import { memo } from "react";
 import { motion } from "framer-motion";
+
 import {
   User,
   ShieldCheck,
   Bell,
   SlidersHorizontal,
   CreditCard,
+  LockKeyhole,
 } from "lucide-react";
 
+
+
 const tabs = [
-  { id: "profile", label: "Profile", icon: User },
-  { id: "security", label: "Security", icon: ShieldCheck },
-  { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "preferences", label: "Preferences", icon: SlidersHorizontal },
-  { id: "billing", label: "Billing", icon: CreditCard },
+  {
+    id:"profile",
+    label:"Profile",
+    icon:User,
+  },
+
+  {
+    id:"security",
+    label:"Security",
+    icon:ShieldCheck,
+  },
+
+  {
+    id:"notifications",
+    label:"Notifications",
+    icon:Bell,
+  },
+
+  {
+    id:"preferences",
+    label:"Preferences",
+    icon:SlidersHorizontal,
+  },
+
+  {
+    id:"billing",
+    label:"Billing",
+    icon:CreditCard,
+  },
 ];
 
-const SettingsNav = ({ activeTab, onNavigate }) => {
-  return (
-    <aside
-      className="
-        w-full
-        lg:w-[320px]
-        xl:w-[340px]
 
-        rounded-[26px]
-        border border-slate-200/70
-        bg-white
-        shadow-[0_18px_60px_rgba(15,23,42,0.10)]
 
-        overflow-hidden
-        sticky top-6
-      "
-    >
-      {/* ================= HEADER ================= */}
-      <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-5 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-semibold tracking-[0.24em] uppercase text-slate-400">
-              SmartBudget
-            </p>
-            <h2 className="text-lg font-semibold text-white mt-2">
-              Settings
-            </h2>
-          </div>
 
-          <div className="hidden sm:flex items-center gap-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1">
-            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-[10px] font-semibold text-emerald-300">
-              Secure
-            </span>
-          </div>
-        </div>
-      </div>
 
-      {/* ================= NAV BODY ================= */}
 
-      {/* DESKTOP + TABLET: vertical sidebar */}
-      <div className="hidden sm:flex flex-col gap-2 p-3">
-        {tabs.map((tab, index) => {
-          const Icon = tab.icon;
-          const active = activeTab === tab.id;
+const SettingsNav = ({
+  activeTab,
+  onNavigate,
+}) => {
 
-          return (
-            <motion.button
-              key={tab.id}
-              onClick={() => onNavigate?.(tab.id)}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2, delay: index * 0.03 }}
-              className={`
-                relative flex items-center gap-3
-                px-4 py-3 rounded-2xl
-                border transition-all duration-300
 
-                ${
-                  active
-                    ? "bg-slate-900 text-white border-slate-900 shadow-lg"
-                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-slate-300"
-                }
-              `}
-            >
-              {/* ACTIVE INDICATOR BAR */}
-              {active && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 h-7 w-1 rounded-full bg-indigo-400" />
-              )}
+return (
 
-              <div
-                className={`
-                  h-10 w-10 flex items-center justify-center rounded-xl
-                  ${active ? "bg-white/10 text-white" : "bg-slate-100 text-slate-700"}
-                `}
-              >
-                <Icon size={18} />
-              </div>
 
-              <span className="text-sm font-semibold">{tab.label}</span>
-            </motion.button>
-          );
-        })}
-      </div>
+<aside
+  className="
+    lg:top-6 lg:sticky overflow-hidden
+    w-full lg:w-[320px]
+    bg-white
+    border border-slate-200 rounded-[28px]
+    shadow-[0_18px_50px_rgba(15,23,42,0.08)]
+  "
+>
 
-      {/* ================= MOBILE (FIXED VERTICAL LIST) ================= */}
-      <div className="sm:hidden flex flex-col p-3 gap-2">
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          const active = activeTab === tab.id;
 
-          return (
-            <button
-              key={tab.id}
-              onClick={() => onNavigate?.(tab.id)}
-              className={`
-                flex items-center gap-3
-                px-4 py-3 rounded-2xl
-                border transition-all
 
-                ${
-                  active
-                    ? "bg-slate-900 text-white border-slate-900"
-                    : "bg-white text-slate-700 border-slate-200"
-                }
-              `}
-            >
-              <div
-                className={`
-                  h-9 w-9 flex items-center justify-center rounded-xl
-                  ${active ? "bg-white/10" : "bg-slate-100"}
-                `}
-              >
-                <Icon size={18} />
-              </div>
 
-              <span className="text-sm font-medium">{tab.label}</span>
-            </button>
-          );
-        })}
-      </div>
+{/* HEADER */}
 
-      {/* ================= FOOTER ================= */}
-      <div className="border-t border-slate-100 bg-slate-50 px-5 py-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-[11px] text-slate-500">Bank Security</p>
-            <p className="text-xs font-semibold text-slate-900">
-              End-to-end encrypted
-            </p>
-          </div>
 
-          <span className="text-[10px] px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 font-semibold">
-            Active
-          </span>
-        </div>
-      </div>
-    </aside>
-  );
+<div
+  className="
+    relative overflow-hidden
+    px-5 py-5
+    bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950
+  "
+>
+
+
+<div
+  className="
+    absolute inset-0
+    bg-[radial-gradient(circle_at_top_right,_#6366f1,_transparent_40%)]
+    opacity-10
+  "
+  /
+>
+
+
+
+<div
+  className="
+    relative flex justify-between items-center
+  "
+>
+
+
+<div>
+
+<p
+  className="
+    font-semibold text-[10px] text-slate-400 uppercase tracking-[0.25em]
+  "
+>
+
+SMARTBUDGET
+
+</p>
+
+
+
+<h2
+  className="
+    mt-2
+    font-semibold text-white text-xl
+  "
+>
+
+Settings
+
+</h2>
+
+
+</div>
+
+
+
+
+<div
+  className="
+    flex items-center
+    px-3 py-1.5
+    bg-emerald-400/10
+    border border-emerald-400/20 rounded-full
+    gap-2
+  "
+>
+
+
+<span
+  className="
+    w-2 h-2
+    bg-emerald-400
+    rounded-full
+    animate-pulse
+  "
+  /
+>
+
+
+
+<span
+  className="
+    font-semibold text-emerald-300 text-xs
+  "
+>
+
+Secure
+
+</span>
+
+
+</div>
+
+
+
+</div>
+
+
+
+</div>
+
+
+
+
+
+
+
+{/* NAVIGATION */}
+
+
+
+<nav
+  className="
+    flex lg:flex-col overflow-x-auto
+    p-3
+    gap-2 scrollbar-hide
+  "
+>
+
+
+{
+tabs.map(
+(tab,index)=>{
+
+
+const Icon = tab.icon;
+
+const active =
+activeTab === tab.id;
+
+
+
+return (
+
+
+<motion.button
+
+key={tab.id}
+
+onClick={()=>
+onNavigate?.(tab.id)
+}
+
+whileTap={{
+scale:.98
+}}
+
+initial={{
+opacity:0,
+x:-5
+}}
+
+animate={{
+opacity:1,
+x:0
+}}
+
+transition={{
+delay:index * .04
+}}
+
+aria-current={
+active
+?
+"page"
+:
+undefined
+}
+
+
+className={`
+
+relative
+
+flex
+
+items-center
+
+gap-3
+
+
+min-w-fit
+
+lg:w-full
+
+
+px-4
+
+py-3
+
+
+rounded-2xl
+
+
+border
+
+transition-all
+
+
+${
+
+active
+
+?
+
+`
+bg-slate-950
+text-white
+border-slate-950
+
+shadow-[0_12px_30px_rgba(15,23,42,0.18)]
+`
+
+:
+
+`
+
+bg-white
+text-slate-700
+
+border-slate-200
+
+hover:bg-slate-50
+
+hover:border-slate-300
+
+`
+
+}
+
+`}
+
+>
+
+
+
+{
+active &&
+
+<span
+  className="
+    hidden lg:block left-0 absolute
+    w-1 h-8
+    bg-indigo-400
+    rounded-r-full
+  "
+  /
+>
+
+}
+
+
+
+
+
+<div
+
+className={`
+
+flex
+items-center
+justify-center
+
+h-10
+w-10
+
+rounded-xl
+
+
+${
+
+active
+
+?
+
+"bg-white/10"
+
+:
+
+"bg-slate-100"
+
+}
+
+`}
+
+>
+
+
+<Icon
+
+size={18}
+
+/>
+
+
+</div>
+
+
+
+
+
+
+<span
+  className="
+    font-semibold text-sm whitespace-nowrap
+  "
+>
+
+{tab.label}
+
+</span>
+
+
+
+
+
+</motion.button>
+
+
+)
+
+}
+
+)
+
+}
+
+
+</nav>
+
+
+
+
+
+
+
+{/* SECURITY FOOTER */}
+
+
+
+<div
+  className="
+    px-5 py-4
+    bg-slate-50
+    border-slate-100 border-t
+  "
+>
+
+
+<div
+  className="
+    flex items-center
+    gap-3
+  "
+>
+
+
+<div
+  className="
+    flex justify-center items-center
+    w-10 h-10
+    bg-emerald-50
+    rounded-xl
+  "
+>
+
+
+<LockKeyhole
+  size={18}
+  className="
+    text-emerald-600
+  "
+  /
+>
+
+
+</div>
+
+
+
+
+<div>
+
+<p
+  className="
+    text-slate-500 text-xs
+  "
+>
+
+Bank-grade protection
+
+</p>
+
+
+
+<p
+  className="
+    font-semibold text-slate-900 text-sm
+  "
+>
+
+Encrypted & Active
+
+</p>
+
+
+</div>
+
+
+
+</div>
+
+
+
+</div>
+
+
+
+
+</aside>
+
+
+);
+
 };
 
-export default SettingsNav;
+
+
+
+
+export default memo(SettingsNav);

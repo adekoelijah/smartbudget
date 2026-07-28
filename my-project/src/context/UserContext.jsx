@@ -19,6 +19,8 @@ import {
 ========================================= */
 export const UserContext = createContext(null);
 
+
+
 /* =========================================
    NORMALIZE USER
 ========================================= */
@@ -108,6 +110,17 @@ export const UserProvider = ({ children }) => {
       throw err;
     }
   }, []);
+  const updateNotificationSettings = async(settings)=>{
+
+const updated =
+await updateUserNotifications(settings);
+
+
+setUser(updated);
+
+return updated;
+
+};
 
   /* =========================================
      CHANGE AVATAR
@@ -124,6 +137,9 @@ export const UserProvider = ({ children }) => {
         ...prev,
         avatar: preview,
       }));
+
+     
+      
 
       const uploadResponse = await uploadAvatar(file);
 
@@ -195,13 +211,38 @@ export const UserProvider = ({ children }) => {
       changeAvatar,
     ]
   );
+  <UserContext.Provider
 
-  return (
-    <UserContext.Provider value={value}>
-      {children}
-    </UserContext.Provider>
-  );
-};
+value={{
+
+user,
+
+loading,
+
+fetchCurrentUser,
+
+saveProfile,
+
+changeAvatar,
+
+refreshUser,
+
+logout,
+
+updateNotificationSettings,
+
+}}
+
+>
+  
+</UserContext.Provider>
+
+//   return (
+//     <UserContext.Provider value={value}>
+//       {children}
+//     </UserContext.Provider>
+//   );
+// };
 
 /* =========================================
    CUSTOM HOOK
@@ -215,3 +256,4 @@ export const useUser = () => {
 
   return context;
 };
+}

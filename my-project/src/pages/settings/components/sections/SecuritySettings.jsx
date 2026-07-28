@@ -1,208 +1,564 @@
-import { useState } from "react";
 import {
-  Eye,
-  EyeOff,
   ShieldCheck,
+  Lock,
   Smartphone,
-  LockKeyhole,
+  Monitor,
+  LogOut,
+  CheckCircle2,
+  AlertTriangle,
 } from "lucide-react";
 
-import { useSecuritySettings } from "../../hooks/useSecuritySettings";
+import {
+  useState,
+} from "react";
 
-const SecuritySettings = () => {
-  const {
-    security,
-    loading,
-    message,
-    error,
-    updateField,
-    toggle2FA,
-    changePassword,
-    save2FA,
-    logoutAllDevices,
-  } = useSecuritySettings();
 
-  const [form, setForm] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
-  });
+import SectionCard from "../common/SectionCard";
 
-  const [showPassword, setShowPassword] = useState({
-    current: false,
-    new: false,
-    confirm: false,
-  });
+import ConfirmDialog from "../common/ConfirmDialog";
 
-  const togglePassword = (field) => {
-    setShowPassword((prev) => ({
-      ...prev,
-      [field]: !prev[field],
-    }));
-  };
+import VerificationBadge from "./VerificationBadge";
+import LoginActivity from "./LoginActivity";
 
-  const handleChange = (key, value) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-    updateField(key, value);
-  };
 
-  const handlePasswordChange = async (e) => {
-    e.preventDefault();
+const SecuritySettings = ({
+  user,
 
-    updateField("currentPassword", form.currentPassword);
-    updateField("newPassword", form.newPassword);
-    updateField("confirmPassword", form.confirmPassword);
+  sessions = [],
 
-    await changePassword();
-  };
+  loadingSessions = false,
 
-  const handleToggle2FA = async () => {
-    toggle2FA();
-    await save2FA();
-  };
+  onChangePassword,
 
-  return (
-    <div className="space-y-4 md:space-y-6">
+  onEnable2FA,
 
-      {/* ================= PASSWORD ================= */}
-      <div className="rounded-2xl md:rounded-3xl border bg-white p-4 md:p-6 space-y-4 md:space-y-5">
+  onDisable2FA,
 
-        {/* HEADER */}
-        <div className="flex items-start gap-3 md:gap-4">
-          <div className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-xl md:rounded-2xl bg-slate-900 text-white">
-            <LockKeyhole size={18} className="md:w-5 md:h-5" />
-          </div>
+  onLogoutSession,
+  error,
+  message,
 
-          <div>
-            <h2 className="text-base md:text-lg font-semibold text-slate-900">
-              Change Password
-            </h2>
+  onLogoutAll,
 
-            <p className="text-xs md:text-sm text-slate-500 leading-relaxed">
-              Update credentials securely
-            </p>
-          </div>
-        </div>
+}) => {
 
-        {/* FORM */}
-        <form onSubmit={handlePasswordChange} className="space-y-4">
 
-          {[
-            { label: "Current Password", key: "current" },
-            { label: "New Password", key: "new" },
-            { label: "Confirm Password", key: "confirm" },
-          ].map((field, i) => (
-            <div key={i} className="space-y-1">
 
-              <label className="text-xs md:text-sm font-medium text-slate-700">
-                {field.label}
-              </label>
+const [
+showDisable2FA,
+setShowDisable2FA
+]=useState(false);
 
-              <div className="relative">
 
-                <input
-                  type={showPassword[field.key] ? "text" : "password"}
-                  value={form[`${field.key}Password`]}
-                  onChange={(e) =>
-                    handleChange(`${field.key}Password`, e.target.value)
-                  }
-                  className="w-full rounded-xl md:rounded-2xl border bg-slate-50 px-3 md:px-4 py-2.5 md:py-3 pr-10 text-sm outline-none focus:bg-white"
-                />
 
-                <button
-                  type="button"
-                  onClick={() => togglePassword(field.key)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-                >
-                  {showPassword[field.key] ? (
-                    <EyeOff size={16} />
-                  ) : (
-                    <Eye size={16} />
-                  )}
-                </button>
+const [
+showLogoutDialog,
+setShowLogoutDialog
+]=useState(false);
 
-              </div>
-            </div>
-          ))}
 
-          {/* BUTTON */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-xl md:rounded-2xl bg-slate-900 py-3 text-sm font-semibold text-white"
-          >
-            {loading ? "Updating..." : "Update Password"}
-          </button>
-        </form>
-      </div>
+const securityScore =
+calculateSecurityScore(user);
 
-      {/* ================= 2FA ================= */}
-      <div className="rounded-2xl md:rounded-3xl border bg-white p-4 md:p-6">
 
-        <div className="flex items-start justify-between gap-3">
+return (
 
-          <div className="flex gap-3 md:gap-4">
-            <div className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-xl md:rounded-2xl bg-emerald-100 text-emerald-600">
-              <Smartphone size={18} />
-            </div>
+<SectionCard
 
-            <div>
-              <h2 className="text-base md:text-lg font-semibold text-slate-900">
-                Two-Factor Authentication
-              </h2>
+icon={
+<ShieldCheck size={22}/>
+}
 
-              <p className="text-xs md:text-sm text-slate-500">
-                Extra security layer
-              </p>
-            </div>
-          </div>
+title="Security Settings"
 
-          <button
-            onClick={handleToggle2FA}
-            className={`px-3 py-1.5 md:px-4 md:py-2 rounded-full text-xs font-semibold ${
-              security.twoFA
-                ? "bg-emerald-500 text-white"
-                : "bg-slate-100 text-slate-600"
-            }`}
-          >
-            {security.twoFA ? "ON" : "OFF"}
-          </button>
+description="
+Protect your SmartBudget account and manage your security preferences.
+"
 
-        </div>
-      </div>
+>
 
-      {/* ================= SESSIONS ================= */}
-      <div className="rounded-2xl md:rounded-3xl border bg-white p-4 md:p-6 space-y-4">
+<div
+  className="
+    space-y-6
+  "
+>
 
-        <div>
-          <h2 className="text-base md:text-lg font-semibold text-slate-900">
-            Active Sessions
-          </h2>
 
-          <p className="text-xs md:text-sm text-slate-500">
-            Manage device access
-          </p>
-        </div>
+{/* =========================
+GLOBAL STATUS MESSAGES
+========================= */}
 
-        <button
-          onClick={logoutAllDevices}
-          disabled={loading}
-          className="w-full sm:w-auto rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-600"
-        >
-          {loading ? "Processing..." : "Logout All Devices"}
-        </button>
 
-      </div>
+{
+error && (
 
-      {/* ================= FEEDBACK ================= */}
-      {(message || error) && (
-        <div className="rounded-xl border bg-slate-50 px-4 py-3 text-center text-sm text-slate-600">
-          {message || error}
-        </div>
-      )}
+<div
+  className="
+    flex items-center
+    p-3
+    text-red-600 text-sm
+    bg-red-50
+    border border-red-200 rounded-xl
+    gap-2
+  "
+>
 
-    </div>
-  );
+<AlertTriangle size={18}/>
+
+{error}
+
+</div>
+
+)
+}
+
+
+
+
+{
+message && (
+
+<div
+  className="
+    flex items-center
+    p-3
+    text-emerald-600 text-sm
+    bg-emerald-50
+    border border-emerald-200 rounded-xl
+    gap-2
+  "
+>
+
+<CheckCircle2 size={18}/>
+
+{message}
+
+</div>
+
+)
+}
+
+
+
+
+
+
+{/* Security Score */}
+
+<div
+  className="
+    p-5
+    bg-slate-50
+    border border-slate-200 rounded-2xl
+  "
+>
+
+
+<div
+  className="
+    flex justify-between items-center
+  "
+>
+
+
+<div>
+
+<p
+  className="
+    font-medium text-slate-600 text-sm
+  "
+>
+Security Score
+</p>
+
+
+<h2
+  className="
+    mt-1
+    font-bold text-slate-900 text-3xl
+  "
+>
+
+{securityScore}%
+
+</h2>
+
+
+</div>
+
+
+
+
+<ShieldCheck
+  size={38}
+  className="
+    text-blue-600
+  "
+  /
+>
+
+
+</div>
+
+
+
+<div
+  className="
+    overflow-hidden
+    h-2
+    mt-4
+    bg-slate-200
+    rounded-full
+  "
+>
+
+
+<div
+  className="
+    h-full
+    bg-blue-600
+    rounded-full
+  "
+  style={{
+width:`${securityScore}%`
+}}
+
+/
+>
+
+
+</div>
+
+
+</div>
+
+
+{/* Password */}
+
+
+<SecurityItem
+
+icon={
+<Lock size={20}/>
+}
+
+title="Password"
+
+description="
+Use a strong password to protect your account.
+"
+
+actionLabel="Change Password"
+
+onAction={onChangePassword}
+
+/>
+
+
+{/* Two Factor */}
+
+
+<SecurityItem
+
+icon={
+<Smartphone size={20}/>
+}
+
+title="Two-Factor Authentication"
+
+description={
+user?.twoFactorEnabled
+
+?
+"Your account has additional protection enabled."
+
+:
+"Add an extra security layer to your account."
+}
+
+badge={
+
+user?.twoFactorEnabled
+
+?
+
+<VerificationBadge
+
+type="security"
+
+size="sm"
+
+/>
+
+:
+
+null
+
+}
+
+
+actionLabel={
+
+user?.twoFactorEnabled
+
+?
+"Disable"
+:
+"Enable"
+
+}
+
+
+onAction={
+
+user?.twoFactorEnabled
+
+?
+
+()=>setShowDisable2FA(true)
+
+:
+
+onEnable2FA
+
+}
+
+
+/>
+
+{/* Login Activity */}
+
+
+<LoginActivity
+
+sessions={sessions}
+
+loading={loadingSessions}
+
+onLogoutSession={onLogoutSession}
+
+onLogoutAll={onLogoutAll}
+
+/>
+
+
+{/* Logout Devices */}
+
+
+
+
+
+</div>
+
+
+<ConfirmDialog
+
+isOpen={showDisable2FA}
+
+title="Disable Two-Factor Authentication?"
+
+description="
+Your account will have reduced protection after disabling this security feature.
+"
+
+confirmText="Disable 2FA"
+
+variant="warning"
+
+onConfirm={async()=>{
+
+await onDisable2FA?.();
+
+setShowDisable2FA(false);
+
+}}
+
+onCancel={()=>setShowDisable2FA(false)}
+
+/>
+
+
+<ConfirmDialog
+
+isOpen={showLogoutDialog}
+
+title="Logout Other Devices?"
+
+description="
+All active sessions except this device will be signed out.
+"
+
+confirmText="Logout Devices"
+
+variant="danger"
+
+onConfirm={async()=>{
+
+await onLogoutAll?.();
+
+setShowLogoutDialog(false);
+
+}}
+
+onCancel={()=>setShowLogoutDialog(false)}
+
+/>
+
+</SectionCard>
+
+);
+
 };
+
+
+function SecurityItem({
+
+icon,
+title,
+description,
+badge,
+actionLabel,
+onAction,
+
+}){
+
+
+return (
+
+<div
+  className="
+    flex flex-col sm:flex-row justify-between sm:items-center
+    p-4
+    border border-slate-200 rounded-2xl
+    gap-4
+  "
+>
+
+
+
+<div
+  className="
+    flex items-center
+    gap-3
+  "
+>
+
+
+<div
+  className="
+    flex justify-center items-center
+    w-10 h-10
+    text-blue-600
+    bg-blue-50
+    rounded-xl
+  "
+>
+
+{icon}
+
+</div>
+
+
+
+
+
+<div>
+
+<div
+  className="
+    flex items-center
+    gap-2
+  "
+>
+
+<h4
+  className="
+    font-semibold text-slate-900 text-sm
+  "
+>
+
+{title}
+
+</h4>
+
+
+{badge}
+
+
+</div>
+
+
+
+<p
+  className="
+    mt-1
+    text-slate-500 text-xs
+  "
+>
+
+{description}
+
+</p>
+
+
+</div>
+
+
+
+</div>
+
+
+
+
+
+
+<button
+  onClick={onAction}
+  className="
+    px-4 py-2
+    font-medium text-white text-sm
+    bg-blue-600 hover:bg-blue-700
+    rounded-xl
+    transition
+  "
+>
+
+{actionLabel}
+
+</button>
+
+
+
+
+</div>
+
+);
+
+}
+
+
+function calculateSecurityScore(user){
+
+
+let score = 40;
+
+
+if(user?.emailVerified)
+score +=20;
+
+
+if(user?.phoneVerified)
+score +=15;
+
+
+if(user?.twoFactorEnabled)
+score +=25;
+
+
+
+return Math.min(score,100);
+
+
+}
 
 export default SecuritySettings;

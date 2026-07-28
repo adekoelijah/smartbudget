@@ -1,239 +1,737 @@
-
-
-import { useState } from "react";
 import {
   Bell,
-  Mail,
   ShieldCheck,
+  WalletCards,
+  Mail,
   Smartphone,
-  Wallet,
-  CheckCircle2,
+  MessageSquare,
 } from "lucide-react";
 
-/* ================= DEFAULT SETTINGS ================= */
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import SectionCard from "../common/SectionCard";
+import SaveBar from "../common/SaveBar";
+
+
+
+
+
 const defaultSettings = {
-  email: {
-    budgetAlerts: true,
-    weeklyReports: true,
-    unusualActivity: true,
+
+  financial: {
+
+    spendingAlerts:true,
+
+    budgetWarnings:true,
+
+    billReminders:true,
+
+    goalMilestones:true,
+
+    weeklySummary:true,
+
   },
-  inApp: {
-    budgetAlerts: true,
-    transactionUpdates: true,
+
+
+  security: {
+
+    newLogin:true,
+
+    passwordChanges:true,
+
+    profileChanges:true,
+
+    suspiciousActivity:true,
+
   },
+
+
+  communication: {
+
+    productUpdates:false,
+
+    promotions:false,
+
+  },
+
+
+  channels: {
+
+    email:true,
+
+    push:true,
+
+    sms:false,
+
+  },
+
+
 };
 
-const loadSettings = () => {
-  try {
-    const stored = localStorage.getItem("notification_settings");
-    return stored ? JSON.parse(stored) : defaultSettings;
-  } catch {
-    return defaultSettings;
-  }
-};
 
-const formatLabel = (text) =>
-  text.replace(/([A-Z])/g, " $1");
 
-/* ================= TOGGLE ================= */
-const Toggle = ({ value, onClick }) => (
-  <button
-    onClick={onClick}
-    className={`
-      relative h-6 w-11 md:h-7 md:w-12 rounded-full transition-all
-      ${value ? "bg-emerald-500" : "bg-slate-200"}
-    `}
-  >
-    <span
-      className={`
-        absolute top-1 left-1 h-4 w-4 md:h-5 md:w-5 rounded-full bg-white shadow-sm
-        transition-transform duration-300
-        ${value ? "translate-x-5" : "translate-x-0"}
-      `}
-    />
-  </button>
+
+
+
+
+
+
+const NotificationSettings = ({
+  user,
+  onUpdate,
+}) => {
+
+
+
+const initialSettings =
+useMemo(
+()=>user?.notificationSettings
+||
+defaultSettings,
+
+[user]
 );
 
-/* ================= COMPONENT ================= */
-const NotificationSettings = () => {
-  const [settings, setSettings] = useState(loadSettings);
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
 
-  const toggle = (channel, key) => {
-    setSettings((prev) => ({
-      ...prev,
-      [channel]: {
-        ...prev[channel],
-        [key]: !prev[channel][key],
-      },
-    }));
-  };
 
-  const handleSave = async () => {
-    setMessage("");
-    try {
-      setLoading(true);
-      localStorage.setItem(
-        "notification_settings",
-        JSON.stringify(settings)
-      );
 
-      await new Promise((r) => setTimeout(r, 600));
 
-      setMessage("Notification preferences updated successfully");
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  return (
-    <div className="space-y-5 md:space-y-6">
+const [
+settings,
+setSettings
+]=useState(initialSettings);
 
-      {/* ================= HEADER ================= */}
-      <div className="relative overflow-hidden rounded-2xl md:rounded-3xl border bg-white p-4 md:p-6 shadow-sm">
 
-        <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
 
-          <div className="flex h-12 w-12 md:h-14 md:w-14 items-center justify-center rounded-2xl bg-slate-900 text-white">
-            <Bell size={20} className="md:w-6 md:h-6" />
-          </div>
 
-          <div>
-            <h2 className="text-lg md:text-xl font-bold text-slate-900">
-              Notification Center
-            </h2>
 
-            <p className="mt-1 text-xs md:text-sm text-slate-500 leading-relaxed">
-              Control alerts, updates, and financial notifications securely.
-            </p>
-          </div>
 
-        </div>
-      </div>
+const [
+saving,
+setSaving
+]=useState(false);
 
-      {/* ================= EMAIL ================= */}
-      <div className="rounded-2xl md:rounded-3xl border bg-white p-4 md:p-6">
 
-        <div className="flex items-center gap-3 md:gap-4">
 
-          <div className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-            <Mail size={18} />
-          </div>
+const [
+error,
+setError
+]=useState(false);
 
-          <div>
-            <h3 className="text-base md:text-lg font-semibold text-slate-900">
-              Email Notifications
-            </h3>
-            <p className="text-xs md:text-sm text-slate-500">
-              Secure alerts via email
-            </p>
-          </div>
 
-        </div>
 
-        <div className="mt-4 md:mt-6 space-y-3">
 
-          {Object.entries(settings.email).map(([key, value]) => (
-            <div
-              key={key}
-              className="flex items-center justify-between gap-3 rounded-xl border bg-slate-50 p-3 md:p-4"
-            >
 
-              <div className="flex items-start gap-2 md:gap-3 min-w-0">
 
-                <ShieldCheck size={16} className="text-emerald-500 shrink-0 mt-0.5" />
 
-                <p className="text-sm font-medium text-slate-800 truncate">
-                  {formatLabel(key)}
-                </p>
 
-              </div>
 
-              <Toggle
-                value={value}
-                onClick={() => toggle("email", key)}
-              />
+useEffect(()=>{
 
-            </div>
-          ))}
 
-        </div>
-      </div>
+setSettings(initialSettings);
 
-      {/* ================= IN-APP ================= */}
-      <div className="rounded-2xl md:rounded-3xl border bg-white p-4 md:p-6">
 
-        <div className="flex items-center gap-3 md:gap-4">
+},[
+initialSettings
+]);
 
-          <div className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-            <Smartphone size={18} />
-          </div>
 
-          <div>
-            <h3 className="text-base md:text-lg font-semibold text-slate-900">
-              In-App Notifications
-            </h3>
 
-            <p className="text-xs md:text-sm text-slate-500">
-              Live updates inside SmartBudget
-            </p>
-          </div>
 
-        </div>
 
-        <div className="mt-4 md:mt-6 space-y-3">
 
-          {Object.entries(settings.inApp).map(([key, value]) => (
-            <div
-              key={key}
-              className="flex items-center justify-between gap-3 rounded-xl border bg-slate-50 p-3 md:p-4"
-            >
 
-              <div className="flex items-start gap-2 md:gap-3 min-w-0">
 
-                <Wallet size={16} className="text-blue-500 shrink-0 mt-0.5" />
 
-                <p className="text-sm font-medium text-slate-800 truncate">
-                  {formatLabel(key)}
-                </p>
 
-              </div>
+const hasChanges =
+JSON.stringify(settings)
+!==
+JSON.stringify(initialSettings);
 
-              <Toggle
-                value={value}
-                onClick={() => toggle("inApp", key)}
-              />
 
-            </div>
-          ))}
 
-        </div>
-      </div>
 
-      {/* ================= SAVE BUTTON ================= */}
-      <div className="flex justify-stretch sm:justify-end">
 
-        <button
-          onClick={handleSave}
-          disabled={loading}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-black disabled:opacity-60"
-        >
-          <CheckCircle2 size={16} />
-          {loading ? "Saving..." : "Save Preferences"}
-        </button>
 
-      </div>
 
-      {/* ================= MESSAGE ================= */}
-      {message && (
-        <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-center text-sm text-emerald-700">
-          {message}
-        </div>
-      )}
 
-    </div>
-  );
+
+
+
+const updateSetting = (
+section,
+key
+)=>{
+
+
+setSettings(prev=>({
+
+...prev,
+
+[section]:{
+
+...prev[section],
+
+[key]:
+!prev[section][key]
+
+}
+
+}));
+
+
+setError(false);
+
+
 };
+
+
+
+
+
+
+
+
+
+
+
+const handleSave = async()=>{
+
+
+try{
+
+
+setSaving(true);
+
+setError(false);
+
+
+
+await onUpdate?.(
+settings
+);
+
+
+
+}
+
+catch(error){
+
+
+console.error(
+"Notification update failed",
+error
+);
+
+
+setError(true);
+
+
+}
+
+finally{
+
+
+setSaving(false);
+
+
+}
+
+
+};
+
+
+
+
+
+
+
+
+
+
+const handleCancel = ()=>{
+
+
+setSettings(initialSettings);
+
+
+};
+
+
+
+
+
+
+
+
+return (
+
+<SectionCard
+
+icon={
+<Bell size={22}/>
+}
+
+title="Notification Settings"
+
+description="
+Control how SmartBudget keeps you informed about your finances and account security.
+"
+
+>
+
+
+
+<div
+  className="
+    space-y-8
+  "
+>
+
+
+
+
+
+<NotificationGroup
+
+title="Financial Alerts"
+
+description="
+Stay informed about your spending and financial progress.
+"
+
+icon={
+<WalletCards size={20}/>
+}
+
+settings={settings.financial}
+
+section="financial"
+
+onChange={updateSetting}
+
+/>
+
+
+
+
+
+
+
+
+
+<NotificationGroup
+
+title="Security Notifications"
+
+description="
+Important alerts that help protect your account.
+"
+
+icon={
+<ShieldCheck size={20}/>
+}
+
+settings={settings.security}
+
+section="security"
+
+onChange={updateSetting}
+
+/>
+
+
+
+
+
+
+
+
+
+<NotificationGroup
+
+title="Communication Preferences"
+
+description="
+Manage SmartBudget updates and announcements.
+"
+
+icon={
+<MessageSquare size={20}/>
+}
+
+settings={settings.communication}
+
+section="communication"
+
+onChange={updateSetting}
+
+/>
+
+
+
+
+
+
+
+
+
+<NotificationGroup
+
+title="Notification Channels"
+
+description="
+Choose where you want to receive notifications.
+"
+
+icon={
+<Mail size={20}/>
+}
+
+settings={settings.channels}
+
+section="channels"
+
+onChange={updateSetting}
+
+/>
+
+
+
+
+
+</div>
+
+
+
+
+
+
+
+
+<SaveBar
+
+visible={
+hasChanges
+}
+
+isSaving={saving}
+
+hasError={error}
+
+onSave={handleSave}
+
+onCancel={handleCancel}
+
+/>
+
+
+
+
+
+
+
+</SectionCard>
+
+);
+
+};
+
+
+
+
+
+
+
+
+
+function NotificationGroup({
+
+title,
+description,
+icon,
+settings,
+section,
+onChange,
+
+}) {
+
+
+
+return (
+
+<div>
+
+
+
+
+
+<div
+  className="
+    flex items-center
+    mb-4
+    gap-3
+  "
+>
+
+
+<div
+  className="
+    flex justify-center items-center
+    w-10 h-10
+    text-blue-600
+    bg-blue-50
+    rounded-xl
+  "
+>
+
+{icon}
+
+</div>
+
+
+
+
+<div>
+
+<h4
+  className="
+    font-semibold text-slate-900 text-sm
+  "
+>
+
+{title}
+
+</h4>
+
+
+<p
+  className="
+    mt-1
+    text-slate-500 text-xs
+  "
+>
+
+{description}
+
+</p>
+
+
+</div>
+
+
+</div>
+
+
+
+
+
+
+
+
+<div
+  className="
+    space-y-3
+  "
+>
+
+{
+
+Object.entries(settings)
+.map(
+([
+key,
+value
+])=>(
+
+
+<NotificationToggle
+
+key={key}
+
+label={
+formatLabel(key)
+}
+
+checked={value}
+
+onChange={()=>onChange(
+section,
+key
+)}
+
+/>
+
+
+))
+
+}
+
+
+
+</div>
+
+
+
+</div>
+
+);
+
+}
+
+
+
+
+
+
+
+
+
+function NotificationToggle({
+
+label,
+checked,
+onChange,
+
+}) {
+
+
+
+return (
+
+<div
+  className="
+    flex justify-between items-center
+    p-4
+    hover:bg-slate-50
+    border border-slate-200 rounded-2xl
+    transition
+  "
+>
+
+
+
+<div>
+
+
+<p
+  className="
+    font-medium text-slate-800 text-sm
+  "
+>
+
+{label}
+
+</p>
+
+
+<p
+  className="
+    mt-1
+    text-slate-500 text-xs
+  "
+>
+
+Receive alerts when this happens
+
+</p>
+
+
+</div>
+
+
+
+
+
+
+<button
+
+onClick={onChange}
+
+className={`
+relative
+h-6
+w-11
+rounded-full
+transition
+
+${
+checked
+?
+"bg-blue-600"
+:
+"bg-slate-300"
+}
+
+`}
+
+>
+
+
+
+<span
+
+className={`
+absolute
+top-1
+h-4
+w-4
+rounded-full
+bg-white
+transition
+
+${
+checked
+?
+"translate-x-6"
+:
+"translate-x-1"
+}
+
+`}
+
+/>
+
+
+</button>
+
+
+
+</div>
+
+);
+
+}
+
+
+
+
+
+
+
+
+
+function formatLabel(value){
+
+return value
+
+.replace(
+/([A-Z])/g,
+" $1"
+)
+
+.replace(
+/^./,
+char=>char.toUpperCase()
+);
+
+}
 
 export default NotificationSettings;
