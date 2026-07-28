@@ -81,9 +81,24 @@ const createSession = async ({
 };
 
 
+const sendSuccess = (
+  res,
+  status,
+  message,
+  data = {}
+) => {
+  return res.status(status).json({
+    success: true,
+    message,
+    ...data,
+  });
+};
 
-
-const sendError = (res, status, message) => {
+const sendError = (
+  res,
+  status,
+  message
+) => {
   return res.status(status).json({
     success: false,
     message,
