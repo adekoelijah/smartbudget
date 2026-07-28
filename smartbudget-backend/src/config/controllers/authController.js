@@ -28,6 +28,14 @@ const client = new OAuth2Client(
 const SESSION_DURATION =
   30 * 24 * 60 * 60 * 1000;
 
+const hashToken = (token)=>{
+
+return crypto
+.createHash("sha256")
+.update(token)
+.digest("hex");
+
+};
 
 const createSession = async ({
   user,
@@ -35,30 +43,40 @@ const createSession = async ({
   req,
 }) => {
 
-  return await Session.create({
+  const session =
+    await Session.create({
 
-    user:user._id,
+      user:user._id,
 
-    refreshToken,
+      refreshTokenHash:
+        hashToken(refreshToken),
 
-    userAgent:
-      req.headers["user-agent"] || "unknown",
 
-    ipAddress:
-      req.ip,
+      userAgent:
+        req.headers["user-agent"] || "unknown",
 
-    device:
-      req.headers["user-agent"] || "unknown",
 
-    expiresAt:
-      new Date(
-        Date.now() + SESSION_DURATION
-      ),
+      ipAddress:
+        req.ip,
 
-    lastUsedAt:
-      new Date(),
 
-  });
+      device:
+        req.headers["user-agent"] || "unknown",
+
+
+      expiresAt:
+        new Date(
+          Date.now() +
+          30 * 24 * 60 * 60 * 1000
+        ),
+
+      lastUsedAt:
+        new Date(),
+
+    });
+
+
+  return session;
 
 };
 
@@ -446,6 +464,7 @@ await user.save({
 
 const refreshToken =
   generateRefreshToken(user._id);
+
 
 
 // Store refresh token information
@@ -1039,9 +1058,10 @@ process.env.JWT_REFRESH_SECRET
 const session =
 await Session.findOne({
 
-user:decoded.id,
+user: decoded.id,
 
-refreshToken,
+refreshTokenHash:
+hashToken(refreshToken),
 
 revoked:false,
 
