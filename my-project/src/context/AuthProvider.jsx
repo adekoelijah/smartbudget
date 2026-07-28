@@ -1,207 +1,3 @@
-
-// import { createContext, useEffect, useMemo, useState } from "react";
-// import { loginUser, signupUser, getCurrentUser } from "../services/authService";
-
-// export const AuthContext = createContext(null);
-
-// /**
-//  * 🧠 Normalize API response (handles ALL backend shapes)
-//  */
-// const normalizeAuthResponse = (res) => {
-//   const token = res?.token || res?.data?.token;
-//   const user = res?.user || res?.data?.user;
-
-//   return { token, user };
-// };
-
-// /**
-//  * 🧠 Safe JSON parser
-//  */
-// const safeParse = (data) => {
-//   try {
-//     return JSON.parse(data);
-//   } catch {
-//     return null;
-//   }
-// };
-
-// export const AuthProvider = ({ children }) => {
-//   // =========================
-//   // STATE
-//   // =========================
-//   const [token, setToken] = useState(() =>
-//     localStorage.getItem("token")
-//   );
-
-//   const [user, setUser] = useState(() =>
-//     safeParse(localStorage.getItem("user"))
-//   );
-
-//   const [loading, setLoading] = useState(false);
-//   const [initializing, setInitializing] = useState(true);
-//   const [error, setError] = useState(null);
-
-//   // =========================
-//   // SYNC (multi-tab logout)
-//   // =========================
-//   useEffect(() => {
-//     const syncAuth = (event) => {
-//       if (event.key === "token" && !event.newValue) {
-//         setToken(null);
-//         setUser(null);
-//       }
-//     };
-
-//     window.addEventListener("storage", syncAuth);
-//     return () => window.removeEventListener("storage", syncAuth);
-//   }, []);
-
-//   // =========================
-//   // HYDRATE USER (SESSION RESTORE)
-//   // =========================
-//   useEffect(() => {
-//     const hydrateUser = async () => {
-//       if (!token) {
-//         setInitializing(false);
-//         return;
-//       }
-
-//       try {
-//         const data = await getCurrentUser();
-
-//         const currentUser = data?.user || data;
-
-//         if (currentUser) {
-//           setUser(currentUser);
-//           localStorage.setItem("user", JSON.stringify(currentUser));
-//         }
-//       } catch (err) {
-//         console.warn("Session expired or invalid token");
-//         console.error("Failed to fetch current user:", err);
-
-//         localStorage.removeItem("token");
-//         localStorage.removeItem("user");
-
-//         setToken(null);
-//         setUser(null);
-//       } finally {
-//         setInitializing(false);
-//       }
-//     };
-
-//     hydrateUser();
-//   }, [token]);
-
-//   // =========================
-//   // LOGIN
-//   // =========================
-//   const login = async (formData) => {
-//     try {
-//       setLoading(true);
-//       setError(null);
-
-//       const res = await loginUser(formData);
-//       const { token: authToken, user: authUser } =
-//         normalizeAuthResponse(res);
-
-//       if (!authToken || !authUser) {
-//         throw new Error(res?.message || "Invalid server response during login");
-//       }
-
-//       localStorage.setItem("token", authToken);
-//       localStorage.setItem("user", JSON.stringify(authUser));
-
-//       setToken(authToken);
-//       setUser(authUser);
-
-//       return { success: true };
-//     } catch (err) {
-//       const message =
-//         err?.response?.data?.message ||
-//         err.message ||
-//         "Login failed";
-
-//       setError(message);
-//       return { success: false, message };
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
-
-//   // =========================
-//   // SIGNUP
-//   // =========================
-//   const signup = async (formData) => {
-//     try {
-//       setLoading(true);
-//       setError(null);
-
-//       const res = await signupUser(formData);
-//       const { token: authToken, user: authUser } =
-//         normalizeAuthResponse(res);
-
-//       if (!authToken || !authUser) {
-//         throw new Error(res?.message || "Invalid server response during signup");
-//       }
-
-//       localStorage.setItem("token", authToken);
-//       localStorage.setItem("user", JSON.stringify(authUser));
-
-//       setToken(authToken);
-//       setUser(authUser);
-
-//       return { success: true };
-//     } catch (err) {
-//       const message =
-//         err?.response?.data?.message ||
-//         err.message ||
-//         "Signup failed";
-
-//       setError(message);
-//       return { success: false, message };
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
-
-//   // =========================
-//   // LOGOUT
-//   // =========================
-//   const logout = () => {
-//     localStorage.removeItem("token");
-//     localStorage.removeItem("user");
-
-//     setToken(null);
-//     setUser(null);
-//   };
-
-//   // =========================
-//   // CONTEXT VALUE
-//   // =========================
-//   const value = useMemo(
-//     () => ({
-//       user,
-//       token,
-//       loading,
-//       initializing,
-//       error,
-//       isAuthenticated: !!token && !!user,
-//       login,
-//       signup,
-//       logout,
-//     }),
-//     [user, token, loading, initializing, error]
-//   );
-
-//   return (
-//     <AuthContext.Provider value={value}>
-//       {children}
-//     </AuthContext.Provider>
-//   );
-// };
-
-
-
 import {
   createContext,
   useCallback,
@@ -213,10 +9,10 @@ import {
 import {
   loginUser,
   signupUser,
-  getCurrentUser,
 } from "../services/authService";
 
- export const AuthContext = createContext(null);
+
+export const AuthContext = createContext(null);
 
 
 
@@ -227,13 +23,13 @@ HELPERS
 */
 
 
-const safeParse = (value)=>{
+const getStoredToken = () => {
 
-  try{
+  try {
 
-    return JSON.parse(value);
+    return localStorage.getItem("token");
 
-  }catch{
+  } catch {
 
     return null;
 
@@ -243,19 +39,46 @@ const safeParse = (value)=>{
 
 
 
-const normalizeAuthResponse = (response)=>{
+
+
+const saveToken = (token)=>{
+
+  localStorage.setItem(
+    "token",
+    token
+  );
+
+};
+
+
+
+
+
+const removeToken = ()=>{
+
+  localStorage.removeItem(
+    "token"
+  );
+
+};
+
+
+
+
+
+const normalizeResponse = (response)=>{
 
   return {
 
     token:
-      response?.token ||
-      response?.data?.token ||
+      response?.token ??
+      response?.data?.token ??
       null,
 
 
     user:
-      response?.user ||
-      response?.data?.user ||
+      response?.user ??
+      response?.data?.user ??
       null,
 
   };
@@ -266,85 +89,46 @@ const normalizeAuthResponse = (response)=>{
 
 
 
+
+/*
+=========================================
+AUTH PROVIDER
+=========================================
+*/
+
+
 export const AuthProvider = ({
  children
 })=>{
 
 
-/*
-=========================================
-STATE
-=========================================
-*/
-
-
-const [token,setToken] = useState(
- ()=>localStorage.getItem("token")
+const [
+token,
+setToken
+]=useState(
+getStoredToken
 );
 
 
-const [user,setUser] = useState(
- ()=>safeParse(
-    localStorage.getItem("user")
- )
-);
 
-
-const [loading,setLoading]=useState(false);
-
-
-const [initializing,setInitializing]=useState(true);
-
-
-const [error,setError]=useState(null);
+const [
+loading,
+setLoading
+]=useState(false);
 
 
 
-
-
-/*
-=========================================
-SAVE AUTH DATA
-=========================================
-*/
-
-
-const saveAuth = useCallback(
-({
- token,
- user
-})=>{
-
-
-if(token){
-
-localStorage.setItem(
-"token",
-token
-);
-
-setToken(token);
-
-}
+const [
+initializing,
+setInitializing
+]=useState(true);
 
 
 
-if(user){
-
-localStorage.setItem(
-"user",
-JSON.stringify(user)
-);
-
-setUser(user);
-
-}
-
-
-
-},
-[]
-);
+const [
+error,
+setError
+]=useState(null);
 
 
 
@@ -353,141 +137,7 @@ setUser(user);
 
 /*
 =========================================
-CLEAR AUTH
-=========================================
-*/
-
-
-const clearAuth = useCallback(()=>{
-
-
-localStorage.removeItem(
-"token"
-);
-
-
-localStorage.removeItem(
-"user"
-);
-
-
-setToken(null);
-
-setUser(null);
-
-
-},
-[]);
-
-
-
-
-
-
-
-/*
-=========================================
-LOAD CURRENT USER
-Used after Google Login
-=========================================
-*/
-
-
-const hydrateUser = useCallback(
-async()=>{
-
-
-const storedToken =
-localStorage.getItem("token");
-
-
-
-if(!storedToken){
-
-setInitializing(false);
-
-return null;
-
-}
-
-
-
-try{
-
-
-// const response =
-// await getCurrentUser();
-console.log("Starting hydrateUser...");
-
-const response = await getCurrentUser();
-
-console.log("Current user response:", response);
-
-
-
-const currentUser =
-response?.user ||
-response;
-
-
-
-if(currentUser){
-
-
-setUser(currentUser);
-
-
-localStorage.setItem(
-"user",
-JSON.stringify(currentUser)
-);
-
-
-}
-
-
-
-return currentUser;
-
-
-}catch(error){
-
-console.error(
-"HYDRATE_USER_ERROR:",
-error
-);
-
-
-clearAuth();
-
-
-throw error;
-
-
-}
-finally{
-
-
-setInitializing(false);
-
-
-}
-
-
-
-},
-[clearAuth]
-
-);
-
-
-
-
-
-
-/*
-=========================================
-INITIAL SESSION RESTORE
+RESTORE SESSION
 =========================================
 */
 
@@ -495,85 +145,24 @@ INITIAL SESSION RESTORE
 useEffect(()=>{
 
 
-hydrateUser();
+const existingToken =
+getStoredToken();
 
 
-},[hydrateUser]);
+if(existingToken){
 
-
-
-
-
-
-
-/*
-=========================================
-MULTI TAB SYNC
-=========================================
-*/
-
-
-useEffect(()=>{
-
-
-const syncAuth=(event)=>{
-
-
-if(event.key==="token"){
-
-
-setToken(
-event.newValue
-);
-
-
-
-if(!event.newValue){
-
-setUser(null);
+setToken(existingToken);
 
 }
 
 
-}
-
-
-
-if(event.key==="user"){
-
-
-setUser(
-safeParse(event.newValue)
-);
-
-
-}
-
-
-
-};
-
-
-
-window.addEventListener(
-"storage",
-syncAuth
-);
-
-
-
-return ()=>{
-
-window.removeEventListener(
-"storage",
-syncAuth
-);
-
-};
-
+setInitializing(false);
 
 
 },[]);
+
+
+
 
 
 
@@ -588,7 +177,7 @@ LOGIN
 
 
 const login = useCallback(
-async(formData)=>{
+async(credentials)=>{
 
 
 try{
@@ -601,33 +190,33 @@ setError(null);
 
 
 const response =
-await loginUser(formData);
+await loginUser(credentials);
 
 
 
 const {
-token,
-user
-}=normalizeAuthResponse(
+token
+}=normalizeResponse(
 response
 );
 
 
 
-if(!token || !user){
+if(!token){
 
 throw new Error(
-"Invalid login response"
+"Authentication failed"
 );
 
 }
 
 
 
-saveAuth({
-token,
-user
-});
+saveToken(token);
+
+
+setToken(token);
+
 
 
 
@@ -642,12 +231,10 @@ success:true
 }catch(error){
 
 
-
 const message =
 error?.response?.data?.message ||
 error.message ||
 "Login failed";
-
 
 
 setError(message);
@@ -664,7 +251,8 @@ message
 
 
 
-}finally{
+}
+finally{
 
 
 setLoading(false);
@@ -675,8 +263,11 @@ setLoading(false);
 
 
 },
-[saveAuth]
+[]
 );
+
+
+
 
 
 
@@ -691,7 +282,7 @@ SIGNUP
 
 
 const signup = useCallback(
-async(formData)=>{
+async(data)=>{
 
 
 try{
@@ -704,33 +295,35 @@ setError(null);
 
 
 const response =
-await signupUser(formData);
+await signupUser(data);
 
 
 
 const {
-token,
-user
-}=normalizeAuthResponse(
+token
+}=normalizeResponse(
 response
 );
 
 
 
-if(!token || !user){
+if(!token){
 
 throw new Error(
-"Invalid signup response"
+"Signup failed"
 );
 
 }
 
 
 
-saveAuth({
-token,
-user
-});
+
+saveToken(token);
+
+
+setToken(token);
+
+
 
 
 
@@ -742,7 +335,9 @@ success:true
 
 
 
+
 }catch(error){
+
 
 
 const message =
@@ -765,8 +360,8 @@ message
 };
 
 
-
-}finally{
+}
+finally{
 
 
 setLoading(false);
@@ -775,71 +370,12 @@ setLoading(false);
 }
 
 
-},
-[saveAuth]
-);
-
-
-
-
-
-
-const updateNotificationSettings = useCallback(
-(settings)=>{
-
-setUser(prev=>({
-
-...prev,
-
-notificationSettings:settings
-
-}));
-
-localStorage.setItem(
-"user",
-JSON.stringify({
-...user,
-notificationSettings:settings
-})
-);
 
 },
-[user]
-);
-
-/*
-=========================================
-UPDATE USER
-For profile changes
-=========================================
-*/
-
-
-const updateUser = useCallback(
-(updatedUser)=>{
-
-
-setUser(prev=>({
-
-...prev,
-
-...updatedUser
-
-}));
-
-
-localStorage.setItem(
-"user",
-JSON.stringify({
-...user,
-...updatedUser
-})
+[]
 );
 
 
-},
-[user]
-);
 
 
 
@@ -857,10 +393,72 @@ LOGOUT
 const logout = useCallback(()=>{
 
 
-clearAuth();
+removeToken();
 
 
-},[clearAuth]);
+setToken(null);
+
+
+window.location.href="/login";
+
+
+},[]);
+
+
+
+
+
+
+
+
+
+/*
+=========================================
+TOKEN SYNC BETWEEN TABS
+=========================================
+*/
+
+
+useEffect(()=>{
+
+
+const listener=(event)=>{
+
+
+if(event.key==="token"){
+
+
+setToken(
+event.newValue
+);
+
+
+}
+
+
+};
+
+
+
+window.addEventListener(
+"storage",
+listener
+);
+
+
+
+return ()=>{
+
+window.removeEventListener(
+"storage",
+listener
+);
+
+};
+
+
+},[]);
+
 
 
 
@@ -878,13 +476,11 @@ CONTEXT VALUE
 
 const value = useMemo(()=>({
 
-
-user,
-
 token,
 
 
 loading,
+
 
 initializing,
 
@@ -893,11 +489,12 @@ error,
 
 
 isAuthenticated:
-Boolean(token && user),
+Boolean(token),
 
 
 
 login,
+
 
 signup,
 
@@ -905,31 +502,16 @@ signup,
 logout,
 
 
-hydrateUser,
-
-
-updateUser,
-
-
-clearAuth,
-
-
 }),
 [
-user,
 token,
 loading,
 initializing,
 error,
 login,
 signup,
-logout,
-hydrateUser,
-updateUser,
-clearAuth
-]
-);
-
+logout
+]);
 
 
 
@@ -937,7 +519,9 @@ clearAuth
 
 return (
 
-<AuthContext.Provider value={value}>
+<AuthContext.Provider
+value={value}
+>
 
 {children}
 

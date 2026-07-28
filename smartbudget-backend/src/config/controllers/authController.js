@@ -105,6 +105,63 @@ const sendError = (
   });
 };
 
+export const updateProfile = async(req,res)=>{
+
+try{
+
+
+const updatedUser =
+await User.findByIdAndUpdate(
+
+req.user._id,
+
+{
+ firstName:req.body.firstName,
+ lastName:req.body.lastName,
+ phone:req.body.phone,
+ country:req.body.country,
+ dateOfBirth:req.body.dateOfBirth,
+},
+
+{
+ new:true
+}
+
+)
+.select("-password");
+
+
+
+return res.status(200).json({
+
+success:true,
+
+user:updatedUser
+
+});
+
+
+}catch(error){
+
+
+console.error(
+"UPDATE_PROFILE_ERROR",
+error
+);
+
+
+return res.status(500).json({
+
+success:false,
+
+message:"Profile update failed"
+
+});
+
+
+}
+
+};
 /* =========================================
    SANITIZE USER new lines of code
 ========================================= */

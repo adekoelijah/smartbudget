@@ -252,4 +252,16 @@ await api.post(
 return res.data;
 };
 
+export const updateUserProfile = async(profileData)=>{
+
+const response = await api.put(
+  "/auth/profile",
+  profileData
+);
+
+
+return response.data;
+
+};
+
 

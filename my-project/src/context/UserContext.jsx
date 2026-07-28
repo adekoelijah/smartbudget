@@ -1,280 +1,22 @@
-// import {
-//   createContext,
-//   useContext,
-//   useEffect,
-//   useRef,
-//   useState,
-//   useCallback,
-//   useMemo,
-// } from "react";
-
-// import {
-//   getUser,
-//   updateProfile,
-//   uploadAvatar,
-// } from "../services/profileService";
-
-// /* =========================================
-//    CONTEXT
-// ========================================= */
-// export const UserContext = createContext(null);
-
-
-
-// /* =========================================
-//    NORMALIZE USER
-// ========================================= */
-// const normalizeUser = (response) => {
-//   return response?.user || response || null;
-// };
-
-// /* =========================================
-//    PROVIDER
-// ========================================= */
-// export const UserProvider = ({ children }) => {
-//   const [user, setUser] = useState(null);
-//   const [authStatus, setAuthStatus] = useState("loading");
-//   const [error, setError] = useState(null);
-
-//   const initialized = useRef(false);
-
-//   /* =========================================
-//      TOKEN
-//   ========================================= */
-//   const getToken = () => localStorage.getItem("token");
-
-//   /* =========================================
-//      LOAD USER
-//   ========================================= */
-//   const loadUser = useCallback(async () => {
-//     const token = getToken();
-
-//     if (!token) {
-//       setUser(null);
-//       setAuthStatus("unauthenticated");
-//       return;
-//     }
-
-//     try {
-//       setError(null);
-
-//       const response = await getUser();
-//       const normalized = normalizeUser(response);
-
-//       setUser(normalized);
-//       setAuthStatus("authenticated");
-//     } catch (err) {
-//       console.error("LOAD_USER_ERROR:", err);
-
-//       setUser(null);
-//       setAuthStatus("unauthenticated");
-
-//       setError(
-//         err?.response?.data?.message ||
-//           err?.message ||
-//           "Session expired. Please login again."
-//       );
-//     }
-//   }, []);
-
-//   /* =========================================
-//      UPDATE PROFILE
-//   ========================================= */
-//   const saveProfile = useCallback(async (payload) => {
-//     try {
-//       setError(null);
-
-//       const response = await updateProfile(payload);
-//       const updated = normalizeUser(response);
-
-//       if (!updated) {
-//         throw new Error("Invalid server response.");
-//       }
-
-//       setUser((prev) => ({
-//         ...prev,
-//         ...updated,
-//       }));
-
-//       return updated;
-//     } catch (err) {
-//       console.error("SAVE_PROFILE_ERROR:", err);
-
-//       const message =
-//         err?.response?.data?.message ||
-//         err?.message ||
-//         "Profile update failed.";
-
-//       setError(message);
-
-//       throw err;
-//     }
-//   }, []);
-//   const updateNotificationSettings = async(settings)=>{
-
-// const updated =
-// await updateUserNotifications(settings);
-
-
-// setUser(updated);
-
-// return updated;
-
-// };
-
-//   /* =========================================
-//      CHANGE AVATAR
-//   ========================================= */
-//   const changeAvatar = useCallback(async (file) => {
-//     if (!file) return null;
-
-//     try {
-//       setError(null);
-
-//       const preview = URL.createObjectURL(file);
-
-//       setUser((prev) => ({
-//         ...prev,
-//         avatar: preview,
-//       }));
-
-     
-      
-
-//       const uploadResponse = await uploadAvatar(file);
-
-//       const avatarUrl =
-//         uploadResponse?.url ||
-//         uploadResponse?.avatar ||
-//         uploadResponse?.data?.url;
-
-//       if (!avatarUrl) {
-//         throw new Error("Avatar upload failed.");
-//       }
-
-//       const updated = await updateProfile({
-//         avatar: avatarUrl,
-//       });
-
-//       const normalized = normalizeUser(updated);
-
-//       setUser((prev) => ({
-//         ...prev,
-//         ...normalized,
-//         avatar: avatarUrl,
-//       }));
-
-//       return avatarUrl;
-//     } catch (err) {
-//       console.error("AVATAR_ERROR:", err);
-
-//       setError(
-//         err?.response?.data?.message ||
-//           err?.message ||
-//           "Avatar upload failed."
-//       );
-
-//       throw err;
-//     }
-//   }, []);
-
-//   /* =========================================
-//      INITIALIZE
-//   ========================================= */
-//   useEffect(() => {
-//     if (initialized.current) return;
-
-//     initialized.current = true;
-
-//     loadUser();
-//   }, [loadUser]);
-
-//   /* =========================================
-//      CONTEXT VALUE
-//   ========================================= */
-//   const value = useMemo(
-//     () => ({
-//       user,
-//       authStatus,
-//       error,
-//       setUser,
-//       loadUser,
-//       saveProfile,
-//       changeAvatar,
-//     }),
-//     [
-//       user,
-//       authStatus,
-//       error,
-//       loadUser,
-//       saveProfile,
-//       changeAvatar,
-//     ]
-//   );
-//   <UserContext.Provider
-
-// value={{
-
-// user,
-
-// loading,
-
-// fetchCurrentUser,
-
-// saveProfile,
-
-// changeAvatar,
-
-// refreshUser,
-
-// logout,
-
-// updateNotificationSettings,
-
-// }}
-
-// >
-  
-// </UserContext.Provider>
-
-// //   return (
-// //     <UserContext.Provider value={value}>
-// //       {children}
-// //     </UserContext.Provider>
-// //   );
-// // };
-
-// /* =========================================
-//    CUSTOM HOOK
-// ========================================= */
-// export const useUser = () => {
-//   const context = useContext(UserContext);
-
-//   if (!context) {
-//     throw new Error("useUser must be used inside UserProvider.");
-//   }
-
-//   return context;
-// };
-// }
-
-
-
 import {
   createContext,
   useCallback,
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 
+
 import {
-  getUser,
-  updateProfile,
-  uploadAvatar,
-} from "../services/profileService";
+  getCurrentUser,
+  updateUserProfile,
+} from "../services/authService";
+
+
+import { useAuth } from "./useAuth";
+
+
 
 /*
 =========================================
@@ -282,27 +24,12 @@ CONTEXT
 =========================================
 */
 
+
 const UserContext = createContext(null);
 
-/*
-=========================================
-HELPERS
-=========================================
-*/
 
-const normalizeUser = (response) => {
-  if (!response) return null;
 
-  return response.user || response.data?.user || response.data || response;
-};
 
-const getStoredToken = () => {
-  try {
-    return localStorage.getItem("token");
-  } catch {
-    return null;
-  }
-};
 
 /*
 =========================================
@@ -310,265 +37,537 @@ PROVIDER
 =========================================
 */
 
-export const UserProvider = ({ children }) => {
-  const initialized = useRef(false);
 
-  const [user, setUser] = useState(null);
+export const UserProvider = ({
+ children
+})=>{
 
-  const [loading, setLoading] = useState(true);
 
-  const [authStatus, setAuthStatus] = useState("loading");
+const {
+ token
+}=useAuth();
 
-  const [error, setError] = useState("");
 
-  /*
-  =========================================
-  LOAD CURRENT USER
-  =========================================
-  */
 
-  const fetchCurrentUser = useCallback(async () => {
-    const token = getStoredToken();
 
-    if (!token) {
-      setUser(null);
-      setLoading(false);
-      setAuthStatus("unauthenticated");
-      return null;
-    }
 
-    try {
-      setLoading(true);
-      setError("");
+const [
+user,
+setUser
+]=useState(null);
 
-      const response = await getUser();
 
-      const currentUser = normalizeUser(response);
 
-      setUser(currentUser);
+const [
+loading,
+setLoading
+]=useState(true);
 
-      setAuthStatus("authenticated");
 
-      return currentUser;
-    } catch (err) {
-      console.error("LOAD_USER_ERROR:", err);
 
-      localStorage.removeItem("token");
+const [
+error,
+setError
+]=useState(null);
 
-      setUser(null);
 
-      setAuthStatus("unauthenticated");
 
-      setError(
-        err?.response?.data?.message ||
-          err?.message ||
-          "Authentication failed."
-      );
 
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
-  /*
-  =========================================
-  REFRESH USER
-  =========================================
-  */
 
-  const refreshUser = useCallback(async () => {
-    return fetchCurrentUser();
-  }, [fetchCurrentUser]);
 
-  /*
-  =========================================
-  SAVE PROFILE
-  =========================================
-  */
 
-  const saveProfile = useCallback(async (payload) => {
-    try {
-      setError("");
 
-      const response = await updateProfile(payload);
+/*
+=========================================
+FETCH CURRENT USER
+=========================================
+*/
 
-      const updatedUser = normalizeUser(response);
 
-      setUser((prev) => ({
-        ...prev,
-        ...updatedUser,
-      }));
+const fetchUser = useCallback(
+async()=>{
 
-      return updatedUser;
-    } catch (err) {
-      console.error("PROFILE_UPDATE_ERROR:", err);
 
-      const message =
-        err?.response?.data?.message ||
-        err?.message ||
-        "Unable to update profile.";
+if(!token){
 
-      setError(message);
+setUser(null);
 
-      throw err;
-    }
-  }, []);
+setLoading(false);
 
-  /*
-  =========================================
-  UPDATE NOTIFICATION SETTINGS
-  =========================================
-  */
+return null;
 
-  const updateNotificationSettings = useCallback(
-    async (settings) => {
-      /**
-       * Replace with your API later.
-       */
+}
 
-      setUser((prev) => ({
-        ...prev,
-        notificationSettings: settings,
-      }));
 
-      return settings;
-    },
-    []
-  );
 
-  /*
-  =========================================
-  CHANGE AVATAR
-  =========================================
-  */
+try{
 
-  const changeAvatar = useCallback(async (file) => {
-    if (!file) return null;
 
-    try {
-      setError("");
+setLoading(true);
 
-      const uploadResponse = await uploadAvatar(file);
+setError(null);
 
-      const avatar =
-        uploadResponse?.url ||
-        uploadResponse?.avatar ||
-        uploadResponse?.data?.url;
 
-      if (!avatar) {
-        throw new Error("Avatar upload failed.");
-      }
 
-      const response = await updateProfile({
-        avatar,
-      });
+const response =
+await getCurrentUser();
 
-      const updatedUser = normalizeUser(response);
 
-      setUser((prev) => ({
-        ...prev,
-        ...updatedUser,
-        avatar,
-      }));
 
-      return avatar;
-    } catch (err) {
-      console.error("AVATAR_UPLOAD_ERROR:", err);
+const currentUser =
+response?.user ||
+response?.data?.user ||
+response;
 
-      const message =
-        err?.response?.data?.message ||
-        err?.message ||
-        "Unable to upload avatar.";
 
-      setError(message);
 
-      throw err;
-    }
-  }, []);
+setUser(currentUser);
 
-  /*
-  =========================================
-  LOGOUT
-  =========================================
-  */
 
-  const logout = useCallback(() => {
-    localStorage.removeItem("token");
 
-    setUser(null);
+localStorage.setItem(
+"user",
+JSON.stringify(currentUser)
+);
 
-    setAuthStatus("unauthenticated");
 
-    setError("");
 
-    window.location.replace("/login");
-  }, []);
+return currentUser;
 
-  /*
-  =========================================
-  INITIALIZE
-  =========================================
-  */
 
-  useEffect(() => {
-    if (initialized.current) return;
 
-    initialized.current = true;
+}catch(error){
 
-    fetchCurrentUser();
-  }, [fetchCurrentUser]);
 
-  /*
-  =========================================
-  CONTEXT VALUE
-  =========================================
-  */
+console.error(
+"FETCH_USER_ERROR:",
+error
+);
 
-  const value = useMemo(
-    () => ({
-      user,
 
-      loading,
 
-      authStatus,
+setError(
+error?.response?.data?.message ||
+"Unable to load user profile"
+);
 
-      error,
 
-      setUser,
 
-      fetchCurrentUser,
+setUser(null);
 
-      refreshUser,
 
-      saveProfile,
 
-      changeAvatar,
+return null;
 
-      logout,
 
-      updateNotificationSettings,
-    }),
-    [
-      user,
-      loading,
-      authStatus,
-      error,
-      fetchCurrentUser,
-      refreshUser,
-      saveProfile,
-      changeAvatar,
-      logout,
-      updateNotificationSettings,
-    ]
-  );
 
-  return (
-    <UserContext.Provider value={value}>
-      {children}
-    </UserContext.Provider>
-  );
+}
+finally{
+
+
+setLoading(false);
+
+
+}
+
+
+
+},
+[token]
+);
+
+
+
+
+
+
+
+
+
+/*
+=========================================
+INITIAL LOAD
+=========================================
+*/
+
+
+useEffect(()=>{
+
+
+fetchUser();
+
+
+},[
+fetchUser
+]);
+
+
+
+
+
+
+
+
+
+/*
+=========================================
+UPDATE PROFILE
+=========================================
+*/
+
+
+const updateProfile = useCallback(
+async(profileData)=>{
+
+
+try{
+
+
+setLoading(true);
+
+
+
+const response =
+await updateUserProfile(
+profileData
+);
+
+
+
+const updatedUser =
+response?.user ||
+response?.data?.user ||
+response;
+
+
+
+setUser(updatedUser);
+
+
+
+localStorage.setItem(
+"user",
+JSON.stringify(updatedUser)
+);
+
+
+
+return {
+
+success:true,
+
+user:updatedUser
+
 };
+
+
+
+}catch(error){
+
+
+const message =
+error?.response?.data?.message ||
+"Profile update failed";
+
+
+
+setError(message);
+
+
+
+return {
+
+success:false,
+
+message
+
+};
+
+
+
+}
+finally{
+
+
+setLoading(false);
+
+
+}
+
+
+},
+[]
+);
+
+
+
+
+
+
+
+
+
+/*
+=========================================
+UPDATE NOTIFICATION SETTINGS
+=========================================
+*/
+
+
+const updateNotificationSettings =
+useCallback(
+async(settings)=>{
+
+
+try{
+
+
+const updatedUser = {
+
+...user,
+
+notificationSettings:
+settings,
+
+};
+
+
+
+setUser(updatedUser);
+
+
+
+localStorage.setItem(
+"user",
+JSON.stringify(updatedUser)
+);
+
+
+
+/*
+Future API:
+PUT /users/notifications
+*/
+
+
+return {
+
+success:true
+
+};
+
+
+
+}catch(error){
+
+
+console.error(
+"NOTIFICATION_UPDATE_ERROR",
+error
+);
+
+
+
+return {
+
+success:false
+
+};
+
+
+}
+
+
+
+},
+[user]
+);
+
+
+
+
+
+
+
+
+
+/*
+=========================================
+CLEAR USER
+Called after logout
+=========================================
+*/
+
+
+const clearUser = useCallback(()=>{
+
+
+setUser(null);
+
+
+localStorage.removeItem(
+"user"
+);
+
+
+},[]);
+
+
+
+
+
+
+
+
+
+/*
+=========================================
+MULTI TAB SYNC
+=========================================
+*/
+
+
+useEffect(()=>{
+
+
+const syncUser=(event)=>{
+
+
+if(event.key==="user"){
+
+
+if(event.newValue){
+
+setUser(
+JSON.parse(
+event.newValue
+)
+);
+
+
+}
+else{
+
+
+setUser(null);
+
+
+}
+
+
+}
+
+
+
+};
+
+
+
+window.addEventListener(
+"storage",
+syncUser
+);
+
+
+
+return ()=>{
+
+
+window.removeEventListener(
+"storage",
+syncUser
+);
+
+
+};
+
+
+},[]);
+
+
+
+
+
+
+
+
+
+/*
+=========================================
+CONTEXT VALUE
+=========================================
+*/
+
+
+const value = useMemo(()=>({
+
+user,
+
+loading,
+
+error,
+
+fetchUser,
+
+refreshUser:fetchUser,
+
+
+updateProfile,
+
+
+saveProfile:updateProfile,
+
+
+changeAvatar:updateProfile,
+
+
+updateNotificationSettings,
+
+
+clearUser,
+
+
+}),
+[
+user,
+loading,
+error,
+fetchUser,
+updateProfile,
+updateNotificationSettings,
+clearUser
+]
+);
+
+
+
+
+
+
+
+return (
+
+<UserContext.Provider
+value={value}
+>
+
+{children}
+
+</UserContext.Provider>
+
+);
+
+
+};
+
+
+
+
+
+
+
+
 
 /*
 =========================================
@@ -576,16 +575,28 @@ HOOK
 =========================================
 */
 
-export const useUser = () => {
-  const context = useContext(UserContext);
 
-  if (!context) {
-    throw new Error(
-      "useUser must be used inside UserProvider."
-    );
-  }
+export const useUser = ()=>{
 
-  return context;
+
+const context =
+useContext(
+UserContext
+);
+
+
+
+if(!context){
+
+throw new Error(
+"useUser must be used inside UserProvider"
+);
+
+}
+
+
+
+return context;
+
+
 };
-
-export default UserContext;
