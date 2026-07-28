@@ -231,19 +231,18 @@ export const googleCallback = async (req, res) => {
 }
 
 
-    const token =
-      generateToken(user._id);
+   const refreshToken = generateRefreshToken(user._id);
 
-
-    const refreshToken =
-      generateRefreshToken(user._id);
-
-
-   await createSession({
+const session = await createSession({
   user,
   refreshToken,
   req,
 });
+
+const token = generateToken(
+  user._id,
+  session._id
+);
 
 
 
@@ -460,20 +459,19 @@ await user.save({
     //   user: sanitizeUser(user),
     // });
 
-    const token = generateToken(user._id);
+    const refreshToken = generateRefreshToken(user._id);
 
-const refreshToken =
-  generateRefreshToken(user._id);
-
-
-
-// Store refresh token information
-
-await createSession({
- user,
- refreshToken,
- req,
+const session = await createSession({
+  user,
+  refreshToken,
+  req,
 });
+
+const token = generateToken(
+  user._id,
+  session._id
+);
+
 
 
 // return sendSuccess(

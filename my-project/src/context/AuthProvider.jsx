@@ -415,8 +415,13 @@ return null;
 try{
 
 
-const response =
-await getCurrentUser();
+// const response =
+// await getCurrentUser();
+console.log("Starting hydrateUser...");
+
+const response = await getCurrentUser();
+
+console.log("Current user response:", response);
 
 
 
@@ -445,9 +450,7 @@ JSON.stringify(currentUser)
 return currentUser;
 
 
-
 }catch(error){
-
 
 console.error(
 "HYDRATE_USER_ERROR:",
@@ -458,11 +461,11 @@ error
 clearAuth();
 
 
-return null;
+throw error;
 
 
-
-}finally{
+}
+finally{
 
 
 setInitializing(false);
@@ -495,7 +498,7 @@ useEffect(()=>{
 hydrateUser();
 
 
-},[]);
+},[hydrateUser]);
 
 
 

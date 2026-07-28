@@ -7,14 +7,39 @@
 // export default generateToken;
 
 
+// import jwt from "jsonwebtoken";
+
+// const generateToken = (id) => {
+
+//   return jwt.sign(
+//     {
+//       id,
+//       type:"access",
+//     },
+//     process.env.JWT_SECRET,
+//     {
+//       expiresIn:
+//         process.env.JWT_EXPIRE || "15m",
+//     }
+//   );
+
+// };
+
+// export default generateToken;
+
+
 import jwt from "jsonwebtoken";
 
-const generateToken = (id) => {
+const generateToken = (
+  userId,
+  sessionId
+) => {
 
   return jwt.sign(
     {
-      id,
-      type:"access",
+      id: userId,
+      sessionId,
+      type: "access",
     },
     process.env.JWT_SECRET,
     {
