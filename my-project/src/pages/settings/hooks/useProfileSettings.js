@@ -5,558 +5,207 @@ import {
   useState,
 } from "react";
 
+// import { useUser } from "../../../context/UserContext";
+import { useUser } from "../../../context/useUser";
 
-import {
-  useUser,
-} from "../../../context/UserContext";
+/*
+=========================================
+HELPERS
+=========================================
+*/
 
-
-
-
-
-const createProfileState = (user)=>({
-
-  firstName:
-    user?.firstName || "",
-
-
-  lastName:
-    user?.lastName || "",
-
-
-  email:
-    user?.email || "",
-
-
-  phone:
-    user?.phone || "",
-
-
-  country:
-    user?.country || "",
-
-
-  dateOfBirth:
-    user?.dateOfBirth || "",
-
-
-  avatar:
-    user?.avatar || "",
-
+const createProfileState = (user = {}) => ({
+  firstName: user.firstName ?? "",
+  lastName: user.lastName ?? "",
+  name: `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim(),
+  email: user.email ?? "",
+  phone: user.phone ?? "",
+  country: user.country ?? "",
+  dateOfBirth: user.dateOfBirth ?? "",
+  avatar: user.avatar ?? "",
+  createdAt: user.createdAt ?? null,
+  emailVerified: Boolean(user.emailVerified),
+  phoneVerified: Boolean(user.phoneVerified),
+  twoFactorEnabled: Boolean(user.twoFactorEnabled),
 });
 
-
-
-
-
-
-
-
-export const useProfileSettings = ()=>{
-
-
-
-const {
-
-user,
-
-loading,
-
-updateProfile,
-
-}=useUser();
-
-
-
-
-
-
-
-const initialProfile = useMemo(
-
-()=>createProfileState(user),
-
-[user]
-
-);
-
-
-
-
-
-
-
-const [
-profile,
-setProfile
-]=useState(
-initialProfile
-);
-
-
-
-
-
-
-const [
-preview,
-setPreview
-]=useState(null);
-
-
-
-
-
-const [
-saving,
-setSaving
-]=useState(false);
-
-
-
-
-
-const [
-uploading,
-setUploading
-]=useState(false);
-
-
-
-
-
-const [
-message,
-setMessage
-]=useState("");
-
-
-
-
-
-const [
-error,
-setError
-]=useState("");
-
-
-
-
-
-
-
-
-
 /*
-====================================
-SYNC PROFILE WHEN USER CHANGES
-====================================
+=========================================
+HOOK
+=========================================
 */
 
-
-useEffect(()=>{
-
-
-setProfile(initialProfile);
-
-
-},[
-initialProfile
-]);
-
-
-
-
-
-
-
-
-
-/*
-====================================
-DIRTY STATE
-====================================
-*/
-
-
-const isDirty = useMemo(()=>{
-
-
-return Object.keys(profile)
-.some(
-(key)=>
-profile[key] !== initialProfile[key]
-);
-
-
-},[
-profile,
-initialProfile
-]);
-
-
-
-
-
-
-
-
-
-/*
-====================================
-UPDATE LOCAL FIELD
-====================================
-*/
-
-
-const updateField = useCallback(
-(key,value)=>{
-
-
-setProfile(prev=>({
-
-...prev,
-
-[key]:value,
-
-}));
-
-
-setError("");
-
-
-},
-[]
-);
-
-
-
-
-
-
-
-
-
-/*
-====================================
-SAVE PROFILE
-====================================
-*/
-
-
-const save = useCallback(
-
-async()=>{
-
-
-try{
-
-
-setSaving(true);
-
-setError("");
-
-setMessage("");
-
-
-
-const response =
-await updateProfile(profile);
-
-
-
-
-
-if(!response?.success){
-
-throw new Error(
-response?.message ||
-"Profile update failed"
-);
-
-}
-
-
-
-
-setMessage(
-"Profile updated successfully"
-);
-
-
-
-
-
-return response;
-
-
-
-
-}
-
-catch(error){
-
-
-console.error(
-"PROFILE_SAVE_ERROR:",
-error
-);
-
-
-
-setError(
-error.message ||
-"Unable to update profile"
-);
-
-
-
-return {
-
-success:false
-
-};
-
-
-
-}
-
-finally{
-
-
-setSaving(false);
-
-
-}
-
-
-
-},
-
-[
-profile,
-updateProfile
-]
-
-);
-
-
-
-
-
-
-
-
-
-/*
-====================================
-AVATAR PREVIEW
-====================================
-*/
-
-
-const setAvatar = useCallback(
-
-async(file)=>{
-
-
-if(!file) return;
-
-
-
-
-try{
-
-
-setUploading(true);
-
-setError("");
-
-
-
-
-
-if(preview){
-
-URL.revokeObjectURL(preview);
-
-}
-
-
-
-
-
-const local =
-URL.createObjectURL(file);
-
-
-
-setPreview(local);
-
-
-
-
-
-/*
-Temporary local update.
-
-Actual upload service
-should be connected here.
-*/
-
-
-setProfile(prev=>({
-
-...prev,
-
-avatar:local
-
-}));
-
-
-
-
-return {
-
-success:true
-
-};
-
-
-
-}
-
-catch(error){
-
-
-console.error(
-"AVATAR_ERROR:",
-error
-);
-
-
-
-setError(
-"Unable to update profile photo"
-);
-
-
-
-return {
-
-success:false
-
-};
-
-
-
-}
-
-finally{
-
-
-setUploading(false);
-
-
-}
-
-
-
-},
-
-[
-preview
-]
-
-);
-
-
-
-
-
-
-
-
-
-/*
-====================================
-RESET FORM
-====================================
-*/
-
-
-const reset = useCallback(()=>{
-
-
-setProfile(
-initialProfile
-);
-
-
-
-if(preview){
-
-URL.revokeObjectURL(
-preview
-);
-
-}
-
-
-
-setPreview(null);
-
-setError("");
-
-setMessage("");
-
-
-
-},[
-initialProfile,
-preview
-]);
-
-
-
-
-
-
-
-
-
-return {
-
-profile,
-
-preview,
-
-loading,
-
-saving,
-
-uploading,
-
-message,
-
-error,
-
-isDirty,
-
-
-updateField,
-
-
-setAvatar,
-
-
-save,
-
-
-reset,
-
-
-};
-
-
+export const useProfileSettings = () => {
+  const {
+    user,
+    updateProfile,
+    updateAvatar,
+    updatingProfile,
+    updatingAvatar,
+    error,
+  } = useUser();
+
+  /*
+  =========================================
+  DERIVED PROFILE
+  =========================================
+  */
+
+  const initialProfile = useMemo(
+    () => createProfileState(user),
+    [user]
+  );
+
+  /*
+  =========================================
+  LOCAL UI STATE
+  =========================================
+  */
+
+  const [profile, setProfile] = useState(initialProfile);
+
+  const [preview, setPreview] = useState(null);
+
+  const [message, setMessage] = useState("");
+
+  /*
+  =========================================
+  SYNC USER
+  =========================================
+  */
+
+  useEffect(() => {
+    setProfile(initialProfile);
+  }, [initialProfile]);
+
+  /*
+  =========================================
+  AVATAR CLEANUP
+  =========================================
+  */
+
+  useEffect(() => {
+    return () => {
+      if (preview) {
+        URL.revokeObjectURL(preview);
+      }
+    };
+  }, [preview]);
+
+  /*
+  =========================================
+  DIRTY CHECK
+  =========================================
+  */
+
+  const isDirty = useMemo(() => {
+    return Object.keys(initialProfile).some(
+      (key) => profile[key] !== initialProfile[key]
+    );
+  }, [profile, initialProfile]);
+
+  /*
+  =========================================
+  UPDATE FIELD
+  =========================================
+  */
+
+  const updateField = useCallback((field, value) => {
+    setProfile((previous) => ({
+      ...previous,
+      [field]: value,
+    }));
+
+    setMessage("");
+  }, []);
+
+  /*
+  =========================================
+  SAVE PROFILE
+  =========================================
+  */
+
+  const saveProfile = useCallback(async () => {
+    const response = await updateProfile(profile);
+
+    if (response.success) {
+      setMessage("Profile updated successfully");
+    }
+
+    return response;
+  }, [profile, updateProfile]);
+
+  /*
+  =========================================
+  UPLOAD AVATAR
+  =========================================
+  */
+
+  const uploadAvatar = useCallback(
+    async (file) => {
+      if (!file) {
+        return {
+          success: false,
+          message: "No file selected",
+        };
+      }
+
+      if (preview) {
+        URL.revokeObjectURL(preview);
+      }
+
+      const localPreview = URL.createObjectURL(file);
+
+      setPreview(localPreview);
+
+      const response = await updateAvatar(file);
+
+      if (!response.success) {
+        URL.revokeObjectURL(localPreview);
+        setPreview(null);
+      }
+
+      return response;
+    },
+    [preview, updateAvatar]
+  );
+
+  /*
+  =========================================
+  RESET
+  =========================================
+  */
+
+  const reset = useCallback(() => {
+    if (preview) {
+      URL.revokeObjectURL(preview);
+    }
+
+    setPreview(null);
+    setProfile(initialProfile);
+    setMessage("");
+  }, [preview, initialProfile]);
+
+  /*
+  =========================================
+  EXPORTS
+  =========================================
+  */
+
+  return {
+    profile,
+    preview,
+    message,
+    error,
+
+    updatingProfile,
+    updatingAvatar,
+
+    isDirty,
+
+    updateField,
+    saveProfile,
+    uploadAvatar,
+    reset,
+  };
 };

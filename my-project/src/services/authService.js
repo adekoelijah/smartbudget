@@ -58,6 +58,214 @@
 
 
 
+// import api from "./api";
+
+
+
+// /*
+// =========================================
+// LOGIN
+// =========================================
+// */
+
+// export const loginUser = async(data)=>{
+
+// const res =
+// await api.post(
+// "/auth/login",
+// data
+// );
+
+// return res.data;
+
+// };
+
+
+
+// /*
+// =========================================
+// SIGNUP
+// =========================================
+// */
+
+// export const signupUser = async(data)=>{
+
+// const res =
+// await api.post(
+// "/auth/signup",
+// data
+// );
+
+// return res.data;
+
+// };
+
+
+
+// /*
+// =========================================
+// GOOGLE LOGIN
+// =========================================
+// */
+
+// export const googleLogin = ()=>{
+
+
+// const API_URL =
+// import.meta.env.VITE_API_URL ||
+// "https://nexatech-smartbudget-backend.vercel.app/api";
+
+
+// window.location.href =
+// `${API_URL}/auth/google`;
+
+
+// };
+
+
+
+
+// /*
+// =========================================
+// CURRENT USER
+// =========================================
+// */
+
+// export const getCurrentUser = async()=>{
+
+
+// const res =
+// await api.get(
+// "/auth/me"
+// );
+
+
+// return res.data.user || res.data;
+
+
+// };
+
+
+
+
+// /*
+// =========================================
+// LOGOUT
+// =========================================
+// */
+
+// export const logoutUser = async()=>{
+
+
+// const res =
+// await api.post(
+// "/auth/logout"
+// );
+// return res.data;
+// };
+// /*
+// =========================================
+// EMAIL VERIFICATION
+// =========================================
+// */
+// export const verifyEmail = async(token)=>{
+
+
+// const res =
+// await api.get(
+// `/auth/verify-email/${token}`
+// );
+
+
+// return res.data;
+
+
+// };
+// /*
+// =========================================
+// RESEND VERIFICATION EMAIL
+// =========================================
+// */
+// export const resendVerificationEmail =
+// async(email)=>{
+
+
+// const res =
+// await api.post(
+// "/auth/resend-verification",
+// {
+// email,
+// }
+// );
+// return res.data;
+// };
+// /*
+// =========================================
+// FORGOT PASSWORD
+// =========================================
+// */
+// export const forgotPassword =
+// async(email)=>{
+// const res =
+// await api.post(
+// "/auth/forgot-password",
+// {
+// email,
+// }
+// );
+// return res.data;
+
+// };
+
+// /*
+// =========================================
+// RESET PASSWORD
+// =========================================
+// */
+// export const resetPassword =
+// async(token,password)=>{
+
+
+// const res =
+// await api.patch(
+// `/auth/reset-password/${token}`,
+// {
+// password,
+// }
+// );
+// return res.data;
+
+
+// };
+// /*
+// =========================================
+// REFRESH TOKEN
+// =========================================
+// */
+
+// export const refreshAccessToken =
+// async()=>{
+// const res =
+// await api.post(
+// "/auth/refresh-token"
+// );
+// return res.data;
+// };
+
+// export const updateUserProfile = async(profileData)=>{
+
+// const response = await api.put(
+//   "/auth/profile",
+//   profileData
+// );
+
+
+// return response.data;
+
+// };
+
+
+
 import api from "./api";
 
 
@@ -70,15 +278,16 @@ LOGIN
 
 export const loginUser = async(data)=>{
 
-const res =
-await api.post(
-"/auth/login",
-data
-);
+  const response = await api.post(
+    "/auth/login",
+    data
+  );
 
-return res.data;
+  return response.data;
 
 };
+
+
 
 
 
@@ -90,15 +299,16 @@ SIGNUP
 
 export const signupUser = async(data)=>{
 
-const res =
-await api.post(
-"/auth/signup",
-data
-);
+  const response = await api.post(
+    "/auth/signup",
+    data
+  );
 
-return res.data;
+  return response.data;
 
 };
+
+
 
 
 
@@ -111,39 +321,44 @@ GOOGLE LOGIN
 export const googleLogin = ()=>{
 
 
-const API_URL =
-import.meta.env.VITE_API_URL ||
-"https://nexatech-smartbudget-backend.vercel.app/api";
+  const API_URL =
+    import.meta.env.VITE_API_URL ||
+    "https://nexatech-smartbudget-backend.vercel.app/api";
 
 
-window.location.href =
-`${API_URL}/auth/google`;
-
+  window.location.href =
+    `${API_URL}/auth/google`;
 
 };
+
+
+
 
 
 
 
 /*
 =========================================
-CURRENT USER
+GET CURRENT AUTH USER
 =========================================
 */
 
 export const getCurrentUser = async()=>{
 
 
-const res =
-await api.get(
-"/auth/me"
-);
+  const response = await api.get(
+    "/auth/me"
+  );
 
 
-return res.data.user || res.data;
+  return response.data;
 
 
 };
+
+
+
+
 
 
 
@@ -157,86 +372,142 @@ LOGOUT
 export const logoutUser = async()=>{
 
 
-const res =
-await api.post(
-"/auth/logout"
-);
-return res.data;
+  const response = await api.post(
+    "/auth/logout"
+  );
+
+
+  return response.data;
+
 };
+
+
+
+
+
+
+
+
+
 /*
 =========================================
 EMAIL VERIFICATION
 =========================================
 */
+
 export const verifyEmail = async(token)=>{
 
 
-const res =
-await api.get(
-`/auth/verify-email/${token}`
-);
+  const response = await api.get(
+    `/auth/verify-email/${token}`
+  );
 
 
-return res.data;
+  return response.data;
 
 
 };
+
+
+
+
+
+
+
+
 /*
 =========================================
 RESEND VERIFICATION EMAIL
 =========================================
 */
+
 export const resendVerificationEmail =
 async(email)=>{
 
 
-const res =
-await api.post(
-"/auth/resend-verification",
-{
-email,
-}
-);
-return res.data;
+  const response = await api.post(
+    "/auth/resend-verification",
+    {
+      email,
+    }
+  );
+
+
+  return response.data;
+
+
 };
+
+
+
+
+
+
+
+
 /*
 =========================================
 FORGOT PASSWORD
 =========================================
 */
+
 export const forgotPassword =
 async(email)=>{
-const res =
-await api.post(
-"/auth/forgot-password",
-{
-email,
-}
-);
-return res.data;
+
+
+  const response = await api.post(
+    "/auth/forgot-password",
+    {
+      email,
+    }
+  );
+
+
+  return response.data;
+
 
 };
+
+
+
+
+
+
+
+
 
 /*
 =========================================
 RESET PASSWORD
 =========================================
 */
+
 export const resetPassword =
 async(token,password)=>{
 
 
-const res =
-await api.patch(
-`/auth/reset-password/${token}`,
-{
-password,
-}
-);
-return res.data;
+  const response = await api.patch(
+    `/auth/reset-password/${token}`,
+    {
+      password,
+    }
+  );
+
+
+  return response.data;
 
 
 };
+
+
+
+
+
+
+
+
+
+
 /*
 =========================================
 REFRESH TOKEN
@@ -245,23 +516,14 @@ REFRESH TOKEN
 
 export const refreshAccessToken =
 async()=>{
-const res =
-await api.post(
-"/auth/refresh-token"
-);
-return res.data;
-};
-
-export const updateUserProfile = async(profileData)=>{
-
-const response = await api.put(
-  "/auth/profile",
-  profileData
-);
 
 
-return response.data;
+  const response = await api.post(
+    "/auth/refresh-token"
+  );
+
+
+  return response.data;
+
 
 };
-
-

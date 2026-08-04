@@ -1,4 +1,4 @@
-import { memo, useMemo } from "react";
+import { memo } from "react";
 import { motion } from "framer-motion";
 import { useLocation } from "react-router-dom";
 
@@ -14,7 +14,8 @@ import {
   LockKeyhole,
 } from "lucide-react";
 
-import { useUser } from "../hooks/useUser";
+// import { useUser } from "../hooks/useUser";
+import { useUser } from "../../../context/useUser";
 
 
 
@@ -79,24 +80,11 @@ const {
 
 
 
+const key = location.pathname.split("/").pop();
+
 const section =
-useMemo(()=>{
-
-
-const key =
-location.pathname
-.split("/")
-.pop();
-
-
-return SECTION_CONFIG[key]
-||
-SECTION_CONFIG.profile;
-
-
-},[
-location.pathname
-]);
+  SECTION_CONFIG[key] ??
+  SECTION_CONFIG.profile;
 
 
 
@@ -105,57 +93,26 @@ section.icon;
 
 
 
-const initials =
-useMemo(()=>{
-
-
-if(!user?.name)
-return "SB";
-
-
-return user.name
-.split(" ")
-.map(
-item=>item[0]
-)
-.slice(0,2)
-.join("")
-.toUpperCase();
-
-
-},[
-user?.name
-]);
+const initials = user?.name
+  ? user.name
+      .split(" ")
+      .map((item) => item[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase()
+  : "SB";
 
 
 
 
 
-const securityStatus =
-useMemo(()=>{
+let securityStatus = 40;
 
+if (user?.emailVerified) securityStatus += 20;
+if (user?.phoneVerified) securityStatus += 15;
+if (user?.twoFactorEnabled) securityStatus += 25;
 
-let score = 40;
-
-
-if(user?.isEmailVerified)
-score +=20;
-
-
-if(user?.phoneVerified)
-score +=15;
-
-
-if(user?.twoFactorEnabled)
-score +=25;
-
-
-return Math.min(score,100);
-
-
-},[
-user
-]);
+securityStatus = Math.min(securityStatus, 100);
 
 
 
@@ -670,7 +627,7 @@ text,
   "
   /
 >
-
+{Icon}
 {text}
 
 </div>

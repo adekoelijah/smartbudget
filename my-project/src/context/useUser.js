@@ -3,16 +3,18 @@ import {
 } from "react";
 
 
-import AuthContext from "../context/AuthContext";
+import {
+  UserContext,
+} from "./UserContext";
 
 
 
-export const useAuth = ()=>{
+export const useUser = ()=>{
 
 
 const context =
 useContext(
-  AuthContext
+UserContext
 );
 
 
@@ -20,7 +22,7 @@ useContext(
 if(!context){
 
 throw new Error(
-"useAuth must be used inside AuthProvider"
+"useUser must be used inside UserProvider"
 );
 
 }

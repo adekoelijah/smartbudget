@@ -1,7 +1,6 @@
 import {
   createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useState,
@@ -10,11 +9,22 @@ import {
 
 import {
   getCurrentUser,
-  updateUserProfile,
 } from "../services/authService";
 
 
-import { useAuth } from "./useAuth";
+import {
+  updateUserProfile,
+  updateUserAvatar,
+  updateNotificationSettings,
+} from "../services/userService";
+
+
+
+import {
+  useAuth,
+} from "../hooks/useAuth";
+
+
 
 
 
@@ -24,8 +34,8 @@ CONTEXT
 =========================================
 */
 
+export const UserContext = createContext(null);
 
-const UserContext = createContext(null);
 
 
 
@@ -33,18 +43,118 @@ const UserContext = createContext(null);
 
 /*
 =========================================
-PROVIDER
+STORAGE HELPERS
+=========================================
+*/
+
+
+const USER_STORAGE_KEY = "user";
+
+
+
+const getStoredUser = () => {
+
+  try {
+
+    const stored =
+      localStorage.getItem(
+        USER_STORAGE_KEY
+      );
+
+
+    return stored
+      ? JSON.parse(stored)
+      : null;
+
+
+  } catch(error) {
+
+    console.error(
+      "GET_STORED_USER_ERROR:",
+      error
+    );
+
+
+    return null;
+
+  }
+
+};
+
+
+
+
+
+const saveUser = (user)=>{
+
+
+  if(!user){
+
+    localStorage.removeItem(
+      USER_STORAGE_KEY
+    );
+
+    return;
+
+  }
+
+
+
+  localStorage.setItem(
+    USER_STORAGE_KEY,
+    JSON.stringify(user)
+  );
+
+
+};
+
+
+
+
+
+
+
+/*
+=========================================
+ERROR HANDLER
+=========================================
+*/
+
+
+const getErrorMessage = (error, fallback)=>{
+
+
+return (
+  error?.response?.data?.message ||
+  error?.message ||
+  fallback
+);
+
+
+};
+
+
+
+
+
+
+
+
+
+/*
+=========================================
+USER PROVIDER
 =========================================
 */
 
 
 export const UserProvider = ({
- children
+  children,
 })=>{
 
 
 const {
- token
+  token,
 }=useAuth();
 
 
@@ -52,23 +162,82 @@ const {
 
 
 const [
-user,
-setUser
-]=useState(null);
+  user,
+  setUser
+]=useState(
+  getStoredUser
+);
 
 
-
-const [
-loading,
-setLoading
-]=useState(true);
 
 
 
 const [
-error,
-setError
+  loading,
+  setLoading
+]=useState(false);
+
+
+
+
+
+const [
+  updatingProfile,
+  setUpdatingProfile
+]=useState(false);
+
+
+
+
+
+const [
+  updatingAvatar,
+  setUpdatingAvatar
+]=useState(false);
+
+
+
+
+
+const [
+  error,
+  setError
 ]=useState(null);
+
+
+
+
+
+
+
+
+
+
+/*
+=========================================
+SET USER
+Centralized state update
+=========================================
+*/
+
+
+const setCurrentUser = useCallback(
+(userData)=>{
+
+
+setUser(
+  userData
+);
+
+
+saveUser(
+  userData
+);
+
+
+},
+[]
+);
 
 
 
@@ -85,19 +254,18 @@ FETCH CURRENT USER
 */
 
 
-const fetchUser = useCallback(
+const refreshUser = useCallback(
 async()=>{
 
 
 if(!token){
 
-setUser(null);
-
-setLoading(false);
+setCurrentUser(null);
 
 return null;
 
 }
+
 
 
 
@@ -122,13 +290,8 @@ response;
 
 
 
-setUser(currentUser);
-
-
-
-localStorage.setItem(
-"user",
-JSON.stringify(currentUser)
+setCurrentUser(
+currentUser
 );
 
 
@@ -137,29 +300,36 @@ return currentUser;
 
 
 
-}catch(error){
+}
+catch(error){
+
+
+const message =
+getErrorMessage(
+  error,
+  "Unable to load user profile"
+);
+
 
 
 console.error(
-"FETCH_USER_ERROR:",
+"REFRESH_USER_ERROR:",
 error
 );
 
 
 
 setError(
-error?.response?.data?.message ||
-"Unable to load user profile"
+message
 );
 
 
 
-setUser(null);
+setCurrentUser(null);
 
 
 
 return null;
-
 
 
 }
@@ -174,7 +344,10 @@ setLoading(false);
 
 
 },
-[token]
+[
+token,
+setCurrentUser
+]
 );
 
 
@@ -191,16 +364,48 @@ INITIAL LOAD
 =========================================
 */
 
-
 useEffect(()=>{
 
 
-fetchUser();
+let cancelled = false;
+
+
+
+const loadUser = async()=>{
+
+
+const result =
+await refreshUser();
+
+
+
+if(cancelled)
+return;
+
+
+
+return result;
+
+
+};
+
+
+
+loadUser();
+
+
+
+return ()=>{
+
+cancelled=true;
+
+};
 
 
 },[
-fetchUser
-]);
+refreshUser
+]
+);
 
 
 
@@ -224,7 +429,9 @@ async(profileData)=>{
 try{
 
 
-setLoading(true);
+setUpdatingProfile(true);
+
+setError(null);
 
 
 
@@ -242,13 +449,8 @@ response;
 
 
 
-setUser(updatedUser);
-
-
-
-localStorage.setItem(
-"user",
-JSON.stringify(updatedUser)
+setCurrentUser(
+updatedUser
 );
 
 
@@ -257,22 +459,26 @@ return {
 
 success:true,
 
-user:updatedUser
+user:updatedUser,
 
 };
 
 
-
-}catch(error){
+}
+catch(error){
 
 
 const message =
-error?.response?.data?.message ||
-"Profile update failed";
+getErrorMessage(
+error,
+"Profile update failed"
+);
 
 
 
-setError(message);
+setError(
+message
+);
 
 
 
@@ -280,7 +486,7 @@ return {
 
 success:false,
 
-message
+message,
 
 };
 
@@ -290,14 +496,131 @@ message
 finally{
 
 
-setLoading(false);
+setUpdatingProfile(false);
 
 
 }
 
 
+
 },
-[]
+[
+setCurrentUser
+]
+);
+
+
+
+
+
+
+
+
+
+/*
+=========================================
+UPDATE AVATAR
+=========================================
+*/
+
+
+const updateAvatar = useCallback(
+async(file)=>{
+
+
+try{
+
+
+setUpdatingAvatar(true);
+
+setError(null);
+
+
+
+const formData =
+new FormData();
+
+
+formData.append(
+"avatar",
+file
+);
+
+
+
+const response =
+await updateUserAvatar(
+formData
+);
+
+
+
+const updatedUser =
+response?.user ||
+response?.data?.user ||
+response;
+
+
+
+setCurrentUser(
+updatedUser
+);
+
+
+
+return {
+
+success:true,
+
+user:updatedUser,
+
+};
+
+
+
+}
+catch(error){
+
+
+const message =
+getErrorMessage(
+error,
+"Avatar update failed"
+);
+
+
+
+setError(
+message
+);
+
+
+
+return {
+
+success:false,
+
+message,
+
+};
+
+
+
+}
+finally{
+
+
+setUpdatingAvatar(false);
+
+
+}
+
+
+
+},
+[
+setCurrentUser
+]
 );
 
 
@@ -315,7 +638,7 @@ UPDATE NOTIFICATION SETTINGS
 */
 
 
-const updateNotificationSettings =
+const updateNotifications =
 useCallback(
 async(settings)=>{
 
@@ -323,55 +646,63 @@ async(settings)=>{
 try{
 
 
-const updatedUser = {
-
-...user,
-
-notificationSettings:
-settings,
-
-};
+setError(null);
 
 
 
-setUser(updatedUser);
-
-
-
-localStorage.setItem(
-"user",
-JSON.stringify(updatedUser)
+const response =
+await updateNotificationSettings(
+settings
 );
 
 
 
-/*
-Future API:
-PUT /users/notifications
-*/
-
-
-return {
-
-success:true
-
-};
+const updatedUser =
+response?.user ||
+response?.data?.user ||
+response;
 
 
 
-}catch(error){
-
-
-console.error(
-"NOTIFICATION_UPDATE_ERROR",
-error
+setCurrentUser(
+updatedUser
 );
 
 
 
 return {
 
-success:false
+success:true,
+
+user:updatedUser,
+
+};
+
+
+
+}
+catch(error){
+
+
+const message =
+getErrorMessage(
+error,
+"Notification update failed"
+);
+
+
+
+setError(
+message
+);
+
+
+
+return {
+
+success:false,
+
+message,
 
 };
 
@@ -381,7 +712,9 @@ success:false
 
 
 },
-[user]
+[
+setCurrentUser
+]
 );
 
 
@@ -395,7 +728,6 @@ success:false
 /*
 =========================================
 CLEAR USER
-Called after logout
 =========================================
 */
 
@@ -403,15 +735,15 @@ Called after logout
 const clearUser = useCallback(()=>{
 
 
-setUser(null);
-
-
-localStorage.removeItem(
-"user"
+setCurrentUser(
+null
 );
 
 
-},[]);
+
+},[
+setCurrentUser
+]);
 
 
 
@@ -423,7 +755,7 @@ localStorage.removeItem(
 
 /*
 =========================================
-MULTI TAB SYNC
+MULTI TAB USER SYNC
 =========================================
 */
 
@@ -434,29 +766,20 @@ useEffect(()=>{
 const syncUser=(event)=>{
 
 
-if(event.key==="user"){
+if(
+event.key !== USER_STORAGE_KEY
+)
+return;
 
 
-if(event.newValue){
 
 setUser(
-JSON.parse(
 event.newValue
-)
+?
+JSON.parse(event.newValue)
+:
+null
 );
-
-
-}
-else{
-
-
-setUser(null);
-
-
-}
-
-
-}
 
 
 
@@ -483,6 +806,7 @@ syncUser
 };
 
 
+
 },[]);
 
 
@@ -502,43 +826,54 @@ CONTEXT VALUE
 
 const value = useMemo(()=>({
 
+
 user,
+
 
 loading,
 
+
+updatingProfile,
+
+
+updatingAvatar,
+
+
 error,
 
-fetchUser,
 
-refreshUser:fetchUser,
+
+refreshUser,
 
 
 updateProfile,
 
 
-saveProfile:updateProfile,
+updateAvatar,
 
 
-changeAvatar:updateProfile,
-
-
-updateNotificationSettings,
+updateNotifications,
 
 
 clearUser,
+
 
 
 }),
 [
 user,
 loading,
+updatingProfile,
+updatingAvatar,
 error,
-fetchUser,
+refreshUser,
 updateProfile,
-updateNotificationSettings,
-clearUser
+updateAvatar,
+updateNotifications,
+clearUser,
 ]
 );
+
 
 
 
@@ -557,46 +892,6 @@ value={value}
 </UserContext.Provider>
 
 );
-
-
-};
-
-
-
-
-
-
-
-
-
-/*
-=========================================
-HOOK
-=========================================
-*/
-
-
-export const useUser = ()=>{
-
-
-const context =
-useContext(
-UserContext
-);
-
-
-
-if(!context){
-
-throw new Error(
-"useUser must be used inside UserProvider"
-);
-
-}
-
-
-
-return context;
 
 
 };

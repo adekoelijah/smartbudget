@@ -68,12 +68,6 @@ setPasswordForm
 ]=useState(
 initialPasswordState
 );
-
-
-
-
-
-
 /*
 ==================================
 SESSION STATE
@@ -99,16 +93,9 @@ SECURITY STATES
 */
 
 
-const [
-twoFactorEnabled,
-setTwoFactorEnabled
-]=useState(
-Boolean(user?.twoFactorEnabled)
+const twoFactorEnabled = Boolean(
+    user?.twoFactorEnabled
 );
-
-
-
-
 
 const [
 loading,
@@ -135,44 +122,11 @@ setError
 ]=useState("");
 
 
-
-
-
-
-
-
-
 /*
 ==================================
 SYNC USER SECURITY STATE
 ==================================
 */
-
-
-useEffect(()=>{
-
-
-if(!user)
-return;
-
-
-
-setTwoFactorEnabled(
-Boolean(
-user.twoFactorEnabled
-)
-);
-
-
-},[
-user
-]);
-
-
-
-
-
-
 
 
 
@@ -207,34 +161,18 @@ return ()=>clearTimeout(timer);
 },[
 message
 ]);
-
-
-
-
-
-
-
-
-
 /*
 ==================================
 HELPERS
 ==================================
 */
 
-
-const clearStatus = ()=>{
+const clearStatus = useCallback(()=>{
 
 setMessage("");
-
 setError("");
 
-};
-
-
-
-
-
+},[]);
 
 const setLoadingState = (
 key,
@@ -251,16 +189,6 @@ setLoading(prev=>({
 }));
 
 };
-
-
-
-
-
-
-
-
-
-
 
 /*
 ==================================
@@ -291,16 +219,6 @@ setError("");
 },
 []
 );
-
-
-
-
-
-
-
-
-
-
 
 /*
 ==================================
@@ -351,13 +269,6 @@ passwordForm
 ]);
 
 
-
-
-
-
-
-
-
 /*
 ==================================
 CHANGE PASSWORD
@@ -394,35 +305,18 @@ setLoadingState(
 "password",
 true
 );
-
-
 clearStatus();
-
-
-
-
 
 await changePasswordRequest(
 passwordForm
 );
-
-
-
-
-
 setPasswordForm(
 initialPasswordState
 );
 
-
-
-
-
 setMessage(
 "Password updated successfully"
 );
-
-
 
 }
 
@@ -433,8 +327,6 @@ console.error(
 "Password update failed:",
 error
 );
-
-
 
 setError(
 error?.response?.data?.message ||
@@ -460,19 +352,9 @@ false
 },
 [
 passwordForm,
-validatePassword
+validatePassword, clearStatus
 ]
 );
-
-
-
-
-
-
-
-
-
-
 
 /*
 ==================================
@@ -513,8 +395,6 @@ response?.sessions || []
 );
 
 
-
-
 }
 
 catch(error){
@@ -525,12 +405,9 @@ console.error(
 error
 );
 
-
-
 setError(
 "Unable to load login activity"
 );
-
 
 
 }
@@ -543,24 +420,11 @@ setLoadingState(
 false
 );
 
-
 }
 
-
-
 },
-[]
+[clearStatus]
 );
-
-
-
-
-
-
-
-
-
-
 
 /*
 ==================================
@@ -587,15 +451,9 @@ revoke:sessionId,
 
 }));
 
-
-
 await revokeSessionRequest(
 sessionId
 );
-
-
-
-
 
 setSessions(prev=>
 
@@ -612,21 +470,17 @@ String(sessionId)
 
 
 
-
-
 setMessage(
 "Device removed successfully"
 );
-
-
 
 }
 
 catch(error){
 
-
 setError(
-"Unable to remove device"
+  error?.response?.data?.message ??
+  "Unable to remove device"
 );
 
 
@@ -651,15 +505,6 @@ revoke:null,
 },
 []
 );
-
-
-
-
-
-
-
-
-
 
 
 /*
@@ -706,7 +551,8 @@ catch(error){
 
 
 setError(
-"Unable to logout devices"
+  error?.response?.data?.message ??
+  "Unable to logout devices"
 );
 
 
@@ -728,13 +574,6 @@ false
 },
 []
 );
-
-
-
-
-
-
-
 
 
 /*
@@ -763,8 +602,6 @@ await enableTwoFactorRequest();
 
 
 
-setTwoFactorEnabled(true);
-
 
 
 setMessage(
@@ -778,8 +615,10 @@ setMessage(
 catch(error){
 
 
+
 setError(
-"Unable to enable 2FA"
+  error?.response?.data?.message ??
+  "Unable to enable 2FA"
 );
 
 
@@ -839,10 +678,6 @@ await disableTwoFactorRequest();
 
 
 
-setTwoFactorEnabled(false);
-
-
-
 setMessage(
 "Two-factor authentication disabled"
 );
@@ -855,7 +690,8 @@ catch(error){
 
 
 setError(
-"Unable to disable 2FA"
+  error?.response?.data?.message ??
+  "Unable to disable 2FA"
 );
 
 
@@ -894,71 +730,34 @@ INITIAL SESSION LOAD
 ==================================
 */
 
-
-useEffect(()=>{
-
-
-fetchSessions();
-
-
-},[
-fetchSessions
-]);
-
-
-
-
-
-
-
-
-
-
-
 return {
-
 
 passwordForm,
 
-
 sessions,
-
 
 twoFactorEnabled,
 
-
-
 loading,
 
-
 message,
-
 
 error,
 
 
-
 updatePasswordField,
-
 
 changePassword,
 
-
 fetchSessions,
-
 
 revokeSession,
 
-
 logoutAllDevices,
-
 
 enable2FA,
 
-
 disable2FA,
-
-
 
 };
 

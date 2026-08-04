@@ -50,9 +50,7 @@ ReactDOM.createRoot(
       <AuthProvider>
 
         <QueryClientProvider client={queryClient}>
-          <UserProvider>
-         
-             
+          <UserProvider> 
             <App />
             </UserProvider>
            

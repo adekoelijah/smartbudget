@@ -9,7 +9,7 @@ import {
 
 
 import {
-  useEffect,
+  useMemo,
   useState,
 } from "react";
 
@@ -39,9 +39,15 @@ const createInitialData = (user)=>({
 const PersonalInformation = ({
   user,
   onUpdate,
+  isSaving,
 })=>{
 
 
+  
+const initialData = useMemo(
+()=>createInitialData(user),
+[user]
+);
 
 const [
 isEditing,
@@ -50,16 +56,12 @@ setIsEditing
 
 
 
-const [
-isSaving,
-setIsSaving
-]=useState(false);
 
 
 
 const [
-error,
-setError
+validationError,
+setValidationError
 ]=useState("");
 
 
@@ -84,42 +86,18 @@ Only when account changes
 */
 
 
-useEffect(()=>{
 
 
-if(!user?._id)
-return;
-
-
-setFormData(
-createInitialData(user)
-);
-
-
-},[
-user?._id
-]);
-
-
-
-
-
-
-
-
-
-const initialData =
-createInitialData(user);
-
-
-
-
-
-const hasChanges =
-Object.keys(formData)
-.some(
-(key)=>
-formData[key] !== initialData[key]
+const hasChanges = useMemo(
+()=>(
+  Object.keys(formData).some(
+    (key)=>formData[key] !== initialData[key]
+  )
+),
+[
+  formData,
+  initialData
+]
 );
 
 
@@ -142,7 +120,7 @@ value,
 
 
 
-setError("");
+setValidationError("");
 
 
 
@@ -199,15 +177,10 @@ return null;
 
 };
 
+//handle is saving
 
 
-
-
-
-
-
-
-const handleSave=async()=>{
+const handleSave = async()=>{
 
 
 if(isSaving)
@@ -222,7 +195,7 @@ validateForm();
 
 if(validationError){
 
-setError(validationError);
+setValidationError(validationError);
 
 return;
 
@@ -230,64 +203,34 @@ return;
 
 
 
-
-try{
-
-
-setIsSaving(true);
-
-setError("");
+setValidationError("");
 
 
 
-await onUpdate?.(
-formData
-);
+const result =
+await onUpdate(formData);
 
 
+
+if(result?.success){
 
 setIsEditing(false);
 
 
-
 }
+else{
 
 
-
-catch(error){
-
-
-console.error(
-"Profile update failed",
-error
-);
-
-
-
-setError(
-error?.response?.data?.message ||
+setValidationError(
+result?.message ||
 "Unable to update profile"
 );
 
 
-
 }
-
-
-finally{
-
-
-setIsSaving(false);
-
-
-}
-
 
 
 };
-
-
-
 
 
 
@@ -304,7 +247,7 @@ createInitialData(user)
 );
 
 
-setError("");
+setValidationError("");
 
 setIsEditing(false);
 
@@ -424,7 +367,7 @@ Edit Information
 
 
 {
-error && (
+validationError && (
 
 <div
   className="
@@ -435,7 +378,7 @@ error && (
   "
 >
 
-{error}
+{validationError}
 
 </div>
 
@@ -518,7 +461,7 @@ type="email"
 
 value={formData.email}
 
-disabled
+disabled={!isEditing}
 
 />
 
@@ -609,12 +552,12 @@ onChange={handleChange}
 <SaveBar
 
 visible={
-isEditing && hasChanges
+  isEditing && hasChanges
 }
 
 isSaving={isSaving}
 
-hasError={Boolean(error)}
+hasError={Boolean(validationError)}
 
 onSave={handleSave}
 

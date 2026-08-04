@@ -1,18 +1,30 @@
+
+
+
 import {
-  createContext,
   useCallback,
   useEffect,
   useMemo,
   useState,
 } from "react";
+import AuthContext from "./AuthContext";
 
 import {
   loginUser,
   signupUser,
+  logoutUser,
 } from "../services/authService";
 
 
-export const AuthContext = createContext(null);
+
+/*
+=========================================
+AUTH CONTEXT
+=========================================
+*/
+
+
+
 
 
 
@@ -29,7 +41,12 @@ const getStoredToken = () => {
 
     return localStorage.getItem("token");
 
-  } catch {
+  } catch (error) {
+
+    console.error(
+      "GET_TOKEN_ERROR:",
+      error
+    );
 
     return null;
 
@@ -41,12 +58,37 @@ const getStoredToken = () => {
 
 
 
-const saveToken = (token)=>{
+const storeToken=(token)=>{
 
-  localStorage.setItem(
-    "token",
-    token
-  );
+
+try{
+
+
+if(!token){
+
+return;
+
+}
+
+
+localStorage.setItem(
+"token",
+token
+);
+
+
+}
+catch(error){
+
+
+console.error(
+"STORE_TOKEN_ERROR:",
+error
+);
+
+
+}
+
 
 };
 
@@ -54,7 +96,7 @@ const saveToken = (token)=>{
 
 
 
-const removeToken = ()=>{
+const removeStoredToken = ()=>{
 
   localStorage.removeItem(
     "token"
@@ -66,24 +108,17 @@ const removeToken = ()=>{
 
 
 
-const normalizeResponse = (response)=>{
 
-  return {
+const extractToken = (response)=>{
 
-    token:
-      response?.token ??
-      response?.data?.token ??
-      null,
-
-
-    user:
-      response?.user ??
-      response?.data?.user ??
-      null,
-
-  };
+  return (
+    response?.token ||
+    response?.data?.token ||
+    null
+  );
 
 };
+
 
 
 
@@ -98,37 +133,42 @@ AUTH PROVIDER
 
 
 export const AuthProvider = ({
- children
+  children
 })=>{
 
 
 const [
-token,
-setToken
+  token,
+  setToken
 ]=useState(
-getStoredToken
+  getStoredToken
 );
 
 
 
+
 const [
-loading,
-setLoading
+  loading,
+  setLoading
 ]=useState(false);
 
 
 
+
 const [
-initializing,
-setInitializing
+  initializing,
+  setInitializing
 ]=useState(true);
 
 
 
+
 const [
-error,
-setError
+  error,
+  setError
 ]=useState(null);
+
+
 
 
 
@@ -137,7 +177,7 @@ setError
 
 /*
 =========================================
-RESTORE SESSION
+RESTORE AUTH SESSION
 =========================================
 */
 
@@ -145,18 +185,16 @@ RESTORE SESSION
 useEffect(()=>{
 
 
-const existingToken =
-getStoredToken();
-
-
-if(existingToken){
-
-setToken(existingToken);
-
-}
-
+const timer =
+setTimeout(()=>{
 
 setInitializing(false);
+
+},0);
+
+
+
+return ()=>clearTimeout(timer);
 
 
 },[]);
@@ -190,13 +228,14 @@ setError(null);
 
 
 const response =
-await loginUser(credentials);
+await loginUser(
+credentials
+);
 
 
 
-const {
-token
-}=normalizeResponse(
+const token =
+extractToken(
 response
 );
 
@@ -205,14 +244,15 @@ response
 if(!token){
 
 throw new Error(
-"Authentication failed"
+"Authentication token missing"
 );
 
 }
 
 
 
-saveToken(token);
+storeToken(token);
+
 
 
 setToken(token);
@@ -220,21 +260,26 @@ setToken(token);
 
 
 
+
 return {
 
-success:true
+success:true,
+
+token
 
 };
 
 
 
-}catch(error){
+}
+catch(error){
 
 
 const message =
 error?.response?.data?.message ||
-error.message ||
+error?.message ||
 "Login failed";
+
 
 
 setError(message);
@@ -282,7 +327,7 @@ SIGNUP
 
 
 const signup = useCallback(
-async(data)=>{
+async(userData)=>{
 
 
 try{
@@ -295,13 +340,14 @@ setError(null);
 
 
 const response =
-await signupUser(data);
+await signupUser(
+userData
+);
 
 
 
-const {
-token
-}=normalizeResponse(
+const token =
+extractToken(
 response
 );
 
@@ -310,7 +356,7 @@ response
 if(!token){
 
 throw new Error(
-"Signup failed"
+"Authentication token missing"
 );
 
 }
@@ -318,7 +364,8 @@ throw new Error(
 
 
 
-saveToken(token);
+storeToken(token);
+
 
 
 setToken(token);
@@ -329,20 +376,21 @@ setToken(token);
 
 return {
 
-success:true
+success:true,
+
+token
 
 };
 
 
 
-
-}catch(error){
-
+}
+catch(error){
 
 
 const message =
 error?.response?.data?.message ||
-error.message ||
+error?.message ||
 "Signup failed";
 
 
@@ -358,6 +406,7 @@ success:false,
 message
 
 };
+
 
 
 }
@@ -390,19 +439,50 @@ LOGOUT
 */
 
 
-const logout = useCallback(()=>{
+const logout = useCallback(
+async()=>{
 
 
-removeToken();
+try{
+
+
+await logoutUser();
+
+
+
+}
+catch(error){
+
+
+console.error(
+"LOGOUT_ERROR:",
+error
+);
+
+
+}
+finally{
+
+
+removeStoredToken();
+
 
 
 setToken(null);
 
 
-window.location.href="/login";
+
+window.location.href =
+"/login";
 
 
-},[]);
+}
+
+
+
+},
+[]
+);
 
 
 
@@ -414,7 +494,7 @@ window.location.href="/login";
 
 /*
 =========================================
-TOKEN SYNC BETWEEN TABS
+MULTI TAB TOKEN SYNC
 =========================================
 */
 
@@ -422,10 +502,12 @@ TOKEN SYNC BETWEEN TABS
 useEffect(()=>{
 
 
-const listener=(event)=>{
+const syncToken=(event)=>{
 
 
-if(event.key==="token"){
+if(
+event.key === "token"
+){
 
 
 setToken(
@@ -436,25 +518,30 @@ event.newValue
 }
 
 
+
 };
 
 
 
 window.addEventListener(
 "storage",
-listener
+syncToken
 );
 
 
 
 return ()=>{
 
+
 window.removeEventListener(
 "storage",
-listener
+syncToken
 );
 
+
+
 };
+
 
 
 },[]);
@@ -476,6 +563,7 @@ CONTEXT VALUE
 
 const value = useMemo(()=>({
 
+
 token,
 
 
@@ -486,6 +574,7 @@ initializing,
 
 
 error,
+
 
 
 isAuthenticated:
@@ -502,6 +591,7 @@ signup,
 logout,
 
 
+
 }),
 [
 token,
@@ -512,6 +602,8 @@ login,
 signup,
 logout
 ]);
+
+
 
 
 

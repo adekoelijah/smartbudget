@@ -9,9 +9,8 @@ import {
   useState,
 } from "react";
 
+import { useUser, } from "../../../../context/useUser";
 
-
-import { useUser } from "../../../../context/UserContext"
 
 
 import {
@@ -27,7 +26,6 @@ import ChangePhotoModal from "./components/ChangePhotoModal";
 import NotificationSettings from "./NotificationSettings";
 import SecuritySettings from "./SecuritySettings";
 
-
 import SectionCard from "./components/SectionCard";
 import LoadingSkeleton from "./components/LoadingSkeleton";
 import EmptyState from "./components/EmptyState";
@@ -37,24 +35,43 @@ import EmptyState from "./components/EmptyState";
 
 
 
-const ProfileSettings = () => {
 
+const ProfileSettings = ()=>{
+
+
+
+/*
+=====================================
+GLOBAL USER STATE
+=====================================
+*/
 
 
 const {
 
 user,
+  updateProfile,
+  updatingProfile,
 
 loading,
 
-updateProfile,
-
-updateNotificationSettings,
+updateUserNotifications,
 
 }=useUser();
 
 
 
+
+
+
+
+
+
+/*
+=====================================
+PROFILE SETTINGS STATE
+=====================================
+*/
 
 
 const {
@@ -65,11 +82,12 @@ preview,
 
 uploading,
 
-setAvatar,
-
-save,
+uploadAvatar,
 
 }=useProfileSettings();
+
+
+
 
 
 
@@ -88,10 +106,11 @@ setShowPhotoModal
 
 
 
+
 /*
-====================================
+=====================================
 LOADING STATE
-====================================
+=====================================
 */
 
 
@@ -138,9 +157,9 @@ variant="card"
 
 
 /*
-====================================
-EMPTY STATE
-====================================
+=====================================
+EMPTY USER STATE
+=====================================
 */
 
 
@@ -151,6 +170,7 @@ return (
 
 <EmptyState
 
+
 icon={
 <UserRound size={30}/>
 }
@@ -159,12 +179,16 @@ icon={
 title="Profile unavailable"
 
 
+
 description="
-We couldn't load your account information. Please refresh and try again.
+We couldn't load your account information.
+Please refresh and try again.
 "
 
 
+
 actionLabel="Reload"
+
 
 
 onAction={()=>
@@ -201,7 +225,12 @@ return (
 
 
 
-{/* PROFILE OVERVIEW */}
+
+
+{/* =================================
+PROFILE OVERVIEW
+================================= */}
+
 
 
 <SectionCard
@@ -247,7 +276,10 @@ setShowPhotoModal(true)
 
 
 
-{/* PROFILE COMPLETION */}
+{/* =================================
+PROFILE COMPLETION
+================================= */}
+
 
 
 <SectionCard
@@ -293,7 +325,10 @@ action
 
 
 
-{/* PERSONAL INFORMATION */}
+{/* =================================
+PERSONAL INFORMATION
+================================= */}
+
 
 
 <SectionCard
@@ -317,11 +352,11 @@ Update your personal account information securely.
 
 <PersonalInformation
 
-
-user={profile || user}
-
+user={user}
 
 onUpdate={updateProfile}
+
+isSaving={updatingProfile}
 
 
 />
@@ -337,7 +372,10 @@ onUpdate={updateProfile}
 
 
 
-{/* SECURITY */}
+{/* =================================
+SECURITY
+================================= */}
+
 
 
 <SectionCard
@@ -363,6 +401,7 @@ Monitor your account protection and security status.
 
 
 user={user}
+
 
 
 onChangePassword={()=>{
@@ -404,6 +443,7 @@ console.log(
 }}
 
 
+
 />
 
 
@@ -417,7 +457,10 @@ console.log(
 
 
 
-{/* NOTIFICATIONS */}
+{/* =================================
+NOTIFICATIONS
+================================= */}
+
 
 
 <NotificationSettings
@@ -427,7 +470,7 @@ user={user}
 
 
 onUpdate={
-updateNotificationSettings
+updateUserNotifications
 }
 
 
@@ -441,7 +484,10 @@ updateNotificationSettings
 
 
 
-{/* CHANGE PHOTO */}
+{/* =================================
+PROFILE PHOTO
+================================= */}
+
 
 
 <ChangePhotoModal
@@ -452,9 +498,13 @@ open={showPhotoModal}
 
 
 currentImage={
+
 preview ||
+
 profile?.avatar ||
+
 user?.avatar
+
 }
 
 
@@ -463,20 +513,30 @@ loading={uploading}
 
 
 
-onClose={()=>
-setShowPhotoModal(false)
-}
+onClose={()=>{
 
+setShowPhotoModal(false);
+
+}}
 
 
 
 onUpload={async(file)=>{
 
 
-await setAvatar(file);
+const response =
+await uploadAvatar(file);
+
+
+
+if(response?.success){
 
 
 setShowPhotoModal(false);
+
+
+}
+
 
 
 }}
@@ -485,13 +545,14 @@ setShowPhotoModal(false);
 />
 
 
-
 </div>
 
 );
 
 
 };
+
+
 
 
 
