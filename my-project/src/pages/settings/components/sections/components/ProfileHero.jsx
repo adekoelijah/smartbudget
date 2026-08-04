@@ -1,5 +1,5 @@
 import {
-  memo,
+  memo,useMemo
 } from "react";
 
 
@@ -22,7 +22,7 @@ import {
 
 
 const ProfileHero = ({
-  profile,
+  user,
   preview,
   loading,
   onAvatarChange,
@@ -31,9 +31,9 @@ const ProfileHero = ({
 
 
 const initials =
-profile?.name
+user?.name
 ?
-profile.name
+user.name
 .trim()
 .split(" ")
 .map(word => word[0])
@@ -45,9 +45,9 @@ profile.name
 
 
 const joinedDate =
-profile?.createdAt
+user?.createdAt
 ?
-new Date(profile.createdAt)
+new Date(user.createdAt)
 .toLocaleDateString(
 "en-US",
 {
@@ -65,27 +65,27 @@ useMemo(()=>{
 let score = 0;
 
 
-if(profile?.name)
+if(user?.name)
 score +=20;
 
 
-if(profile?.email)
+if(user?.email)
 score +=20;
 
 
-if(profile?.emailVerified)
+if(user?.emailVerified)
 score +=20;
 
 
-if(profile?.phoneVerified)
+if(user?.phoneVerified)
 score +=15;
 
 
-if(profile?.avatar)
+if(user?.avatar)
 score +=10;
 
 
-if(profile?.twoFactorEnabled)
+if(user?.twoFactorEnabled)
 score +=15;
 
 
@@ -94,7 +94,7 @@ return score;
 
 
 },[
-profile
+user
 ]);
 
 
@@ -180,18 +180,18 @@ duration:0.3,
 
 
 {
-preview || profile?.avatar
+preview || user?.avatar
 
 ?
 
 <img
   src={
 preview ||
-profile.avatar
+user?.avatar
 }
 
 alt={
-profile?.name
+user?.name
 }
   className="
     object-cover
@@ -304,7 +304,7 @@ onAvatarChange(file);
 >
 
 {
-profile?.name ||
+user?.name ||
 "SmartBudget User"
 }
 
@@ -320,7 +320,7 @@ profile?.name ||
 >
 
 {
-profile?.email
+user?.email
 }
 
 </p>
@@ -344,7 +344,7 @@ profile?.email
 
 
 {
-profile?.emailVerified && (
+user?.emailVerified && (
 
 <Badge
 
@@ -362,7 +362,7 @@ text="Verified"
 
 
 {
-profile?.twoFactorEnabled && (
+user?.twoFactorEnabled && (
 
 <Badge
 
@@ -563,7 +563,6 @@ icon:Icon,
 text,
 }){
 
-
 return (
 
 <div
@@ -581,7 +580,6 @@ return (
 <Icon size={14}/>
 
 {text}
-
 
 </div>
 

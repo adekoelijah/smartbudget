@@ -627,7 +627,6 @@ text,
   "
   /
 >
-{Icon}
 {text}
 
 </div>
