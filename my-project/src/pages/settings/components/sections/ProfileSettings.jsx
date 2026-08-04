@@ -63,10 +63,6 @@ updateUserNotifications,
 
 
 
-
-
-
-
 /*
 =====================================
 PROFILE SETTINGS STATE
