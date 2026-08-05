@@ -7,6 +7,7 @@ import {
   BadgeCheck,
 } from "lucide-react";
 
+import VerificationBadge from "./VerificationBadge";
 
 const ProfileCard = ({
   user,
