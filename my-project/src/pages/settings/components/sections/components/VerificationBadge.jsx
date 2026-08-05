@@ -6,6 +6,8 @@ import {
   FileCheck,
 } from "lucide-react";
 
+import { cloneElement } from "react";
+
 
 
 const VerificationBadge = ({
@@ -195,46 +197,17 @@ showLabel && (
 
 
 
-function cloneIcon(
-icon,
-size
-){
+function cloneIcon(icon, size) {
+  const iconSize = {
+    sm: 14,
+    md: 16,
+    lg: 20,
+  }[size];
 
-const iconSize = {
-
-sm:14,
-
-md:16,
-
-lg:20,
-
-}[size];
-
-
-
-return (
-
-<>
-
-{
-icon.type
-?
-icon.type({
-size:iconSize
-})
-:
-icon
+  return cloneElement(icon, {
+    size: iconSize,
+  });
 }
-
-</>
-
-);
-
-}
-
-
-
-
 
 
 export default VerificationBadge;

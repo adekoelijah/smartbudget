@@ -541,7 +541,7 @@ function calculateSecurityScore(user){
 let score = 40;
 
 
-if(user?.emailVerified)
+if(user?.isEmailVerified)
 score +=20;
 
 
