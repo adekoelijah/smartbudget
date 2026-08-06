@@ -1,6 +1,8 @@
-import { memo } from "react";
-import { motion } from "framer-motion";
-import { useLocation } from "react-router-dom";
+import {
+  memo,
+  useMemo,
+} from "react";
+
 
 import {
   User,
@@ -14,51 +16,66 @@ import {
   LockKeyhole,
 } from "lucide-react";
 
-// import { useUser } from "../hooks/useUser";
-import { useUser } from "../../../context/useUser";
+
+import {
+  useLocation,
+} from "react-router-dom";
+
+
+import {
+  motion,
+} from "framer-motion";
+
+
+import {
+  useUser,
+} from "../../../hooks/useUser";
+
+
 
 
 
 const SECTION_CONFIG = {
 
-  profile:{
-    title:"Profile Settings",
-    description:
-      "Manage your identity, personal information and account details.",
-    icon:User,
-  },
+
+profile:{
+title:"Profile Settings",
+description:
+"Manage your identity, personal information and account details.",
+icon:User,
+},
 
 
-  security:{
-    title:"Security Center",
-    description:
-      "Protect your account with authentication and session controls.",
-    icon:ShieldCheck,
-  },
+security:{
+title:"Security Center",
+description:
+"Protect your account with authentication and session controls.",
+icon:ShieldCheck,
+},
 
 
-  notifications:{
-    title:"Notification Settings",
-    description:
-      "Control alerts, financial updates and account communication.",
-    icon:Bell,
-  },
+notifications:{
+title:"Notification Settings",
+description:
+"Control alerts, financial updates and account communication.",
+icon:Bell,
+},
 
 
-  preferences:{
-    title:"Preferences",
-    description:
-      "Customize your SmartBudget experience.",
-    icon:SlidersHorizontal,
-  },
+preferences:{
+title:"Preferences",
+description:
+"Customize your SmartBudget experience.",
+icon:SlidersHorizontal,
+},
 
 
-  billing:{
-    title:"Billing & Subscription",
-    description:
-      "Manage plans, payments and subscription settings.",
-    icon:CreditCard,
-  },
+billing:{
+title:"Billing & Subscription",
+description:
+"Manage your plans, payments and subscription settings.",
+icon:CreditCard,
+},
 
 
 };
@@ -66,25 +83,41 @@ const SECTION_CONFIG = {
 
 
 
-const SettingsHeader = () => {
+
+
+
+const SettingsHeader = ()=>{
 
 
 const location = useLocation();
 
 
+
 const {
- user,
- loading,
-} = useUser();
+user,
+loading,
+}=useUser();
 
 
 
 
-const key = location.pathname.split("/").pop();
+
+const sectionKey =
+location.pathname
+.split("/")
+.filter(Boolean)
+.pop();
+
+
+
+
 
 const section =
-  SECTION_CONFIG[key] ??
-  SECTION_CONFIG.profile;
+SECTION_CONFIG[sectionKey]
+||
+SECTION_CONFIG.profile;
+
+
 
 
 
@@ -93,26 +126,108 @@ section.icon;
 
 
 
-const initials = user?.name
-  ? user.name
-      .split(" ")
-      .map((item) => item[0])
-      .slice(0, 2)
-      .join("")
-      .toUpperCase()
-  : "SB";
+
+
+
+
+const fullName =
+useMemo(()=>{
+
+
+const name = [
+
+user?.firstName,
+
+user?.lastName,
+
+]
+
+.filter(Boolean)
+.join(" ");
+
+
+
+return (
+name ||
+"SmartBudget User"
+);
+
+
+},[
+user
+]);
 
 
 
 
 
-let securityStatus = 40;
 
-if (user?.emailVerified) securityStatus += 20;
-if (user?.phoneVerified) securityStatus += 15;
-if (user?.twoFactorEnabled) securityStatus += 25;
 
-securityStatus = Math.min(securityStatus, 100);
+const initials =
+useMemo(()=>{
+
+
+return fullName
+
+.split(" ")
+
+.map(
+item=>item[0]
+)
+
+.slice(0,2)
+
+.join("")
+
+.toUpperCase();
+
+
+
+},[
+fullName
+]);
+
+
+
+
+
+
+
+
+const securityScore =
+useMemo(()=>{
+
+
+let score = 40;
+
+
+
+if(user?.emailVerified)
+score +=20;
+
+
+if(user?.phoneVerified)
+score +=15;
+
+
+if(user?.twoFactorEnabled)
+score +=25;
+
+
+
+
+return Math.min(
+score,
+100
+);
+
+
+},[
+user
+]);
+
+
+
 
 
 
@@ -120,13 +235,12 @@ securityStatus = Math.min(securityStatus, 100);
 
 return (
 
-
 <motion
   .section
 
 initial={{
 opacity:0,
-y:-10,
+y:-8,
 }}
 
 animate={{
@@ -135,16 +249,18 @@ y:0,
 }}
 
 transition={{
-duration:.3
+duration:0.25,
 }}
   className="
     relative overflow-hidden
     bg-white
-    border border-slate-200 rounded-[28px]
+    border border-slate-200 rounded-3xl
     shadow-sm
   "
 >
 
+
+{/* Accent */}
 
 <div
   className="
@@ -157,15 +273,21 @@ duration:.3
 
 
 
+
+
+
+
 <div
   className="
-    relative
     space-y-6 p-6
   "
 >
 
 
-{/* USER HEADER */}
+
+
+
+{/* USER AREA */}
 
 
 <div
@@ -176,6 +298,9 @@ duration:.3
 >
 
 
+
+
+
 <div
   className="
     flex items-center
@@ -184,23 +309,33 @@ duration:.3
 >
 
 
+
+
+
+{/* AVATAR */}
+
 <div
   className="
-    flex justify-center items-center overflow-hidden
+    relative flex justify-center items-center overflow-hidden
     w-16 h-16
     font-bold text-white text-xl
     bg-slate-900
     rounded-2xl
+    shrink-0
   "
 >
 
+
 {
+
 user?.avatar
+
 ?
 
 <img
   src={user.avatar}
-alt={user?.name}
+
+alt={fullName}
   className="
     object-cover
     w-full h-full
@@ -214,7 +349,12 @@ initials
 
 }
 
+
+
 </div>
+
+
+
 
 
 
@@ -237,21 +377,28 @@ initials
 >
 
 {
+
 loading
+
 ?
 "Loading..."
+
 :
-user?.name || "SmartBudget User"
+
+fullName
+
 }
 
 </h2>
 
 
 
+
+
 <span
   className="
     inline-flex items-center
-    px-2 py-1
+    px-2.5 py-1
     font-semibold text-emerald-700 text-xs
     bg-emerald-50
     border border-emerald-200 rounded-full
@@ -272,6 +419,7 @@ Verified
 
 
 
+
 <p
   className="
     mt-1
@@ -280,7 +428,8 @@ Verified
 >
 
 {
-user?.email ||
+user?.email
+||
 "No email connected"
 }
 
@@ -289,36 +438,48 @@ user?.email ||
 
 
 
+
 <div
   className="
     flex flex-wrap
     mt-3
-    gap-3
+    gap-2
   "
 >
 
-
 <StatusPill
+
 icon={Wifi}
+
 text="Live Sync"
+
 />
+
 
 
 <StatusPill
+
 icon={Activity}
+
 text="System Healthy"
+
 />
 
 
-
-</div>
-
-
 </div>
 
 
 
 </div>
+
+
+
+
+
+
+</div>
+
+
 
 
 
@@ -349,13 +510,17 @@ text="System Healthy"
 
 <div>
 
+
 <p
   className="
     font-medium text-slate-500 text-xs uppercase tracking-wide
   "
 >
+
 Security Score
+
 </p>
+
 
 
 <h3
@@ -365,9 +530,10 @@ Security Score
   "
 >
 
-{securityStatus}%
+{securityScore}%
 
 </h3>
+
 
 
 </div>
@@ -383,11 +549,17 @@ Security Score
 >
 
 
+
 </div>
 
 
 
+
+
 <div
+  role="progressbar"
+
+aria-valuenow={securityScore}
   className="
     overflow-hidden
     h-2
@@ -397,16 +569,14 @@ Security Score
   "
 >
 
-
 <div
   className="
     h-full
     bg-blue-600
-    rounded-full
     transition-all
   "
   style={{
-width:`${securityStatus}%`
+width:`${securityScore}%`
 }}
 
 /
@@ -416,10 +586,15 @@ width:`${securityStatus}%`
 </div>
 
 
+
+
 </div>
 
 
 
+
+
+
 </div>
 
 
@@ -428,13 +603,15 @@ width:`${securityStatus}%`
 
 
 
-{/* ACTIVE SECTION */}
+
+
+{/* CURRENT MODULE */}
 
 
 
 <div
   className="
-    flex flex-col md:flex-row justify-between md:items-center
+    flex flex-col md:flex-row md:justify-between md:items-center
     p-5
     bg-slate-50
     border border-slate-200 rounded-3xl
@@ -443,12 +620,16 @@ width:`${securityStatus}%`
 >
 
 
+
+
+
 <div
   className="
     flex items-center
     gap-4
   "
 >
+
 
 
 <div
@@ -468,6 +649,7 @@ width:`${securityStatus}%`
 
 
 
+
 <div>
 
 
@@ -480,6 +662,7 @@ width:`${securityStatus}%`
 Settings Module
 
 </p>
+
 
 
 
@@ -509,10 +692,15 @@ Settings Module
 
 
 
+
 </div>
 
 
+
+
 </div>
+
+
 
 
 
@@ -523,7 +711,7 @@ Settings Module
 <div
   className="
     flex items-center
-    px-4 py-3
+    p-3
     bg-white
     border border-emerald-200 rounded-2xl
     gap-3
@@ -548,12 +736,14 @@ Settings Module
   /
 >
 
-
 </div>
 
 
 
+
+
 <div>
+
 
 <p
   className="
@@ -564,6 +754,7 @@ Settings Module
 Protection Active
 
 </p>
+
 
 
 <p
@@ -577,18 +768,29 @@ Encrypted financial workspace
 </p>
 
 
-</div>
-
 
 </div>
 
 
+</div>
+
+
+
+
 
 </div>
 
 
 
+
+
+
+
+
 </div>
+
+
+
 
 
 </motion.section>
@@ -604,14 +806,17 @@ Encrypted financial workspace
 
 
 
+
+
 const StatusPill = ({
 icon:Icon,
 text,
 })=>(
 
+
 <div
   className="
-    flex items-center
+    inline-flex items-center
     px-3 py-1.5
     font-medium text-slate-600 text-xs
     bg-white
@@ -627,11 +832,17 @@ text,
   "
   /
 >
+
 {text}
+
 
 </div>
 
+
 );
+
+
+
 
 
 

@@ -11,122 +11,118 @@ import {
 import { useState } from "react";
 
 
+
 const BillingSettings = () => {
 
 
-  const [loading, setLoading] = useState(false);
+const [loading,setLoading] = useState(false);
 
 
 
-  /*
-  ========================================
-  MOCK DATA
-  Replace with API later
-  ========================================
-  */
+const subscription = {
 
+plan:"SmartBudget Premium",
 
-  const subscription = {
+status:"Active",
 
-    plan: "SmartBudget Premium",
+price:"₦1,000",
 
-    status: "Active",
+cycle:"month",
 
-    price: "₦1,000",
+renewalDate:"August 28, 2026",
 
-    cycle: "month",
+features:[
 
-    renewalDate: "August 28, 2026",
+"AI Financial Insights",
 
-    features: [
+"Unlimited Budgets",
 
-      "AI financial insights",
+"Advanced Analytics",
 
-      "Unlimited budgets",
+"Smart Recommendations",
 
-      "Advanced analytics",
+"Priority Support",
 
-      "Smart recommendations",
+],
 
-      "Priority support",
-
-    ],
-
-  };
-
-
-
-  const paymentMethod = {
-
-    type: "Visa",
-
-    last4: "4242",
-
-    expiry: "08/28",
-
-  };
-
-
-
-  const invoices = [
-
-    {
-
-      id:"INV-001",
-
-      date:"July 28, 2026",
-
-      amount:"₦1,000",
-
-      status:"Paid",
-
-    },
-
-    {
-
-      id:"INV-002",
-
-      date:"June 28, 2026",
-
-      amount:"₦1,000",
-
-      status:"Paid",
-
-    },
-
-  ];
+};
 
 
 
 
-  const handleManageSubscription = async()=>{
+const paymentMethod = {
+
+type:"Visa",
+
+last4:"4242",
+
+expiry:"08/28",
+
+};
 
 
-    try{
-
-      setLoading(true);
 
 
-      /*
-        TODO:
-        Connect Paystack customer portal
-      */
+const invoices=[
+
+{
+id:"INV-001",
+date:"July 28, 2026",
+amount:"₦1,000",
+status:"Paid",
+},
+
+{
+id:"INV-002",
+date:"June 28, 2026",
+amount:"₦1,000",
+status:"Paid",
+},
+
+];
 
 
-      console.log(
-        "Manage subscription"
-      );
 
 
-    }
 
-    finally{
 
-      setLoading(false);
 
-    }
+const handleManageSubscription = async()=>{
 
-  };
+
+try{
+
+
+setLoading(true);
+
+
+
+/*
+Future:
+Paystack customer portal
+*/
+
+console.log(
+"Manage subscription"
+);
+
+
+}
+
+finally{
+
+
+setLoading(false);
+
+
+}
+
+
+};
+
+
+
+
 
 
 
@@ -135,10 +131,10 @@ return (
 
 <div
   className="
-    space-y-8
-    text-white
+    space-y-6
   "
 >
+
 
 
 {/* HEADER */}
@@ -147,27 +143,22 @@ return (
 
 <h1
   className="
-    font-bold text-3xl tracking-tight
+    font-bold text-slate-900 text-2xl tracking-tight
   "
 >
-
 Billing & Subscription
-
 </h1>
 
 
 <p
   className="
     mt-2
-    text-slate-400 text-sm
+    text-slate-500 text-sm
   "
 >
-
-Manage your SmartBudget membership,
-payments and invoices.
-
+Manage your SmartBudget plan,
+payments and invoices securely.
 </p>
-
 
 </div>
 
@@ -175,15 +166,19 @@ payments and invoices.
 
 
 
-{/* SUBSCRIPTION CARD */}
 
-<div
+
+
+
+{/* SUBSCRIPTION */}
+
+<section
   className="
     relative overflow-hidden
-    p-8
-    bg-white/[0.04]
-    border border-white/10 rounded-[32px]
-    shadow-xl backdrop-blur-xl
+    p-6
+    bg-white
+    border border-slate-200 rounded-3xl
+    shadow-sm
   "
 >
 
@@ -192,7 +187,7 @@ payments and invoices.
   className="
     top-0 right-0 absolute
     w-40 h-40
-    bg-blue-500/20
+    bg-blue-100/60
     rounded-full
     blur-3xl
   "
@@ -203,13 +198,15 @@ payments and invoices.
 
 <div
   className="
-    relative flex flex-col lg:flex-row lg:justify-between lg:items-center
-    gap-8
+    relative flex flex-col md:flex-row md:justify-between md:items-center
+    gap-6
   "
 >
 
 
+
 <div>
+
 
 
 <div
@@ -222,28 +219,25 @@ payments and invoices.
 
 <div
   className="
-    p-3
-    bg-blue-500/20
+    flex justify-center items-center
+    w-12 h-12
+    text-blue-600
+    bg-blue-50
     rounded-2xl
   "
 >
 
-<Sparkles
-  size={22}
-  className="
-    text-blue-400
-  "
-  /
->
+<Sparkles size={22}/>
 
 </div>
+
 
 
 <div>
 
 <h2
   className="
-    font-semibold text-xl
+    font-semibold text-slate-900 text-lg
   "
 >
 
@@ -256,12 +250,12 @@ payments and invoices.
   className="
     flex items-center
     mt-1
-    text-emerald-400 text-sm
+    text-emerald-600 text-sm
     gap-2
   "
 >
 
-<CheckCircle2 size={16}/>
+<CheckCircle2 size={15}/>
 
 {subscription.status}
 
@@ -275,6 +269,8 @@ payments and invoices.
 
 
 
+
+
 <div
   className="
     flex items-end
@@ -283,10 +279,9 @@ payments and invoices.
   "
 >
 
-
 <span
   className="
-    font-bold text-4xl
+    font-bold text-slate-900 text-4xl
   "
 >
 
@@ -298,11 +293,11 @@ payments and invoices.
 <span
   className="
     mb-1
-    text-slate-400
+    text-slate-500 text-sm
   "
 >
-
-/ {subscription.cycle}
+/
+{subscription.cycle}
 
 </span>
 
@@ -311,23 +306,23 @@ payments and invoices.
 
 
 
+
 <p
   className="
     mt-3
-    text-slate-400 text-sm
+    text-slate-500 text-sm
   "
 >
 
 Next billing date:
+
 <span
   className="
     ml-2
-    font-medium text-white
+    font-medium text-slate-900
   "
 >
-
 {subscription.renewalDate}
-
 </span>
 
 </p>
@@ -340,22 +335,26 @@ Next billing date:
 
 
 
+
+
 <button
   onClick={handleManageSubscription}
 
 disabled={loading}
   className="
-    flex justify-center items-center
+    inline-flex justify-center items-center
     px-6 py-3
-    font-semibold text-white
-    bg-blue-500 hover:bg-blue-400
+    font-semibold text-white text-sm
+    bg-slate-900 hover:bg-black
     rounded-2xl
-    disabled:opacity-50 transition
+    disabled:opacity-60 transition
     gap-2
   "
 >
 
-{loading
+
+{
+loading
 ?
 "Processing..."
 :
@@ -363,14 +362,19 @@ disabled={loading}
 }
 
 
-<ArrowRight size={18}/>
+<ArrowRight size={17}/>
 
 
 </button>
 
 
 
+
+
 </div>
+
+
+
 
 
 
@@ -382,22 +386,21 @@ disabled={loading}
   className="
     grid sm:grid-cols-2 lg:grid-cols-5
     mt-8
-    gap-4
+    gap-3
   "
 >
 
-
 {
-subscription.features.map(
-(feature)=>(
+subscription.features.map(feature=>(
+
 <div
   key={feature}
   className="
     flex items-center
-    px-4 py-3
-    text-slate-300 text-sm
-    bg-black/20
-    border border-white/10 rounded-2xl
+    p-3
+    text-slate-700 text-sm
+    bg-slate-50
+    border border-slate-200 rounded-xl
     gap-2
   "
 >
@@ -405,19 +408,18 @@ subscription.features.map(
 <CheckCircle2
   size={16}
   className="
-    text-blue-400
+    text-emerald-500
   "
   /
 >
-
 
 {feature}
 
 
 </div>
-)
 
-)
+
+))
 
 }
 
@@ -425,7 +427,8 @@ subscription.features.map(
 </div>
 
 
-</div>
+
+</section>
 
 
 
@@ -435,13 +438,12 @@ subscription.features.map(
 
 
 
-{/* LOWER GRID */}
-
+{/* LOWER SECTION */}
 
 <div
   className="
     grid lg:grid-cols-2
-    gap-8
+    gap-6
   "
 >
 
@@ -450,15 +452,18 @@ subscription.features.map(
 
 
 
-{/* PAYMENT METHOD */}
 
 
-<div
+
+
+{/* PAYMENT */}
+
+<section
   className="
-    p-7
-    bg-white/[0.04]
-    border border-white/10 rounded-[32px]
-    backdrop-blur-xl
+    p-6
+    bg-white
+    border border-slate-200 rounded-3xl
+    shadow-sm
   "
 >
 
@@ -466,51 +471,44 @@ subscription.features.map(
 <div
   className="
     flex items-center
-    mb-6
     gap-3
   "
 >
 
+
 <div
   className="
-    p-3
-    bg-blue-500/20
+    flex justify-center items-center
+    w-11 h-11
+    text-blue-600
+    bg-blue-50
     rounded-xl
   "
 >
 
-<CreditCard
-  size={20}
-  className="
-    text-blue-400
-  "
-  /
->
+<CreditCard size={20}/>
 
 </div>
+
 
 
 <div>
 
 <h3
   className="
-    font-semibold
+    font-semibold text-slate-900
   "
 >
-
 Payment Method
-
 </h3>
 
 
 <p
   className="
-    text-slate-400 text-sm
+    text-slate-500 text-xs
   "
 >
-
 Secure payment information
-
 </p>
 
 
@@ -518,34 +516,33 @@ Secure payment information
 
 
 </div>
+
 
 
 
 
 <div
   className="
-    p-5
-    bg-black/20
-    border border-white/10 rounded-2xl
+    mt-6 p-5
+    bg-slate-50
+    border border-slate-200 rounded-2xl
   "
 >
 
 
 <p
   className="
-    text-slate-400 text-sm
+    text-slate-500 text-xs
   "
 >
-
 Card
-
 </p>
 
 
-<h4
+<p
   className="
     mt-2
-    font-semibold text-lg
+    font-semibold text-slate-900 text-lg
   "
 >
 
@@ -553,13 +550,14 @@ Card
 
 **** {paymentMethod.last4}
 
-</h4>
+</p>
+
 
 
 <p
   className="
     mt-2
-    text-slate-400 text-sm
+    text-slate-500 text-sm
   "
 >
 
@@ -569,28 +567,28 @@ Expires {paymentMethod.expiry}
 
 
 
+
 <button
   className="
     w-full
     mt-5 py-3
-    font-medium text-sm
-    hover:bg-white/5
-    border border-white/10 rounded-xl
+    font-medium text-slate-700 text-sm
+    hover:bg-white
+    border border-slate-200 rounded-xl
     transition
   "
 >
 
-Update Card
+Update Payment Method
 
 </button>
 
 
-</div>
-
 
 </div>
 
 
+</section>
 
 
 
@@ -598,15 +596,16 @@ Update Card
 
 
 
-{/* BILLING HISTORY */}
 
 
-<div
+{/* INVOICES */}
+
+<section
   className="
-    p-7
-    bg-white/[0.04]
-    border border-white/10 rounded-[32px]
-    backdrop-blur-xl
+    p-6
+    bg-white
+    border border-slate-200 rounded-3xl
+    shadow-sm
   "
 >
 
@@ -614,7 +613,6 @@ Update Card
 <div
   className="
     flex items-center
-    mb-6
     gap-3
   "
 >
@@ -622,45 +620,37 @@ Update Card
 
 <div
   className="
-    p-3
-    bg-blue-500/20
+    flex justify-center items-center
+    w-11 h-11
+    text-blue-600
+    bg-blue-50
     rounded-xl
   "
 >
 
-<Receipt
-  size={20}
-  className="
-    text-blue-400
-  "
-  /
->
-
+<Receipt size={20}/>
 
 </div>
+
 
 
 <div>
 
 <h3
   className="
-    font-semibold
+    font-semibold text-slate-900
   "
 >
-
 Billing History
-
 </h3>
 
 
 <p
   className="
-    text-slate-400 text-sm
+    text-slate-500 text-xs
   "
 >
-
-Your recent payments
-
+Recent transactions
 </p>
 
 
@@ -673,23 +663,25 @@ Your recent payments
 
 
 
+
+
 <div
   className="
-    space-y-4
+    space-y-3 mt-6
   "
 >
 
-
 {
-invoices.map(
-(invoice)=>(
+invoices.map(invoice=>(
+
+
 <div
   key={invoice.id}
   className="
     flex justify-between items-center
     p-4
-    bg-black/20
-    border border-white/10 rounded-2xl
+    bg-slate-50
+    border border-slate-200 rounded-2xl
   "
 >
 
@@ -698,7 +690,7 @@ invoices.map(
 
 <p
   className="
-    font-medium
+    font-medium text-slate-900 text-sm
   "
 >
 
@@ -709,7 +701,7 @@ invoices.map(
 
 <p
   className="
-    text-slate-400 text-sm
+    text-slate-500 text-xs
   "
 >
 
@@ -721,6 +713,17 @@ invoices.map(
 </div>
 
 
+
+
+
+<div
+  className="
+    flex items-center
+    gap-4
+  "
+>
+
+
 <div
   className="
     text-right
@@ -730,7 +733,7 @@ invoices.map(
 
 <p
   className="
-    font-semibold
+    font-semibold text-slate-900 text-sm
   "
 >
 
@@ -739,32 +742,36 @@ invoices.map(
 </p>
 
 
-<div
+
+<span
   className="
     flex justify-end items-center
-    text-emerald-400 text-sm
-    gap-2
+    text-emerald-600 text-xs
+    gap-1
   "
 >
 
-<CheckCircle2 size={14}/>
+<CheckCircle2 size={13}/>
 
 {invoice.status}
 
-</div>
+</span>
 
 
 </div>
+
+
+
 
 
 <button
   className="
-    ml-4
-    text-slate-400 hover:text-white
+    text-slate-400 hover:text-slate-900
+    transition
   "
 >
 
-<Download size={18}/>
+<Download size={17}/>
 
 </button>
 
@@ -772,9 +779,14 @@ invoices.map(
 
 </div>
 
-)
 
-)
+
+
+
+</div>
+
+
+))
 
 }
 
@@ -782,11 +794,15 @@ invoices.map(
 </div>
 
 
+</section>
+
+
+
+
+
+
+
 </div>
-
-
-</div>
-
 
 
 
@@ -798,39 +814,39 @@ invoices.map(
 
 {/* SECURITY */}
 
-
-<div
+<section
   className="
-    p-7
-    bg-white/[0.04]
-    border border-white/10 rounded-[32px]
-    backdrop-blur-xl
+    flex items-start
+    p-6
+    bg-white
+    border border-slate-200 rounded-3xl
+    shadow-sm
+    gap-4
   "
 >
 
 
 <div
   className="
-    flex items-center
-    gap-3
+    flex justify-center items-center
+    w-12 h-12
+    text-emerald-600
+    bg-emerald-50
+    rounded-2xl
   "
 >
 
+<ShieldCheck size={22}/>
 
-<ShieldCheck
-  size={24}
-  className="
-    text-blue-400
-  "
-  /
->
+</div>
+
 
 
 <div>
 
 <h3
   className="
-    font-semibold
+    font-semibold text-slate-900
   "
 >
 
@@ -842,12 +858,13 @@ Bank-grade payment security
 <p
   className="
     mt-1
-    text-slate-400 text-sm
+    text-slate-500 text-sm leading-relaxed
   "
 >
 
-Your financial information is protected
-with secure encryption.
+Your payment information is protected
+using secure encryption and trusted
+payment processing infrastructure.
 
 </p>
 
@@ -855,10 +872,12 @@ with secure encryption.
 </div>
 
 
-</div>
+
+</section>
 
 
-</div>
+
+
 
 </div>
 

@@ -1,58 +1,57 @@
-import { memo } from "react";
-import { motion } from "framer-motion";
+import {
+memo,
+useMemo,
+} from "react";
+
 
 import {
-  User,
-  ShieldCheck,
-  Bell,
-  SlidersHorizontal,
-  CreditCard,
-  LockKeyhole,
+LockKeyhole,
+ShieldCheck,
 } from "lucide-react";
 
 
-
-const tabs = [
-  {
-    id:"profile",
-    label:"Profile",
-    icon:User,
-  },
-
-  {
-    id:"security",
-    label:"Security",
-    icon:ShieldCheck,
-  },
-
-  {
-    id:"notifications",
-    label:"Notifications",
-    icon:Bell,
-  },
-
-  {
-    id:"preferences",
-    label:"Preferences",
-    icon:SlidersHorizontal,
-  },
-
-  {
-    id:"billing",
-    label:"Billing",
-    icon:CreditCard,
-  },
-];
+import {
+motion
+} from "framer-motion";
 
 
 
+
+import {SETTINGS_NAVIGATION} from "../components/sections/components/settingsNavigation";
 
 
 
 const SettingsNav = ({
-  activeTab,
-  onNavigate,
-}) => {
+activeTab,
+onNavigate,
+})=>{
+
+
+const groups = useMemo(()=>{
+
+
+return SETTINGS_NAVIGATION.reduce(
+(acc,item)=>{
+
+
+if(!acc[item.category]){
+acc[item.category]=[];
+}
+
+
+acc[item.category].push(item);
+
+
+return acc;
+
+
+},{}
+
+);
+
+
+},[]);
+
 
 
 return (
@@ -61,14 +60,12 @@ return (
 <aside
   className="
     lg:top-6 lg:sticky overflow-hidden
-    w-full lg:w-[320px]
+    w-full lg:w-[300px]
     bg-white
-    border border-slate-200 rounded-[28px]
-    shadow-[0_18px_50px_rgba(15,23,42,0.08)]
+    border border-slate-200 rounded-3xl
+    shadow-[0_20px_50px_rgba(15,23,42,.08)]
   "
 >
-
-
 
 
 {/* HEADER */}
@@ -76,36 +73,20 @@ return (
 
 <div
   className="
-    relative overflow-hidden
-    px-5 py-5
-    bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950
-  "
->
-
-
-<div
-  className="
-    absolute inset-0
-    bg-[radial-gradient(circle_at_top_right,_#6366f1,_transparent_40%)]
-    opacity-10
-  "
-  /
->
-
-
-
-<div
-  className="
-    relative flex justify-between items-center
+    relative
+    p-6
+    text-white
+    bg-slate-950
   "
 >
 
 
 <div>
 
+
 <p
   className="
-    font-semibold text-[10px] text-slate-400 uppercase tracking-[0.25em]
+    font-semibold text-[11px] text-slate-400 uppercase tracking-[0.25em]
   "
 >
 
@@ -118,7 +99,7 @@ SMARTBUDGET
 <h2
   className="
     mt-2
-    font-semibold text-white text-xl
+    font-bold text-xl
   "
 >
 
@@ -127,16 +108,27 @@ Settings
 </h2>
 
 
-</div>
+<p
+  className="
+    mt-2
+    text-slate-400 text-sm
+  "
+>
 
+Manage your financial workspace.
+
+</p>
+
+
+</div>
 
 
 
 <div
   className="
-    flex items-center
+    top-5 right-5 absolute flex items-center
     px-3 py-1.5
-    bg-emerald-400/10
+    bg-emerald-500/10
     border border-emerald-400/20 rounded-full
     gap-2
   "
@@ -148,11 +140,9 @@ Settings
     w-2 h-2
     bg-emerald-400
     rounded-full
-    animate-pulse
   "
   /
 >
-
 
 
 <span
@@ -169,14 +159,7 @@ Secure
 </div>
 
 
-
 </div>
-
-
-
-</div>
-
-
 
 
 
@@ -188,22 +171,54 @@ Secure
 
 <nav
   className="
-    flex lg:flex-col overflow-x-auto
-    p-3
-    gap-2 scrollbar-hide
+    space-y-6 p-4
   "
 >
 
 
 {
-tabs.map(
-(tab,index)=>{
+Object.entries(groups)
+.map(
+([
+category,
+items
+])=>(
 
 
-const Icon = tab.icon;
+<div
+key={category}
+>
+
+
+<p
+  className="
+    mb-2 px-3
+    font-bold text-[11px] text-slate-400 uppercase tracking-wider
+  "
+>
+
+{category}
+
+</p>
+
+
+
+<div
+  className="
+    space-y-2
+  "
+>
+
+
+{
+items.map(item=>{
+
+
+const Icon=item.icon;
+
 
 const active =
-activeTab === tab.id;
+activeTab===item.id;
 
 
 
@@ -212,29 +227,18 @@ return (
 
 <motion.button
 
-key={tab.id}
+key={item.id}
 
 onClick={()=>
-onNavigate?.(tab.id)
+onNavigate?.(item.id)
 }
+
 
 whileTap={{
 scale:.98
 }}
 
-initial={{
-opacity:0,
-x:-5
-}}
 
-animate={{
-opacity:1,
-x:0
-}}
-
-transition={{
-delay:index * .04
-}}
 
 aria-current={
 active
@@ -245,37 +249,33 @@ undefined
 }
 
 
-className={`
 
+className={`
 relative
 
 flex
-
 items-center
+
+w-full
 
 gap-3
 
-
-min-w-fit
-
-lg:w-full
-
-
-px-4
-
+px-3
 py-3
 
-
 rounded-2xl
-
-
-border
 
 transition-all
 
 
-${
+focus:outline-none
 
+focus:ring-2
+focus:ring-blue-500
+
+
+
+${
 active
 
 ?
@@ -283,23 +283,18 @@ active
 `
 bg-slate-950
 text-white
-border-slate-950
 
-shadow-[0_12px_30px_rgba(15,23,42,0.18)]
+shadow-lg
+
 `
 
 :
 
 `
 
-bg-white
 text-slate-700
 
-border-slate-200
-
 hover:bg-slate-50
-
-hover:border-slate-300
 
 `
 
@@ -307,8 +302,8 @@ hover:border-slate-300
 
 `}
 
->
 
+>
 
 
 {
@@ -316,9 +311,9 @@ active &&
 
 <span
   className="
-    hidden lg:block left-0 absolute
+    left-0 absolute
     w-1 h-8
-    bg-indigo-400
+    bg-blue-500
     rounded-r-full
   "
   /
@@ -329,31 +324,26 @@ active &&
 
 
 
-
 <div
 
 className={`
-
 flex
 items-center
 justify-center
 
-h-10
 w-10
+h-10
 
 rounded-xl
 
 
 ${
-
 active
 
 ?
-
 "bg-white/10"
 
 :
-
 "bg-slate-100"
 
 }
@@ -362,49 +352,86 @@ active
 
 >
 
-
-<Icon
-
-size={18}
-
-/>
-
+<Icon size={18}/>
 
 </div>
 
 
 
 
-
-
-<span
+<div
   className="
-    font-semibold text-sm whitespace-nowrap
+    text-left
   "
 >
 
-{tab.label}
+<p
+  className="
+    font-semibold text-sm
+  "
+>
 
-</span>
+{item.label}
+
+</p>
 
 
+<p
+
+className={`
+text-xs
+mt-0.5
+
+
+${
+active
+
+?
+"text-slate-300"
+
+:
+"text-slate-500"
+
+}
+
+`}
+
+>
+
+{item.description}
+
+</p>
+
+
+</div>
 
 
 
 </motion.button>
 
 
-)
+);
+
+
+})
 
 }
 
-)
+
+
+</div>
+
+
+</div>
+
+
+))
+
 
 }
 
 
 </nav>
-
 
 
 
@@ -417,9 +444,9 @@ size={18}
 
 <div
   className="
-    px-5 py-4
+    p-5
     bg-slate-50
-    border-slate-100 border-t
+    border-slate-200 border-t
   "
 >
 
@@ -435,15 +462,14 @@ size={18}
 <div
   className="
     flex justify-center items-center
-    w-10 h-10
+    w-11 h-11
     bg-emerald-50
     rounded-xl
   "
 >
 
-
-<LockKeyhole
-  size={18}
+<ShieldCheck
+  size={22}
   className="
     text-emerald-600
   "
@@ -458,16 +484,16 @@ size={18}
 
 <div>
 
+
 <p
   className="
     text-slate-500 text-xs
   "
 >
 
-Bank-grade protection
+Security Status
 
 </p>
-
 
 
 <p
@@ -476,7 +502,7 @@ Bank-grade protection
   "
 >
 
-Encrypted & Active
+Protected
 
 </p>
 
@@ -488,9 +514,7 @@ Encrypted & Active
 </div>
 
 
-
 </div>
-
 
 
 
@@ -500,9 +524,6 @@ Encrypted & Active
 );
 
 };
-
-
-
 
 
 export default memo(SettingsNav);

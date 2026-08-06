@@ -7,6 +7,7 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App.jsx";
 
 import { AuthProvider } from "./context/AuthProvider";
+import {NotificationProvider } from "./context/NotificationContext";
 
 import {
   QueryClient,
@@ -46,18 +47,22 @@ ReactDOM.createRoot(
   <React.StrictMode>
 
     <BrowserRouter>
+   
 
       <AuthProvider>
 
         <QueryClientProvider client={queryClient}>
           <UserProvider> 
+             <NotificationProvider>
             <App />
+            </NotificationProvider>
             </UserProvider>
            
         </QueryClientProvider>
         
 
       </AuthProvider>
+    
 
     </BrowserRouter>
 

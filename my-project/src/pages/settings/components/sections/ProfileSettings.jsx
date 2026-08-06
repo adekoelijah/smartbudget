@@ -29,6 +29,7 @@ import SecuritySettings from "./SecuritySettings";
 import SectionCard from "./components/SectionCard";
 import LoadingSkeleton from "./components/LoadingSkeleton";
 import EmptyState from "./components/EmptyState";
+import {useSecuritySettings } from "../../hooks/useSecuritySettings";
 
 
 
@@ -37,6 +38,7 @@ import EmptyState from "./components/EmptyState";
 
 
 const ProfileSettings = ()=>{
+
 
 
 
@@ -81,6 +83,34 @@ uploading,
 uploadAvatar,
 
 }=useProfileSettings();
+
+
+
+const {
+
+sessions,
+
+loading:securityLoading,
+
+message:securityMessage,
+
+error:securityError,
+
+changePassword,
+
+
+revokeSession,
+
+logoutAllDevices,
+
+enable2FA,
+
+disable2FA,
+
+}=useSecuritySettings(user);
+
+
+
 
 
 
@@ -372,78 +402,51 @@ isSaving={updatingProfile}
 SECURITY
 ================================= */}
 
-
-
-<SectionCard
-
-
-icon={
-<ShieldCheck size={22}/>
-}
-
-
-title="Security Overview"
-
-
-description="
-Monitor your account protection and security status.
-"
-
-
->
-
-
 <SecuritySettings
-
 
 user={user}
 
+sessions={sessions}
+
+loadingSessions={
+securityLoading.sessions
+}
+
+message={
+securityMessage
+}
+
+error={
+securityError
+}
 
 
-onChangePassword={()=>{
-
-console.log(
-"change password"
-);
-
-}}
+onChangePassword={
+changePassword
+}
 
 
-
-onEnable2FA={()=>{
-
-console.log(
-"enable 2FA"
-);
-
-}}
+onEnable2FA={
+enable2FA
+}
 
 
-
-onDisable2FA={()=>{
-
-console.log(
-"disable 2FA"
-);
-
-}}
+onDisable2FA={
+disable2FA
+}
 
 
+onLogoutSession={
+revokeSession
+}
 
-onLogoutDevices={()=>{
 
-console.log(
-"logout devices"
-);
-
-}}
-
+onLogoutAll={
+logoutAllDevices
+}
 
 
 />
-
-
-</SectionCard>
 
 
 

@@ -8,6 +8,176 @@ import Session from "../models/Session.js";
 
 
 
+
+
+/*
+==================================================
+UPDATE PROFILE
+==================================================
+*/
+
+export const updateProfile = async(
+req,
+res
+)=>{
+
+
+try{
+
+
+const userId =
+req.user.id;
+
+
+
+const {
+firstName,
+lastName,
+phone,
+country,
+city,
+bio,
+} = req.body;
+
+
+
+const user =
+await User.findById(
+userId
+);
+
+
+
+if(!user){
+
+return res.status(404).json({
+
+success:false,
+
+message:
+"User not found"
+
+});
+
+}
+
+
+
+
+
+/*
+==============================
+UPDATE ALLOWED FIELDS ONLY
+==============================
+*/
+
+
+if(firstName !== undefined){
+
+user.firstName =
+firstName;
+
+}
+
+
+if(lastName !== undefined){
+
+user.lastName =
+lastName;
+
+}
+
+
+if(phone !== undefined){
+
+user.phone =
+phone;
+
+}
+
+
+if(country !== undefined){
+
+user.country =
+country;
+
+}
+
+
+if(city !== undefined){
+
+user.city =
+city;
+
+}
+
+
+if(bio !== undefined){
+
+user.bio =
+bio;
+
+}
+
+
+
+
+
+await user.save();
+
+
+
+
+
+return res.status(200).json({
+
+success:true,
+
+message:
+"Profile updated successfully",
+
+user:{
+id:user._id,
+firstName:user.firstName,
+lastName:user.lastName,
+email:user.email,
+avatar:user.avatar,
+phone:user.phone,
+country:user.country,
+city:user.city,
+bio:user.bio,
+}
+
+});
+
+
+}
+
+catch(error){
+
+
+console.error(
+"UPDATE_PROFILE_ERROR:",
+error
+);
+
+
+
+return res.status(500).json({
+
+success:false,
+
+message:
+"Unable to update profile"
+
+});
+
+
+}
+
+
+};
+
 /*
 ==================================================
 CHANGE PASSWORD
@@ -150,12 +320,6 @@ message:
 
 
 };
-
-
-
-
-
-
 
 
 

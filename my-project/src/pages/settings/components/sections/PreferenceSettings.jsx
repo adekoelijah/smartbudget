@@ -1,5 +1,3 @@
-
-
 import {
   Globe,
   LayoutGrid,
@@ -12,21 +10,30 @@ import {
 
 import { usePreferences } from "../../hooks/usePreferences";
 
-/* =========================================
-   FIELD COMPONENT
-========================================= */
-const Field = ({ icon: Icon, label, description, children }) => {
+
+/*
+=========================================
+REUSABLE FIELD COMPONENT
+=========================================
+*/
+
+const Field = ({
+  icon: Icon,
+  label,
+  description,
+  children,
+}) => {
+
   return (
     <div
       className="
         flex flex-col
         py-5
-        border-slate-200 border-b last:border-b-0
-        gap-3
+        border-slate-200 border-b last:border-none
+        gap-4
       "
     >
 
-      {/* HEADER */}
       <div
         className="
           flex items-start
@@ -44,463 +51,591 @@ const Field = ({ icon: Icon, label, description, children }) => {
             shrink-0
           "
         >
-          <Icon size={18} />
+          <Icon size={18}/>
         </div>
 
-        <div
-          className="
-            min-w-0
-          "
-        >
-          <p
+
+        <div>
+
+          <h4
             className="
               font-semibold text-slate-900 text-sm
             "
           >
             {label}
-          </p>
+          </h4>
+
 
           <p
             className="
-              text-slate-500 text-xs break-words leading-relaxed
+              max-w-xl
+              mt-1
+              text-slate-500 text-xs leading-relaxed
             "
           >
             {description}
           </p>
+
         </div>
 
       </div>
 
-      {/* CONTROL (FULL WIDTH MOBILE, RIGHT ALIGNED DESKTOP) */}
+
       <div
         className="
           md:flex md:justify-end
           w-full
         "
       >
+
         <div
           className="
-            w-full md:w-[220px]
+            w-full md:w-[240px]
           "
         >
+
           {children}
+
         </div>
+
       </div>
+
 
     </div>
   );
 };
 
-/* =========================================
-   COMPONENT
-========================================= */
+
+
+
+/*
+=========================================
+SELECT COMPONENT
+=========================================
+*/
+
+const Select = ({
+  value,
+  onChange,
+  children,
+}) => {
+
+
+return (
+
+<select
+  value={value}
+  onChange={onChange}
+  className="
+    w-full h-11
+    px-4
+    font-medium text-slate-800 text-sm
+    bg-slate-50 focus:bg-white
+    border border-slate-200 focus:border-slate-400 rounded-2xl outline-none
+    transition
+  "
+>
+
+{children}
+
+</select>
+
+);
+
+};
+
+
+
+
+/*
+=========================================
+MAIN COMPONENT
+=========================================
+*/
+
+
 const PreferenceSettings = () => {
-  const {
-    prefs,
-    loading,
-    message,
-    updatePref,
-    savePreferences,
-  } = usePreferences();
 
-  /* =========================================
-     HANDLE LANGUAGE
-  ========================================= */
-  const handleLanguageChange = (
-    value
-  ) => {
-    updatePref("language", value);
 
-    /**
-     * GLOBAL APP LANGUAGE
-     * This allows every page/component
-     * to instantly detect language changes
-     */
+const {
+  preferences,
+  loading,
+  message,
+  updatePreference,
+  savePreferences,
+}=usePreferences();
 
-    localStorage.setItem(
-      "app_language",
-      value
-    );
 
-    /**
-     * OPTIONAL:
-     * Useful for i18n systems later
-     */
-    document.documentElement.lang =
-      value;
 
-    /**
-     * OPTIONAL:
-     * Add language direction support
-     */
-    document.documentElement.dir =
-      "ltr";
-  };
 
-  /* =========================================
-     SAVE
-  ========================================= */
-  const handleSave = async () => {
-    try {
-      await savePreferences();
+const handleLanguageChange=(value)=>{
 
-      /**
-       * GLOBAL SETTINGS STORAGE
-       * Used across billing,
-       * dashboard, reports,
-       * analytics and profile pages
-       */
-      localStorage.setItem(
-        "smartbudget_preferences",
-        JSON.stringify(prefs)
-      );
-    } catch (err) {
-      console.error(
-        "SAVE_PREFERENCES_ERROR:",
-        err
-      );
-    }
-  };
 
-  return (
-    <div
-      className="
-        space-y-6
-      "
-    >
+updatePreference(
+ "language",
+ value
+);
 
-      {/* HEADER */}
-      <div
-        className="
-          relative overflow-hidden
-          p-6
-          bg-white
-          border border-slate-200 rounded-3xl
-          shadow-sm
-        "
-      >
 
-        {/* BACKGROUND EFFECT */}
-        <div
-          className="
-            top-0 right-0 absolute
-            w-40 h-40
-            bg-emerald-100/40
-            rounded-full
-            blur-3xl
-          "
-          /
-        >
+document.documentElement.lang=value;
 
-        <div
-          className="
-            z-10 relative flex
-            gap-4
-          "
-        >
 
-          <div
-            className="
-              flex justify-center items-center
-              w-14 h-14
-              text-white
-              bg-slate-900
-              rounded-2xl
-              shadow-lg
-            "
-          >
-            <ShieldCheck size={24} />
-          </div>
-
-          <div>
-            <h2
-              className="
-                font-bold text-slate-900 text-xl tracking-tight
-              "
-            >
-              Preferences Center
-            </h2>
-
-            <p
-              className="
-                max-w-2xl
-                mt-2
-                text-slate-500 text-sm leading-relaxed
-              "
-            >
-              Personalize how SmartBudget
-              behaves across billing,
-              analytics, reports,
-              notifications, and account
-              experiences.
-            </p>
-          </div>
-
-        </div>
-      </div>
-
-      {/* DISPLAY SETTINGS */}
-      <div
-        className="
-          p-6
-          bg-white
-          border border-slate-200 rounded-3xl
-          shadow-sm
-        "
-      >
-
-        {/* TITLE */}
-        <div
-          className="
-            mb-3
-          "
-        >
-          <h3
-            className="
-              font-semibold text-slate-400 text-xs uppercase tracking-[0.2em]
-            "
-          >
-            Display Settings
-          </h3>
-        </div>
-
-        {/* DENSITY */}
-        <Field
-          icon={LayoutGrid}
-          label="Layout Density"
-          description="
-            Controls spacing and component
-            sizing across the dashboard,
-            reports, billing and analytics pages.
-          "
-        >
-          <select
-            value={prefs.density}
-            onChange={(e) =>
-              updatePref(
-                "density",
-                e.target.value
-              )
-            }
-            className="bg-slate-50 focus:bg-white px-4 border border-slate-200 focus:border-slate-400 rounded-2xl outline-none w-full md:w-[220px] h-11 font-medium text-slate-800 text-sm transition"
-          >
-            <option value="comfortable">
-              Comfortable
-            </option>
-
-            <option value="compact">
-              Compact
-            </option>
-          </select>
-        </Field>
-
-      </div>
-
-      {/* REGIONAL SETTINGS */}
-      <div
-        className="
-          p-6
-          bg-white
-          border border-slate-200 rounded-3xl
-          shadow-sm
-        "
-      >
-
-        {/* TITLE */}
-        <div
-          className="
-            mb-3
-          "
-        >
-          <h3
-            className="
-              font-semibold text-slate-400 text-xs uppercase tracking-[0.2em]
-            "
-          >
-            Regional & Localization
-          </h3>
-        </div>
-
-        {/* CURRENCY */}
-        <Field
-          icon={Wallet}
-          label="Currency"
-          description="
-            Sets the default financial
-            display format used across
-            transactions, reports,
-            invoices and billing.
-          "
-        >
-          <select
-            value={prefs.currency}
-            onChange={(e) =>
-              updatePref(
-                "currency",
-                e.target.value
-              )
-            }
-            className="bg-slate-50 focus:bg-white px-4 border border-slate-200 focus:border-slate-400 rounded-2xl outline-none w-full md:w-[220px] h-11 font-medium text-slate-800 text-sm transition"
-          >
-            <option value="NGN">
-              ₦ NGN
-            </option>
-
-            <option value="USD">
-              $ USD
-            </option>
-
-            <option value="EUR">
-              € EUR
-            </option>
-
-            <option value="GBP">
-              £ GBP
-            </option>
-          </select>
-        </Field>
-
-        {/* TIMEZONE */}
-        <Field
-          icon={Clock3}
-          label="Timezone"
-          description="
-            Used for analytics timing,
-            transaction records,
-            reports and scheduled
-            financial activities.
-          "
-        >
-          <select
-            value={prefs.timezone}
-            onChange={(e) =>
-              updatePref(
-                "timezone",
-                e.target.value
-              )
-            }
-            className="bg-slate-50 focus:bg-white px-4 border border-slate-200 focus:border-slate-400 rounded-2xl outline-none w-full md:w-[220px] h-11 font-medium text-slate-800 text-sm transition"
-          >
-            <option value="Africa/Lagos">
-              Africa/Lagos
-            </option>
-
-            <option value="UTC">
-              UTC
-            </option>
-
-            <option value="Europe/London">
-              Europe/London
-            </option>
-
-            <option value="America/New_York">
-              America/New_York
-            </option>
-          </select>
-        </Field>
-
-        {/* LANGUAGE */}
-        <Field
-          icon={Languages}
-          label="Language"
-          description="
-            Controls the global application
-            language across all pages,
-            components, billing flows,
-            notifications and dashboards.
-          "
-        >
-          <select
-            value={prefs.language}
-            onChange={(e) =>
-              handleLanguageChange(
-                e.target.value
-              )
-            }
-            className="bg-slate-50 focus:bg-white px-4 border border-slate-200 focus:border-slate-400 rounded-2xl outline-none w-full md:w-[220px] h-11 font-medium text-slate-800 text-sm transition"
-          >
-            <option value="en">
-              English
-            </option>
-
-            <option value="yo">
-              Yoruba
-            </option>
-          </select>
-        </Field>
-
-        {/* REGION */}
-        <Field
-          icon={Globe}
-          label="Regional Experience"
-          description="
-            Syncs localization settings
-            with taxes, billing format,
-            receipts and financial reporting.
-          "
-        >
-          <div
-            className="
-              inline-flex items-center
-              px-4 py-2
-              font-semibold text-emerald-700 text-xs
-              bg-emerald-50
-              border border-emerald-100 rounded-2xl
-              gap-2
-            "
-          >
-            Smart Regional Sync Active
-          </div>
-        </Field>
-
-      </div>
-
-      {/* SAVE BUTTON */}
-      <div
-        className="
-          flex justify-end
-        "
-      >
-
-        <button
-          onClick={handleSave}
-          disabled={loading}
-          className="
-            inline-flex items-center
-            px-6 py-3
-            font-semibold text-white text-sm
-            bg-slate-900 hover:bg-black
-            rounded-2xl
-            disabled:opacity-60 transition-all
-            disabled:cursor-not-allowed
-            gap-2
-          "
-        >
-          <Save size={18} />
-
-          {loading
-            ? "Saving..."
-            : "Save Preferences"}
-        </button>
-
-      </div>
-
-      {/* FEEDBACK */}
-      {message && (
-        <div
-          className="
-            px-4 py-3
-            font-medium text-emerald-700 text-sm text-center
-            bg-emerald-50
-            border border-emerald-100 rounded-2xl
-          "
-        >
-          {message}
-        </div>
-      )}
-
-    </div>
-  );
 };
+
+
+
+
+
+const handleSave=async()=>{
+
+
+await savePreferences();
+
+
+};
+
+
+
+
+return (
+
+<div
+  className="
+    space-y-6
+  "
+>
+
+
+{/* HEADER */}
+
+<section
+  className="
+    relative overflow-hidden
+    p-6
+    bg-white
+    border border-slate-200 rounded-3xl
+    shadow-sm
+  "
+>
+
+
+<div
+  className="
+    z-10 relative flex items-center
+    gap-4
+  "
+>
+
+
+<div
+  className="
+    flex justify-center items-center
+    w-14 h-14
+    text-white
+    bg-slate-900
+    rounded-2xl
+  "
+>
+
+<ShieldCheck size={24}/>
+
+</div>
+
+
+
+<div>
+
+<h2
+  className="
+    font-bold text-slate-900 text-xl
+  "
+>
+Preferences Center
+</h2>
+
+
+<p
+  className="
+    mt-2
+    text-slate-500 text-sm
+  "
+>
+Manage your SmartBudget regional and
+display experience.
+</p>
+
+
+</div>
+
+
+</div>
+
+
+</section>
+
+
+
+
+
+{/* DISPLAY */}
+
+<section
+  className="
+    p-6
+    bg-white
+    border border-slate-200 rounded-3xl
+    shadow-sm
+  "
+>
+
+
+<h3
+  className="
+    mb-2
+    font-semibold text-slate-400 text-xs uppercase tracking-[0.2em]
+  "
+>
+Display
+</h3>
+
+
+
+<Field
+
+icon={LayoutGrid}
+
+label="Layout Density"
+
+description="
+Controls spacing and sizing across your dashboard experience.
+"
+
+>
+
+
+<Select
+
+value={preferences.density}
+
+onChange={(e)=>
+updatePreference(
+"density",
+e.target.value
+)
+}
+
+>
+
+
+<option value="comfortable">
+Comfortable
+</option>
+
+
+<option value="compact">
+Compact
+</option>
+
+
+</Select>
+
+
+</Field>
+
+
+
+</section>
+
+
+
+
+
+{/* REGIONAL */}
+
+<section
+  className="
+    p-6
+    bg-white
+    border border-slate-200 rounded-3xl
+    shadow-sm
+  "
+>
+
+
+<h3
+  className="
+    mb-2
+    font-semibold text-slate-400 text-xs uppercase tracking-[0.2em]
+  "
+>
+Regional
+</h3>
+
+
+
+
+<Field
+
+icon={Wallet}
+
+label="Currency"
+
+description="
+Controls currency formatting across transactions and reports.
+"
+
+>
+
+
+<Select
+
+value={preferences.currency}
+
+onChange={(e)=>
+updatePreference(
+"currency",
+e.target.value
+)
+}
+
+>
+
+
+<option value="NGN">
+₦ Nigerian Naira
+</option>
+
+
+<option value="USD">
+$ US Dollar
+</option>
+
+
+<option value="GBP">
+£ British Pound
+</option>
+
+
+<option value="EUR">
+€ Euro
+</option>
+
+
+</Select>
+
+
+</Field>
+
+
+
+
+
+<Field
+
+icon={Clock3}
+
+label="Timezone"
+
+description="
+Used for transaction timestamps and financial reports.
+"
+
+>
+
+
+<Select
+
+value={preferences.timezone}
+
+onChange={(e)=>
+updatePreference(
+"timezone",
+e.target.value
+)
+}
+
+>
+
+
+<option value="Africa/Lagos">
+Africa/Lagos
+</option>
+
+
+<option value="UTC">
+UTC
+</option>
+
+
+<option value="Europe/London">
+Europe/London
+</option>
+
+
+<option value="America/New_York">
+America/New_York
+</option>
+
+
+</Select>
+
+
+</Field>
+
+
+
+
+
+<Field
+
+icon={Languages}
+
+label="Language"
+
+description="
+Application language preference.
+"
+
+>
+
+
+<Select
+
+value={preferences.language}
+
+onChange={(e)=>
+handleLanguageChange(
+e.target.value
+)
+}
+
+>
+
+
+<option value="en">
+English
+</option>
+
+
+</Select>
+
+
+</Field>
+
+
+
+
+
+<Field
+
+icon={Globe}
+
+label="Region"
+
+description="
+Your account region used for localization.
+"
+
+>
+
+
+<div
+  className="
+    inline-flex items-center
+    px-4 py-2
+    font-semibold text-emerald-700 text-xs
+    bg-emerald-50
+    border border-emerald-100 rounded-2xl
+  "
+>
+
+Nigeria
+
+</div>
+
+
+</Field>
+
+
+
+</section>
+
+
+
+
+
+{/* SAVE */}
+
+<div
+  className="
+    flex justify-end
+  "
+>
+
+
+<button
+  onClick={handleSave}
+
+disabled={loading}
+  className="
+    flex items-center
+    px-6 py-3
+    font-semibold text-white text-sm
+    bg-slate-900 hover:bg-black
+    rounded-2xl
+    disabled:opacity-60 transition
+    gap-2
+  "
+>
+
+
+<Save size={18}/>
+
+
+{
+loading
+?
+"Saving..."
+:
+"Save Preferences"
+}
+
+
+
+</button>
+
+
+</div>
+
+
+
+
+
+{
+message &&
+
+<div
+  className="
+    px-4 py-3
+    font-medium text-emerald-700 text-sm text-center
+    bg-emerald-50
+    border border-emerald-100 rounded-2xl
+  "
+>
+
+{message}
+
+</div>
+
+}
+
+
+
+</div>
+
+);
+
+};
+
 
 export default PreferenceSettings;

@@ -86,6 +86,302 @@
 //new code
 
 
+// import axios from "axios";
+
+
+// const API_BASE_URL =
+//   import.meta.env.VITE_API_URL ||
+//   "https://nexatech-smartbudget-backend.vercel.app/api";
+
+
+// const api = axios.create({
+
+//   baseURL: API_BASE_URL,
+
+//   withCredentials: true,
+
+//   timeout: 15000,
+
+//   headers:{
+//     "Content-Type":"application/json",
+//   },
+
+// });
+
+
+// /*
+// =========================================
+// TOKEN MANAGEMENT
+// =========================================
+// */
+
+// const getToken = () => {
+
+//   try {
+
+//     return localStorage.getItem("token");
+
+//   } catch {
+
+//     return null;
+
+//   }
+
+// };
+
+
+// const setToken = (token)=>{
+
+//   localStorage.setItem(
+//     "token",
+//     token
+//   );
+
+// };
+
+
+// const removeToken = ()=>{
+
+//   localStorage.removeItem(
+//     "token"
+//   );
+
+// };
+
+
+
+// /*
+// =========================================
+// REQUEST INTERCEPTOR
+// =========================================
+// */
+
+// api.interceptors.request.use(
+
+// (config)=>{
+
+// const token = getToken();
+
+
+// if(token){
+
+// config.headers.Authorization =
+// `Bearer ${token}`;
+
+// }
+
+
+// return config;
+
+
+// },
+
+// (error)=>Promise.reject(error)
+
+// );
+
+
+
+// /*
+// =========================================
+// REFRESH TOKEN CONTROL
+// =========================================
+// */
+
+// let isRefreshing = false;
+
+// let refreshSubscribers = [];
+
+
+// const subscribeTokenRefresh = (callback)=>{
+
+// refreshSubscribers.push(callback);
+
+// };
+
+
+// const onTokenRefreshed = (token)=>{
+
+// refreshSubscribers.forEach(
+// (callback)=>{
+// callback(token);
+// }
+// );
+
+// refreshSubscribers=[];
+
+// };
+
+
+
+// /*
+// =========================================
+// RESPONSE INTERCEPTOR
+// =========================================
+// */
+// api.interceptors.response.use(
+
+// (response)=>response,
+
+
+// async(error)=>{
+
+// const originalRequest = error.config;
+
+// const status = error.response?.status;
+
+
+// /*
+// Only handle expired access tokens
+// */
+
+// if(
+//   status === 401 &&
+//   !originalRequest._retry
+// ){
+
+// originalRequest._retry = true;
+
+
+// try{
+
+
+// let newToken;
+
+
+// if(!isRefreshing){
+
+
+//   isRefreshing = true;
+
+
+//   const response =
+//   await axios.post(
+
+//     `${API_BASE_URL}/auth/refresh-token`,
+
+//     {},
+
+//     {
+//       withCredentials:true,
+//     }
+
+//   );
+
+
+//   newToken =
+//   response.data.token;
+
+
+//   setToken(newToken);
+
+
+//   isRefreshing = false;
+
+
+//   onTokenRefreshed(newToken);
+
+
+
+// }
+// else{
+
+
+//  return new Promise((resolve)=>{
+
+
+//   subscribeTokenRefresh(
+//     (token)=>{
+
+
+//       originalRequest.headers.Authorization =
+//       `Bearer ${token}`;
+
+
+//       resolve(
+//         api(originalRequest)
+//       );
+
+
+//     }
+//   );
+
+
+//  });
+
+
+// }
+
+
+// /*
+// Retry original request
+// */
+
+// originalRequest.headers.Authorization =
+// `Bearer ${newToken}`;
+
+
+// return api(originalRequest);
+
+
+
+// }
+// catch(refreshError){
+
+
+// isRefreshing=false;
+
+// removeToken();
+
+
+// window.location.href="/login";
+
+
+// return Promise.reject(refreshError);
+
+
+// }
+
+
+// }
+
+
+
+// if(status===429){
+
+// console.warn(
+// "Too many requests"
+// );
+
+// }
+
+
+
+// if(!error.response){
+
+// return Promise.reject({
+
+// message:
+// "Network error. Please check your connection."
+
+// });
+
+// }
+
+
+// return Promise.reject(error);
+
+
+// }
+
+// );
+
+
+// export default api;
+
+
+
+
 import axios from "axios";
 
 
@@ -94,13 +390,14 @@ const API_BASE_URL =
   "https://nexatech-smartbudget-backend.vercel.app/api";
 
 
+
 const api = axios.create({
 
   baseURL: API_BASE_URL,
 
-  withCredentials: true,
+  withCredentials:true,
 
-  timeout: 15000,
+  timeout:15000,
 
   headers:{
     "Content-Type":"application/json",
@@ -109,44 +406,60 @@ const api = axios.create({
 });
 
 
+
+
+
 /*
 =========================================
-TOKEN MANAGEMENT
+TOKEN STORAGE
 =========================================
 */
 
-const getToken = () => {
 
-  try {
+const getToken = ()=>{
 
-    return localStorage.getItem("token");
+try{
 
-  } catch {
+return localStorage.getItem("token");
 
-    return null;
+}
+catch{
 
-  }
+return null;
+
+}
 
 };
+
 
 
 const setToken = (token)=>{
 
-  localStorage.setItem(
-    "token",
-    token
-  );
+if(token){
+
+localStorage.setItem(
+"token",
+token
+);
+
+}
 
 };
+
+
 
 
 const removeToken = ()=>{
 
-  localStorage.removeItem(
-    "token"
-  );
+localStorage.removeItem(
+"token"
+);
 
 };
+
+
+
+
 
 
 
@@ -156,11 +469,15 @@ REQUEST INTERCEPTOR
 =========================================
 */
 
+
 api.interceptors.request.use(
 
 (config)=>{
 
-const token = getToken();
+
+const token =
+getToken();
+
 
 
 if(token){
@@ -171,46 +488,61 @@ config.headers.Authorization =
 }
 
 
+
 return config;
 
 
 },
 
-(error)=>Promise.reject(error)
+
+(error)=>
+Promise.reject(error)
 
 );
+
+
+
+
+
+
 
 
 
 /*
 =========================================
-REFRESH TOKEN CONTROL
+REFRESH MANAGEMENT
 =========================================
 */
 
+
 let isRefreshing = false;
 
-let refreshSubscribers = [];
+
+let pendingRequests = [];
 
 
-const subscribeTokenRefresh = (callback)=>{
-
-refreshSubscribers.push(callback);
-
-};
 
 
-const onTokenRefreshed = (token)=>{
+const resolvePendingRequests = (
+token
+)=>{
 
-refreshSubscribers.forEach(
+
+pendingRequests.forEach(
 (callback)=>{
-callback(token);
-}
-);
 
-refreshSubscribers=[];
+callback(token);
+
+});
+
+
+pendingRequests=[];
+
 
 };
+
+
+
 
 
 
@@ -219,109 +551,166 @@ refreshSubscribers=[];
 RESPONSE INTERCEPTOR
 =========================================
 */
+
+
 api.interceptors.response.use(
 
-(response)=>response,
+
+(response)=>
+response,
+
 
 
 async(error)=>{
 
-const originalRequest = error.config;
 
-const status = error.response?.status;
+const originalRequest =
+error.config;
+
+
+const status =
+error.response?.status;
+
+
+
+if(
+status !==401 ||
+originalRequest?._retry
+){
+
+return Promise.reject(error);
+
+}
+
+
+
+
+
+originalRequest._retry=true;
+
 
 
 /*
-Only handle expired access tokens
+Prevent refresh endpoint loop
 */
 
 if(
-  status === 401 &&
-  !originalRequest._retry
+originalRequest.url.includes(
+"/auth/refresh-token"
+)
 ){
 
-originalRequest._retry = true;
+removeToken();
+
+return Promise.reject(error);
+
+}
+
+
+
+
+
+
+
+if(isRefreshing){
+
+
+
+return new Promise(
+(resolve)=>{
+
+
+pendingRequests.push(
+(token)=>{
+
+
+originalRequest.headers.Authorization =
+`Bearer ${token}`;
+
+
+resolve(
+api(originalRequest)
+);
+
+
+}
+
+);
+
+
+});
+
+
+
+}
+
+
+
+
+
+
+isRefreshing=true;
+
+
 
 
 try{
 
 
-let newToken;
+const response =
+await axios.post(
 
+`${API_BASE_URL}/auth/refresh-token`,
 
-if(!isRefreshing){
+{},
 
-
-  isRefreshing = true;
-
-
-  const response =
-  await axios.post(
-
-    `${API_BASE_URL}/auth/refresh-token`,
-
-    {},
-
-    {
-      withCredentials:true,
-    }
-
-  );
-
-
-  newToken =
-  response.data.token;
-
-
-  setToken(newToken);
-
-
-  isRefreshing = false;
-
-
-  onTokenRefreshed(newToken);
-
-
-
+{
+withCredentials:true,
 }
-else{
+
+);
 
 
- return new Promise((resolve)=>{
 
 
-  subscribeTokenRefresh(
-    (token)=>{
+const newToken =
+response.data.token;
 
 
-      originalRequest.headers.Authorization =
-      `Bearer ${token}`;
 
+if(!newToken){
 
-      resolve(
-        api(originalRequest)
-      );
-
-
-    }
-  );
-
-
- });
-
+throw new Error(
+"No refresh token received"
+);
 
 }
 
 
-/*
-Retry original request
-*/
+
+
+
+setToken(newToken);
+
+
+
+resolvePendingRequests(
+newToken
+);
+
+
+
+
 
 originalRequest.headers.Authorization =
 `Bearer ${newToken}`;
 
 
+
+
 return api(originalRequest);
+
+
 
 
 
@@ -329,52 +718,49 @@ return api(originalRequest);
 catch(refreshError){
 
 
-isRefreshing=false;
+
+pendingRequests=[];
+
 
 removeToken();
 
 
-window.location.href="/login";
 
 
-return Promise.reject(refreshError);
+/*
+Do not hard reload
+*/
 
-
-}
-
-
-}
-
-
-
-if(status===429){
-
-console.warn(
-"Too many requests"
+window.dispatchEvent(
+new Event(
+"auth:logout"
+)
 );
 
+
+
+return Promise.reject(
+refreshError
+);
+
+
+
+}
+finally{
+
+
+isRefreshing=false;
+
+
 }
 
 
-
-if(!error.response){
-
-return Promise.reject({
-
-message:
-"Network error. Please check your connection."
-
-});
-
-}
-
-
-return Promise.reject(error);
 
 
 }
 
 );
+
 
 
 export default api;

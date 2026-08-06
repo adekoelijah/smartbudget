@@ -6,16 +6,17 @@ import {
   LogOut,
   CheckCircle2,
   AlertTriangle,
+  KeyRound,
 } from "lucide-react";
 
 import {
   useState,
 } from "react";
 
+
 import SectionCard from "./components/SectionCard";
 import ConfirmDialog from "./components/ConfirmDialog";
-import VerificationBadge from "./components/VerificationBadge";
-import LoginActivity from "./components/LoginActivity";
+
 
 
 
@@ -24,27 +25,65 @@ const SecuritySettings = ({
 
   sessions = [],
 
-  loadingSessions = false,
+  loading,
+
+  message,
+
+  error,
+
 
   onChangePassword,
+
+  passwordForm,
+
+  updatePasswordField,
+
 
   onEnable2FA,
 
   onDisable2FA,
 
-  onLogoutSession,
-  error,
-  message,
+  onVerify2FA,
+
+
+  twoFactorEnabled,
+
+  twoFactorSecret,
+
+
+  onRevokeSession,
 
   onLogoutAll,
+
 
 }) => {
 
 
 
 const [
-showDisable2FA,
-setShowDisable2FA
+showPassword,
+setShowPassword
+]=useState(false);
+
+
+
+const [
+showEnable2FA,
+setShowEnable2FA
+]=useState(false);
+
+
+
+const [
+twoFactorCode,
+setTwoFactorCode
+]=useState("");
+
+
+
+const [
+showDisableDialog,
+setShowDisableDialog
 ]=useState(false);
 
 
@@ -55,11 +94,19 @@ setShowLogoutDialog
 ]=useState(false);
 
 
+
+
+
+
 const securityScore =
 calculateSecurityScore(user);
 
 
+
+
+
 return (
+
 
 <SectionCard
 
@@ -70,10 +117,11 @@ icon={
 title="Security Settings"
 
 description="
-Protect your SmartBudget account and manage your security preferences.
+Protect your SmartBudget account and manage your account security.
 "
 
 >
+
 
 <div
   className="
@@ -82,58 +130,37 @@ Protect your SmartBudget account and manage your security preferences.
 >
 
 
-{/* =========================
-GLOBAL STATUS MESSAGES
-========================= */}
+
+{/* ===========================
+MESSAGES
+=========================== */}
+
 
 
 {
 error && (
 
-<div
-  className="
-    flex items-center
-    p-3
-    text-red-600 text-sm
-    bg-red-50
-    border border-red-200 rounded-xl
-    gap-2
-  "
->
-
-<AlertTriangle size={18}/>
-
-{error}
-
-</div>
+<StatusMessage
+type="error"
+message={error}
+/>
 
 )
-}
 
+}
 
 
 
 {
 message && (
 
-<div
-  className="
-    flex items-center
-    p-3
-    text-emerald-600 text-sm
-    bg-emerald-50
-    border border-emerald-200 rounded-xl
-    gap-2
-  "
->
-
-<CheckCircle2 size={18}/>
-
-{message}
-
-</div>
+<StatusMessage
+type="success"
+message={message}
+/>
 
 )
+
 }
 
 
@@ -141,7 +168,11 @@ message && (
 
 
 
-{/* Security Score */}
+{/* ===========================
+SECURITY SCORE
+=========================== */}
+
+
 
 <div
   className="
@@ -161,9 +192,10 @@ message && (
 
 <div>
 
+
 <p
   className="
-    font-medium text-slate-600 text-sm
+    text-slate-500 text-sm
   "
 >
 Security Score
@@ -172,7 +204,6 @@ Security Score
 
 <h2
   className="
-    mt-1
     font-bold text-slate-900 text-3xl
   "
 >
@@ -185,10 +216,8 @@ Security Score
 </div>
 
 
-
-
 <ShieldCheck
-  size={38}
+  size={40}
   className="
     text-blue-600
   "
@@ -197,6 +226,7 @@ Security Score
 
 
 </div>
+
 
 
 
@@ -209,7 +239,6 @@ Security Score
     rounded-full
   "
 >
-
 
 <div
   className="
@@ -224,17 +253,27 @@ width:`${securityScore}%`
 /
 >
 
+</div>
+
+
 
 </div>
 
 
-</div>
 
 
-{/* Password */}
 
 
-<SecurityItem
+
+
+
+{/* ===========================
+PASSWORD
+=========================== */}
+
+
+
+<SecurityCard
 
 icon={
 <Lock size={20}/>
@@ -243,104 +282,419 @@ icon={
 title="Password"
 
 description="
-Use a strong password to protect your account.
+Update your password regularly to keep your account secure.
 "
 
-actionLabel="Change Password"
+action={
 
-onAction={onChangePassword}
+<button
+
+disabled={loading.password}
+
+onClick={()=>
+setShowPassword(
+!showPassword
+)
+}
+
+className="
+security-button
+"
+
+>
+
+{
+loading.password
+?
+"Updating..."
+:
+"Change Password"
+}
+
+
+</button>
+
+}
 
 />
 
 
-{/* Two Factor */}
+
+{
+showPassword && (
+
+<div
+  className="
+    space-y-3 p-4
+    border rounded-xl
+  "
+>
 
 
-<SecurityItem
+<PasswordInput
+
+label="Current Password"
+
+value={
+passwordForm.currentPassword
+}
+
+onChange={
+e=>
+updatePasswordField(
+"currentPassword",
+e.target.value
+)
+}
+
+/>
+
+
+
+<PasswordInput
+
+label="New Password"
+
+value={
+passwordForm.newPassword
+}
+
+onChange={
+e=>
+updatePasswordField(
+"newPassword",
+e.target.value
+)
+}
+
+/>
+
+
+
+<PasswordInput
+
+label="Confirm Password"
+
+value={
+passwordForm.confirmPassword
+}
+
+onChange={
+e=>
+updatePasswordField(
+"confirmPassword",
+e.target.value
+)
+}
+
+/>
+
+
+
+<button
+  onClick={
+onChangePassword
+}
+
+disabled={
+loading.password
+}
+  className="
+    security-button
+  "
+>
+
+Save Password
+
+</button>
+
+
+</div>
+
+)
+
+}
+
+
+
+
+
+
+
+
+
+{/* ===========================
+2FA
+=========================== */}
+
+
+
+<SecurityCard
 
 icon={
 <Smartphone size={20}/>
 }
 
-title="Two-Factor Authentication"
+title="Two Factor Authentication"
 
 description={
-user?.twoFactorEnabled
+
+twoFactorEnabled
 
 ?
-"Your account has additional protection enabled."
+
+"Your account is protected with 2FA."
 
 :
-"Add an extra security layer to your account."
+
+"Add an extra security layer."
+
 }
+
 
 badge={
 
-user?.twoFactorEnabled
-
+twoFactorEnabled
 ?
 
-<VerificationBadge
-
-type="security"
-
-size="sm"
-
-/>
+<Badge>
+Enabled
+</Badge>
 
 :
 
-null
+<Badge warning>
+Disabled
+</Badge>
 
 }
 
 
-actionLabel={
 
-user?.twoFactorEnabled
+action={
+
+twoFactorEnabled
 
 ?
-"Disable"
-:
-"Enable"
 
+<button
+  className="
+    security-button-danger
+  "
+  onClick={()=
+>setShowDisableDialog(true)
 }
 
+>
 
-onAction={
+Disable
 
-user?.twoFactorEnabled
+</button>
 
-?
-
-()=>setShowDisable2FA(true)
 
 :
 
-onEnable2FA
+<button
+  className="
+    security-button
+  "
+  onClick={async()=
+>{
+
+
+await onEnable2FA();
+
+setShowEnable2FA(true);
+
+
+}}
+
+>
+
+Enable
+
+</button>
 
 }
 
 
 />
 
-{/* Login Activity */}
 
 
-<LoginActivity
 
-sessions={sessions}
 
-loading={loadingSessions}
 
-onLogoutSession={onLogoutSession}
 
-onLogoutAll={onLogoutAll}
+
+{
+showEnable2FA && twoFactorSecret && (
+
+<div
+  className="
+    space-y-3 p-4
+    border rounded-xl
+  "
+>
+
+
+<p
+  className="
+    text-slate-600 text-sm
+  "
+>
+
+Enter your authentication code to complete setup.
+
+</p>
+
+
+<input
+
+value={twoFactorCode}
+
+onChange={
+e=>
+setTwoFactorCode(
+e.target.value
+)
+}
+
+placeholder="123456"
+
+className="
+input
+"
 
 />
 
 
-{/* Logout Devices */}
+
+<button
+
+onClick={()=>{
+
+onVerify2FA(
+twoFactorCode
+);
+
+}}
+
+className="
+security-button
+"
+
+>
+
+Verify
+
+</button>
+
+
+</div>
+
+)
+
+}
+
+
+{/* ===========================
+ACTIVE SESSIONS
+=========================== */}
+
+
+
+<div>
+
+
+<div
+  className="
+    flex justify-between items-center
+    mb-3
+  "
+>
+
+
+<h3
+  className="
+    font-semibold text-slate-900
+  "
+>
+
+Active Devices
+
+</h3>
+
+
+
+<button
+
+onClick={()=>
+setShowLogoutDialog(true)
+}
+
+className="
+text-sm
+text-red-600
+"
+
+>
+
+Logout all
+
+</button>
+
+
+</div>
+
+
+
+
+
+{
+sessions.length === 0
+
+?
+
+<p
+  className="
+    text-slate-500 text-sm
+  "
+>
+
+No active sessions.
+
+</p>
+
+
+:
+
+sessions.map(
+(session)=>(
+
+<DeviceCard
+
+key={
+session._id
+}
+
+session={session}
+
+onRemove={
+onRevokeSession
+}
+
+/>
+
+)
+
+)
+
+}
+
+
+</div>
+
 
 
 
@@ -349,75 +703,115 @@ onLogoutAll={onLogoutAll}
 </div>
 
 
+
+
+
 <ConfirmDialog
 
-isOpen={showDisable2FA}
+isOpen={
+showDisableDialog
+}
 
-title="Disable Two-Factor Authentication?"
-
-description="
-Your account will have reduced protection after disabling this security feature.
+title="
+Disable Two-Factor Authentication?
 "
 
-confirmText="Disable 2FA"
+description="
+Your account will have reduced protection.
+"
+
+confirmText="Disable"
 
 variant="warning"
 
-onConfirm={async()=>{
 
-await onDisable2FA?.();
+onConfirm={()=>{
 
-setShowDisable2FA(false);
+onDisable2FA();
+
+setShowDisableDialog(false);
 
 }}
 
-onCancel={()=>setShowDisable2FA(false)}
+
+onCancel={()=>{
+
+setShowDisableDialog(false);
+
+}}
+
 
 />
 
 
+
+
+
 <ConfirmDialog
 
-isOpen={showLogoutDialog}
+isOpen={
+showLogoutDialog
+}
 
-title="Logout Other Devices?"
+title="
+Logout all devices?
+"
 
 description="
-All active sessions except this device will be signed out.
+All other active sessions will be terminated.
 "
 
 confirmText="Logout Devices"
 
 variant="danger"
 
-onConfirm={async()=>{
 
-await onLogoutAll?.();
+onConfirm={()=>{
+
+onLogoutAll();
 
 setShowLogoutDialog(false);
 
 }}
 
-onCancel={()=>setShowLogoutDialog(false)}
+
+onCancel={()=>{
+
+setShowLogoutDialog(false);
+
+}}
+
 
 />
 
+
+
+
 </SectionCard>
+
 
 );
 
 };
 
 
-function SecurityItem({
 
+
+
+
+/*
+==================================================
+SMALL COMPONENTS
+==================================================
+*/
+
+
+function SecurityCard({
 icon,
 title,
 description,
 badge,
-actionLabel,
-onAction,
-
+action,
 }){
 
 
@@ -425,13 +819,12 @@ return (
 
 <div
   className="
-    flex flex-col sm:flex-row justify-between sm:items-center
+    flex justify-between items-center
     p-4
     border border-slate-200 rounded-2xl
     gap-4
   "
 >
-
 
 
 <div
@@ -457,9 +850,6 @@ return (
 </div>
 
 
-
-
-
 <div>
 
 <div
@@ -471,7 +861,7 @@ return (
 
 <h4
   className="
-    font-semibold text-slate-900 text-sm
+    font-semibold
   "
 >
 
@@ -486,11 +876,9 @@ return (
 </div>
 
 
-
 <p
   className="
-    mt-1
-    text-slate-500 text-xs
+    text-slate-500 text-sm
   "
 >
 
@@ -502,30 +890,158 @@ return (
 </div>
 
 
+</div>
+
+
+{action}
+
+
+</div>
+
+);
+
+
+}
+
+
+
+
+
+
+function DeviceCard({
+session,
+onRemove,
+}){
+
+
+return (
+
+<div
+  className="
+    flex justify-between items-center
+    p-4
+    border rounded-xl
+  "
+>
+
+
+<div
+  className="
+    flex
+    gap-3
+  "
+>
+
+
+<Monitor
+size={22}
+/>
+
+
+<div>
+
+<p
+  className="
+    font-medium
+  "
+>
+
+{
+session.device ||
+"Unknown Device"
+}
+
+</p>
+
+
+<p
+  className="
+    text-slate-500 text-xs
+  "
+>
+
+{
+session.ipAddress ||
+"No IP"
+}
+
+</p>
+
+
+</div>
+
 
 </div>
 
 
 
-
-
-
 <button
-  onClick={onAction}
-  className="
-    px-4 py-2
-    font-medium text-white text-sm
-    bg-blue-600 hover:bg-blue-700
-    rounded-xl
-    transition
-  "
+
+onClick={()=>
+onRemove(
+session._id
+)
+}
+
+className="
+text-red-600
+text-sm
+"
+
 >
 
-{actionLabel}
+Remove
 
 </button>
 
 
+</div>
+
+
+);
+
+}
+
+
+
+
+
+
+function PasswordInput({
+label,
+value,
+onChange,
+}){
+
+
+return (
+
+<div>
+
+<label
+  className="
+    font-medium text-sm
+  "
+>
+
+{label}
+
+</label>
+
+
+<input
+  type="password"
+
+value={value}
+
+onChange={onChange}
+  className="
+    w-full
+    mt-1 px-3 py-2
+    border rounded-xl
+  "
+  /
+>
 
 
 </div>
@@ -535,28 +1051,135 @@ return (
 }
 
 
-function calculateSecurityScore(user){
-
-
-let score = 40;
-
-
-if(user?.isEmailVerified)
-score +=20;
-
-
-if(user?.phoneVerified)
-score +=15;
-
-
-if(user?.twoFactorEnabled)
-score +=25;
 
 
 
-return Math.min(score,100);
+
+
+function Badge({
+children,
+warning
+}){
+
+
+return (
+
+<span
+className={`
+px-2 py-1
+rounded-full
+text-xs
+font-medium
+${
+warning
+?
+"bg-red-100 text-red-600"
+:
+"bg-green-100 text-green-600"
+}
+`}
+>
+
+{children}
+
+</span>
+
+);
+
+}
+
+
+
+
+
+
+
+function StatusMessage({
+type,
+message
+}){
+
+
+return (
+
+<div
+
+className={`
+flex gap-2
+items-center
+p-3
+rounded-xl
+text-sm
+
+${
+type==="error"
+?
+"bg-red-50 text-red-600"
+:
+"bg-green-50 text-green-600"
+}
+
+`}
+
+>
+
+
+{
+type==="error"
+
+?
+
+<AlertTriangle size={18}/>
+
+:
+
+<CheckCircle2 size={18}/>
+
+}
+
+
+{message}
+
+
+</div>
+
+);
 
 
 }
+
+
+
+
+function calculateSecurityScore(user){
+
+
+let score=40;
+
+
+
+if(user?.isEmailVerified)
+score+=20;
+
+
+if(user?.twoFactorEnabled)
+score+=30;
+
+
+if(user?.phoneVerified)
+score+=10;
+
+
+
+return Math.min(
+score,
+100
+);
+
+
+}
+
+
+
 
 export default SecuritySettings;

@@ -2,10 +2,13 @@ import {
   Bell,
   ShieldCheck,
   WalletCards,
+  MessageSquare,
   Mail,
   Smartphone,
-  MessageSquare,
+  Save,
+  RotateCcw,
 } from "lucide-react";
+
 
 import {
   useEffect,
@@ -13,62 +16,74 @@ import {
   useState,
 } from "react";
 
+
 import SectionCard from "./components/SectionCard";
+import NotificationGroup from "./components/NotificationGroup";
 import SaveBar from "./components/SaveBar";
 
 
+import {
+  useNotifications,
+} from "../../context/NotificationContext";
 
 
+
+
+
+/*
+==================================================
+DEFAULT SETTINGS
+==================================================
+*/
 
 const defaultSettings = {
 
-  financial: {
+financial:{
 
-    spendingAlerts:true,
+spendingAlerts:true,
 
-    budgetWarnings:true,
+budgetWarnings:true,
 
-    billReminders:true,
+billReminders:true,
 
-    goalMilestones:true,
+goalMilestones:true,
 
-    weeklySummary:true,
+weeklySummary:true,
 
-  },
-
-
-  security: {
-
-    newLogin:true,
-
-    passwordChanges:true,
-
-    profileChanges:true,
-
-    suspiciousActivity:true,
-
-  },
+},
 
 
-  communication: {
+security:{
 
-    productUpdates:false,
+newLogin:true,
 
-    promotions:false,
+passwordChanges:true,
 
-  },
+profileChanges:true,
+
+suspiciousActivity:true,
+
+},
 
 
-  channels: {
+communication:{
 
-    email:true,
+productUpdates:false,
 
-    push:true,
+promotions:false,
 
-    sms:false,
+},
 
-  },
 
+channels:{
+
+email:true,
+
+push:true,
+
+sms:false,
+
+},
 
 };
 
@@ -80,21 +95,51 @@ const defaultSettings = {
 
 
 
-const NotificationSettings = ({
-  user,
-  onUpdate,
-}) => {
+/*
+==================================================
+COMPONENT
+==================================================
+*/
+
+
+const NotificationSettings = ()=>{
+
+
+const {
+
+notificationSettings,
+
+updateNotificationSettings,
+
+loading,
+
+error,
+
+} = useNotifications();
+
+
+
+
 
 
 
 const initialSettings =
-useMemo(
-()=>user?.notificationSettings
-||
-defaultSettings,
+useMemo(()=>{
 
-[user]
+
+return (
+
+notificationSettings
+||
+defaultSettings
+
 );
+
+
+},[
+notificationSettings
+]);
+
 
 
 
@@ -104,9 +149,9 @@ defaultSettings,
 const [
 settings,
 setSettings
-]=useState(initialSettings);
-
-
+]=useState(
+initialSettings
+);
 
 
 
@@ -118,13 +163,11 @@ setSaving
 
 
 
+
 const [
-error,
-setError
+success,
+setSuccess
 ]=useState(false);
-
-
-
 
 
 
@@ -134,7 +177,9 @@ setError
 useEffect(()=>{
 
 
-setSettings(initialSettings);
+setSettings(
+initialSettings
+);
 
 
 },[
@@ -148,6 +193,11 @@ initialSettings
 
 
 
+/*
+==================================================
+CHANGE DETECTION
+==================================================
+*/
 
 
 const hasChanges =
@@ -163,6 +213,11 @@ JSON.stringify(initialSettings);
 
 
 
+/*
+==================================================
+UPDATE VALUE
+==================================================
+*/
 
 
 const updateSetting = (
@@ -171,23 +226,27 @@ key
 )=>{
 
 
+setSuccess(false);
+
+
 setSettings(prev=>({
 
 ...prev,
 
+
 [section]:{
 
+
 ...prev[section],
+
 
 [key]:
 !prev[section][key]
 
+
 }
 
 }));
-
-
-setError(false);
 
 
 };
@@ -200,9 +259,15 @@ setError(false);
 
 
 
+/*
+==================================================
+SAVE
+==================================================
+*/
 
 
-const handleSave = async()=>{
+const handleSave =
+async()=>{
 
 
 try{
@@ -210,13 +275,17 @@ try{
 
 setSaving(true);
 
-setError(false);
+setSuccess(false);
 
 
 
-await onUpdate?.(
+await updateNotificationSettings(
 settings
 );
+
+
+
+setSuccess(true);
 
 
 
@@ -226,12 +295,9 @@ catch(error){
 
 
 console.error(
-"Notification update failed",
+"NOTIFICATION_SETTINGS_SAVE_ERROR:",
 error
 );
-
-
-setError(true);
 
 
 }
@@ -245,24 +311,37 @@ setSaving(false);
 }
 
 
-};
-
-
-
-
-
-
-
-
-
-
-const handleCancel = ()=>{
-
-
-setSettings(initialSettings);
-
 
 };
+
+
+
+
+
+
+
+
+
+/*
+==================================================
+RESET
+==================================================
+*/
+
+
+const handleReset = ()=>{
+
+
+setSettings(
+initialSettings
+);
+
+
+setSuccess(false);
+
+
+};
+
 
 
 
@@ -273,25 +352,9 @@ setSettings(initialSettings);
 
 return (
 
-<SectionCard
-
-icon={
-<Bell size={22}/>
-}
-
-title="Notification Settings"
-
-description="
-Control how SmartBudget keeps you informed about your finances and account security.
-"
-
->
-
-
-
 <div
   className="
-    space-y-8
+    space-y-6
   "
 >
 
@@ -299,23 +362,19 @@ Control how SmartBudget keeps you informed about your finances and account secur
 
 
 
-<NotificationGroup
+{/* HEADER */}
 
-title="Financial Alerts"
-
-description="
-Stay informed about your spending and financial progress.
-"
+<SectionCard
 
 icon={
-<WalletCards size={20}/>
+<Bell size={22}/>
 }
 
-settings={settings.financial}
+title="Notification Preferences"
 
-section="financial"
-
-onChange={updateSetting}
+description="
+Control how SmartBudget communicates with you about transactions, security, budgets, and account activity.
+"
 
 />
 
@@ -325,6 +384,67 @@ onChange={updateSetting}
 
 
 
+
+
+
+{/* FINANCIAL */}
+
+<div
+  className="
+    p-6
+    bg-white
+    border border-slate-200 rounded-3xl
+    shadow-sm
+  "
+>
+
+
+<NotificationGroup
+
+title="Financial Alerts"
+
+description="
+Receive important updates about your money activity.
+"
+
+icon={
+<WalletCards size={20}/>
+}
+
+section="financial"
+
+settings={
+settings.financial
+}
+
+onChange={
+updateSetting
+}
+
+/>
+
+
+</div>
+
+
+
+
+
+
+
+
+
+
+{/* SECURITY */}
+
+<div
+  className="
+    p-6
+    bg-white
+    border border-slate-200 rounded-3xl
+    shadow-sm
+  "
+>
 
 
 <NotificationGroup
@@ -332,27 +452,48 @@ onChange={updateSetting}
 title="Security Notifications"
 
 description="
-Important alerts that help protect your account.
+Protect your account with important security alerts.
 "
 
 icon={
 <ShieldCheck size={20}/>
 }
 
-settings={settings.security}
-
 section="security"
 
-onChange={updateSetting}
+settings={
+settings.security
+}
+
+onChange={
+updateSetting
+}
 
 />
 
 
+</div>
 
 
 
 
 
+
+
+
+
+
+
+{/* COMMUNICATION */}
+
+<div
+  className="
+    p-6
+    bg-white
+    border border-slate-200 rounded-3xl
+    shadow-sm
+  "
+>
 
 
 <NotificationGroup
@@ -360,32 +501,51 @@ onChange={updateSetting}
 title="Communication Preferences"
 
 description="
-Manage SmartBudget updates and announcements.
+Manage SmartBudget updates and product information.
 "
 
 icon={
 <MessageSquare size={20}/>
 }
 
-settings={settings.communication}
-
 section="communication"
 
-onChange={updateSetting}
+settings={
+settings.communication
+}
+
+onChange={
+updateSetting
+}
 
 />
 
 
+</div>
 
 
 
 
 
+
+
+
+
+{/* CHANNELS */}
+
+<div
+  className="
+    p-6
+    bg-white
+    border border-slate-200 rounded-3xl
+    shadow-sm
+  "
+>
 
 
 <NotificationGroup
 
-title="Notification Channels"
+title="Delivery Channels"
 
 description="
 Choose where you want to receive notifications.
@@ -395,15 +555,17 @@ icon={
 <Mail size={20}/>
 }
 
-settings={settings.channels}
-
 section="channels"
 
-onChange={updateSetting}
+settings={
+settings.channels
+}
+
+onChange={
+updateSetting
+}
 
 />
-
-
 
 
 
@@ -416,291 +578,146 @@ onChange={updateSetting}
 
 
 
-<SaveBar
 
-visible={
-hasChanges
-}
+{/* STATUS */}
 
-isSaving={saving}
+{
 
-hasError={error}
-
-onSave={handleSave}
-
-onCancel={handleCancel}
-
-/>
-
-
-
-
-
-
-
-</SectionCard>
-
-);
-
-};
-
-
-
-
-
-
-
-
-
-function NotificationGroup({
-
-title,
-description,
-icon,
-settings,
-section,
-onChange,
-
-}) {
-
-
-
-return (
-
-<div>
-
-
-
-
+success && (
 
 <div
   className="
-    flex items-center
-    mb-4
+    px-4 py-3
+    font-medium text-emerald-700 text-sm
+    bg-emerald-50
+    border border-emerald-200 rounded-2xl
+  "
+>
+
+Notification preferences updated successfully.
+
+</div>
+
+)
+
+}
+
+
+
+
+
+
+
+{
+
+error && (
+
+<div
+  className="
+    px-4 py-3
+    font-medium text-red-700 text-sm
+    bg-red-50
+    border border-red-200 rounded-2xl
+  "
+>
+
+{
+error
+}
+
+</div>
+
+)
+
+}
+
+
+
+
+
+
+
+
+
+{/* ACTION BAR */}
+
+{
+
+hasChanges && (
+
+<div
+  className="
+    flex justify-end
     gap-3
   "
 >
 
 
-<div
+<button
+  onClick={handleReset}
+
+disabled={saving}
   className="
-    flex justify-center items-center
-    w-10 h-10
-    text-blue-600
-    bg-blue-50
-    rounded-xl
-  "
->
-
-{icon}
-
-</div>
-
-
-
-
-<div>
-
-<h4
-  className="
-    font-semibold text-slate-900 text-sm
-  "
->
-
-{title}
-
-</h4>
-
-
-<p
-  className="
-    mt-1
-    text-slate-500 text-xs
-  "
->
-
-{description}
-
-</p>
-
-
-</div>
-
-
-</div>
-
-
-
-
-
-
-
-
-<div
-  className="
-    space-y-3
-  "
->
-
-{
-
-Object.entries(settings)
-.map(
-([
-key,
-value
-])=>(
-
-
-<NotificationToggle
-
-key={key}
-
-label={
-formatLabel(key)
-}
-
-checked={value}
-
-onChange={()=>onChange(
-section,
-key
-)}
-
-/>
-
-
-))
-
-}
-
-
-
-</div>
-
-
-
-</div>
-
-);
-
-}
-
-
-
-
-
-
-
-
-
-function NotificationToggle({
-
-label,
-checked,
-onChange,
-
-}) {
-
-
-
-return (
-
-<div
-  className="
-    flex justify-between items-center
-    p-4
-    hover:bg-slate-50
+    inline-flex items-center
+    px-5 py-3
+    font-medium text-slate-700 text-sm
+    bg-white hover:bg-slate-50
     border border-slate-200 rounded-2xl
     transition
+    gap-2
   "
 >
 
+<RotateCcw size={16}/>
 
+Reset
 
-<div>
-
-
-<p
-  className="
-    font-medium text-slate-800 text-sm
-  "
->
-
-{label}
-
-</p>
-
-
-<p
-  className="
-    mt-1
-    text-slate-500 text-xs
-  "
->
-
-Receive alerts when this happens
-
-</p>
-
-
-</div>
-
+</button>
 
 
 
 
 
 <button
+  onClick={handleSave}
 
-onClick={onChange}
-
-className={`
-relative
-h-6
-w-11
-rounded-full
-transition
-
-${
-checked
-?
-"bg-blue-600"
-:
-"bg-slate-300"
-}
-
-`}
-
+disabled={saving}
+  className="
+    inline-flex items-center
+    px-6 py-3
+    font-semibold text-white text-sm
+    bg-slate-900 hover:bg-black
+    rounded-2xl
+    disabled:opacity-60 transition
+    gap-2
+  "
 >
 
+<Save size={17}/>
 
 
-<span
-
-className={`
-absolute
-top-1
-h-4
-w-4
-rounded-full
-bg-white
-transition
-
-${
-checked
+{
+saving
 ?
-"translate-x-6"
+"Saving..."
 :
-"translate-x-1"
+"Save Preferences"
 }
-
-`}
-
-/>
 
 
 </button>
+
+
+
+
+</div>
+
+)
+
+}
+
+
+
 
 
 
@@ -708,30 +725,9 @@ checked
 
 );
 
-}
+
+};
 
 
-
-
-
-
-
-
-
-function formatLabel(value){
-
-return value
-
-.replace(
-/([A-Z])/g,
-" $1"
-)
-
-.replace(
-/^./,
-char=>char.toUpperCase()
-);
-
-}
 
 export default NotificationSettings;

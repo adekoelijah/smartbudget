@@ -70,7 +70,7 @@ router.post(
   enableTwoFactor
 );
 
-
+router.put("/user/profile", updateProfile);
 
 router.post(
   "/2fa/disable",
