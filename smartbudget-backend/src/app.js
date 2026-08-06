@@ -282,6 +282,7 @@ import transactionRoutes from "./routes/transactionRoutes.js";
 import dashboardRoutes from "./routes/dashboardRoutes.js";
 import exportRoutes from "./routes/exportRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
+import preferenceRoutes from "./routes/preferenceRoutes.js";
 import cookieParser from "cookie-parser";
 
 const app = express();
@@ -516,6 +517,7 @@ app.use(
 "/api/notifications",
 notificationRoutes
 );
+app.use("/api/preferences", preferenceRoutes);
 
 // ===============================
 // ROOT ROUTE
