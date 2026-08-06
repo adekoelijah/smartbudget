@@ -18,8 +18,6 @@ import SectionCard from "./components/SectionCard";
 import ConfirmDialog from "./components/ConfirmDialog";
 
 
-
-
 const SecuritySettings = ({
   user,
 
@@ -94,15 +92,8 @@ setShowLogoutDialog
 ]=useState(false);
 
 
-
-
-
-
 const securityScore =
 calculateSecurityScore(user);
-
-
-
 
 
 return (
@@ -165,9 +156,6 @@ message={message}
 
 
 
-
-
-
 {/* ===========================
 SECURITY SCORE
 =========================== */}
@@ -181,7 +169,6 @@ SECURITY SCORE
     border border-slate-200 rounded-2xl
   "
 >
-
 
 <div
   className="
@@ -299,9 +286,7 @@ setShowPassword(
 
 className="
 security-button
-"
-
->
+">
 
 {
 loading.password
@@ -365,9 +350,7 @@ updatePasswordField(
 "newPassword",
 e.target.value
 )
-}
-
-/>
+}/>
 
 
 
@@ -388,24 +371,18 @@ e.target.value
 }
 
 />
-
-
-
 <button
-  onClick={
-onChangePassword
-}
-
-disabled={
-loading.password
-}
+  onClick={onChangePassword}
+  disabled={loading.password}
   className="
     security-button
   "
 >
-
-Save Password
-
+  {
+    loading.password
+    ? "Saving..."
+    : "Save Password"
+  }
 </button>
 
 
@@ -416,18 +393,9 @@ Save Password
 }
 
 
-
-
-
-
-
-
-
 {/* ===========================
 2FA
 =========================== */}
-
-
 
 <SecurityCard
 
@@ -478,13 +446,9 @@ twoFactorEnabled
 ?
 
 <button
-  className="
-    security-button-danger
-  "
-  onClick={()=
->setShowDisableDialog(true)
-}
-
+onClick={()=>setShowDisableDialog(true)}
+  className="security-button-danger"
+  
 >
 
 Disable
@@ -495,49 +459,21 @@ Disable
 :
 
 <button
-  className="
-    security-button
-  "
-  onClick={async()=
->{
-
-
+  onClick={async()=>{
 await onEnable2FA();
-
 setShowEnable2FA(true);
-
-
 }}
+  className="security-button"
+>Enable</button>}/>
 
->
-
-Enable
-
-</button>
-
-}
-
-
-/>
-
-
-
-
-
-
-
-
-{
-showEnable2FA && twoFactorSecret && (
-
+{showEnable2FA && twoFactorSecret &&
+(
 <div
   className="
     space-y-3 p-4
     border rounded-xl
   "
 >
-
-
 <p
   className="
     text-slate-600 text-sm
@@ -629,8 +565,7 @@ Active Devices
 
 <button
 
-onClick={()=>
-setShowLogoutDialog(true)
+onClick={()=>setShowLogoutDialog(true)
 }
 
 className="
@@ -695,16 +630,7 @@ onRevokeSession
 
 </div>
 
-
-
-
-
-
 </div>
-
-
-
-
 
 <ConfirmDialog
 
@@ -795,10 +721,6 @@ setShowLogoutDialog(false);
 };
 
 
-
-
-
-
 /*
 ==================================================
 SMALL COMPONENTS
@@ -814,12 +736,11 @@ badge,
 action,
 }){
 
-
 return (
 
 <div
   className="
-    flex justify-between items-center
+    flex flex-col sm:flex-row sm:justify-between sm:items-center
     p-4
     border border-slate-200 rounded-2xl
     gap-4
@@ -833,7 +754,6 @@ return (
     gap-3
   "
 >
-
 
 <div
   className="
@@ -864,14 +784,10 @@ return (
     font-semibold
   "
 >
-
 {title}
-
 </h4>
 
-
 {badge}
-
 
 </div>
 
@@ -881,25 +797,28 @@ return (
     text-slate-500 text-sm
   "
 >
-
 {description}
-
 </p>
 
 
 </div>
 
-
 </div>
 
 
+
+<div
+  className="
+    shrink-0
+  "
+>
 {action}
+</div>
 
 
 </div>
 
 );
-
 
 }
 
@@ -977,8 +896,7 @@ session.ipAddress ||
 
 <button
 
-onClick={()=>
-onRemove(
+onClick={()=>onRemove(
 session._id
 )
 }
@@ -1049,11 +967,6 @@ onChange={onChange}
 );
 
 }
-
-
-
-
-
 
 
 function Badge({
@@ -1148,9 +1061,6 @@ type==="error"
 
 }
 
-
-
-
 function calculateSecurityScore(user){
 
 
@@ -1169,17 +1079,11 @@ score+=30;
 if(user?.phoneVerified)
 score+=10;
 
-
-
 return Math.min(
 score,
 100
 );
 
-
 }
-
-
-
 
 export default SecuritySettings;

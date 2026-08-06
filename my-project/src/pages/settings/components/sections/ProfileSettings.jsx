@@ -23,7 +23,6 @@ import PersonalInformation from "./components/PersonalInformation";
 import ProfileCompletion from "./components/ProfileCompletion";
 import ChangePhotoModal from "./components/ChangePhotoModal";
 
-import NotificationSettings from "./NotificationSettings";
 import SecuritySettings from "./SecuritySettings";
 
 import SectionCard from "./components/SectionCard";
@@ -57,7 +56,6 @@ user,
 
 loading,
 
-updateUserNotifications,
 
 }=useUser();
 
@@ -447,35 +445,6 @@ logoutAllDevices
 
 
 />
-
-
-
-
-
-
-
-
-
-{/* =================================
-NOTIFICATIONS
-================================= */}
-
-
-
-<NotificationSettings
-
-
-user={user}
-
-
-onUpdate={
-updateUserNotifications
-}
-
-
-/>
-
-
 
 
 

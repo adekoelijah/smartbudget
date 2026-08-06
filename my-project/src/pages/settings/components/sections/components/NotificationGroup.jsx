@@ -1,7 +1,9 @@
 import PropTypes from "prop-types";
 
 import NotificationSwitch from "./NotificationSwitch";
-import { getNotificationMeta } from "../notificationConfig";
+import { getNotificationMeta } from "./notificationConfig";
+
+
 
 /*
 =========================================

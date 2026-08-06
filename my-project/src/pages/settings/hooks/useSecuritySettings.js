@@ -780,7 +780,7 @@ import {
   verifyTwoFactorRequest,
   disableTwoFactorRequest,
   getSecurityError,
-} from "../../services/securityService";
+} from "../../../services/securityService";
 
 
 

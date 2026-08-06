@@ -8,33 +8,6 @@ const [params]=useSearchParams();
 const navigate=useNavigate();
 const {hydrateUser}=useAuth();
 
-
-// useEffect(()=>{
-
-// const token=params.get("token");
-
-
-// if(token){
-
-// localStorage.setItem(
-// "token",
-// token
-// );
-// hydrateUser();
-
-
-// navigate("/dashboard");
-
-
-// }else{
-
-// navigate("/login");
-
-// }
-
-// },[hydrateUser,navigate,params]);
-
-
 useEffect(() => {
 
   const completeAuth = async () => {

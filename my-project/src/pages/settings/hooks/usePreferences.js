@@ -5,10 +5,12 @@ import {
 } from "react";
 
 import {
-  getPreferences,
-  updatePreferences,
-  resetPreferences as resetPreferencesRequest,
-} from "../services/preferencesService";
+  getPreferencesRequest,
+  updatePreferencesRequest,
+  resetPreferencesRequest,
+} from "../../../services/preferencesService";
+
+// import preferencesService from "../../../services/preferencesService";
 
 const DEFAULT_PREFERENCES = {
   currency: "NGN",
@@ -88,7 +90,7 @@ export const usePreferences = () => {
         clearStatus();
 
         const response =
-          await getPreferences();
+         await getPreferencesRequest();
 
         const data =
           response?.preferences ??
@@ -179,7 +181,7 @@ export const usePreferences = () => {
         clearStatus();
 
         const response =
-          await updatePreferences(
+          await updatePreferencesRequest(
             preferences
           );
 
