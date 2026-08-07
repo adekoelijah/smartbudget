@@ -1210,15 +1210,11 @@ sessionId
 
 
 
-setSessions(prev=>
-
-prev.filter(
-session=>
-
-session._id !== sessionId
-
-)
-
+setSessions((prev) =>
+  prev.filter(
+    (session) =>
+      String(session._id) !== String(sessionId)
+  )
 );
 
 

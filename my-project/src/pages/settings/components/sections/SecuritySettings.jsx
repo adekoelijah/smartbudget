@@ -19,17 +19,11 @@ import ConfirmDialog from "./components/ConfirmDialog";
 
 
 const SecuritySettings = ({
-  user,
-
+user = null,
   sessions = [],
-
-  loading,
-
-  message,
-
-  error,
-
-
+  loading = {},
+  message = "",
+  error = "",
   onChangePassword,
 
   passwordForm,
@@ -94,6 +88,9 @@ setShowLogoutDialog
 
 const securityScore =
 calculateSecurityScore(user);
+
+
+const passwordLoading = Boolean(loading?.password);
 
 
 return (
@@ -276,10 +273,10 @@ action={
 
 <button
 
-disabled={loading.password}
+disabled={passwordLoading}
 
 onClick={()=>
-setShowPassword()(
+setShowPassword(
 !showPassword
 )
 }
@@ -288,8 +285,7 @@ className="
 security-button
 ">
 
-{
-loading.password
+{passwordLoading 
 ?
 "Updating..."
 :
@@ -372,17 +368,14 @@ e.target.value
 
 />
 <button
+  type="button"
   onClick={onChangePassword}
-  disabled={loading.password}
+  disabled={passwordLoading}
   className="
     security-button
   "
 >
-  {
-    loading.password
-    ? "Saving..."
-    : "Save Password"
-  }
+  {loading.password ? "Saving..." : "Save Password"}
 </button>
 
 

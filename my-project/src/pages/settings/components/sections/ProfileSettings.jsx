@@ -116,8 +116,6 @@ disable2FA,
 
 
 
-
-
 const [
 showPhotoModal,
 setShowPhotoModal
@@ -403,7 +401,7 @@ SECURITY
 <SecuritySettings
 
 user={user}
-
+loading={loading}
 sessions={sessions}
 
 loadingSessions={
