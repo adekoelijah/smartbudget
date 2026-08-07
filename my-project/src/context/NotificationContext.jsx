@@ -15,48 +15,98 @@ import {
   markAllAsRead,
   deleteNotification,
   clearNotifications,
-  
+  getNotificationPreferences,
+  updateNotificationPreferences,
 } from "../services/notificationService";
 
 import { useAuth } from "../hooks/useAuth";
 
-
-/*
-==================================================
-CONTEXT
-==================================================
-*/
-
-// const NotificationContext = createContext(null);
-
 const NotificationContext = createContext(null);
 
+/* =========================================================
+   DEFAULT NOTIFICATION PREFERENCES
+========================================================= */
 
+const DEFAULT_NOTIFICATION_SETTINGS = {
+  financial: {
+    spendingAlerts: true,
+    budgetWarnings: true,
+    billReminders: true,
+    goalMilestones: true,
+    weeklySummary: true,
+  },
 
-/*
-==================================================
-PROVIDER
-==================================================
-*/
+  security: {
+    newLogin: true,
+    passwordChanges: true,
+    profileChanges: true,
+    suspiciousActivity: true,
+  },
+
+  communication: {
+    productUpdates: false,
+    promotions: false,
+  },
+
+  channels: {
+    email: true,
+    push: true,
+    sms: false,
+  },
+};
+
+/* =========================================================
+   PROVIDER
+========================================================= */
 
 export const NotificationProvider = ({ children }) => {
   const { isAuthenticated } = useAuth();
 
   const mountedRef = useRef(false);
-  const loadingRef = useRef(false);
+  const notificationsLoadingRef = useRef(false);
+  const preferencesLoadingRef = useRef(false);
+
+  /* =======================================================
+     NOTIFICATIONS STATE
+  ======================================================= */
 
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  /* =======================================================
+     PREFERENCES STATE
+  ======================================================= */
+
+  const [notificationSettings, setNotificationSettings] = useState(
+    DEFAULT_NOTIFICATION_SETTINGS
+  );
+
+  const [preferencesLoading, setPreferencesLoading] = useState(false);
+
+  /* =======================================================
+     ERROR STATE
+  ======================================================= */
+
   const [error, setError] = useState(null);
 
-  /*
-  ==================================================
-  SAFE STATE HELPERS
-  ==================================================
-  */
+  /* =======================================================
+     MOUNT CHECK
+  ======================================================= */
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  /* =======================================================
+     SAFE STATE UPDATE
+  ======================================================= */
 
   const safeSetState = useCallback((callback) => {
     if (mountedRef.current) {
@@ -64,14 +114,12 @@ export const NotificationProvider = ({ children }) => {
     }
   }, []);
 
-  /*
-  ==================================================
-  ERROR HANDLER
-  ==================================================
-  */
+  /* =======================================================
+     ERROR HANDLER
+  ======================================================= */
 
   const handleError = useCallback(
-    (err) => {
+    (err, fallbackMessage = "Something went wrong.") => {
       if (
         err?.code === "ERR_CANCELED" ||
         err?.message === "Request aborted"
@@ -89,26 +137,28 @@ export const NotificationProvider = ({ children }) => {
         setError(
           err?.response?.data?.message ||
             err?.message ||
-            "Unable to load notifications."
+            fallbackMessage
         );
       });
     },
     [safeSetState]
   );
 
-  /*
-  ==================================================
-  FETCH NOTIFICATIONS
-  ==================================================
-  */
+  /* =========================================================
+     FETCH NOTIFICATIONS
+  ========================================================= */
 
   const fetchNotifications = useCallback(
     async (params = {}, showLoader = true) => {
-      if (!isAuthenticated) return null;
+      if (!isAuthenticated) {
+        return null;
+      }
 
-      if (loadingRef.current) return null;
+      if (notificationsLoadingRef.current) {
+        return null;
+      }
 
-      loadingRef.current = true;
+      notificationsLoadingRef.current = true;
 
       if (showLoader) {
         safeSetState(() => {
@@ -121,15 +171,15 @@ export const NotificationProvider = ({ children }) => {
         const data = await getNotifications(params);
 
         safeSetState(() => {
-          setNotifications(data.notifications ?? []);
+          setNotifications(data?.notifications ?? []);
         });
 
         return data;
       } catch (err) {
-        handleError(err);
+        handleError(err, "Unable to load notifications.");
         return null;
       } finally {
-        loadingRef.current = false;
+        notificationsLoadingRef.current = false;
 
         if (showLoader) {
           safeSetState(() => {
@@ -141,66 +191,188 @@ export const NotificationProvider = ({ children }) => {
     [handleError, isAuthenticated, safeSetState]
   );
 
-  /*
-  ==================================================
-  FETCH UNREAD COUNT
-  ==================================================
-  */
+  /* =========================================================
+     FETCH UNREAD COUNT
+  ========================================================= */
 
   const fetchUnreadCount = useCallback(async () => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      return;
+    }
 
     try {
       const data = await getUnreadCount();
 
       safeSetState(() => {
-        setUnreadCount(data.count ?? 0);
+        setUnreadCount(Number(data?.count ?? 0));
       });
     } catch (err) {
-      handleError(err);
+      handleError(err, "Unable to load notification count.");
     }
   }, [handleError, isAuthenticated, safeSetState]);
 
-  /*
-  ==================================================
-  INITIAL LOAD
-  ==================================================
-  */
+  /* =========================================================
+     FETCH NOTIFICATION PREFERENCES
+  ========================================================= */
 
-  useEffect(() => {
-    mountedRef.current = true;
+  const fetchNotificationPreferences = useCallback(async () => {
+    if (!isAuthenticated) {
+      return;
+    }
 
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
+    if (preferencesLoadingRef.current) {
+      return;
+    }
+
+    preferencesLoadingRef.current = true;
+
+    safeSetState(() => {
+      setPreferencesLoading(true);
+    });
+
+    try {
+      const data = await getNotificationPreferences();
+
+      const preferences =
+        data?.preferences ||
+        data?.notificationPreferences ||
+        data;
+
+      if (preferences) {
+        safeSetState(() => {
+          setNotificationSettings({
+            ...DEFAULT_NOTIFICATION_SETTINGS,
+            ...preferences,
+            financial: {
+              ...DEFAULT_NOTIFICATION_SETTINGS.financial,
+              ...(preferences.financial || {}),
+            },
+            security: {
+              ...DEFAULT_NOTIFICATION_SETTINGS.security,
+              ...(preferences.security || {}),
+            },
+            communication: {
+              ...DEFAULT_NOTIFICATION_SETTINGS.communication,
+              ...(preferences.communication || {}),
+            },
+            channels: {
+              ...DEFAULT_NOTIFICATION_SETTINGS.channels,
+              ...(preferences.channels || {}),
+            },
+          });
+        });
+      }
+    } catch (err) {
+      handleError(
+        err,
+        "Unable to load notification preferences."
+      );
+    } finally {
+      preferencesLoadingRef.current = false;
+
+      safeSetState(() => {
+        setPreferencesLoading(false);
+      });
+    }
+  }, [handleError, isAuthenticated, safeSetState]);
+
+  /* =========================================================
+     UPDATE NOTIFICATION PREFERENCES
+  ========================================================= */
+
+  const updateNotificationSettings = useCallback(
+    async (settings) => {
+      if (!isAuthenticated) {
+        return null;
+      }
+
+      try {
+        setError(null);
+
+        const data = await updateNotificationPreferences(
+          settings
+        );
+
+        const updatedPreferences =
+          data?.preferences ||
+          data?.notificationPreferences ||
+          settings;
+
+        safeSetState(() => {
+          setNotificationSettings({
+            ...DEFAULT_NOTIFICATION_SETTINGS,
+            ...updatedPreferences,
+            financial: {
+              ...DEFAULT_NOTIFICATION_SETTINGS.financial,
+              ...(updatedPreferences.financial || {}),
+            },
+            security: {
+              ...DEFAULT_NOTIFICATION_SETTINGS.security,
+              ...(updatedPreferences.security || {}),
+            },
+            communication: {
+              ...DEFAULT_NOTIFICATION_SETTINGS.communication,
+              ...(updatedPreferences.communication || {}),
+            },
+            channels: {
+              ...DEFAULT_NOTIFICATION_SETTINGS.channels,
+              ...(updatedPreferences.channels || {}),
+            },
+          });
+        });
+
+        return data;
+      } catch (err) {
+        handleError(
+          err,
+          "Unable to update notification preferences."
+        );
+
+        throw err;
+      }
+    },
+    [handleError, isAuthenticated, safeSetState]
+  );
+
+  /* =========================================================
+     INITIAL LOAD
+  ========================================================= */
 
   useEffect(() => {
     if (!isAuthenticated) {
       setNotifications([]);
       setUnreadCount(0);
+      setNotificationSettings(
+        DEFAULT_NOTIFICATION_SETTINGS
+      );
+
       return;
     }
 
     fetchNotifications();
     fetchUnreadCount();
+    fetchNotificationPreferences();
   }, [
     isAuthenticated,
     fetchNotifications,
     fetchUnreadCount,
+    fetchNotificationPreferences,
   ]);
 
-  /*
-  ==================================================
-  REFRESH
-  ==================================================
-  */
+  /* =========================================================
+     REFRESH
+  ========================================================= */
 
   const refreshNotifications = useCallback(async () => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      return;
+    }
 
     try {
-      setRefreshing(true);
+      safeSetState(() => {
+        setRefreshing(true);
+        setError(null);
+      });
 
       await Promise.all([
         fetchNotifications({}, false),
@@ -218,125 +390,144 @@ export const NotificationProvider = ({ children }) => {
     safeSetState,
   ]);
 
-  /*
-  ==================================================
-  MARK READ
-  ==================================================
-  */
+  /* =========================================================
+     MARK SINGLE NOTIFICATION AS READ
+  ========================================================= */
 
   const readNotification = useCallback(
     async (id) => {
+      if (!id) return;
+
       try {
         await markAsRead(id);
 
-        setNotifications((prev) =>
-          prev.map((item) =>
-            item._id === id
-              ? {
-                  ...item,
-                  isRead: true,
-                  readAt: new Date(),
-                }
-              : item
-          )
-        );
+        safeSetState(() => {
+          setNotifications((prev) =>
+            prev.map((item) =>
+              item._id === id
+                ? {
+                    ...item,
+                    isRead: true,
+                    readAt: new Date(),
+                  }
+                : item
+            )
+          );
 
-        setUnreadCount((prev) => Math.max(prev - 1, 0));
+          setUnreadCount((prev) =>
+            Math.max(prev - 1, 0)
+          );
+        });
       } catch (err) {
-        handleError(err);
+        handleError(
+          err,
+          "Unable to mark notification as read."
+        );
       }
     },
-    [handleError]
+    [handleError, safeSetState]
   );
 
-  /*
-  ==================================================
-  MARK ALL READ
-  ==================================================
-  */
+  /* =========================================================
+     MARK ALL AS READ
+  ========================================================= */
 
   const readAllNotifications = useCallback(async () => {
     try {
       await markAllAsRead();
 
-      setNotifications((prev) =>
-        prev.map((item) => ({
-          ...item,
-          isRead: true,
-          readAt: new Date(),
-        }))
-      );
+      safeSetState(() => {
+        setNotifications((prev) =>
+          prev.map((item) => ({
+            ...item,
+            isRead: true,
+            readAt: new Date(),
+          }))
+        );
 
-      setUnreadCount(0);
+        setUnreadCount(0);
+      });
     } catch (err) {
-      handleError(err);
+      handleError(
+        err,
+        "Unable to mark notifications as read."
+      );
     }
-  }, [handleError]);
+  }, [handleError, safeSetState]);
 
-  /*
-  ==================================================
-  DELETE
-  ==================================================
-  */
+  /* =========================================================
+     DELETE NOTIFICATION
+  ========================================================= */
 
   const removeNotification = useCallback(
     async (id) => {
+      if (!id) return;
+
       try {
         await deleteNotification(id);
 
-        setNotifications((prev) =>
-          prev.filter((item) => item._id !== id)
-        );
+        safeSetState(() => {
+          setNotifications((prev) =>
+            prev.filter((item) => item._id !== id)
+          );
+        });
 
-        fetchUnreadCount();
+        await fetchUnreadCount();
       } catch (err) {
-        handleError(err);
+        handleError(
+          err,
+          "Unable to delete notification."
+        );
       }
     },
-    [fetchUnreadCount, handleError]
+    [fetchUnreadCount, handleError, safeSetState]
   );
 
-  /*
-  ==================================================
-  CLEAR
-  ==================================================
-  */
+  /* =========================================================
+     CLEAR ALL
+  ========================================================= */
 
   const clearAllNotifications = useCallback(async () => {
     try {
       await clearNotifications();
 
-      setNotifications([]);
-      setUnreadCount(0);
+      safeSetState(() => {
+        setNotifications([]);
+        setUnreadCount(0);
+      });
     } catch (err) {
-      handleError(err);
+      handleError(
+        err,
+        "Unable to clear notifications."
+      );
     }
-  }, [handleError]);
+  }, [handleError, safeSetState]);
 
-  /*
-  ==================================================
-  AUTO REFRESH
-  ==================================================
-  */
+  /* =========================================================
+     AUTO REFRESH UNREAD COUNT
+  ========================================================= */
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      return;
+    }
 
     const timer = setInterval(() => {
       fetchUnreadCount();
     }, 60000);
 
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+    };
   }, [fetchUnreadCount, isAuthenticated]);
 
-  /*
-  ==================================================
-  CONTEXT VALUE
-  ==================================================
-  */
+  /* =========================================================
+     CONTEXT VALUE
+  ========================================================= */
 
   const value = useMemo(
     () => ({
+      /* Notifications */
       notifications,
       unreadCount,
 
@@ -352,11 +543,16 @@ export const NotificationProvider = ({ children }) => {
 
       removeNotification,
       clearAllNotifications,
+
+      /* Notification preferences */
+      notificationSettings,
+      preferencesLoading,
+      fetchNotificationPreferences,
+      updateNotificationSettings,
     }),
     [
       notifications,
       unreadCount,
-
       loading,
       refreshing,
       error,
@@ -369,6 +565,11 @@ export const NotificationProvider = ({ children }) => {
 
       removeNotification,
       clearAllNotifications,
+
+      notificationSettings,
+      preferencesLoading,
+      fetchNotificationPreferences,
+      updateNotificationSettings,
     ]
   );
 
@@ -379,11 +580,9 @@ export const NotificationProvider = ({ children }) => {
   );
 };
 
-/*
-==================================================
-HOOK
-==================================================
-*/
+/* =========================================================
+   HOOK
+========================================================= */
 
 export const useNotifications = () => {
   const context = useContext(NotificationContext);
@@ -396,3 +595,5 @@ export const useNotifications = () => {
 
   return context;
 };
+
+export default NotificationContext;

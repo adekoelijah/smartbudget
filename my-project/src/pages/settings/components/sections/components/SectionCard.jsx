@@ -62,6 +62,7 @@ const SectionCard = ({
                     className="
                       flex justify-center items-center
                       w-11 h-11
+                      mb-2
                       text-blue-600
                       bg-blue-50
                       rounded-xl

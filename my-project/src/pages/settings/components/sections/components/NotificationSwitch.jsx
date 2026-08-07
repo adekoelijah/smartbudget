@@ -1,3 +1,4 @@
+
 import PropTypes from "prop-types";
 
 /*
@@ -15,32 +16,54 @@ const NotificationSwitch = ({
   onChange,
 }) => {
   const handleToggle = () => {
-    if (disabled) return;
+    if (disabled) {
+      return;
+    }
+
     onChange?.();
   };
 
   const handleKeyDown = (event) => {
-    if (disabled) return;
+    if (disabled) {
+      return;
+    }
 
-    if (event.key === " " || event.key === "Enter") {
+    if (
+      event.key === " " ||
+      event.key === "Enter"
+    ) {
       event.preventDefault();
-      onChange?.();
+      handleToggle();
     }
   };
 
   return (
     <div
       className={`
-        flex items-center justify-between
+        flex
+        items-center
+        justify-between
         gap-5
         p-5
         transition-colors
         duration-200
-        ${divider ? "border-b border-slate-200" : ""}
-        ${disabled ? "opacity-60" : ""}
+
+        ${
+          divider
+            ? "border-b border-slate-200"
+            : ""
+        }
+
+        ${
+          disabled
+            ? "opacity-60"
+            : ""
+        }
       `}
     >
-      {/* CONTENT */}
+      {/* =========================================
+          CONTENT
+      ========================================= */}
 
       <div
         className="
@@ -68,7 +91,9 @@ const NotificationSwitch = ({
         )}
       </div>
 
-      {/* SWITCH */}
+      {/* =========================================
+          SWITCH
+      ========================================= */}
 
       <button
         type="button"
@@ -133,10 +158,15 @@ const NotificationSwitch = ({
 
 NotificationSwitch.propTypes = {
   label: PropTypes.string.isRequired,
+
   description: PropTypes.string,
+
   checked: PropTypes.bool,
+
   disabled: PropTypes.bool,
+
   divider: PropTypes.bool,
+
   onChange: PropTypes.func,
 };
 

@@ -23,12 +23,11 @@ import PersonalInformation from "./components/PersonalInformation";
 import ProfileCompletion from "./components/ProfileCompletion";
 import ChangePhotoModal from "./components/ChangePhotoModal";
 
-import SecuritySettings from "./SecuritySettings";
 
 import SectionCard from "./components/SectionCard";
 import LoadingSkeleton from "./components/LoadingSkeleton";
 import EmptyState from "./components/EmptyState";
-import {useSecuritySettings } from "../../hooks/useSecuritySettings";
+
 
 
 
@@ -84,28 +83,6 @@ uploadAvatar,
 
 
 
-const {
-
-sessions,
-
-loading:securityLoading,
-
-message:securityMessage,
-
-error:securityError,
-
-changePassword,
-
-
-revokeSession,
-
-logoutAllDevices,
-
-enable2FA,
-
-disable2FA,
-
-}=useSecuritySettings(user);
 
 
 
@@ -356,9 +333,7 @@ PERSONAL INFORMATION
 <SectionCard
 
 
-icon={
-<UserRound size={22}/>
-}
+icon={<UserRound size={22}/>}
 
 
 title="Personal Information"
@@ -388,72 +363,14 @@ isSaving={updatingProfile}
 
 
 
-
-
-
-
-
-
 {/* =================================
 SECURITY
 ================================= */}
-
-<SecuritySettings
-
-user={user}
-loading={loading}
-sessions={sessions}
-
-loadingSessions={
-securityLoading.sessions
-}
-
-message={
-securityMessage
-}
-
-error={
-securityError
-}
-
-
-onChangePassword={
-changePassword
-}
-
-
-onEnable2FA={
-enable2FA
-}
-
-
-onDisable2FA={
-disable2FA
-}
-
-
-onLogoutSession={
-revokeSession
-}
-
-
-onLogoutAll={
-logoutAllDevices
-}
-
-
-/>
-
-
-
-
-
 
 
 {/* =================================
 PROFILE PHOTO
 ================================= */}
-
 
 
 <ChangePhotoModal
@@ -478,12 +395,7 @@ user?.avatar
 loading={uploading}
 
 
-
-onClose={()=>{
-
-setShowPhotoModal(false);
-
-}}
+onClose={()=>{setShowPhotoModal(false);}}
 
 
 
@@ -517,9 +429,5 @@ setShowPhotoModal(false);
 
 
 };
-
-
-
-
 
 export default ProfileSettings;

@@ -1,34 +1,55 @@
+
 import PropTypes from "prop-types";
 
 import NotificationSwitch from "./NotificationSwitch";
-import { getNotificationMeta } from "./notificationConfig";
-
+// import { getNotificationMeta } from "../notificationConfig";
+import { getNotificationMeta} from "./notificationConfig"
 
 
 /*
-=========================================
+==================================================
 NOTIFICATION GROUP
-=========================================
+==================================================
 */
 
 const NotificationGroup = ({
   title,
   description,
-  icon: Icon,
+  icon,
   section,
-  settings,
+  settings = {},
   disabled = false,
-  onToggle,
+  onChange,
 }) => {
+  /*
+  ==================================================
+  NORMALIZE SETTINGS
+  ==================================================
+  */
+
+  const entries = Object.entries(
+    settings || {}
+  );
+
+
+  /*
+  ==================================================
+  RENDER
+  ==================================================
+  */
+
   return (
     <section
       className="
         overflow-hidden
         bg-white
-        border border-slate-200 rounded-3xl
+        border border-slate-200 rounded-2xl
       "
     >
-      {/* HEADER */}
+
+      {/* =========================================
+          HEADER
+      ========================================= */}
 
       <div
         className="
@@ -38,6 +59,7 @@ const NotificationGroup = ({
           gap-4
         "
       >
+
         <div
           className="
             flex justify-center items-center
@@ -48,14 +70,16 @@ const NotificationGroup = ({
             shrink-0
           "
         >
-          <Icon size={20} />
+          {icon}
         </div>
+
 
         <div
           className="
             min-w-0
           "
         >
+
           <h3
             className="
               font-semibold text-slate-900 text-base
@@ -64,53 +88,158 @@ const NotificationGroup = ({
             {title}
           </h3>
 
-          <p
-            className="
-              mt-1
-              text-slate-500 text-sm leading-relaxed
-            "
-          >
-            {description}
-          </p>
+
+          {description && (
+            <p
+              className="
+                mt-1
+                text-slate-500 text-sm leading-relaxed
+              "
+            >
+              {description}
+            </p>
+          )}
+
         </div>
+
       </div>
 
-      {/* SETTINGS */}
+
+      {/* =========================================
+          SETTINGS
+      ========================================= */}
 
       <div>
-        {Object.entries(settings).map(([key, value], index) => {
-          const meta = getNotificationMeta(section, key);
 
-          return (
-            <NotificationSwitch
-              key={`${section}-${key}`}
-              label={meta.label}
-              description={meta.description}
-              checked={value}
-              disabled={disabled}
-              divider={
-                index !==
-                Object.keys(settings).length - 1
-              }
-              onChange={() =>
-                onToggle(section, key)
-              }
-            />
-          );
-        })}
+        {entries.length === 0 ? (
+          <div
+            className="
+              p-6
+              text-slate-500 text-sm
+            "
+          >
+            No notification preferences available.
+          </div>
+        ) : (
+          entries.map(
+            ([key, value], index) => {
+
+              const meta =
+                getNotificationMeta(
+                  section,
+                  key
+                );
+
+
+              /*
+              ========================================
+              FALLBACK METADATA
+              ========================================
+              */
+
+              const label =
+                meta?.label ||
+                formatNotificationLabel(key);
+
+              const metaDescription =
+                meta?.description ||
+                "Manage this notification preference.";
+
+
+              return (
+                <NotificationSwitch
+                  key={`${section}-${key}`}
+                  label={label}
+                  description={metaDescription}
+                  checked={Boolean(value)}
+                  disabled={disabled}
+
+                  divider={
+                    index !==
+                    entries.length - 1
+                  }
+
+                  onChange={() => {
+                    if (
+                      disabled ||
+                      !onChange
+                    ) {
+                      return;
+                    }
+
+                    onChange(
+                      section,
+                      key,
+                      !value
+                    );
+                  }}
+                />
+              );
+            }
+          )
+        )}
+
       </div>
+
     </section>
   );
 };
 
+
+/*
+==================================================
+LABEL FORMATTER
+==================================================
+*/
+
+const formatNotificationLabel = (
+  value
+) => {
+  if (!value) {
+    return "Notification";
+  }
+
+  return value
+    .replace(
+      /([A-Z])/g,
+      " $1"
+    )
+    .replace(
+      /^./,
+      (character) =>
+        character.toUpperCase()
+    )
+    .trim();
+};
+
+
+/*
+==================================================
+PROP TYPES
+==================================================
+*/
+
 NotificationGroup.propTypes = {
   title: PropTypes.string.isRequired,
-  description: PropTypes.string,
-  icon: PropTypes.elementType.isRequired,
-  section: PropTypes.string.isRequired,
-  settings: PropTypes.object.isRequired,
-  disabled: PropTypes.bool,
-  onToggle: PropTypes.func.isRequired,
+
+  description:
+    PropTypes.string,
+
+  icon:
+    PropTypes.node,
+
+  section:
+    PropTypes.string.isRequired,
+
+  settings:
+    PropTypes.object,
+
+  disabled:
+    PropTypes.bool,
+
+  onChange:
+    PropTypes.func.isRequired,
 };
+
 
 export default NotificationGroup;
