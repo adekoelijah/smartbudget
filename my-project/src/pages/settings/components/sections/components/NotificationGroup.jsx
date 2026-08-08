@@ -1,10 +1,7 @@
-
 import PropTypes from "prop-types";
 
 import NotificationSwitch from "./NotificationSwitch";
-// import { getNotificationMeta } from "../notificationConfig";
-import { getNotificationMeta} from "./notificationConfig"
-
+import { getNotificationMeta } from "./notificationConfig";
 
 /*
 ==================================================
@@ -17,9 +14,9 @@ const NotificationGroup = ({
   description,
   icon,
   section,
-  settings = {},
+  settings,
   disabled = false,
-  onChange,
+  onToggle,
 }) => {
   /*
   ==================================================
@@ -27,10 +24,7 @@ const NotificationGroup = ({
   ==================================================
   */
 
-  const entries = Object.entries(
-    settings || {}
-  );
-
+  const entries = Object.entries(settings || {});
 
   /*
   ==================================================
@@ -46,7 +40,6 @@ const NotificationGroup = ({
         border border-slate-200 rounded-2xl
       "
     >
-
       {/* =========================================
           HEADER
       ========================================= */}
@@ -59,7 +52,6 @@ const NotificationGroup = ({
           gap-4
         "
       >
-
         <div
           className="
             flex justify-center items-center
@@ -73,13 +65,11 @@ const NotificationGroup = ({
           {icon}
         </div>
 
-
         <div
           className="
             min-w-0
           "
         >
-
           <h3
             className="
               font-semibold text-slate-900 text-base
@@ -87,7 +77,6 @@ const NotificationGroup = ({
           >
             {title}
           </h3>
-
 
           {description && (
             <p
@@ -99,18 +88,14 @@ const NotificationGroup = ({
               {description}
             </p>
           )}
-
         </div>
-
       </div>
-
 
       {/* =========================================
           SETTINGS
       ========================================= */}
 
       <div>
-
         {entries.length === 0 ? (
           <div
             className="
@@ -121,70 +106,64 @@ const NotificationGroup = ({
             No notification preferences available.
           </div>
         ) : (
-          entries.map(
-            ([key, value], index) => {
+          entries.map(([key, value], index) => {
+            const meta = getNotificationMeta(
+              section,
+              key
+            );
 
-              const meta =
-                getNotificationMeta(
-                  section,
-                  key
-                );
+            /*
+            ========================================
+            METADATA
+            ========================================
+            */
 
+            const label =
+              meta?.label ||
+              formatNotificationLabel(key);
 
-              /*
-              ========================================
-              FALLBACK METADATA
-              ========================================
-              */
+            const metaDescription =
+              meta?.description ||
+              "Manage this notification preference.";
 
-              const label =
-                meta?.label ||
-                formatNotificationLabel(key);
+            /*
+            ========================================
+            TOGGLE HANDLER
+            ========================================
+            */
 
-              const metaDescription =
-                meta?.description ||
-                "Manage this notification preference.";
+            const handleChange = () => {
+              if (disabled || !onToggle) {
+                return;
+              }
 
+              onToggle(
+                section,
+                key,
+                !value
 
-              return (
-                <NotificationSwitch
-                  key={`${section}-${key}`}
-                  label={label}
-                  description={metaDescription}
-                  checked={Boolean(value)}
-                  disabled={disabled}
-
-                  divider={
-                    index !==
-                    entries.length - 1
-                  }
-
-                  onChange={() => {
-                    if (
-                      disabled ||
-                      !onChange
-                    ) {
-                      return;
-                    }
-
-                    onChange(
-                      section,
-                      key,
-                      !value
-                    );
-                  }}
-                />
               );
-            }
-          )
+            };
+
+            return (
+              <NotificationSwitch
+                key={`${section}-${key}`}
+                label={label}
+                description={metaDescription}
+                checked={Boolean(value)}
+                disabled={disabled}
+                divider={
+                  index !== entries.length - 1
+                }
+                onChange={handleChange}
+              />
+            );
+          })
         )}
-
       </div>
-
     </section>
   );
 };
-
 
 /*
 ==================================================
@@ -192,26 +171,19 @@ LABEL FORMATTER
 ==================================================
 */
 
-const formatNotificationLabel = (
-  value
-) => {
+const formatNotificationLabel = (value) => {
   if (!value) {
     return "Notification";
   }
 
   return value
-    .replace(
-      /([A-Z])/g,
-      " $1"
-    )
+    .replace(/([A-Z])/g, " $1")
     .replace(
       /^./,
-      (character) =>
-        character.toUpperCase()
+      (character) => character.toUpperCase()
     )
     .trim();
 };
-
 
 /*
 ==================================================
@@ -237,9 +209,8 @@ NotificationGroup.propTypes = {
   disabled:
     PropTypes.bool,
 
-  onChange:
+  onToggle:
     PropTypes.func.isRequired,
 };
-
 
 export default NotificationGroup;

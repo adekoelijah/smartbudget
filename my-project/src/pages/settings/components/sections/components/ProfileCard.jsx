@@ -182,6 +182,7 @@ object-cover
 
 <h2
   className="
+    mt-3
     font-bold text-slate-900 text-xl
   "
 >
@@ -199,16 +200,6 @@ size="sm"
 
 </div>
 
-
-
-<p
-  className="
-    mt-1
-    text-slate-500 text-sm
-  "
->
-SmartBudget Account
-</p>
 
 
 </div>
@@ -230,7 +221,7 @@ onClick={onEdit}
 disabled={loading}
   className="
     inline-flex justify-center items-center
-    px-5 py-3
+    mt-1 px-5 py-3
     font-semibold text-white text-sm
     bg-blue-600 hover:bg-blue-700
     rounded-2xl

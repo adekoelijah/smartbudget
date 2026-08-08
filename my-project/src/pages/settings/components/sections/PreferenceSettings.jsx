@@ -8,7 +8,8 @@ import {
   Save,
 } from "lucide-react";
 
-import { usePreferences } from "../../hooks/usePreferences";
+
+import  usePreferences from "../../hooks/usePreferences"
 
 
 /*

@@ -23,20 +23,6 @@ const NotificationSwitch = ({
     onChange?.();
   };
 
-  const handleKeyDown = (event) => {
-    if (disabled) {
-      return;
-    }
-
-    if (
-      event.key === " " ||
-      event.key === "Enter"
-    ) {
-      event.preventDefault();
-      handleToggle();
-    }
-  };
-
   return (
     <div
       className={`
@@ -61,10 +47,6 @@ const NotificationSwitch = ({
         }
       `}
     >
-      {/* =========================================
-          CONTENT
-      ========================================= */}
-
       <div
         className="
           flex-1
@@ -91,19 +73,13 @@ const NotificationSwitch = ({
         )}
       </div>
 
-      {/* =========================================
-          SWITCH
-      ========================================= */}
-
       <button
         type="button"
         role="switch"
         aria-label={label}
         aria-checked={checked}
-        aria-disabled={disabled}
         disabled={disabled}
         onClick={handleToggle}
-        onKeyDown={handleKeyDown}
         className={`
           relative
           inline-flex

@@ -10,8 +10,6 @@ import {
   resetPreferencesRequest,
 } from "../../../services/preferencesService";
 
-// import preferencesService from "../../../services/preferencesService";
-
 const DEFAULT_PREFERENCES = {
   currency: "NGN",
   language: "en",
@@ -19,18 +17,14 @@ const DEFAULT_PREFERENCES = {
   density: "comfortable",
 };
 
+
 const STORAGE_KEY = "smartbudget_preferences";
 
-export const usePreferences = () => {
-  /*
-  =====================================
-  STATE
-  =====================================
-  */
 
-  const [preferences, setPreferences] = useState(
-    DEFAULT_PREFERENCES
-  );
+const usePreferences = () => {
+
+  const [preferences, setPreferences] =
+    useState(DEFAULT_PREFERENCES);
 
   const [loading, setLoading] =
     useState(true);
@@ -44,26 +38,32 @@ export const usePreferences = () => {
   const [error, setError] =
     useState("");
 
-  /*
-  =====================================
-  HELPERS
-  =====================================
-  */
 
   const clearStatus = useCallback(() => {
     setMessage("");
     setError("");
   }, []);
 
+
   const saveLocal = useCallback((data) => {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify(data)
-    );
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(data)
+      );
+    } catch (storageError) {
+      console.warn(
+        "Unable to save preferences locally:",
+        storageError
+      );
+    }
   }, []);
 
+
   const loadLocal = useCallback(() => {
+
     try {
+
       const stored =
         localStorage.getItem(STORAGE_KEY);
 
@@ -71,112 +71,117 @@ export const usePreferences = () => {
         return DEFAULT_PREFERENCES;
       }
 
-      return JSON.parse(stored);
+      return {
+        ...DEFAULT_PREFERENCES,
+        ...JSON.parse(stored),
+      };
+
     } catch {
+
       return DEFAULT_PREFERENCES;
+
     }
+
   }, []);
 
-  /*
-  =====================================
-  LOAD PREFERENCES
-  =====================================
-  */
 
   const fetchPreferences =
     useCallback(async () => {
+
       try {
+
         setLoading(true);
         clearStatus();
 
         const response =
-         await getPreferencesRequest();
+          await getPreferencesRequest();
 
         const data =
           response?.preferences ??
+          response?.data?.preferences ??
           DEFAULT_PREFERENCES;
 
         setPreferences(data);
 
         saveLocal(data);
-      } catch (err) {
-        console.error(err);
 
-        const cached = loadLocal();
+      } catch (err) {
+
+        console.error(
+          "FETCH_PREFERENCES_ERROR:",
+          err
+        );
+
+        const cached =
+          loadLocal();
 
         setPreferences(cached);
 
         setError(
           "Unable to load preferences. Using saved settings."
         );
+
       } finally {
+
         setLoading(false);
+
       }
+
     }, [
       clearStatus,
       loadLocal,
       saveLocal,
     ]);
 
-  /*
-  =====================================
-  INITIAL LOAD
-  =====================================
-  */
 
   useEffect(() => {
     fetchPreferences();
   }, [fetchPreferences]);
 
-  /*
-  =====================================
-  UPDATE SINGLE FIELD
-  =====================================
-  */
 
   const updatePreference =
     useCallback((key, value) => {
-      setPreferences((prev) => {
+
+      setPreferences((previous) => {
+
         const updated = {
-          ...prev,
+          ...previous,
           [key]: value,
         };
 
         saveLocal(updated);
 
         return updated;
+
       });
+
     }, [saveLocal]);
 
-  /*
-  =====================================
-  UPDATE MULTIPLE
-  =====================================
-  */
 
   const updateMany =
     useCallback((updates) => {
-      setPreferences((prev) => {
+
+      setPreferences((previous) => {
+
         const updated = {
-          ...prev,
+          ...previous,
           ...updates,
         };
 
         saveLocal(updated);
 
         return updated;
+
       });
+
     }, [saveLocal]);
 
-  /*
-  =====================================
-  SAVE TO SERVER
-  =====================================
-  */
 
   const savePreferences =
     useCallback(async () => {
+
       try {
+
         setSaving(true);
         clearStatus();
 
@@ -187,6 +192,7 @@ export const usePreferences = () => {
 
         const data =
           response?.preferences ??
+          response?.data?.preferences ??
           preferences;
 
         setPreferences(data);
@@ -200,35 +206,41 @@ export const usePreferences = () => {
         return {
           success: true,
         };
+
       } catch (err) {
-        console.error(err);
+
+        console.error(
+          "SAVE_PREFERENCES_ERROR:",
+          err
+        );
 
         setError(
           err?.response?.data?.message ||
-            "Unable to save preferences."
+          "Unable to save preferences."
         );
 
         return {
           success: false,
         };
+
       } finally {
+
         setSaving(false);
+
       }
+
     }, [
       preferences,
       clearStatus,
       saveLocal,
     ]);
 
-  /*
-  =====================================
-  RESET
-  =====================================
-  */
 
   const resetPreferences =
     useCallback(async () => {
+
       try {
+
         setSaving(true);
         clearStatus();
 
@@ -237,6 +249,7 @@ export const usePreferences = () => {
 
         const data =
           response?.preferences ??
+          response?.data?.preferences ??
           DEFAULT_PREFERENCES;
 
         setPreferences(data);
@@ -250,72 +263,69 @@ export const usePreferences = () => {
         return {
           success: true,
         };
+
       } catch (err) {
-        console.error(err);
+
+        console.error(
+          "RESET_PREFERENCES_ERROR:",
+          err
+        );
 
         setError(
           err?.response?.data?.message ||
-            "Unable to reset preferences."
+          "Unable to reset preferences."
         );
 
         return {
           success: false,
         };
+
       } finally {
+
         setSaving(false);
+
       }
+
     }, [
       clearStatus,
       saveLocal,
     ]);
 
-  /*
-  =====================================
-  AUTO CLEAR MESSAGE
-  =====================================
-  */
 
   useEffect(() => {
+
     if (!message && !error) {
-      return;
+      return undefined;
     }
 
-    const timer = setTimeout(() => {
-      clearStatus();
-    }, 4000);
+    const timer =
+      setTimeout(() => {
+        clearStatus();
+      }, 4000);
 
     return () => clearTimeout(timer);
+
   }, [
     message,
     error,
     clearStatus,
   ]);
 
-  /*
-  =====================================
-  EXPORT
-  =====================================
-  */
 
   return {
     preferences,
-
     loading,
-
     saving,
-
     message,
-
     error,
-
     fetchPreferences,
-
     updatePreference,
-
     updateMany,
-
     savePreferences,
-
     resetPreferences,
   };
+
 };
+
+
+export default usePreferences;
