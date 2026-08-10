@@ -1,17 +1,23 @@
 
-
 import User from "../../models/User.js";
 
 /* =========================================
-   SANITIZER
+   SANITIZE USER
 ========================================= */
+
 const sanitizeUser = (user) => ({
   id: user._id,
-  name: user.name,
+  firstName: user.firstName,
+  lastName: user.lastName,
+  fullName:
+    user.fullName ||
+    `${user.firstName || ""} ${user.lastName || ""}`.trim(),
   email: user.email,
   avatar: user.avatar || "",
   role: user.role,
   status: user.status,
+  authProvider: user.authProvider,
+  isEmailVerified: user.isEmailVerified,
   preferences: user.preferences,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
@@ -19,99 +25,199 @@ const sanitizeUser = (user) => ({
 
 /* =========================================
    GET CURRENT USER
+   GET /api/users/profile
 ========================================= */
+
 export const getCurrentUser = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    const userId = req.user?._id || req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required.",
+      });
+    }
+
+    const user = await User.findById(userId);
 
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "User not found",
+        message: "User not found.",
       });
     }
 
     return res.status(200).json({
       success: true,
+      message: "User profile fetched successfully.",
       user: sanitizeUser(user),
     });
-
   } catch (error) {
     console.error("GET_CURRENT_USER_ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Failed to fetch user",
+      message: "Failed to fetch user profile.",
     });
   }
 };
 
 /* =========================================
    UPDATE CURRENT USER
+   PUT /api/users/profile
 ========================================= */
+
 export const updateCurrentUser = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    const userId = req.user?._id || req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required.",
+      });
+    }
+
+    const user = await User.findById(userId);
 
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "User not found",
+        message: "User not found.",
       });
     }
 
-    const { name, email, avatar } = req.body;
+    const {
+      firstName,
+      lastName,
+      email,
+      avatar,
+    } = req.body;
 
-    if (name) user.name = name.trim();
+    /* -----------------------------------------
+       VALIDATE FIRST NAME
+    ----------------------------------------- */
 
-    if (email) {
-      const exists = await User.findOne({
-        email: email.toLowerCase(),
-        _id: { $ne: user._id },
-      });
+    if (firstName !== undefined) {
+      const trimmedFirstName = firstName.trim();
 
-      if (exists) {
-        return res.status(409).json({
+      if (!trimmedFirstName) {
+        return res.status(400).json({
           success: false,
-          message: "Email already in use",
+          message: "First name cannot be empty.",
         });
       }
 
-      user.email = email.toLowerCase();
+      user.firstName = trimmedFirstName;
     }
 
-    if (avatar) user.avatar = avatar;
+    /* -----------------------------------------
+       VALIDATE LAST NAME
+    ----------------------------------------- */
+
+    if (lastName !== undefined) {
+      const trimmedLastName = lastName.trim();
+
+      if (!trimmedLastName) {
+        return res.status(400).json({
+          success: false,
+          message: "Last name cannot be empty.",
+        });
+      }
+
+      user.lastName = trimmedLastName;
+    }
+
+    /* -----------------------------------------
+       UPDATE EMAIL
+       
+       NOTE:
+       Email changes should ideally trigger
+       email verification again.
+    ----------------------------------------- */
+
+    if (email !== undefined) {
+      const normalizedEmail = email.trim().toLowerCase();
+
+      if (!normalizedEmail) {
+        return res.status(400).json({
+          success: false,
+          message: "Email address cannot be empty.",
+        });
+      }
+
+      if (normalizedEmail !== user.email) {
+        const existingUser = await User.findOne({
+          email: normalizedEmail,
+          _id: { $ne: user._id },
+        });
+
+        if (existingUser) {
+          return res.status(409).json({
+            success: false,
+            message: "Email address is already in use.",
+          });
+        }
+
+        user.email = normalizedEmail;
+
+        /*
+         * IMPORTANT:
+         * If your application requires email verification
+         * after an email change, set:
+         *
+         * user.isEmailVerified = false;
+         *
+         * and generate/send a new verification token.
+         */
+      }
+    }
+
+    /* -----------------------------------------
+       UPDATE AVATAR
+    ----------------------------------------- */
+
+    if (avatar !== undefined) {
+      user.avatar = avatar || "";
+    }
+
+    /* -----------------------------------------
+       SAVE USER
+    ----------------------------------------- */
 
     await user.save();
 
-    return res.json({
+    /* -----------------------------------------
+       RESPONSE
+    ----------------------------------------- */
+
+    return res.status(200).json({
       success: true,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        avatar: user.avatar,
-      },
+      message: "Profile updated successfully.",
+      user: sanitizeUser(user),
     });
-  } catch (err) {
-    console.error("UPDATE_PROFILE_ERROR:", err);
+  } catch (error) {
+    console.error("UPDATE_PROFILE_ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message: err.message,
+      message: "Failed to update profile.",
     });
   }
 };
 
 /* =========================================
    UPLOAD AVATAR
+   POST /api/users/avatar
 ========================================= */
+
 export const uploadAvatarController = async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({
         success: false,
-        message: "No avatar uploaded",
+        message: "No avatar uploaded.",
       });
     }
 
@@ -119,15 +225,16 @@ export const uploadAvatarController = async (req, res) => {
 
     return res.status(200).json({
       success: true,
+      message: "Avatar uploaded successfully.",
       url: avatarUrl,
     });
-
   } catch (error) {
     console.error("UPLOAD_AVATAR_ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Avatar upload failed",
+      message: "Avatar upload failed.",
     });
   }
 };
+

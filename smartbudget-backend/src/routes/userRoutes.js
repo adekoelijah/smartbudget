@@ -1,8 +1,28 @@
 
 
 
+// import express from "express";
+// import asyncHandler from "../utils/asyncHandler.js";
+// import protect from "../middleware/authMiddleware.js";
+// import { upload } from "../middleware/uploadMiddleware.js";
+
+// import {
+//   getCurrentUser,
+//   updateCurrentUser,
+//   uploadAvatarController,
+// } from "../config/controllers/userController.js";
+
+// const router = express.Router();
+
+// router.get("/me", protect, getCurrentUser);
+// router.put("/me", protect, updateCurrentUser);
+// router.post("/avatar", protect, upload.single("avatar"), uploadAvatarController);
+
+// export default router;
+
+
+
 import express from "express";
-import asyncHandler from "../utils/asyncHandler.js";
 import protect from "../middleware/authMiddleware.js";
 import { upload } from "../middleware/uploadMiddleware.js";
 
@@ -14,8 +34,34 @@ import {
 
 const router = express.Router();
 
-router.get("/me", protect, getCurrentUser);
-router.put("/me", protect, updateCurrentUser);
-router.post("/avatar", protect, upload.single("avatar"), uploadAvatarController);
+/* =========================================
+   PROFILE
+========================================= */
+
+// Get current user's profile
+router.get(
+  "/profile",
+  protect,
+  getCurrentUser
+);
+
+// Update current user's profile
+router.put(
+  "/profile",
+  protect,
+  updateCurrentUser
+);
+
+/* =========================================
+   AVATAR
+========================================= */
+
+// Upload profile avatar
+router.post(
+  "/avatar",
+  protect,
+  upload.single("avatar"),
+  uploadAvatarController
+);
 
 export default router;
