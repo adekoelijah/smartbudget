@@ -416,7 +416,7 @@ const ProfileSettings = () => {
           <ProfileCard
             user={user}
             onChangePhoto={handleOpenPhotoModal}
-             onEdit={handleOpenPhotoModal}
+            
            
 
           />
