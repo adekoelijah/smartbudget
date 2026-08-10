@@ -1,18 +1,22 @@
 
-import api from "./api"
+import api from "./api";
 
-/* =========================================
-   API ENDPOINTS
-========================================= */
+/*
+==================================================
+PREFERENCE API ENDPOINTS
+==================================================
+*/
 
 const PREFERENCE_ENDPOINTS = {
-  preferences: "/users/preferences",
+  preferences: "/preferences",
+  reset: "/preferences/reset",
 };
 
-/* =========================================
-   GET USER PREFERENCES
-========================================= */
-
+/*
+==================================================
+GET USER PREFERENCES
+==================================================
+*/
 export const getPreferencesRequest = async () => {
   const response = await api.get(
     PREFERENCE_ENDPOINTS.preferences
@@ -21,10 +25,11 @@ export const getPreferencesRequest = async () => {
   return response.data;
 };
 
-/* =========================================
-   UPDATE USER PREFERENCES
-========================================= */
-
+/*
+==================================================
+UPDATE USER PREFERENCES
+==================================================
+*/
 export const updatePreferencesRequest = async (
   preferences
 ) => {
@@ -36,26 +41,32 @@ export const updatePreferencesRequest = async (
   return response.data;
 };
 
-/* =========================================
-   RESET USER PREFERENCES
-========================================= */
-
+/*
+==================================================
+RESET USER PREFERENCES
+==================================================
+*/
 export const resetPreferencesRequest = async () => {
   const response = await api.post(
-    `${PREFERENCE_ENDPOINTS.preferences}/reset`
+    PREFERENCE_ENDPOINTS.reset
   );
 
   return response.data;
 };
 
-/* =========================================
-   UPDATE SINGLE PREFERENCE
-========================================= */
-
+/*
+==================================================
+UPDATE SINGLE PREFERENCE
+==================================================
+*/
 export const updatePreferenceRequest = async (
   key,
   value
 ) => {
+  if (!key) {
+    throw new Error("Preference key is required.");
+  }
+
   const response = await api.patch(
     PREFERENCE_ENDPOINTS.preferences,
     {
@@ -66,16 +77,17 @@ export const updatePreferenceRequest = async (
   return response.data;
 };
 
-/* =========================================
-   ERROR NORMALIZER
-========================================= */
-
-export const getPreferenceError = (
-  error
-) => {
+/*
+==================================================
+PREFERENCE ERROR NORMALIZER
+==================================================
+*/
+export const getPreferenceError = (error) => {
   return (
     error?.response?.data?.message ||
+    error?.response?.data?.error ||
     error?.message ||
     "Unable to update preferences."
   );
 };
+

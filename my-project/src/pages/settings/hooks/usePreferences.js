@@ -10,6 +10,12 @@ import {
   resetPreferencesRequest,
 } from "../../../services/preferencesService";
 
+/*
+============================================================
+DEFAULT PREFERENCES
+============================================================
+*/
+
 const DEFAULT_PREFERENCES = {
   currency: "NGN",
   language: "en",
@@ -17,81 +23,122 @@ const DEFAULT_PREFERENCES = {
   density: "comfortable",
 };
 
-
 const STORAGE_KEY = "smartbudget_preferences";
 
+/*
+============================================================
+NORMALIZE PREFERENCES
+============================================================
+*/
+
+const normalizePreferences = (value = {}) => {
+  if (!value || typeof value !== "object") {
+    return {
+      ...DEFAULT_PREFERENCES,
+    };
+  }
+
+  return {
+    ...DEFAULT_PREFERENCES,
+    ...value,
+  };
+};
+
+/*
+============================================================
+HOOK
+============================================================
+*/
 
 const usePreferences = () => {
+  const [preferences, setPreferences] = useState(
+    DEFAULT_PREFERENCES
+  );
 
-  const [preferences, setPreferences] =
-    useState(DEFAULT_PREFERENCES);
+  const [loading, setLoading] = useState(true);
 
-  const [loading, setLoading] =
-    useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const [saving, setSaving] =
-    useState(false);
+  const [message, setMessage] = useState("");
 
-  const [message, setMessage] =
-    useState("");
+  const [error, setError] = useState("");
 
-  const [error, setError] =
-    useState("");
-
+  /*
+  ============================================================
+  CLEAR STATUS
+  ============================================================
+  */
 
   const clearStatus = useCallback(() => {
     setMessage("");
     setError("");
   }, []);
 
+  /*
+  ============================================================
+  SAVE LOCAL CACHE
+  ============================================================
+  */
 
   const saveLocal = useCallback((data) => {
     try {
       localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify(data)
+        JSON.stringify(
+          normalizePreferences(data)
+        )
       );
     } catch (storageError) {
       console.warn(
-        "Unable to save preferences locally:",
+        "PREFERENCES_LOCAL_SAVE_ERROR:",
         storageError
       );
     }
   }, []);
 
+  /*
+  ============================================================
+  LOAD LOCAL CACHE
+  ============================================================
+  */
 
   const loadLocal = useCallback(() => {
-
     try {
-
       const stored =
         localStorage.getItem(STORAGE_KEY);
 
       if (!stored) {
-        return DEFAULT_PREFERENCES;
+        return {
+          ...DEFAULT_PREFERENCES,
+        };
       }
+
+      return normalizePreferences(
+        JSON.parse(stored)
+      );
+    } catch (error) {
+      console.warn(
+        "PREFERENCES_LOCAL_LOAD_ERROR:",
+        error
+      );
 
       return {
         ...DEFAULT_PREFERENCES,
-        ...JSON.parse(stored),
       };
-
-    } catch {
-
-      return DEFAULT_PREFERENCES;
-
     }
-
   }, []);
 
+  /*
+  ============================================================
+  FETCH PREFERENCES
+  ============================================================
+  */
 
   const fetchPreferences =
     useCallback(async () => {
-
       try {
-
         setLoading(true);
-        clearStatus();
+        setError("");
 
         const response =
           await getPreferencesRequest();
@@ -99,105 +146,151 @@ const usePreferences = () => {
         const data =
           response?.preferences ??
           response?.data?.preferences ??
+          response?.data ??
           DEFAULT_PREFERENCES;
 
-        setPreferences(data);
+        const normalized =
+          normalizePreferences(data);
 
-        saveLocal(data);
+        setPreferences(normalized);
 
+        saveLocal(normalized);
+
+        return {
+          success: true,
+          preferences: normalized,
+        };
       } catch (err) {
-
         console.error(
           "FETCH_PREFERENCES_ERROR:",
           err
         );
 
-        const cached =
-          loadLocal();
+        /*
+        --------------------------------------------------------
+        FALLBACK TO LOCAL CACHE
+        --------------------------------------------------------
+        */
+
+        const cached = loadLocal();
 
         setPreferences(cached);
 
         setError(
-          "Unable to load preferences. Using saved settings."
+          err?.response?.status === 404
+            ? "Preferences service is unavailable."
+            : "Unable to load preferences. Using saved settings."
         );
 
+        return {
+          success: false,
+          preferences: cached,
+        };
       } finally {
-
         setLoading(false);
-
       }
-
     }, [
-      clearStatus,
       loadLocal,
       saveLocal,
     ]);
 
+  /*
+  ============================================================
+  INITIAL LOAD
+  ============================================================
+  */
 
   useEffect(() => {
     fetchPreferences();
   }, [fetchPreferences]);
 
+  /*
+  ============================================================
+  UPDATE ONE PREFERENCE
+  ============================================================
+  */
 
   const updatePreference =
-    useCallback((key, value) => {
+    useCallback(
+      (key, value) => {
+        setPreferences((previous) => {
+          const updated = {
+            ...previous,
+            [key]: value,
+          };
 
-      setPreferences((previous) => {
+          saveLocal(updated);
 
-        const updated = {
-          ...previous,
-          [key]: value,
-        };
+          return updated;
+        });
 
-        saveLocal(updated);
+        setMessage("");
+        setError("");
+      },
+      [saveLocal]
+    );
 
-        return updated;
-
-      });
-
-    }, [saveLocal]);
-
+  /*
+  ============================================================
+  UPDATE MULTIPLE PREFERENCES
+  ============================================================
+  */
 
   const updateMany =
-    useCallback((updates) => {
+    useCallback(
+      (updates = {}) => {
+        setPreferences((previous) => {
+          const updated = {
+            ...previous,
+            ...updates,
+          };
 
-      setPreferences((previous) => {
+          saveLocal(updated);
 
-        const updated = {
-          ...previous,
-          ...updates,
-        };
+          return updated;
+        });
 
-        saveLocal(updated);
+        setMessage("");
+        setError("");
+      },
+      [saveLocal]
+    );
 
-        return updated;
-
-      });
-
-    }, [saveLocal]);
-
+  /*
+  ============================================================
+  SAVE PREFERENCES
+  ============================================================
+  */
 
   const savePreferences =
     useCallback(async () => {
-
       try {
-
         setSaving(true);
-        clearStatus();
+        setError("");
+        setMessage("");
+
+        const payload =
+          normalizePreferences(
+            preferences
+          );
 
         const response =
           await updatePreferencesRequest(
-            preferences
+            payload
           );
 
         const data =
           response?.preferences ??
           response?.data?.preferences ??
-          preferences;
+          response?.data ??
+          payload;
 
-        setPreferences(data);
+        const normalized =
+          normalizePreferences(data);
 
-        saveLocal(data);
+        setPreferences(normalized);
+
+        saveLocal(normalized);
 
         setMessage(
           "Preferences updated successfully."
@@ -205,10 +298,9 @@ const usePreferences = () => {
 
         return {
           success: true,
+          preferences: normalized,
         };
-
       } catch (err) {
-
         console.error(
           "SAVE_PREFERENCES_ERROR:",
           err
@@ -216,33 +308,32 @@ const usePreferences = () => {
 
         setError(
           err?.response?.data?.message ||
-          "Unable to save preferences."
+            "Unable to save preferences."
         );
 
         return {
           success: false,
         };
-
       } finally {
-
         setSaving(false);
-
       }
-
     }, [
       preferences,
-      clearStatus,
       saveLocal,
     ]);
 
+  /*
+  ============================================================
+  RESET PREFERENCES
+  ============================================================
+  */
 
   const resetPreferences =
     useCallback(async () => {
-
       try {
-
         setSaving(true);
-        clearStatus();
+        setError("");
+        setMessage("");
 
         const response =
           await resetPreferencesRequest();
@@ -250,11 +341,15 @@ const usePreferences = () => {
         const data =
           response?.preferences ??
           response?.data?.preferences ??
+          response?.data ??
           DEFAULT_PREFERENCES;
 
-        setPreferences(data);
+        const normalized =
+          normalizePreferences(data);
 
-        saveLocal(data);
+        setPreferences(normalized);
+
+        saveLocal(normalized);
 
         setMessage(
           "Preferences restored successfully."
@@ -262,10 +357,9 @@ const usePreferences = () => {
 
         return {
           success: true,
+          preferences: normalized,
         };
-
       } catch (err) {
-
         console.error(
           "RESET_PREFERENCES_ERROR:",
           err
@@ -273,59 +367,64 @@ const usePreferences = () => {
 
         setError(
           err?.response?.data?.message ||
-          "Unable to reset preferences."
+            "Unable to reset preferences."
         );
 
         return {
           success: false,
         };
-
       } finally {
-
         setSaving(false);
-
       }
+    }, [saveLocal]);
 
-    }, [
-      clearStatus,
-      saveLocal,
-    ]);
-
+  /*
+  ============================================================
+  AUTO CLEAR STATUS
+  ============================================================
+  */
 
   useEffect(() => {
-
     if (!message && !error) {
       return undefined;
     }
 
-    const timer =
-      setTimeout(() => {
-        clearStatus();
-      }, 4000);
+    const timer = setTimeout(() => {
+      clearStatus();
+    }, 4000);
 
-    return () => clearTimeout(timer);
-
+    return () => {
+      clearTimeout(timer);
+    };
   }, [
     message,
     error,
     clearStatus,
   ]);
 
+  /*
+  ============================================================
+  RETURN API
+  ============================================================
+  */
 
   return {
     preferences,
+
     loading,
     saving,
+
     message,
     error,
+
     fetchPreferences,
+
     updatePreference,
     updateMany,
+
     savePreferences,
     resetPreferences,
   };
-
 };
-
 
 export default usePreferences;
