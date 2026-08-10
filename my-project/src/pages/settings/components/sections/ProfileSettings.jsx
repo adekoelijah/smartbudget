@@ -90,15 +90,17 @@ const ProfileSettings = () => {
     setShowPhotoModal,
   ] = useState(false);
 
+  
+
   /*
   ============================================================
   OPEN PHOTO MODAL
   ============================================================
   */
 
-  const handleOpenPhotoModal = useCallback(() => {
-    setShowPhotoModal(true);
-  }, []);
+  // const handleOpenPhotoModal = useCallback(() => {
+  //   setShowPhotoModal(true);
+  // }, []);
 
   /*
   ============================================================
@@ -415,9 +417,7 @@ const ProfileSettings = () => {
         >
           <ProfileCard
             user={user}
-            onChangePhoto={handleOpenPhotoModal}
-            
-           
+            onEdit={() => setShowPhotoModal(true)}
 
           />
         </SectionCard>
