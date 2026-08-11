@@ -13,6 +13,8 @@ import {
   ChevronRight,
   RotateCcw,
 } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 import { useEffect, useMemo, useState } from "react";
 
@@ -82,13 +84,13 @@ const SummaryCard = ({
         min-w-0
         p-4 sm:p-5
         bg-white
-        rounded-2xl border border-slate-200
+        border border-slate-200 rounded-2xl
         shadow-[0_4px_20px_rgba(15,23,42,0.04)]
       "
     >
       <div
         className="
-          flex items-start justify-between
+          flex justify-between items-start
           gap-3
         "
       >
@@ -99,7 +101,7 @@ const SummaryCard = ({
         >
           <p
             className="
-              text-xs text-slate-500 font-medium
+              font-medium text-slate-500 text-xs
             "
           >
             {label}
@@ -572,193 +574,263 @@ const Transactions = () => {
      dependency is required.
   ========================================================= */
 
-  const handleExportPDF = () => {
-    if (!filteredTransactions.length) {
-      return;
-    }
+ /* =========================================================
+   PDF EXPORT
+========================================================= */
+const handleExportPDF = () => {
+  if (!filteredTransactions.length) {
+    return;
+  }
 
-    const rows = filteredTransactions
-      .map((transaction) => {
-        const date = getDateValue(transaction)
-          ? new Date(
-              getDateValue(transaction)
-            ).toLocaleDateString()
-          : "-";
+  try {
+    const pdf = new jsPDF({
+      orientation: "landscape",
+      unit: "mm",
+      format: "a4",
+    });
 
-        return `
-          <tr>
-            <td>${transaction.title || "-"}</td>
-            <td>${transaction.category || "-"}</td>
-            <td>${transaction.type || "-"}</td>
-            <td>₦${Number(
-              transaction.amount || 0
-            ).toLocaleString()}</td>
-            <td>${date}</td>
-          </tr>
-        `;
-      })
-      .join("");
+    const generatedDate = new Date().toLocaleString();
 
-    const printWindow =
-      window.open(
-        "",
-        "_blank",
-        "width=1000,height=800"
+    /* =========================
+       DOCUMENT HEADER
+    ========================= */
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(20);
+    pdf.setTextColor(15, 23, 42);
+
+    pdf.text(
+      "SmartBudget Transactions",
+      14,
+      18
+    );
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(9);
+    pdf.setTextColor(100, 116, 139);
+
+    pdf.text(
+      "Transaction activity report",
+      14,
+      25
+    );
+
+    pdf.text(
+      `Generated: ${generatedDate}`,
+      14,
+      31
+    );
+
+    /* =========================
+       SUMMARY
+    ========================= */
+
+    const totalIncome = filteredTransactions
+      .filter(
+        (transaction) =>
+          transaction.type === "income"
+      )
+      .reduce(
+        (total, transaction) =>
+          total +
+          (Number(transaction.amount) || 0),
+        0
       );
 
-    if (!printWindow) {
-      return;
-    }
+    const totalExpenses = filteredTransactions
+      .filter(
+        (transaction) =>
+          transaction.type === "expense"
+      )
+      .reduce(
+        (total, transaction) =>
+          total +
+          (Number(transaction.amount) || 0),
+        0
+      );
 
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>SmartBudget Transactions</title>
+    const netBalance =
+      totalIncome - totalExpenses;
 
-          <style>
-            * {
-              box-sizing: border-box;
-            }
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(10);
+    pdf.setTextColor(15, 23, 42);
 
-            body {
-              margin: 0;
-              padding: 40px;
-              font-family:
-                Arial,
-                Helvetica,
-                sans-serif;
-              color: #0f172a;
-              background: #ffffff;
-            }
+    pdf.text(
+      `Income: ${formatCurrency(totalIncome)}`,
+      14,
+      39
+    );
 
-            .header {
-              display: flex;
-              justify-content: space-between;
-              align-items: flex-start;
-              margin-bottom: 30px;
-              padding-bottom: 20px;
-              border-bottom: 1px solid #e2e8f0;
-            }
+    pdf.text(
+      `Expenses: ${formatCurrency(totalExpenses)}`,
+      75,
+      39
+    );
 
-            h1 {
-              margin: 0;
-              font-size: 26px;
-            }
+    pdf.text(
+      `Balance: ${formatCurrency(netBalance)}`,
+      145,
+      39
+    );
 
-            .subtitle {
-              margin-top: 6px;
-              color: #64748b;
-              font-size: 13px;
-            }
+    /* =========================
+       TABLE DATA
+    ========================= */
 
-            .date {
-              color: #64748b;
-              font-size: 12px;
-            }
+    const tableRows = filteredTransactions.map(
+      (transaction) => {
+        const transactionDate =
+          getDateValue(transaction);
 
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-top: 20px;
-            }
+        const formattedDate =
+          transactionDate
+            ? new Date(
+                transactionDate
+              ).toLocaleDateString()
+            : "-";
 
-            th {
-              padding: 12px;
-              text-align: left;
-              background: #f8fafc;
-              border-bottom: 1px solid #cbd5e1;
-              font-size: 11px;
-              text-transform: uppercase;
-              letter-spacing: .06em;
-            }
+        return [
+          transaction.title || "-",
+          transaction.category || "-",
+          transaction.type
+            ? transaction.type
+                .charAt(0)
+                .toUpperCase() +
+              transaction.type.slice(1)
+            : "-",
+          `₦${Number(
+            transaction.amount || 0
+          ).toLocaleString()}`,
+          formattedDate,
+        ];
+      }
+    );
 
-            td {
-              padding: 12px;
-              border-bottom: 1px solid #e2e8f0;
-              font-size: 12px;
-            }
+    /* =========================
+       TABLE
+    ========================= */
 
-            .footer {
-              margin-top: 25px;
-              padding-top: 15px;
-              border-top: 1px solid #e2e8f0;
-              color: #64748b;
-              font-size: 11px;
-            }
+    autoTable(pdf, {
+      startY: 45,
 
-            @media print {
-              body {
-                padding: 20px;
-              }
-            }
-          </style>
-        </head>
+      head: [
+        [
+          "Description",
+          "Category",
+          "Type",
+          "Amount",
+          "Date",
+        ],
+      ],
 
-        <body>
-          <div
-            class="
-              header
-            "
-          >
-            <div>
-              <h1>SmartBudget Transactions</h1>
+      body: tableRows,
 
-              <div
-                class="
-                  subtitle
-                "
-              >
-                Transaction activity report
-              </div>
-            </div>
+      theme: "grid",
 
-            <div
-              class="
-                date
-              "
-            >
-              Generated ${new Date().toLocaleString()}
-            </div>
-          </div>
+      styles: {
+        font: "helvetica",
+        fontSize: 9,
+        cellPadding: 3,
+        textColor: [15, 23, 42],
+        lineColor: [226, 232, 240],
+        lineWidth: 0.2,
+      },
 
-          <table>
-            <thead>
-              <tr>
-                <th>Description</th>
-                <th>Category</th>
-                <th>Type</th>
-                <th>Amount</th>
-                <th>Date</th>
-              </tr>
-            </thead>
+      headStyles: {
+        fillColor: [15, 23, 42],
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+        fontSize: 8,
+      },
 
-            <tbody>
-              ${rows}
-            </tbody>
-          </table>
+      alternateRowStyles: {
+        fillColor: [248, 250, 252],
+      },
 
-          <div
-            class="
-              footer
-            "
-          >
-            SmartBudget — Financial transaction report
-          </div>
-        </body>
-      </html>
-    `);
+      columnStyles: {
+        0: {
+          cellWidth: 70,
+        },
+        1: {
+          cellWidth: 45,
+        },
+        2: {
+          cellWidth: 30,
+        },
+        3: {
+          cellWidth: 40,
+          halign: "right",
+        },
+        4: {
+          cellWidth: 35,
+        },
+      },
 
-    printWindow.document.close();
+      margin: {
+        top: 45,
+        right: 14,
+        bottom: 20,
+        left: 14,
+      },
 
-    printWindow.focus();
+      didDrawPage: (data) => {
+        const pageWidth =
+          pdf.internal.pageSize.getWidth();
 
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 300);
-  };
+        const pageHeight =
+          pdf.internal.pageSize.getHeight();
 
+        /* Footer */
+
+        pdf.setFont(
+          "helvetica",
+          "normal"
+        );
+
+        pdf.setFontSize(8);
+
+        pdf.setTextColor(
+          100,
+          116,
+          139
+        );
+
+        pdf.text(
+          "SmartBudget — Financial transaction report",
+          14,
+          pageHeight - 10
+        );
+
+        pdf.text(
+          `Page ${data.pageNumber}`,
+          pageWidth - 25,
+          pageHeight - 10,
+          {
+            align: "right",
+          }
+        );
+      },
+    });
+
+    /* =========================
+       DOWNLOAD
+    ========================= */
+
+    const date = new Date()
+      .toISOString()
+      .split("T")[0];
+
+    pdf.save(
+      `smartbudget-transactions-${date}.pdf`
+    );
+  } catch (error) {
+    console.error(
+      "PDF_EXPORT_ERROR:",
+      error
+    );
+  }
+};
   /* =========================================================
      UI
   ========================================================= */
@@ -788,7 +860,7 @@ const Transactions = () => {
         >
           <div
             className="
-              flex flex-col lg:flex-row lg:items-end lg:justify-between
+              flex flex-col lg:flex-row lg:justify-between lg:items-end
               gap-4
             "
           >
@@ -799,7 +871,7 @@ const Transactions = () => {
             >
               <h1
                 className="
-                  text-2xl text-slate-950 sm:text-3xl font-bold tracking-tight
+                  font-bold text-slate-950 text-2xl sm:text-3xl tracking-tight
                 "
               >
                 Transactions
@@ -809,7 +881,7 @@ const Transactions = () => {
                 className="
                   max-w-2xl
                   mt-1.5
-                  text-sm text-slate-500 leading-relaxed
+                  text-slate-500 text-sm leading-relaxed
                 "
               >
                 Search, review, filter and manage
@@ -821,7 +893,7 @@ const Transactions = () => {
 
             <div
               className="
-                grid grid-cols-2 sm:flex
+                sm:flex grid grid-cols-2
                 sm:w-auto
                 gap-2
               "
@@ -833,13 +905,13 @@ const Transactions = () => {
                   filteredTransactions.length === 0
                 }
                 className="
-                  inline-flex items-center justify-center
+                  inline-flex justify-center items-center
                   min-h-10
                   px-4
-                  text-xs text-slate-700 sm:text-sm font-semibold
+                  font-semibold text-slate-700 text-xs sm:text-sm
                   bg-white hover:bg-slate-50
-                  rounded-xl border border-slate-200
-                  shadow-sm transition disabled:opacity-50
+                  border border-slate-200 rounded-xl
+                  disabled:opacity-50 shadow-sm transition
                   disabled:cursor-not-allowed
                   gap-2
                 "
@@ -855,13 +927,13 @@ const Transactions = () => {
                   filteredTransactions.length === 0
                 }
                 className="
-                  inline-flex items-center justify-center
+                  inline-flex justify-center items-center
                   min-h-10
                   px-4
-                  text-xs text-white sm:text-sm font-semibold
+                  font-semibold text-white text-xs sm:text-sm
                   bg-slate-950 hover:bg-slate-800
                   rounded-xl
-                  shadow-sm transition disabled:opacity-50
+                  disabled:opacity-50 shadow-sm transition
                   disabled:cursor-not-allowed
                   gap-2
                 "
@@ -926,7 +998,7 @@ const Transactions = () => {
           className="
             mb-5 p-4 sm:p-5
             bg-white
-            rounded-2xl border border-slate-200
+            border border-slate-200 rounded-2xl
             shadow-[0_4px_20px_rgba(15,23,42,0.04)]
           "
         >
@@ -937,7 +1009,7 @@ const Transactions = () => {
           >
             <h2
               className="
-                text-base text-slate-900 font-bold
+                font-bold text-slate-900 text-base
               "
             >
               Add transaction
@@ -946,7 +1018,7 @@ const Transactions = () => {
             <p
               className="
                 mt-1
-                text-xs text-slate-500
+                text-slate-500 text-xs
               "
             >
               Record income or expenses using the
@@ -972,7 +1044,7 @@ const Transactions = () => {
                 className="
                   block
                   mb-1.5
-                  text-xs text-slate-600 font-semibold
+                  font-semibold text-slate-600 text-xs
                 "
               >
                 Description
@@ -989,22 +1061,7 @@ const Transactions = () => {
                   }))
                 }
                 placeholder="e.g. Monthly salary"
-                className="
-                  h-11
-                  w-full
-                  rounded-xl
-                  border border-slate-200
-                  bg-white
-                  px-3.5
-                  text-sm
-                  text-slate-900
-                  outline-none
-                  transition
-                  placeholder:text-slate-400
-                  focus:border-slate-400
-                  focus:ring-2
-                  focus:ring-slate-100
-                "
+                className="bg-white px-3.5 border border-slate-200 focus:border-slate-400 rounded-xl outline-none focus:ring-2 focus:ring-slate-100 w-full h-11 text-slate-900 placeholder:text-slate-400 text-sm transition"
               />
             </div>
 
@@ -1019,7 +1076,7 @@ const Transactions = () => {
                 className="
                   block
                   mb-1.5
-                  text-xs text-slate-600 font-semibold
+                  font-semibold text-slate-600 text-xs
                 "
               >
                 Amount
@@ -1038,22 +1095,7 @@ const Transactions = () => {
                   }))
                 }
                 placeholder="0.00"
-                className="
-                  h-11
-                  w-full
-                  rounded-xl
-                  border border-slate-200
-                  bg-white
-                  px-3.5
-                  text-sm
-                  text-slate-900
-                  outline-none
-                  transition
-                  placeholder:text-slate-400
-                  focus:border-slate-400
-                  focus:ring-2
-                  focus:ring-slate-100
-                "
+                className="bg-white px-3.5 border border-slate-200 focus:border-slate-400 rounded-xl outline-none focus:ring-2 focus:ring-slate-100 w-full h-11 text-slate-900 placeholder:text-slate-400 text-sm transition"
               />
             </div>
 
@@ -1068,7 +1110,7 @@ const Transactions = () => {
                 className="
                   block
                   mb-1.5
-                  text-xs text-slate-600 font-semibold
+                  font-semibold text-slate-600 text-xs
                 "
               >
                 Type
@@ -1083,22 +1125,7 @@ const Transactions = () => {
                       event.target.value,
                   }))
                 }
-                className="
-                  h-11
-                  w-full
-                  rounded-xl
-                  border border-slate-200
-                  bg-white
-                  px-3.5
-                  text-sm
-                  font-medium
-                  text-slate-700
-                  outline-none
-                  transition
-                  focus:border-slate-400
-                  focus:ring-2
-                  focus:ring-slate-100
-                "
+                className="bg-white px-3.5 border border-slate-200 focus:border-slate-400 rounded-xl outline-none focus:ring-2 focus:ring-slate-100 w-full h-11 font-medium text-slate-700 text-sm transition"
               >
                 <option value="expense">
                   Expense
@@ -1121,7 +1148,7 @@ const Transactions = () => {
                 className="
                   block
                   mb-1.5
-                  text-xs text-slate-600 font-semibold
+                  font-semibold text-slate-600 text-xs
                 "
               >
                 Category
@@ -1136,22 +1163,7 @@ const Transactions = () => {
                       event.target.value,
                   }))
                 }
-                className="
-                  h-11
-                  w-full
-                  rounded-xl
-                  border border-slate-200
-                  bg-white
-                  px-3.5
-                  text-sm
-                  font-medium
-                  text-slate-700
-                  outline-none
-                  transition
-                  focus:border-slate-400
-                  focus:ring-2
-                  focus:ring-slate-100
-                "
+                className="bg-white px-3.5 border border-slate-200 focus:border-slate-400 rounded-xl outline-none focus:ring-2 focus:ring-slate-100 w-full h-11 font-medium text-slate-700 text-sm transition"
               >
                 {TRANSACTION_CATEGORIES.map(
                   (item) => (
@@ -1178,13 +1190,13 @@ const Transactions = () => {
                 type="submit"
                 disabled={creating}
                 className="
-                  inline-flex items-center justify-center
-                  h-11 w-full
+                  inline-flex justify-center items-center
+                  w-full h-11
                   px-5
-                  text-sm text-white font-semibold
+                  font-semibold text-white text-sm
                   bg-slate-950 hover:bg-slate-800
                   rounded-xl
-                  transition disabled:opacity-50
+                  disabled:opacity-50 transition
                   disabled:cursor-not-allowed
                   gap-2
                 "
@@ -1207,7 +1219,7 @@ const Transactions = () => {
           className="
             overflow-hidden
             bg-white
-            rounded-2xl border border-slate-200
+            border border-slate-200 rounded-2xl
             shadow-[0_4px_20px_rgba(15,23,42,0.04)]
           "
         >
@@ -1216,12 +1228,12 @@ const Transactions = () => {
           <div
             className="
               p-4 sm:p-5
-              border-b border-slate-200
+              border-slate-200 border-b
             "
           >
             <div
               className="
-                flex flex-col lg:flex-row lg:items-center lg:justify-between
+                flex flex-col lg:flex-row lg:justify-between lg:items-center
                 gap-4
               "
             >
@@ -1234,7 +1246,7 @@ const Transactions = () => {
                 >
                   <h2
                     className="
-                      text-base text-slate-900 font-bold
+                      font-bold text-slate-900 text-base
                     "
                   >
                     All transactions
@@ -1243,7 +1255,7 @@ const Transactions = () => {
                   <span
                     className="
                       px-2 py-0.5
-                      text-[10px] text-slate-600 font-bold
+                      font-bold text-[10px] text-slate-600
                       bg-slate-100
                       rounded-full
                     "
@@ -1255,7 +1267,7 @@ const Transactions = () => {
                 <p
                   className="
                     mt-1
-                    text-xs text-slate-500
+                    text-slate-500 text-xs
                   "
                 >
                   {hasActiveFilters
@@ -1275,7 +1287,7 @@ const Transactions = () => {
                 <Search
                   size={16}
                   className="
-                    absolute left-3.5 top-1/2
+                    top-1/2 left-3.5 absolute
                     text-slate-400
                     pointer-events-none
                     -translate-y-1/2
@@ -1292,23 +1304,7 @@ const Transactions = () => {
                     )
                   }
                   placeholder="Search transactions..."
-                  className="
-                    h-11
-                    w-full
-                    rounded-xl
-                    border border-slate-200
-                    bg-slate-50
-                    pl-10
-                    pr-10
-                    text-sm
-                    outline-none
-                    transition
-                    placeholder:text-slate-400
-                    focus:border-slate-400
-                    focus:bg-white
-                    focus:ring-2
-                    focus:ring-slate-100
-                  "
+                  className="bg-slate-50 focus:bg-white pr-10 pl-10 border border-slate-200 focus:border-slate-400 rounded-xl outline-none focus:ring-2 focus:ring-slate-100 w-full h-11 placeholder:text-slate-400 text-sm transition"
                 />
 
                 {search && (
@@ -1317,22 +1313,7 @@ const Transactions = () => {
                     onClick={() =>
                       setSearch("")
                     }
-                    className="
-                      absolute
-                      right-2
-                      top-1/2
-                      flex
-                      h-7
-                      w-7
-                      -translate-y-1/2
-                      items-center
-                      justify-center
-                      rounded-lg
-                      text-slate-400
-                      transition
-                      hover:bg-slate-200
-                      hover:text-slate-700
-                    "
+                    className="top-1/2 right-2 absolute flex justify-center items-center hover:bg-slate-200 rounded-lg w-7 h-7 text-slate-400 hover:text-slate-700 transition -translate-y-1/2"
                     aria-label="Clear search"
                   >
                     <X size={14} />
@@ -1355,21 +1336,7 @@ const Transactions = () => {
                     (previous) => !previous
                   )
                 }
-                className="
-                  inline-flex
-                  min-h-10
-                  items-center
-                  gap-2
-                  rounded-xl
-                  border
-                  border-slate-200
-                  bg-white
-                  px-3.5
-                  text-xs
-                  font-semibold
-                  text-slate-700
-                  sm:hidden
-                "
+                className="sm:hidden inline-flex items-center gap-2 bg-white px-3.5 border border-slate-200 rounded-xl min-h-10 font-semibold text-slate-700 text-xs"
               >
                 <SlidersHorizontal size={15} />
 
@@ -1378,8 +1345,8 @@ const Transactions = () => {
                 {hasActiveFilters && (
                   <span
                     className="
-                      flex items-center justify-center
-                      h-5 min-w-5
+                      flex justify-center items-center
+                      min-w-5 h-5
                       px-1
                       text-[10px] text-white
                       bg-slate-900
@@ -1416,18 +1383,7 @@ const Transactions = () => {
                       event.target.value
                     )
                   }
-                  className="
-                    h-10
-                    rounded-xl
-                    border border-slate-200
-                    bg-white
-                    px-3
-                    text-xs
-                    font-semibold
-                    text-slate-700
-                    outline-none
-                    focus:border-slate-400
-                  "
+                  className="bg-white px-3 border border-slate-200 focus:border-slate-400 rounded-xl outline-none h-10 font-semibold text-slate-700 text-xs"
                 >
                   <option value="all">
                     All types
@@ -1451,18 +1407,7 @@ const Transactions = () => {
                       event.target.value
                     )
                   }
-                  className="
-                    h-10
-                    rounded-xl
-                    border border-slate-200
-                    bg-white
-                    px-3
-                    text-xs
-                    font-semibold
-                    text-slate-700
-                    outline-none
-                    focus:border-slate-400
-                  "
+                  className="bg-white px-3 border border-slate-200 focus:border-slate-400 rounded-xl outline-none h-10 font-semibold text-slate-700 text-xs"
                 >
                   <option value="all">
                     All categories
@@ -1489,18 +1434,7 @@ const Transactions = () => {
                       event.target.value
                     )
                   }
-                  className="
-                    h-10
-                    rounded-xl
-                    border border-slate-200
-                    bg-white
-                    px-3
-                    text-xs
-                    font-semibold
-                    text-slate-700
-                    outline-none
-                    focus:border-slate-400
-                  "
+                  className="bg-white px-3 border border-slate-200 focus:border-slate-400 rounded-xl outline-none h-10 font-semibold text-slate-700 text-xs"
                 >
                   <option value="all">
                     Any date
@@ -1524,10 +1458,10 @@ const Transactions = () => {
                     type="button"
                     onClick={clearFilters}
                     className="
-                      inline-flex items-center justify-center
+                      inline-flex justify-center items-center
                       h-10
                       px-3
-                      text-xs text-slate-500 hover:text-slate-900 font-semibold
+                      font-semibold text-slate-500 hover:text-slate-900 text-xs
                       hover:bg-slate-100
                       rounded-xl
                       transition
@@ -1552,7 +1486,7 @@ const Transactions = () => {
             {loading ? (
               <div
                 className="
-                  flex items-center justify-center
+                  flex justify-center items-center
                   min-h-[280px]
                   px-5 py-12
                 "
@@ -1564,9 +1498,9 @@ const Transactions = () => {
                 >
                   <div
                     className="
-                      h-8 w-8
+                      w-8 h-8
                       mx-auto
-                      rounded-full border-2 border-slate-200 border-t-slate-900
+                      border-2 border-slate-200 border-t-slate-900 rounded-full
                       animate-spin
                     "
                     /
@@ -1575,7 +1509,7 @@ const Transactions = () => {
                   <p
                     className="
                       mt-3
-                      text-sm text-slate-500 font-medium
+                      font-medium text-slate-500 text-sm
                     "
                   >
                     Loading transactions...
@@ -1607,15 +1541,15 @@ const Transactions = () => {
             filteredTransactions.length > 0 && (
               <div
                 className="
-                  flex flex-col sm:flex-row sm:items-center sm:justify-between
+                  flex flex-col sm:flex-row sm:justify-between sm:items-center
                   p-4 sm:px-5
-                  border-t border-slate-200
+                  border-slate-200 border-t
                   gap-3
                 "
               >
                 <div
                   className="
-                    text-xs text-slate-500
+                    text-slate-500 text-xs
                   "
                 >
                   Showing{" "}
@@ -1664,22 +1598,7 @@ const Transactions = () => {
                           )
                       )
                     }
-                    className="
-                      inline-flex
-                      h-9
-                      w-9
-                      items-center
-                      justify-center
-                      rounded-lg
-                      border
-                      border-slate-200
-                      bg-white
-                      text-slate-600
-                      transition
-                      hover:bg-slate-50
-                      disabled:cursor-not-allowed
-                      disabled:opacity-40
-                    "
+                    className="inline-flex justify-center items-center bg-white hover:bg-slate-50 disabled:opacity-40 border border-slate-200 rounded-lg w-9 h-9 text-slate-600 transition disabled:cursor-not-allowed"
                     aria-label="Previous page"
                   >
                     <ChevronLeft size={16} />
@@ -1746,7 +1665,7 @@ const Transactions = () => {
                               <span
                                 className="
                                   px-1
-                                  text-xs text-slate-400
+                                  text-slate-400 text-xs
                                 "
                               >
                                 …
@@ -1802,22 +1721,7 @@ const Transactions = () => {
                           )
                       )
                     }
-                    className="
-                      inline-flex
-                      h-9
-                      w-9
-                      items-center
-                      justify-center
-                      rounded-lg
-                      border
-                      border-slate-200
-                      bg-white
-                      text-slate-600
-                      transition
-                      hover:bg-slate-50
-                      disabled:cursor-not-allowed
-                      disabled:opacity-40
-                    "
+                    className="inline-flex justify-center items-center bg-white hover:bg-slate-50 disabled:opacity-40 border border-slate-200 rounded-lg w-9 h-9 text-slate-600 transition disabled:cursor-not-allowed"
                     aria-label="Next page"
                   >
                     <ChevronRight size={16} />
@@ -1837,19 +1741,19 @@ const Transactions = () => {
               className="
                 mt-5 p-4 sm:p-5
                 bg-white
-                rounded-2xl border border-slate-200
+                border border-slate-200 rounded-2xl
               "
             >
               <div
                 className="
-                  flex flex-col sm:flex-row sm:items-center sm:justify-between
+                  flex flex-col sm:flex-row sm:justify-between sm:items-center
                   gap-2
                 "
               >
                 <div>
                   <p
                     className="
-                      text-xs text-slate-400 font-semibold uppercase
+                      font-semibold text-slate-400 text-xs uppercase
                       tracking-wider
                     "
                   >
@@ -1859,7 +1763,7 @@ const Transactions = () => {
                   <p
                     className="
                       mt-1
-                      text-sm text-slate-700 font-medium leading-relaxed
+                      font-medium text-slate-700 text-sm leading-relaxed
                     "
                   >
                     {aiInsights.message}
@@ -1871,10 +1775,10 @@ const Transactions = () => {
                     className="
                       w-fit
                       px-3 py-1
-                      text-[10px] text-slate-600 font-bold uppercase
+                      font-bold text-[10px] text-slate-600 uppercase
                       tracking-wide
                       bg-slate-50
-                      rounded-full border border-slate-200
+                      border border-slate-200 rounded-full
                     "
                   >
                     {aiInsights.riskLevel} risk
