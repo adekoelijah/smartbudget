@@ -22,7 +22,7 @@ import { computeFinancials } from "../engine/FinancialEngine";
    CONSTANTS
 ========================================================= */
 
-const EXPERT_WHATSAPP = "07088294012";
+const EXPERT_WHATSAPP = "+2347088294012";
 
 const DEFAULT_CURRENCY = "NGN";
 
@@ -560,35 +560,23 @@ const Metric = ({
   description,
 }) => (
   <div
-    className="
-      p-4
-      bg-slate-50/70
-      border border-slate-200 rounded-2xl
-    "
+    className="bg-slate-50/70 p-4 border border-slate-200 rounded-2xl"
   >
     <p
-      className="
-        font-medium text-[11px] text-slate-400 uppercase tracking-wider
-      "
+      className="font-medium text-[11px] text-slate-400 uppercase tracking-wider"
     >
       {label}
     </p>
 
     <p
-      className="
-        mt-2
-        font-bold text-slate-900 text-lg tracking-tight
-      "
+      className="mt-2 font-bold text-slate-900 text-lg tracking-tight"
     >
       {value}
     </p>
 
     {description && (
       <p
-        className="
-          mt-1
-          text-slate-500 text-xs leading-relaxed
-        "
+        className="mt-1 text-slate-500 text-xs leading-relaxed"
       >
         {description}
       </p>
@@ -606,20 +594,10 @@ const ProgressBar = ({
 
   return (
     <div
-      className="
-        overflow-hidden
-        h-2
-        bg-slate-100
-        rounded-full
-      "
+      className="bg-slate-100 rounded-full h-2 overflow-hidden"
     >
       <div
-        className="
-          h-full
-          bg-slate-900
-          rounded-full
-          transition-all duration-500
-        "
+        className="bg-slate-900 rounded-full h-full transition-all duration-500"
         style={{
           width: `${width}%`,
         }}
@@ -730,12 +708,7 @@ I would like help understanding my spending pattern and improving my financial m
 
   return (
     <section
-      className="
-        overflow-hidden
-        bg-white
-        border border-slate-200 rounded-[28px]
-        shadow-sm
-      "
+      className="bg-white shadow-sm border border-slate-200 rounded-[28px] overflow-hidden"
     >
 
       {/* =================================================
@@ -743,64 +716,36 @@ I would like help understanding my spending pattern and improving my financial m
       ================================================= */}
 
       <div
-        className="
-          px-5 sm:px-6 py-5
-          border-slate-100 border-b
-        "
+        className="px-5 sm:px-6 py-5 border-slate-100 border-b"
       >
 
         <div
-          className="
-            flex justify-between items-start
-            gap-4
-          "
+          className="flex justify-between items-start gap-4"
         >
 
           <div
-            className="
-              flex items-start
-              gap-3
-            "
+            className="flex items-start gap-3"
           >
 
             <div
-              className="
-                flex justify-center items-center
-                w-11 h-11
-                text-white
-                bg-slate-900
-                rounded-2xl
-                shadow-sm
-                shrink-0
-              "
+              className="flex justify-center items-center bg-slate-900 shadow-sm rounded-2xl w-11 h-11 text-white shrink-0"
             >
               <Sparkles size={19} />
             </div>
 
             <div>
               <div
-                className="
-                  flex items-center
-                  gap-2
-                "
+                className="flex items-center gap-2"
               >
 
                 <h2
-                  className="
-                    font-bold text-slate-900 text-base tracking-tight
-                  "
+                  className="font-bold text-slate-900 text-base tracking-tight"
                 >
                   Financial Intelligence
                 </h2>
 
                 <span
-                  className="
-                    px-2 py-0.5
-                    font-semibold text-[9px] text-slate-500 uppercase
-                    tracking-wider
-                    bg-slate-100
-                    rounded-full
-                  "
+                  className="bg-slate-100 px-2 py-0.5 rounded-full font-semibold text-[9px] text-slate-500 uppercase tracking-wider"
                 >
                   Live
                 </span>
@@ -808,11 +753,7 @@ I would like help understanding my spending pattern and improving my financial m
               </div>
 
               <p
-                className="
-                  max-w-xl
-                  mt-1
-                  text-slate-500 text-xs leading-relaxed
-                "
+                className="mt-1 max-w-xl text-slate-500 text-xs leading-relaxed"
               >
                 Automated analysis of your income,
                 spending behaviour and transaction
@@ -823,13 +764,7 @@ I would like help understanding my spending pattern and improving my financial m
           </div>
 
           <div
-            className="
-              hidden sm:flex justify-center items-center
-              w-9 h-9
-              text-slate-400
-              bg-slate-50
-              rounded-xl
-            "
+            className="hidden sm:flex justify-center items-center bg-slate-50 rounded-xl w-9 h-9 text-slate-400"
           >
             <WalletCards size={17} />
           </div>
@@ -843,9 +778,7 @@ I would like help understanding my spending pattern and improving my financial m
       ================================================= */}
 
       <div
-        className="
-          p-5 sm:p-6
-        "
+        className="p-5 sm:p-6"
       >
 
         <div
@@ -853,10 +786,7 @@ I would like help understanding my spending pattern and improving my financial m
         >
 
           <div
-            className="
-              flex items-start
-              gap-3
-            "
+            className="flex items-start gap-3"
           >
 
             <div
@@ -866,25 +796,17 @@ I would like help understanding my spending pattern and improving my financial m
             </div>
 
             <div
-              className="
-                min-w-0
-              "
+              className="min-w-0"
             >
 
               <p
-                className="
-                  font-bold text-sm
-                "
+                className="font-bold text-sm"
               >
                 {statusConfig.label}
               </p>
 
               <p
-                className="
-                  mt-1
-                  text-xs leading-relaxed
-                  opacity-80
-                "
+                className="opacity-80 mt-1 text-xs leading-relaxed"
               >
                 {insights.primaryAdvice}
               </p>
@@ -900,11 +822,7 @@ I would like help understanding my spending pattern and improving my financial m
         ================================================= */}
 
         <div
-          className="
-            grid grid-cols-1 sm:grid-cols-3
-            mt-5
-            gap-3
-          "
+          className="gap-3 grid grid-cols-1 sm:grid-cols-3 mt-5"
         >
 
           <Metric
@@ -944,33 +862,22 @@ I would like help understanding my spending pattern and improving my financial m
         ================================================= */}
 
         <div
-          className="
-            mt-5 p-4
-            border border-slate-200 rounded-2xl
-          "
+          className="mt-5 p-4 border border-slate-200 rounded-2xl"
         >
 
           <div
-            className="
-              flex justify-between items-center
-              gap-3
-            "
+            className="flex justify-between items-center gap-3"
           >
 
             <div>
               <p
-                className="
-                  font-semibold text-slate-900 text-sm
-                "
+                className="font-semibold text-slate-900 text-sm"
               >
                 Spending pressure
               </p>
 
               <p
-                className="
-                  mt-1
-                  text-slate-500 text-xs
-                "
+                className="mt-1 text-slate-500 text-xs"
               >
                 Expenses relative to recorded income
               </p>
@@ -993,9 +900,7 @@ I would like help understanding my spending pattern and improving my financial m
           </div>
 
           <div
-            className="
-              mt-3
-            "
+            className="mt-3"
           >
             <ProgressBar
               percentage={
@@ -1005,10 +910,7 @@ I would like help understanding my spending pattern and improving my financial m
           </div>
 
           <p
-            className="
-              mt-3
-              text-slate-500 text-xs leading-relaxed
-            "
+            className="mt-3 text-slate-500 text-xs leading-relaxed"
           >
             {insights.expenseToIncomeRatio >=
             100
@@ -1026,32 +928,22 @@ I would like help understanding my spending pattern and improving my financial m
         ================================================= */}
 
         <div
-          className="
-            mt-5
-          "
+          className="mt-5"
         >
 
           <div
-            className="
-              flex justify-between items-center
-              mb-3
-            "
+            className="flex justify-between items-center mb-3"
           >
 
             <div>
               <h3
-                className="
-                  font-bold text-slate-900 text-sm
-                "
+                className="font-bold text-slate-900 text-sm"
               >
                 Largest expense
               </h3>
 
               <p
-                className="
-                  mt-1
-                  text-slate-500 text-xs
-                "
+                className="mt-1 text-slate-500 text-xs"
               >
                 The transaction currently having
                 the greatest impact on spending.
@@ -1060,9 +952,7 @@ I would like help understanding my spending pattern and improving my financial m
 
             <CircleDollarSign
               size={18}
-              className="
-                text-slate-300
-              "
+              className="text-slate-300"
               /
             >
 
@@ -1070,64 +960,39 @@ I would like help understanding my spending pattern and improving my financial m
 
           {insights.largestExpense ? (
             <div
-              className="
-                p-4
-                bg-slate-50/60
-                border border-slate-200 rounded-2xl
-              "
+              className="bg-slate-50/60 p-4 border border-slate-200 rounded-2xl"
             >
 
               <div
-                className="
-                  flex justify-between items-start
-                  gap-4
-                "
+                className="flex justify-between items-start gap-4"
               >
 
                 <div
-                  className="
-                    min-w-0
-                  "
+                  className="min-w-0"
                 >
 
                   <div
-                    className="
-                      flex items-center
-                      gap-2
-                    "
+                    className="flex items-center gap-2"
                   >
 
                     <span
-                      className="
-                        flex justify-center items-center
-                        w-8 h-8
-                        text-rose-600
-                        bg-rose-100
-                        rounded-xl
-                        shrink-0
-                      "
+                      className="flex justify-center items-center bg-rose-100 rounded-xl w-8 h-8 text-rose-600 shrink-0"
                     >
                       <ArrowDownRight size={15} />
                     </span>
 
                     <div
-                      className="
-                        min-w-0
-                      "
+                      className="min-w-0"
                     >
 
                       <p
-                        className="
-                          font-semibold text-slate-900 text-sm truncate
-                        "
+                        className="font-semibold text-slate-900 text-sm truncate"
                       >
                         {insights.largestExpense.label}
                       </p>
 
                       <p
-                        className="
-                          text-[11px] text-slate-500
-                        "
+                        className="text-[11px] text-slate-500"
                       >
                         {getCategory(
                           insights.largestExpense
@@ -1145,16 +1010,11 @@ I would like help understanding my spending pattern and improving my financial m
                 </div>
 
                 <div
-                  className="
-                    text-right
-                    shrink-0
-                  "
+                  className="text-right shrink-0"
                 >
 
                   <p
-                    className="
-                      font-bold text-slate-900 text-base
-                    "
+                    className="font-bold text-slate-900 text-base"
                   >
                     {formatCurrency(
                       insights.largestExpense
@@ -1164,10 +1024,7 @@ I would like help understanding my spending pattern and improving my financial m
                   </p>
 
                   <p
-                    className="
-                      mt-0.5
-                      font-medium text-[11px] text-rose-600
-                    "
+                    className="mt-0.5 font-medium text-[11px] text-rose-600"
                   >
                     {formatPercent(
                       insights.largestExpenseRatio
@@ -1180,16 +1037,11 @@ I would like help understanding my spending pattern and improving my financial m
               </div>
 
               <div
-                className="
-                  mt-4 pt-3
-                  border-slate-200 border-t
-                "
+                className="mt-4 pt-3 border-slate-200 border-t"
               >
 
                 <p
-                  className="
-                    text-slate-600 text-xs leading-relaxed
-                  "
+                  className="text-slate-600 text-xs leading-relaxed"
                 >
                   {insights.largestTransactionAdvice}
                 </p>
@@ -1199,26 +1051,17 @@ I would like help understanding my spending pattern and improving my financial m
             </div>
           ) : (
             <div
-              className="
-                p-5
-                text-center
-                border border-slate-200 border-dashed rounded-2xl
-              "
+              className="p-5 border border-slate-200 border-dashed rounded-2xl text-center"
             >
 
               <p
-                className="
-                  font-medium text-slate-700 text-sm
-                "
+                className="font-medium text-slate-700 text-sm"
               >
                 No expense transactions yet
               </p>
 
               <p
-                className="
-                  mt-1
-                  text-slate-500 text-xs
-                "
+                className="mt-1 text-slate-500 text-xs"
               >
                 Start recording expenses to unlock
                 transaction intelligence.
@@ -1234,30 +1077,21 @@ I would like help understanding my spending pattern and improving my financial m
         ================================================= */}
 
         <div
-          className="
-            mt-5
-          "
+          className="mt-5"
         >
 
           <div
-            className="
-              mb-3
-            "
+            className="mb-3"
           >
 
             <h3
-              className="
-                font-bold text-slate-900 text-sm
-              "
+              className="font-bold text-slate-900 text-sm"
             >
               Spending by category
             </h3>
 
             <p
-              className="
-                mt-1
-                text-slate-500 text-xs
-              "
+              className="mt-1 text-slate-500 text-xs"
             >
               Where your money is going most.
             </p>
@@ -1266,9 +1100,7 @@ I would like help understanding my spending pattern and improving my financial m
 
           {insights.categories.length > 0 ? (
             <div
-              className="
-                space-y-3
-              "
+              className="space-y-3"
             >
 
               {insights.categories
@@ -1277,38 +1109,25 @@ I would like help understanding my spending pattern and improving my financial m
 
                   <div
                     key={category.category}
-                    className="
-                      p-3
-                      border border-slate-100 rounded-2xl
-                    "
+                    className="p-3 border border-slate-100 rounded-2xl"
                   >
 
                     <div
-                      className="
-                        flex justify-between items-center
-                        gap-3
-                      "
+                      className="flex justify-between items-center gap-3"
                     >
 
                       <div
-                        className="
-                          min-w-0
-                        "
+                        className="min-w-0"
                       >
 
                         <p
-                          className="
-                            font-semibold text-slate-800 text-xs truncate
-                          "
+                          className="font-semibold text-slate-800 text-xs truncate"
                         >
                           {category.category}
                         </p>
 
                         <p
-                          className="
-                            mt-0.5
-                            text-[10px] text-slate-400
-                          "
+                          className="mt-0.5 text-[10px] text-slate-400"
                         >
                           {category.count}{" "}
                           transaction
@@ -1320,15 +1139,11 @@ I would like help understanding my spending pattern and improving my financial m
                       </div>
 
                       <div
-                        className="
-                          text-right
-                        "
+                        className="text-right"
                       >
 
                         <p
-                          className="
-                            font-bold text-slate-900 text-xs
-                          "
+                          className="font-bold text-slate-900 text-xs"
                         >
                           {formatCurrency(
                             category.amount,
@@ -1337,9 +1152,7 @@ I would like help understanding my spending pattern and improving my financial m
                         </p>
 
                         <p
-                          className="
-                            text-[10px] text-slate-400
-                          "
+                          className="text-[10px] text-slate-400"
                         >
                           {formatPercent(
                             category.percentage
@@ -1351,9 +1164,7 @@ I would like help understanding my spending pattern and improving my financial m
                     </div>
 
                     <div
-                      className="
-                        mt-2
-                      "
+                      className="mt-2"
                     >
                       <ProgressBar
                         percentage={
@@ -1369,11 +1180,7 @@ I would like help understanding my spending pattern and improving my financial m
             </div>
           ) : (
             <div
-              className="
-                p-5
-                text-slate-500 text-xs text-center
-                border border-slate-200 border-dashed rounded-2xl
-              "
+              className="p-5 border border-slate-200 border-dashed rounded-2xl text-slate-500 text-xs text-center"
             >
               Category analysis will appear
               after expenses are recorded.
@@ -1382,38 +1189,25 @@ I would like help understanding my spending pattern and improving my financial m
 
           {insights.highestSpendingCategory && (
             <div
-              className="
-                mt-3 p-4
-                bg-slate-50
-                rounded-2xl
-              "
+              className="bg-slate-50 mt-3 p-4 rounded-2xl"
             >
 
               <div
-                className="
-                  flex items-start
-                  gap-3
-                "
+                className="flex items-start gap-3"
               >
 
                 <div
-                  className="
-                    mt-0.5
-                  "
+                  className="mt-0.5"
                 >
                   <TrendingUp
                     size={16}
-                    className="
-                      text-slate-500
-                    "
+                    className="text-slate-500"
                     /
                   >
                 </div>
 
                 <p
-                  className="
-                    text-slate-600 text-xs leading-relaxed
-                  "
+                  className="text-slate-600 text-xs leading-relaxed"
                 >
                   {insights.categoryAdvice}
                 </p>
@@ -1433,29 +1227,15 @@ I would like help understanding my spending pattern and improving my financial m
           0 && (
 
           <div
-            className="
-              mt-5 p-4
-              bg-amber-50/60
-              border border-amber-200 rounded-2xl
-            "
+            className="bg-amber-50/60 mt-5 p-4 border border-amber-200 rounded-2xl"
           >
 
             <div
-              className="
-                flex items-start
-                gap-3
-              "
+              className="flex items-start gap-3"
             >
 
               <div
-                className="
-                  flex justify-center items-center
-                  w-9 h-9
-                  text-amber-600
-                  bg-amber-100
-                  rounded-xl
-                  shrink-0
-                "
+                className="flex justify-center items-center bg-amber-100 rounded-xl w-9 h-9 text-amber-600 shrink-0"
               >
                 <AlertTriangle size={17} />
               </div>
@@ -1463,18 +1243,13 @@ I would like help understanding my spending pattern and improving my financial m
               <div>
 
                 <p
-                  className="
-                    font-semibold text-amber-900 text-sm
-                  "
+                  className="font-semibold text-amber-900 text-sm"
                 >
                   Unusually large spending detected
                 </p>
 
                 <p
-                  className="
-                    mt-1
-                    text-amber-800/80 text-xs leading-relaxed
-                  "
+                  className="mt-1 text-amber-800/80 text-xs leading-relaxed"
                 >
                   {
                     insights
@@ -1510,54 +1285,31 @@ I would like help understanding my spending pattern and improving my financial m
         ================================================= */}
 
         <div
-          className="
-            overflow-hidden
-            mt-6 p-5
-            text-white
-            bg-slate-900
-            rounded-2xl
-          "
+          className="bg-slate-900 mt-6 p-5 rounded-2xl overflow-hidden text-white"
         >
 
           <div
-            className="
-              flex items-start
-              gap-4
-            "
+            className="flex items-start gap-4"
           >
 
             <div
-              className="
-                flex justify-center items-center
-                w-10 h-10
-                bg-white/10
-                rounded-xl
-                shrink-0
-              "
+              className="flex justify-center items-center bg-white/10 rounded-xl w-10 h-10 shrink-0"
             >
               <MessageCircle size={19} />
             </div>
 
             <div
-              className="
-                flex-1
-                min-w-0
-              "
+              className="flex-1 min-w-0"
             >
 
               <p
-                className="
-                  font-bold text-sm
-                "
+                className="font-bold text-sm"
               >
                 Want a professional review?
               </p>
 
               <p
-                className="
-                  mt-1
-                  text-slate-300 text-xs leading-relaxed
-                "
+                className="mt-1 text-slate-300 text-xs leading-relaxed"
               >
                 Your dashboard provides automated
                 analysis. For personalized financial
@@ -1569,15 +1321,7 @@ I would like help understanding my spending pattern and improving my financial m
                 href={whatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="
-                  inline-flex items-center
-                  mt-4 px-4 py-2.5
-                  font-bold text-slate-900 text-xs
-                  bg-white hover:bg-slate-100
-                  rounded-xl focus:outline-none focus:ring-2 focus:ring-white/50
-                  transition
-                  gap-2
-                "
+                className="inline-flex items-center gap-2 bg-white hover:bg-slate-100 mt-4 px-4 py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/50 font-bold text-slate-900 text-xs transition"
               >
                 <MessageCircle size={15} />
 

@@ -1,285 +1,11 @@
 
-
-
-// import {
-//   Wallet,
-//   ArrowUpRight,
-//   ShieldCheck,
-// } from "lucide-react";
-
-// import Button from "../../../components/ui/Button";
-// import Input from "../../../components/ui/Input";
-
-// const TransactionHeader = ({
-//   total = 0,
-//   form,
-//   setForm,
-//   onSubmit,
-// }) => {
-//   /* =========================
-//      SAFE CHANGE HANDLER
-//   ========================= */
-//   const handleChange = (e) => {
-//     const { name, value } = e.target;
-
-//     setForm((prev) => ({
-//       ...prev,
-//       [name]: value,
-//     }));
-//   };
-
-//   /* =========================
-//      FORMATTERS
-//   ========================= */
-//   const formattedBalance =
-//     Number(total || 0).toLocaleString();
-
-//   return (
-//     <div
-//       className="
-//         relative overflow-hidden
-//         rounded-[32px]
-//         border border-slate-200/80
-//         bg-white/95
-//         backdrop-blur-xl
-//         shadow-[0_10px_40px_rgba(15,23,42,0.06)]
-//       "
-//     >
-//       {/* BACKGROUND ACCENT */}
-//       <div className="absolute inset-0 pointer-events-none">
-//         <div className="absolute top-0 right-0 h-40 w-40 rounded-full bg-emerald-100/40 blur-3xl" />
-//         <div className="absolute bottom-0 left-0 h-40 w-40 rounded-full bg-slate-100 blur-3xl" />
-//       </div>
-
-//       <div className="relative z-10 p-5 md:p-7 space-y-7">
-
-//         {/* =========================================
-//             TOP HEADER
-//         ========================================= */}
-//         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-
-//           {/* LEFT */}
-//           <div className="space-y-3">
-
-//             {/* BADGE */}
-//             <div
-//               className="
-//                 inline-flex items-center gap-2
-//                 rounded-full border border-emerald-100
-//                 bg-emerald-50
-//                 px-3 py-1
-//               "
-//             >
-//               <ShieldCheck
-//                 size={14}
-//                 className="text-emerald-600"
-//               />
-
-//               <span className="text-[11px] font-semibold tracking-wide text-emerald-700 uppercase">
-//                 Bank-grade Transaction Ledger
-//               </span>
-//             </div>
-
-//             {/* TITLE */}
-//             <div>
-//               <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
-//                 Transaction Command Center
-//               </h1>
-
-//               <p className="mt-2 text-sm text-slate-500 leading-relaxed max-w-2xl">
-//                 Monitor, record, and manage financial
-//                 activity with secure real-time transaction
-//                 processing.
-//               </p>
-//             </div>
-//           </div>
-
-//           {/* RIGHT CARD */}
-//           <div
-//             className="
-//               w-full sm:w-auto
-//               min-w-[250px]
-//               rounded-3xl
-//               border border-slate-200
-//               bg-gradient-to-br
-//               from-slate-950
-//               via-slate-900
-//               to-slate-800
-//               p-5
-//               text-white
-//               shadow-xl
-//             "
-//           >
-//             <div className="flex items-start justify-between">
-
-//               <div>
-//                 <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-//                   Total Transactions
-//                 </p>
-
-//                 <h2 className="mt-3 text-3xl font-bold tracking-tight">
-//                   {formattedBalance}
-//                 </h2>
-//               </div>
-
-//               <div
-//                 className="
-//                   flex h-11 w-11 items-center justify-center
-//                   rounded-2xl
-//                   bg-white/10
-//                   backdrop-blur-sm
-//                 "
-//               >
-//                 <Wallet size={20} />
-//               </div>
-//             </div>
-
-//             <div className="mt-6 flex items-center gap-2 text-xs text-emerald-300">
-//               <ArrowUpRight size={14} />
-//               Financial operations active
-//             </div>
-//           </div>
-//         </div>
-
-//         {/* =========================================
-//             QUICK TRANSACTION FORM
-//         ========================================= */}
-//         <form
-//           onSubmit={onSubmit}
-//           className="
-//             rounded-3xl
-//             border border-slate-200/80
-//             bg-slate-50/70
-//             p-4 md:p-5
-//           "
-//         >
-//           {/* FORM TITLE */}
-//           <div className="mb-5">
-//             <h3 className="text-sm font-semibold text-slate-900">
-//               Quick Transaction Entry
-//             </h3>
-
-//             <p className="mt-1 text-xs text-slate-500">
-//               Add income or expense records instantly.
-//             </p>
-//           </div>
-
-//           {/* FORM GRID */}
-//           <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-
-//             {/* TITLE */}
-//             <div className="xl:col-span-4">
-//               <label className="mb-2 block text-xs font-medium text-slate-600">
-//                 Transaction Title
-//               </label>
-
-//               <Input
-//                 name="title"
-//                 placeholder="e.g Salary payment"
-//                 value={form.title}
-//                 onChange={handleChange}
-//                 className="
-//                   h-12 rounded-2xl border-slate-200
-//                   bg-white
-//                   focus:border-slate-900
-//                   focus:ring-2 focus:ring-slate-900/10
-//                 "
-//               />
-//             </div>
-
-//             {/* AMOUNT */}
-//             <div className="xl:col-span-3">
-//               <label className="mb-2 block text-xs font-medium text-slate-600">
-//                 Amount
-//               </label>
-
-//               <Input
-//                 name="amount"
-//                 type="number"
-//                 placeholder="0.00"
-//                 value={form.amount}
-//                 onChange={handleChange}
-//                 className="
-//                   h-12 rounded-2xl border-slate-200
-//                   bg-white
-//                   focus:border-slate-900
-//                   focus:ring-2 focus:ring-slate-900/10
-//                 "
-//               />
-//             </div>
-
-//             {/* TYPE */}
-//             <div className="xl:col-span-2">
-//               <label className="mb-2 block text-xs font-medium text-slate-600">
-//                 Type
-//               </label>
-
-//               <select
-//                 name="type"
-//                 value={form.type}
-//                 onChange={handleChange}
-//                 className="
-//                   h-12 w-full
-//                   rounded-2xl
-//                   border border-slate-200
-//                   bg-white
-//                   px-4
-//                   text-sm font-medium
-//                   text-slate-700
-//                   outline-none
-//                   transition-all
-//                   focus:border-slate-900
-//                   focus:ring-2
-//                   focus:ring-slate-900/10
-//                 "
-//               >
-//                 <option value="expense">
-//                   Expense
-//                 </option>
-
-//                 <option value="income">
-//                   Income
-//                 </option>
-//               </select>
-//             </div>
-
-//             {/* SUBMIT */}
-//             <div className="xl:col-span-3 flex items-end">
-//               <Button
-//                 type="submit"
-//                 className="
-//                   h-12 w-full
-//                   rounded-2xl
-//                   bg-slate-950
-//                   text-white
-//                   font-semibold
-//                   transition-all
-//                   hover:bg-slate-800
-//                   active:scale-[0.99]
-//                   shadow-lg
-//                   shadow-slate-900/10
-//                 "
-//               >
-//                 Add Transaction
-//               </Button>
-//             </div>
-
-//           </div>
-//         </form>
-
-//       </div>
-//     </div>
-//   );
-// };
-// export default TransactionHeader;
-
-
-
-
 import {
   Wallet,
   ArrowUpRight,
+  ArrowDownRight,
   ShieldCheck,
+  Plus,
+  Activity,
 } from "lucide-react";
 
 import Button from "../../../components/ui/Button";
@@ -291,7 +17,6 @@ const TransactionHeader = ({
   setForm,
   onSubmit,
 }) => {
-
   const handleChange = (e) => {
     const { name, value } = e.target;
 
@@ -301,195 +26,374 @@ const TransactionHeader = ({
     }));
   };
 
-  const formattedBalance =
-    Number(total || 0).toLocaleString();
+  const formattedBalance = Number(
+    total || 0
+  ).toLocaleString("en-NG");
+
+  const isExpense =
+    form?.type === "expense";
 
   return (
-    <div className="
-      relative overflow-hidden
-      rounded-2xl sm:rounded-[32px]
-      border border-slate-200/80
-      bg-white/95
-      backdrop-blur-xl
-      shadow-[0_10px_40px_rgba(15,23,42,0.06)]
-    ">
+    <section
+      className="relative bg-white shadow-[0_18px_60px_rgba(15,23,42,0.07)] border border-slate-200 rounded-[28px] overflow-hidden"
+    >
+      {/* =====================================================
+          SUBTLE BACKGROUND
+      ====================================================== */}
 
-      {/* BACKGROUND */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-0 right-0 h-32 w-32 sm:h-40 sm:w-40 rounded-full bg-emerald-100/40 blur-3xl" />
-        <div className="absolute bottom-0 left-0 h-32 w-32 sm:h-40 sm:w-40 rounded-full bg-slate-100 blur-3xl" />
+      <div
+        className="absolute inset-0 overflow-hidden pointer-events-none"
+      >
+        <div
+          className="-top-24 -right-24 absolute bg-blue-50 blur-3xl rounded-full w-64 h-64"
+          /
+        >
+
+        <div
+          className="-bottom-24 -left-24 absolute bg-slate-100 blur-3xl rounded-full w-64 h-64"
+          /
+        >
       </div>
 
-      <div className="relative z-10 p-4 sm:p-6 lg:p-7 space-y-6 sm:space-y-7">
+      <div
+        className="z-10 relative p-4 sm:p-6 lg:p-7"
+      >
+        {/* ===================================================
+            TOP HEADER
+        ==================================================== */}
 
-        {/* ================= HEADER ================= */}
-        <div className="flex flex-col lg:flex-row gap-6 lg:items-center lg:justify-between">
+        <div
+          className="flex xl:flex-row flex-col xl:justify-between xl:items-center gap-6"
+        >
+          {/* LEFT: BRAND / TITLE */}
 
-          {/* LEFT */}
-          <div className="space-y-3">
+          <div
+            className="flex-1 min-w-0"
+          >
+            {/* STATUS BADGE */}
 
-            <div className="
-              inline-flex items-center gap-2
-              rounded-full border border-emerald-100
-              bg-emerald-50
-              px-3 py-1
-            ">
-              <ShieldCheck size={14} className="text-emerald-600" />
+            <div
+              className="inline-flex items-center gap-2 bg-emerald-50 px-3 py-1.5 border border-emerald-200 rounded-full"
+            >
+              <span
+                className="bg-emerald-500 rounded-full w-1.5 h-1.5"
+                /
+              >
 
-              <span className="text-[10px] sm:text-[11px] font-semibold tracking-wide text-emerald-700 uppercase">
-                Bank-grade Transaction Ledger
+              <ShieldCheck
+                size={13}
+                className="text-emerald-600"
+                /
+              >
+
+              <span
+                className="font-semibold text-[10px] text-emerald-700 sm:text-[11px] uppercase tracking-[0.12em]"
+              >
+                Secure Financial Ledger
               </span>
             </div>
 
-            <div>
-              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-slate-900">
-                Transaction Command Center
-              </h1>
+            {/* TITLE */}
 
-              <p className="mt-2 text-sm text-slate-500 leading-relaxed max-w-2xl">
-                Monitor, record, and manage financial activity with secure real-time processing.
-              </p>
+            <h1
+              className="mt-4 font-bold text-slate-950 lg:text-[34px] text-2xl sm:text-3xl tracking-[-0.03em]"
+            >
+              Transactions
+            </h1>
+
+            <p
+              className="mt-2 max-w-2xl text-slate-500 text-sm leading-6"
+            >
+              Record and manage your income and
+              expenses from one secure financial
+              ledger.
+            </p>
+
+            {/* SYSTEM STATUS */}
+
+            <div
+              className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-4 text-slate-500 text-xs"
+            >
+              <span
+                className="inline-flex items-center gap-1.5"
+              >
+                <Activity
+                  size={13}
+                  className="text-emerald-500"
+                  /
+                >
+
+                Real-time processing
+              </span>
+
+              <span
+                className="hidden sm:block text-slate-300"
+              >
+                •
+              </span>
+
+              <span>
+                Secure ledger environment
+              </span>
             </div>
-
           </div>
 
-          {/* RIGHT CARD */}
-          <div className="
-            w-full lg:w-auto
-            rounded-2xl sm:rounded-3xl
-            border border-slate-200
-            bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800
-            p-4 sm:p-5
-            text-white
-            shadow-xl
-          ">
+          {/* =================================================
+              BALANCE CARD
+          ================================================== */}
 
-            <div className="flex items-start justify-between gap-4">
+          <div
+            className="w-full xl:w-[330px] shrink-0"
+          >
+            <div
+              className="relative bg-slate-950 shadow-[0_16px_40px_rgba(15,23,42,0.18)] p-5 sm:p-6 border border-slate-800 rounded-3xl overflow-hidden text-white"
+            >
+              {/* subtle glow */}
 
-              <div>
-                <p className="text-[10px] sm:text-xs uppercase tracking-[0.2em] text-slate-400">
-                  Total Transactions
-                </p>
+              <div
+                className="-top-10 -right-10 absolute bg-blue-500/10 blur-2xl rounded-full w-32 h-32 pointer-events-none"
+                /
+              >
 
-                <h2 className="mt-2 sm:mt-3 text-2xl sm:text-3xl font-bold tracking-tight break-words">
-                  {formattedBalance}
-                </h2>
+              <div
+                className="z-10 relative flex justify-between items-start gap-4"
+              >
+                <div>
+                  <p
+                    className="font-semibold text-[10px] text-slate-400 uppercase tracking-[0.18em]"
+                  >
+                    Total Transactions
+                  </p>
+
+                  <div
+                    className="flex items-baseline gap-2 mt-2"
+                  >
+                    <span
+                      className="font-medium text-slate-500 text-xs"
+                    >
+                      NGN
+                    </span>
+
+                    <h2
+                      className="min-w-0 font-bold text-white text-2xl sm:text-3xl break-all tracking-tight"
+                    >
+                      {formattedBalance}
+                    </h2>
+                  </div>
+                </div>
+
+                <div
+                  className="flex justify-center items-center bg-white/5 border border-white/10 rounded-2xl w-11 h-11 shrink-0"
+                >
+                  <Wallet
+                    size={19}
+                    className="text-slate-200"
+                    /
+                  >
+                </div>
               </div>
 
-              <div className="
-                flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center
-                rounded-2xl bg-white/10
-              ">
-                <Wallet size={18} />
+              {/* CARD FOOTER */}
+
+              <div
+                className="z-10 relative flex justify-between items-center mt-5 pt-4 border-white/10 border-t"
+              >
+                <span
+                  className="text-[11px] text-slate-400"
+                >
+                  Ledger status
+                </span>
+
+                <span
+                  className="inline-flex items-center gap-1.5 font-medium text-[11px] text-emerald-400"
+                >
+                  <span
+                    className="bg-emerald-400 rounded-full w-1.5 h-1.5"
+                    /
+                  >
+
+                  Active
+                </span>
               </div>
-
             </div>
-
-            <div className="mt-4 sm:mt-6 flex items-center gap-2 text-[11px] sm:text-xs text-emerald-300">
-              <ArrowUpRight size={14} />
-              Financial operations active
-            </div>
-
           </div>
         </div>
 
-        {/* ================= FORM ================= */}
-        <form
-          onSubmit={onSubmit}
-          className="
-            rounded-2xl sm:rounded-3xl
-            border border-slate-200/80
-            bg-slate-50/70
-            p-4 sm:p-5
-          "
+        {/* ===================================================
+            TRANSACTION ENTRY
+        ==================================================== */}
+
+        <div
+          className="bg-slate-50/80 mt-7 border border-slate-200 rounded-3xl overflow-hidden"
         >
+          {/* FORM HEADER */}
 
-          <div className="mb-5">
-            <h3 className="text-sm font-semibold text-slate-900">
-              Quick Transaction Entry
-            </h3>
+          <div
+            className="flex sm:flex-row flex-col sm:justify-between sm:items-center gap-3 bg-white px-4 sm:px-5 py-4 border-slate-200 border-b"
+          >
+            <div
+              className="flex items-center gap-3"
+            >
+              <div
+                className="flex justify-center items-center bg-slate-950 rounded-xl w-9 h-9 text-white shrink-0"
+              >
+                <Plus size={17} />
+              </div>
 
-            <p className="mt-1 text-xs text-slate-500">
-              Add income or expense records instantly.
-            </p>
+              <div>
+                <h2
+                  className="font-semibold text-slate-900 text-sm"
+                >
+                  Add transaction
+                </h2>
+
+                <p
+                  className="mt-0.5 text-[11px] text-slate-500"
+                >
+                  Record a new financial activity
+                </p>
+              </div>
+            </div>
+
+            <span
+              className="self-start sm:self-auto bg-slate-50 px-2.5 py-1 border border-slate-200 rounded-full font-medium text-[10px] text-slate-500"
+            >
+              Secure entry
+            </span>
           </div>
 
-          {/* RESPONSIVE GRID */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-12 gap-4">
+          {/* FORM */}
 
-            {/* TITLE */}
-            <div className="xl:col-span-4">
-              <label className="mb-2 block text-xs font-medium text-slate-600">
-                Transaction Title
-              </label>
+          <form
+            onSubmit={onSubmit}
+            className="p-4 sm:p-5"
+          >
+            <div
+              className="gap-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-12"
+            >
+              {/* TITLE */}
 
-              <Input
-                name="title"
-                value={form.title}
-                onChange={handleChange}
-                placeholder="e.g Salary payment"
-                className="h-11 sm:h-12 rounded-2xl border-slate-200 bg-white"
-              />
-            </div>
-
-            {/* AMOUNT */}
-            <div className="xl:col-span-3">
-              <label className="mb-2 block text-xs font-medium text-slate-600">
-                Amount
-              </label>
-
-              <Input
-                name="amount"
-                type="number"
-                value={form.amount}
-                onChange={handleChange}
-                placeholder="0.00"
-                className="h-11 sm:h-12 rounded-2xl border-slate-200 bg-white"
-              />
-            </div>
-
-            {/* TYPE */}
-            <div className="xl:col-span-2">
-              <label className="mb-2 block text-xs font-medium text-slate-600">
-                Type
-              </label>
-
-              <select
-                name="type"
-                value={form.type}
-                onChange={handleChange}
-                className="
-                  h-11 sm:h-12 w-full
-                  rounded-2xl border border-slate-200
-                  bg-white px-4 text-sm
-                  outline-none
-                "
+              <div
+                className="xl:col-span-4"
               >
-                <option value="expense">Expense</option>
-                <option value="income">Income</option>
-              </select>
-            </div>
+                <label
+                  className="block mb-2 font-semibold text-slate-600 text-xs"
+                >
+                  Transaction title
+                </label>
 
-            {/* BUTTON */}
-            <div className="xl:col-span-3 flex items-end">
-              <Button
-                type="submit"
-                className="
-                  h-11 sm:h-12 w-full
-                  rounded-2xl bg-slate-950 text-white
-                  font-semibold
-                "
+                <Input
+                  name="title"
+                  value={form.title}
+                  onChange={handleChange}
+                  placeholder="e.g. Salary payment"
+                  className="bg-white shadow-sm border-slate-200 focus:border-slate-400 rounded-2xl h-12"
+                  /
+                >
+              </div>
+
+              {/* AMOUNT */}
+
+              <div
+                className="xl:col-span-3"
               >
-                Add Transaction
-              </Button>
+                <label
+                  className="block mb-2 font-semibold text-slate-600 text-xs"
+                >
+                  Amount
+                </label>
+
+                <div
+                  className="relative"
+                >
+                  <span
+                    className="top-1/2 left-4 absolute font-semibold text-slate-400 text-xs -translate-y-1/2 pointer-events-none"
+                  >
+                    ₦
+                  </span>
+
+                  <Input
+                    name="amount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.amount}
+                    onChange={handleChange}
+                    placeholder="0.00"
+                    className="bg-white shadow-sm pl-9 border-slate-200 focus:border-slate-400 rounded-2xl h-12"
+                    /
+                  >
+                </div>
+              </div>
+
+              {/* TYPE */}
+
+              <div
+                className="xl:col-span-2"
+              >
+                <label
+                  className="block mb-2 font-semibold text-slate-600 text-xs"
+                >
+                  Type
+                </label>
+
+                <div
+                  className="relative"
+                >
+                  <select
+                    name="type"
+                    value={form.type}
+                    onChange={handleChange}
+                    className="bg-white shadow-sm px-4 pr-9 border border-slate-200 focus:border-slate-400 rounded-2xl outline-none focus:ring-2 focus:ring-slate-200 w-full h-12 font-medium text-slate-700 text-sm transition appearance-none"
+                  >
+                    <option value="expense">
+                      Expense
+                    </option>
+
+                    <option value="income">
+                      Income
+                    </option>
+                  </select>
+
+                  <div
+                    className="top-1/2 right-3 absolute -translate-y-1/2 pointer-events-none"
+                  >
+                    {isExpense ? (
+                      <ArrowDownRight
+                        size={16}
+                        className="text-rose-500"
+                        /
+                      >
+                    ) : (
+                      <ArrowUpRight
+                        size={16}
+                        className="text-emerald-500"
+                        /
+                      >
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* SUBMIT */}
+
+              <div
+                className="flex items-end xl:col-span-3"
+              >
+                <Button
+                  type="submit"
+                  className="flex justify-center items-center gap-2 bg-slate-950 hover:bg-slate-800 shadow-sm rounded-2xl w-full h-12 font-semibold text-white active:scale-[0.99] transition"
+                >
+                  <Plus size={17} />
+
+                  Add transaction
+                </Button>
+              </div>
             </div>
-
-          </div>
-
-        </form>
-
+          </form>
+        </div>
       </div>
-    </div>
+    </section>
   );
 };
 
