@@ -1,115 +1,253 @@
 
-
-
 import Transaction from "../../models/Transaction.js";
 import Budget from "../../models/Budget.js";
 import { getIO } from "../../socket/socket.js";
-//import { buildAnalytics } from "../services/analyticsService.js";
 import { buildAnalytics } from "../../services/analyticsService.js";
+import {
+  createTransactionNotification,
+} from "../../services/notificationService.js";
 
 /* ===============================
-   Budget Sync
+   BUDGET SYNC
 ================================= */
+
 const updateBudgetTotals = async (userId) => {
-  const budgets = await Budget.find({ user: userId });
+  const budgets = await Budget.find({
+    user: userId,
+  });
 
   const totals = await Transaction.aggregate([
-    { $match: { user: userId, type: "expense" } },
+    {
+      $match: {
+        user: userId,
+        type: "expense",
+      },
+    },
     {
       $group: {
         _id: "$category",
-        total: { $sum: "$amount" },
+        total: {
+          $sum: "$amount",
+        },
       },
     },
   ]);
 
-  const spentMap = totals.reduce((acc, item) => {
-    acc[item._id] = item.total;
-    return acc;
-  }, {});
+  const spentMap = totals.reduce(
+    (acc, item) => {
+      acc[item._id] = item.total;
+      return acc;
+    },
+    {}
+  );
 
   await Promise.all(
     budgets.map((budget) => {
-      budget.spent = spentMap[budget.category] || 0;
+      budget.spent =
+        spentMap[budget.category] || 0;
+
       return budget.save();
     })
   );
 };
 
 /* ===============================
-   SOCKET EMITTER (NEW - CENTRALIZED)
+   SOCKET EMITTER
 ================================= */
-const emitDashboardUpdates = async (userId, transaction, actionType) => {
+
+const emitDashboardUpdates = async (
+  userId,
+  transaction,
+  actionType
+) => {
   const io = getIO();
 
-  // Existing event (for lists, activity feeds, etc.)
-  io.to(userId.toString()).emit("dashboard:event", {
-    type: actionType,
-    data: transaction,
-  });
+  // Dashboard event
+  io.to(userId.toString()).emit(
+    "dashboard:event",
+    {
+      type: actionType,
+      data: transaction,
+    }
+  );
 
-  // 🔥 Analytics event (for charts + summary cards)
-  const analytics = await buildAnalytics(userId);
+  // Analytics update
+  const analytics =
+    await buildAnalytics(userId);
 
-  io.to(userId.toString()).emit("analyticsUpdated", analytics);
+  io.to(userId.toString()).emit(
+    "analyticsUpdated",
+    analytics
+  );
 };
 
 /* ===============================
-   GET ALL
+   GET ALL TRANSACTIONS
 ================================= */
-export const getTransactions = async (req, res) => {
-  try {
-    const transactions = await Transaction.find({
-      user: req.user._id,
-    }).sort({ createdAt: -1 });
 
-    res.json(transactions);
+export const getTransactions = async (
+  req,
+  res
+) => {
+  try {
+    const transactions =
+      await Transaction.find({
+        user: req.user._id,
+      }).sort({
+        createdAt: -1,
+      });
+
+    return res.json(transactions);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(
+      "GET_TRANSACTIONS_ERROR:",
+      err
+    );
+
+    return res.status(500).json({
+      message: err.message,
+    });
   }
 };
 
 /* ===============================
-   CREATE
+   CREATE TRANSACTION
 ================================= */
-export const createTransaction = async (req, res) => {
-  try {
-    const { title, amount, category, type, date } = req.body;
 
-    const transaction = await Transaction.create({
-      user: req.user._id,
+export const createTransaction = async (
+  req,
+  res
+) => {
+  try {
+    const {
       title,
       amount,
       category,
       type,
       date,
-    });
+    } = req.body;
 
-    // Sync budgets
-    await updateBudgetTotals(req.user._id);
+    /* ===============================
+       CREATE TRANSACTION
+    ================================= */
 
-    // Emit updates (dashboard + analytics)
+    const transaction =
+      await Transaction.create({
+        user: req.user._id,
+        title,
+        amount,
+        category,
+        type,
+        date,
+      });
+
+    /* ===============================
+       SYNC BUDGETS
+    ================================= */
+
+    await updateBudgetTotals(
+      req.user._id
+    );
+
+    /* ===============================
+       CREATE NOTIFICATION
+    ================================= */
+
+    try {
+      const formattedAmount =
+        new Intl.NumberFormat(
+          "en-NG",
+          {
+            style: "currency",
+            currency: "NGN",
+            maximumFractionDigits: 2,
+          }
+        ).format(amount);
+
+      const isExpense =
+        type === "expense";
+
+      await createTransactionNotification({
+        userId: req.user._id,
+
+        title: isExpense
+          ? "Expense Recorded"
+          : "Income Recorded",
+
+        message: isExpense
+          ? `Your expense "${title}" of ${formattedAmount} was successfully recorded.`
+          : `Your income "${title}" of ${formattedAmount} was successfully recorded.`,
+
+        metadata: {
+          transactionId:
+            transaction._id,
+          transactionType: type,
+          amount,
+          category,
+        },
+      });
+
+      console.log(
+        "TRANSACTION_NOTIFICATION_CREATED:",
+        transaction._id.toString()
+      );
+    } catch (notificationError) {
+      /*
+       * IMPORTANT:
+       * A notification failure must not
+       * make a successful transaction
+       * appear to have failed.
+       */
+
+      console.error(
+        "TRANSACTION_NOTIFICATION_ERROR:",
+        notificationError
+      );
+    }
+
+    /* ===============================
+       EMIT DASHBOARD UPDATES
+    ================================= */
+
     await emitDashboardUpdates(
       req.user._id,
       transaction,
       "transaction:created"
     );
 
-    res.status(201).json(transaction);
+    /* ===============================
+       RESPONSE
+    ================================= */
+
+    return res.status(201).json(
+      transaction
+    );
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(
+      "CREATE_TRANSACTION_ERROR:",
+      err
+    );
+
+    return res.status(500).json({
+      message: err.message,
+    });
   }
 };
 
 /* ===============================
-   UPDATE
+   UPDATE TRANSACTION
 ================================= */
-export const updateTransaction = async (req, res) => {
+
+export const updateTransaction = async (
+  req,
+  res
+) => {
   try {
-    const transaction = await Transaction.findOne({
-      _id: req.params.id,
-      user: req.user._id,
-    });
+    const transaction =
+      await Transaction.findOne({
+        _id: req.params.id,
+        user: req.user._id,
+      });
 
     if (!transaction) {
       return res.status(404).json({
@@ -117,35 +255,58 @@ export const updateTransaction = async (req, res) => {
       });
     }
 
-    Object.assign(transaction, req.body);
+    Object.assign(
+      transaction,
+      req.body
+    );
 
     await transaction.save();
 
-    // Sync budgets
-    await updateBudgetTotals(req.user._id);
+    /* ===============================
+       SYNC BUDGETS
+    ================================= */
 
-    // Emit updates
+    await updateBudgetTotals(
+      req.user._id
+    );
+
+    /* ===============================
+       EMIT DASHBOARD UPDATES
+    ================================= */
+
     await emitDashboardUpdates(
       req.user._id,
       transaction,
       "transaction:updated"
     );
 
-    res.json(transaction);
+    return res.json(transaction);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(
+      "UPDATE_TRANSACTION_ERROR:",
+      err
+    );
+
+    return res.status(500).json({
+      message: err.message,
+    });
   }
 };
 
 /* ===============================
-   DELETE
+   DELETE TRANSACTION
 ================================= */
-export const deleteTransaction = async (req, res) => {
+
+export const deleteTransaction = async (
+  req,
+  res
+) => {
   try {
-    const deleted = await Transaction.findOneAndDelete({
-      _id: req.params.id,
-      user: req.user._id,
-    });
+    const deleted =
+      await Transaction.findOneAndDelete({
+        _id: req.params.id,
+        user: req.user._id,
+      });
 
     if (!deleted) {
       return res.status(404).json({
@@ -153,18 +314,33 @@ export const deleteTransaction = async (req, res) => {
       });
     }
 
-    // Sync budgets
-    await updateBudgetTotals(req.user._id);
+    /* ===============================
+       SYNC BUDGETS
+    ================================= */
 
-    // Emit updates
+    await updateBudgetTotals(
+      req.user._id
+    );
+
+    /* ===============================
+       EMIT DASHBOARD UPDATES
+    ================================= */
+
     await emitDashboardUpdates(
       req.user._id,
       deleted,
       "transaction:deleted"
     );
 
-    res.status(204).send();
+    return res.status(204).send();
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(
+      "DELETE_TRANSACTION_ERROR:",
+      err
+    );
+
+    return res.status(500).json({
+      message: err.message,
+    });
   }
 };

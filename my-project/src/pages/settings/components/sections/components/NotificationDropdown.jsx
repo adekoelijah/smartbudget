@@ -202,22 +202,20 @@ const NotificationDropdown = ({ onClose }) => {
   ======================================================= */
 
   return (
-    <div
-      className="
-        top-full right right-0 z-[100] absolute overflow-hidden
-        w-[calc(100vw-1rem)] max-w-[380px] max-h-[calc(100vh-5rem)]
-        mt-2
-        bg-white to from
-        border border-slate-200 rounded-2xl sm:rounded-3xl
-        shadow-2xl
-        origin-top-right
-        /* /* /* /* * * * * * * * * * Desktop: Keep
-        the the the the the the the the the dropdown dropdown dropdown aligned
-        right. */ */ */ */ Mobile: Let panel use almost entire
-        viewport. viewport. viewport Prevent becoming taller than Make sure
-        stays inside even when positioned near edge.
-      "
-    >
+   <div
+     className="
+       top-20 sm:top-full sm:right-0 left-1/2 sm:left-auto z-[100] fixed
+       sm:absolute overflow-hidden
+       w-[calc(100vw-2rem)] sm:w-[380px]
+       max-w-[380px] max-h-[calc(100vh-6rem)] sm:max-h-[calc(100vh-5rem)]
+       sm:mt-2
+       bg-white
+       border border-slate-200 rounded-2xl sm:rounded-3xl
+       shadow-2xl
+       origin-top sm:origin-top-right sm:translate-x-0
+       -translate-x-1/2
+     "
+   >
       {/* ===================================================
           HEADER
       =================================================== */}
