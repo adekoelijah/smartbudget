@@ -94,43 +94,63 @@ const DashboardHeader = ({
      USER ENGINE
   ========================================= */
 
-  const safeUser = useMemo(() => {
-    /*
-     * PRIMARY SOURCE
-     * ACTIVE AUTH USER
-     */
+ const safeUser = useMemo(() => {
+  const buildName = (source) => {
+    if (!source) return "";
 
-    if (user?.name) {
-      return {
-        name: safeText(
-          user.name,
-          "User"
-        ),
-      };
+    const firstName = safeText(source.firstName, "");
+    const lastName = safeText(source.lastName, "");
+
+    const fullName = `${firstName} ${lastName}`.trim();
+
+    if (fullName) {
+      return fullName;
     }
 
-    /*
-     * FALLBACK
-     * LOCAL STORAGE
-     */
+    if (source.name) {
+      return safeText(source.name, "");
+    }
 
-    try {
-      const local = JSON.parse(
-        localStorage.getItem("user")
-      );
+    if (source.username) {
+      return safeText(source.username, "");
+    }
 
+    return "";
+  };
+
+  // PRIMARY SOURCE: authenticated user
+  const activeUserName = buildName(user);
+
+  if (activeUserName) {
+    return {
+      name: activeUserName,
+    };
+  }
+
+  // FALLBACK: localStorage
+  try {
+    const storedUser = JSON.parse(
+      localStorage.getItem("user")
+    );
+
+    const storedUserName = buildName(storedUser);
+
+    if (storedUserName) {
       return {
-        name: safeText(
-          local?.name,
-          "User"
-        ),
-      };
-    } catch {
-      return {
-        name: "User",
+        name: storedUserName,
       };
     }
-  }, [user]);
+  } catch (error) {
+    console.error(
+      "DASHBOARD_USER_PARSE_ERROR:",
+      error
+    );
+  }
+
+  return {
+    name: "User",
+  };
+}, [user]);
 
   /* =========================================
      REALTIME STATE
@@ -363,8 +383,8 @@ const DashboardHeader = ({
                   font-semibold text-slate-900 text-sm sm:text-base
                 "
               >
-                Welcome back,{" "}
-                {safeUser.name}
+                Welcome,{" "}
+               {safeUser.name}
               </h1>
 
               <ShieldCheck

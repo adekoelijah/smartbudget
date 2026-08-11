@@ -78,7 +78,7 @@ const App = () => {
           
           <Route path="/app" element={<AppLayout />}>
             <Route index element={<Dashboard />} />
-            <Route path="NotificationsPage" element ={<NotificationsPage/>}/>
+            <Route path="/app/notifications" element ={<NotificationsPage/>}/>
             <Route path="transactions" element={<Transactions />} />
             <Route path="add" element={<AddTransaction />} />
             <Route path="budgets" element={<Budgets />} />

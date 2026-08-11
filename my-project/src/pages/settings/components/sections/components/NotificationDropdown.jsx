@@ -1,3 +1,4 @@
+
 import {
   Bell,
   CheckCheck,
@@ -110,30 +111,16 @@ const NotificationDropdown = ({ onClose }) => {
       const id = getNotificationId(notification);
 
       try {
-        /*
-         * Mark as read first.
-         *
-         * The context updates the local notification state
-         * and unread count after the API succeeds.
-         */
         if (!notification?.isRead && id) {
           await readNotification(id);
         }
 
-        /*
-         * Navigate only when the notification has
-         * an action URL.
-         */
         if (notification?.actionUrl) {
           navigate(notification.actionUrl);
           onClose?.();
           return;
         }
 
-        /*
-         * If there is no destination, simply close
-         * the dropdown after reading it.
-         */
         onClose?.();
       } catch (error) {
         console.error(
@@ -217,15 +204,20 @@ const NotificationDropdown = ({ onClose }) => {
   return (
     <div
       className="
-        right-0 z-50 absolute overflow-hidden
-        w-[380px] max-w-[calc(100vw-2rem)]
-        mt-3
-        bg-white
-        border border-slate-200 rounded-3xl
+        top-full right right-0 z-[100] absolute overflow-hidden
+        w-[calc(100vw-1rem)] max-w-[380px] max-h-[calc(100vh-5rem)]
+        mt-2
+        bg-white to from
+        border border-slate-200 rounded-2xl sm:rounded-3xl
         shadow-2xl
+        origin-top-right
+        /* /* /* /* * * * * * * * * * Desktop: Keep
+        the the the the the the the the the dropdown dropdown dropdown aligned
+        right. */ */ */ */ Mobile: Let panel use almost entire
+        viewport. viewport. viewport Prevent becoming taller than Make sure
+        stays inside even when positioned near edge.
       "
     >
-
       {/* ===================================================
           HEADER
       =================================================== */}
@@ -233,33 +225,45 @@ const NotificationDropdown = ({ onClose }) => {
       <div
         className="
           flex justify-between items-center
-          px-5 py-4
+          px-3 sm:px-5 py-3 sm:py-4
           border-slate-200 border-b
+          gap-3
         "
       >
         <div
           className="
             flex items-center
-            gap-3
+            min-w-0
+            gap-2.5 sm:gap-3
           "
         >
-
           <div
             className="
               flex justify-center items-center
-              w-10 h-10
+              w-9 sm:w-10 h-9 sm:h-10
               text-slate-700
               bg-slate-100
-              rounded-2xl
+              rounded-xl sm:rounded-2xl
+              shrink-0
             "
           >
-            <Bell size={18} />
+            <Bell
+              size={17}
+              className="
+                sm:w-[18px] sm:h-[18px]
+              "
+              /
+            >
           </div>
 
-          <div>
+          <div
+            className="
+              min-w-0
+            "
+          >
             <h3
               className="
-                font-semibold text-slate-900 text-sm
+                font-semibold text-slate-900 text-sm truncate
               "
             >
               Notifications
@@ -267,23 +271,21 @@ const NotificationDropdown = ({ onClose }) => {
 
             <p
               className="
-                mt-1
-                text-slate-500 text-xs
+                mt-0.5 sm:mt-1
+                text-[11px] text-slate-500 sm:text-xs truncate
               "
             >
               Stay updated with your SmartBudget activity
             </p>
           </div>
-
         </div>
 
         <div
           className="
             flex items-center
-            gap-1
+            gap-0.5 shrink-0
           "
         >
-
           {/* REFRESH */}
 
           <button
@@ -291,8 +293,10 @@ const NotificationDropdown = ({ onClose }) => {
             onClick={handleRefresh}
             disabled={refreshing}
             title="Refresh notifications"
+            aria-label="Refresh notifications"
             className="
-              p-2
+              flex justify-center items-center
+              w-9 h-9
               text-slate-500 hover:text-slate-700
               hover:bg-slate-100
               rounded-xl
@@ -323,8 +327,10 @@ const NotificationDropdown = ({ onClose }) => {
             type="button"
             onClick={onClose}
             title="Close notifications"
+            aria-label="Close notifications"
             className="
-              p-2
+              flex justify-center items-center
+              w-9 h-9
               text-slate-400 hover:text-slate-700
               hover:bg-slate-100
               rounded-xl
@@ -333,7 +339,6 @@ const NotificationDropdown = ({ onClose }) => {
           >
             <X size={16} />
           </button>
-
         </div>
       </div>
 
@@ -345,14 +350,16 @@ const NotificationDropdown = ({ onClose }) => {
         <div
           className="
             flex justify-between items-center
-            px-5 py-2.5
+            px-3 sm:px-5 py-2.5
             bg-slate-50
             border-slate-100 border-b
+            gap-3
           "
         >
           <p
             className="
-              font-medium text-slate-600 text-xs
+              min-w-0
+              font-medium text-[11px] text-slate-600 sm:text-xs truncate
             "
           >
             {unreadCount > 99
@@ -366,17 +373,18 @@ const NotificationDropdown = ({ onClose }) => {
             type="button"
             onClick={handleMarkAll}
             className="
-              inline-flex items-center
-              px-2 py-1.5
+              inline-flex justify-center items-center
+              min-h-[36px]
+              px-2.5
               font-medium text-blue-600 text-xs
               hover:bg-blue-50
               rounded-xl
               transition
-              gap-1
+              gap-1 shrink-0
             "
           >
             <CheckCheck size={14} />
-            Mark all
+            <span>Mark all</span>
           </button>
         </div>
       )}
@@ -387,11 +395,12 @@ const NotificationDropdown = ({ onClose }) => {
 
       <div
         className="
-          overflow-y-auto
-          max-h-[430px]
+          overflow-y-auto overscroll-contain
+          max-h-[calc(100vh-12rem)] sm:max-h-[430px]
+          /* * Smooth scrolling on supported mobile browsers. */
+          [scrollbar-width:thin]
         "
       >
-
         {/* LOADING */}
 
         {loading && (
@@ -429,7 +438,7 @@ const NotificationDropdown = ({ onClose }) => {
             <div
               className="
                 flex flex-col justify-center items-center
-                px-8 py-12
+                px-6 sm:px-8 py-12
                 text-center
               "
             >
@@ -471,191 +480,193 @@ const NotificationDropdown = ({ onClose }) => {
 
         {!loading &&
           latestNotifications.length > 0 &&
-          latestNotifications.map(
-            (notification) => {
-              const id =
-                getNotificationId(
-                  notification
-                );
+          latestNotifications.map((notification) => {
+            const id = getNotificationId(notification);
 
-              const Icon =
-                getNotificationIcon(
-                  notification.type
-                );
+            const Icon = getNotificationIcon(
+              notification.type
+            );
 
-              const isUnread =
-                !notification.isRead;
+            const isUnread =
+              !notification.isRead;
 
-              return (
+            return (
+              <div
+                key={id}
+                className={`
+                  group
+
+                  border-b
+                  border-slate-100
+
+                  px-3 sm:px-4
+                  py-4
+
+                  transition
+
+                  ${
+                    isUnread
+                      ? "bg-blue-50/40"
+                      : "bg-white"
+                  }
+
+                  hover:bg-slate-50
+                `}
+              >
                 <div
-                  key={id}
-                  className={`
-                    group
-                    border-b
-                    border-slate-100
-                    px-4
-                    py-4
-                    transition
-                    hover:bg-slate-50
-
-                    ${
-                      isUnread
-                        ? "bg-blue-50/40"
-                        : "bg-white"
-                    }
-                  `}
+                  className="
+                    flex items-start
+                    min-w-0
+                    gap-2.5 sm:gap-3
+                  "
                 >
+                  {/* ICON */}
+
+                  <div
+                    className={`
+                      flex
+                      items-center
+                      justify-center
+
+                      w-9 h-9 sm:w-10 sm:h-10
+
+                      shrink-0
+
+                      rounded-xl
+
+                      ${
+                        isUnread
+                          ? "bg-blue-100 text-blue-600"
+                          : "bg-slate-100 text-slate-600"
+                      }
+                    `}
+                  >
+                    <Icon
+                      size={17}
+                      className="
+                        sm:w-[18px] sm:h-[18px]
+                      "
+                      /
+                    >
+                  </div>
+
+                  {/* CONTENT */}
+
                   <div
                     className="
-                      flex
-                      gap-3
+                      flex-1
+                      min-w-0
                     "
                   >
-
-                    {/* ICON */}
-
-                    <div
-                      className={`
-                        flex
-                        h-10
-                        w-10
-                        shrink-0
-                        items-center
-                        justify-center
-                        rounded-xl
-
-                        ${
-                          isUnread
-                            ? "bg-blue-100 text-blue-600"
-                            : "bg-slate-100 text-slate-600"
-                        }
-                      `}
-                    >
-                      <Icon size={18} />
-                    </div>
-
-                    {/* CONTENT */}
+                    {/* TITLE */}
 
                     <div
                       className="
-                        flex-1
+                        flex items-start
                         min-w-0
+                        gap-2
                       "
                     >
-
-                      {/* TITLE */}
-
-                      <div
+                      <h4
                         className="
-                          flex justify-between items-start
-                          gap-2
+                          flex-1
+                          min-w-0
+                          font-semibold text-slate-900 text-sm break-words
+                          leading-snug
                         "
                       >
-                        <h4
+                        {notification.title ||
+                          "Notification"}
+                      </h4>
+
+                      {isUnread && (
+                        <span
                           className="
-                            font-semibold text-slate-900 text-sm truncate
+                            w-2 h-2
+                            mt-1
+                            bg-blue-600
+                            rounded-full
+                            shrink-0
                           "
+                          aria-label="Unread"
+                        /
                         >
-                          {notification.title ||
-                            "Notification"}
-                        </h4>
-
-                        {isUnread && (
-                          <span
-                            className="
-                              w-2 h-2
-                              mt-1
-                              bg-blue-600
-                              rounded-full
-                              shrink-0
-                            "
-                            /
-                          >
-                        )}
-                      </div>
-
-                      {/* MESSAGE */}
-
-                      <p
-                        className="
-                          mt-1
-                          text-slate-500 text-xs leading-relaxed
-                        "
-                      >
-                        {notification.message ||
-                          "You have a new notification."}
-                      </p>
-
-                      {/* DATE */}
-
-                      <p
-                        className="
-                          mt-2
-                          text-[11px] text-slate-400
-                        "
-                      >
-                        {formatDate(
-                          notification.createdAt
-                        )}
-                      </p>
-
-                      {/* ACTIONS */}
-
-                      <div
-                        className="
-                          flex items-center
-                          mt-3
-                          gap-3
-                        "
-                      >
-
-                        {/* VIEW */}
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleOpen(
-                              notification
-                            )
-                          }
-                          className="inline-flex items-center gap-1 font-medium text-blue-600 hover:text-blue-700 text-xs hover:underline transition"
-                        >
-                          {notification.actionUrl
-                            ? "View"
-                            : "Mark as read"}
-
-                          <ArrowRight
-                            size={13}
-                          />
-                        </button>
-
-                        {/* DELETE */}
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleDelete(
-                              notification
-                            )
-                          }
-                          className="inline-flex items-center gap-1 font-medium text-rose-500 hover:text-rose-600 text-xs hover:underline transition"
-                        >
-                          <Trash2
-                            size={13}
-                          />
-                          Delete
-                        </button>
-
-                      </div>
-
+                      )}
                     </div>
 
+                    {/* MESSAGE */}
+
+                    <p
+                      className="
+                        overflow-wrap-anywhere
+                        mt-1
+                        text-slate-500 text-xs break-words leading-relaxed
+                      "
+                    >
+                      {notification.message ||
+                        "You have a new notification."}
+                    </p>
+
+                    {/* DATE */}
+
+                    <p
+                      className="
+                        mt-2
+                        text-[10px] text-slate-400 sm:text-[11px]
+                      "
+                    >
+                      {formatDate(
+                        notification.createdAt
+                      )}
+                    </p>
+
+                    {/* ACTIONS */}
+
+                    <div
+                      className="
+                        flex flex-wrap items-center
+                        mt-3
+                        gap-2 sm:gap-3
+                      "
+                    >
+                      {/* VIEW */}
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleOpen(
+                            notification
+                          )
+                        }
+                        className="inline-flex justify-center items-center gap-1 hover:bg-blue-50 px-2 rounded-lg min-h-[36px] font-medium text-blue-600 hover:text-blue-700 text-xs transition"
+                      >
+                        {notification.actionUrl
+                          ? "View"
+                          : "Mark as read"}
+
+                        <ArrowRight size={13} />
+                      </button>
+
+                      {/* DELETE */}
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleDelete(
+                            notification
+                          )
+                        }
+                        className="inline-flex justify-center items-center gap-1 hover:bg-rose-50 px-2 rounded-lg min-h-[36px] font-medium text-rose-500 hover:text-rose-600 text-xs transition"
+                      >
+                        <Trash2 size={13} />
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 </div>
-              );
-            }
-          )}
-
+              </div>
+            );
+          })}
       </div>
 
       {/* ===================================================
@@ -664,10 +675,13 @@ const NotificationDropdown = ({ onClose }) => {
 
       <div
         className="
-          p-4
+          bottom
+          pb-[calc(0.75rem+env(safe-area-inset-bottom))] p-3 sm:p-4
           text-center
           bg-white
           border-slate-200 border-t
+          /* * * Safe-area support for iPhones with navigation/home indicators.
+          */
         "
       >
         <button
@@ -676,14 +690,13 @@ const NotificationDropdown = ({ onClose }) => {
             navigate("/app/notifications");
             onClose?.();
           }}
-          className="inline-flex items-center gap-1 font-medium text-blue-600 hover:text-blue-700 text-sm hover:underline transition"
+          className="inline-flex justify-center items-center gap-1 hover:bg-blue-50 px-4 rounded-xl w-full sm:w-auto min-h-[40px] font-medium text-blue-600 hover:text-blue-700 text-sm transition"
         >
           View all notifications
 
           <ArrowRight size={14} />
         </button>
       </div>
-
     </div>
   );
 };
