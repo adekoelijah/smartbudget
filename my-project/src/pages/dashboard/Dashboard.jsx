@@ -1,507 +1,957 @@
 
-
-
 import {
+  useCallback,
   useEffect,
   useMemo,
   useState,
-  useCallback,
 } from "react";
 
-import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 
-/* SERVICES */
+/* ============================================================
+   SERVICES
+============================================================ */
+
 import {
   getTransactions,
+  exportTransactionsCSV,
 } from "./services/transactionService";
 
-/* ENGINE */
+/* ============================================================
+   PREFERENCES
+============================================================ */
+
+import usePreferences from "../settings/hooks/usePreferences";
+
+
+/* ============================================================
+   ENGINE
+============================================================ */
+
 import {
   computeFinancials,
 } from "./engine/FinancialEngine";
 
-/* COMPONENTS */
+/* ============================================================
+   COMPONENTS
+============================================================ */
+
 import DashboardHeader from "./components/DashboardHeader";
 import DashboardStats from "./components/DashboardStats";
-
 import RealTimeBalanceEngine from "./components/RealTimeBalanceEngine";
-
 import QuickActionsBar from "./components/QuickActionsBar";
-
-import MoneyMovementPanel from "./section/MoneyMovementPanel";
-
-import AnalyticsSwitcherEngine from "./section/AnalyticsSwitcherEngine";
-
-import InsightsPanel from "./section/InsightsPanel";
-
-import TransactionHistory from "./section/TransactionHistory";
-
 import TransactionAuditTrail from "./components/TransactionAuditTrail";
-
-import NotificationCenter from "./section/NotificationCenter";
-
-//new 
-import { useNavigate } from "react-router-dom";
-
 import TransactionModal from "./components/TransactionModal";
 
-import {
-  exportTransactionsCSV,
-} from "./services/transactionService";
+/* ============================================================
+   SECTIONS
+============================================================ */
 
-/* SOCKET */
+import AnalyticsSwitcherEngine from "./section/AnalyticsSwitcherEngine";
+import InsightsPanel from "./section/InsightsPanel";
+
+/* ============================================================
+   SOCKET
+============================================================ */
+
 import useSocket from "./hooks/useDashboardSocket";
 
-/* =========================================
-   NORMALIZER
-========================================= */
+/* ============================================================
+   CONSTANTS
+============================================================ */
+
+const DEFAULT_USER = {
+  id: null,
+  firstName: "",
+  lastName: "",
+  email: "",
+};
+
+/* ============================================================
+   TRANSACTION NORMALIZER
+============================================================ */
+
 const normalizeTransactions = (input) => {
-  if (!input) return [];
+  if (!input) {
+    return [];
+  }
 
-  if (Array.isArray(input)) return input;
+  if (Array.isArray(input)) {
+    return input;
+  }
 
-  if (Array.isArray(input?.transactions))
+  if (Array.isArray(input.transactions)) {
     return input.transactions;
+  }
 
-  if (Array.isArray(input?.data))
+  if (Array.isArray(input.data)) {
     return input.data;
+  }
 
-  if (Array.isArray(input?.data?.transactions))
+  if (
+    input.data &&
+    Array.isArray(input.data.transactions)
+  ) {
     return input.data.transactions;
+  }
 
   return [];
 };
 
-/* =========================================
-   DASHBOARD
-========================================= */
-const Dashboard = () => {
-  const [loading, setLoading] =
-    useState(true);
+/* ============================================================
+   USER NORMALIZER
+============================================================ */
 
-  const [transactions, setTransactions] =
-    useState([]);
+const getStoredUser = () => {
+  try {
+    const storedUser =
+      localStorage.getItem("user");
 
-  const [notifications, setNotifications] =
-    useState([]);
+    if (!storedUser) {
+      return DEFAULT_USER;
+    }
 
-    //new 
-    /* =========================================
-   QUICK ACTION HANDLERS
-========================================= */
+    const parsedUser =
+      JSON.parse(storedUser);
 
-/**
- * CREATE TRANSACTION
- */
-const handleCreateTransaction = (
-  type = "expense"
-) => {
-  setTransactionType(type);
-  setTransactionModalOpen(true);
+    if (
+      !parsedUser ||
+      typeof parsedUser !== "object"
+    ) {
+      return DEFAULT_USER;
+    }
+
+    return {
+      ...DEFAULT_USER,
+      ...parsedUser,
+    };
+  } catch (error) {
+    console.warn(
+      "DASHBOARD_USER_PARSE_ERROR:",
+      error
+    );
+
+    return DEFAULT_USER;
+  }
 };
 
-/**
- * OPEN GENERIC MODAL
- */
-const handleOpenTransactionModal =
-  () => {
-    setTransactionType("expense");
-    setTransactionModalOpen(true);
-  };
+/* ============================================================
+   TRANSACTION ID
+============================================================ */
 
-/**
- * REFRESH DASHBOARD
- */
-const handleRefresh =
-  async () => {
-    try {
-      await loadTransactions();
+const getTransactionId = (transaction) => {
+  if (!transaction) {
+    return null;
+  }
 
-      setNotifications((prev) => [
-        {
-          id: Date.now(),
-          type: "info",
-          message:
-            "Dashboard refreshed",
-          createdAt: new Date(),
-        },
-        ...prev,
-      ]);
-    } catch (err) {
-      console.error(
-        "Refresh error:",
-        err
-      );
-    }
-  };
+  return (
+    transaction._id ??
+    transaction.id ??
+    null
+  );
+};
 
-/**
- * EXPORT CSV
- */
-const handleExport =
-  async () => {
-    try {
-      exportTransactionsCSV(
-        transactions
-      );
+/* ============================================================
+   DASHBOARD
+============================================================ */
 
-      setNotifications((prev) => [
-        {
-          id: Date.now(),
-          type: "success",
-          message:
-            "Transactions exported successfully",
-          createdAt: new Date(),
-        },
-        ...prev,
-      ]);
-    } catch (err) {
-      console.error(
-        "Export failed:",
-        err
-      );
-    }
-  };
+const Dashboard = () => {
+  const navigate = useNavigate();
 
-/**
- * ANALYTICS ROUTE
- */
-const handleAnalytics =
-  () => {
-    navigate("/analytics");
-  };
+  /* ==========================================================
+     PREFERENCES
+  ========================================================== */
 
+  const {
+    preferences,
+    loading: preferencesLoading,
+    error: preferencesError,
+  } = usePreferences();
 
-
-    //new 
-
-    const navigate = useNavigate();
-
-     const [transactionModalOpen, setTransactionModalOpen] =
-  useState(false);
-
-   const [transactionType, setTransactionType] =
-  useState("expense");
-
-     const [refreshing, setRefreshing] =
-  useState(false);
-  /* =========================================
+  /* ==========================================================
      USER
-  ========================================= */
-  const userId = useMemo(() => {
-    try {
-      return JSON.parse(
-        localStorage.getItem("user")
-      )?.id;
-    } catch {
-      return null;
-    }
-  }, []);
+  ========================================================== */
 
-  /* =========================================
+  const [user] = useState(
+    () => getStoredUser()
+  );
+
+  const userId = useMemo(
+    () =>
+      user?.id ??
+      user?._id ??
+      null,
+    [user]
+  );
+
+  /* ==========================================================
+     TRANSACTIONS
+  ========================================================== */
+
+  const [
+    transactions,
+    setTransactions,
+  ] = useState([]);
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
+
+  const [
+    refreshing,
+    setRefreshing,
+  ] = useState(false);
+
+  /* ==========================================================
+     TRANSACTION MODAL
+  ========================================================== */
+
+  const [
+    transactionModalOpen,
+    setTransactionModalOpen,
+  ] = useState(false);
+
+  const [
+    transactionType,
+    setTransactionType,
+  ] = useState("expense");
+
+  /* ==========================================================
+     ONLINE STATUS
+  ========================================================== */
+
+  const [
+    isOnline,
+    setIsOnline,
+  ] = useState(
+    typeof navigator !== "undefined"
+      ? navigator.onLine
+      : true
+  );
+
+  /* ==========================================================
+     LAST SYNC
+  ========================================================== */
+
+  const [
+    lastSync,
+    setLastSync,
+  ] = useState(null);
+
+  /* ==========================================================
+     PREFERENCE VALUES
+  ========================================================== */
+
+  const currency =
+    preferences?.regional?.currency ??
+    "NGN";
+
+  const language =
+    preferences?.regional?.language ??
+    "en";
+
+  /* ==========================================================
      LOAD TRANSACTIONS
-  ========================================= */
+  ========================================================== */
+
   const loadTransactions =
-  useCallback(async () => {
-    try {
-      setRefreshing(true);
+    useCallback(
+      async ({
+        silent = false,
+      } = {}) => {
+        if (!silent) {
+          setRefreshing(true);
+        }
 
-      const res =
-        await getTransactions();
+        try {
+          const response =
+            await getTransactions();
 
-      const tx =
-        normalizeTransactions(res);
+          const normalized =
+            normalizeTransactions(
+              response
+            );
 
-      setTransactions(tx);
-    } catch (err) {
-      console.error(
-        "Dashboard load error:",
-        err
-      );
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+          setTransactions(
+            normalized
+          );
+
+          setLastSync(
+            new Date()
+          );
+
+          return {
+            success: true,
+            transactions:
+              normalized,
+          };
+        } catch (error) {
+          console.error(
+            "DASHBOARD_LOAD_ERROR:",
+            error
+          );
+
+          return {
+            success: false,
+            transactions: [],
+            error,
+          };
+        } finally {
+          setLoading(false);
+
+          if (!silent) {
+            setRefreshing(false);
+          }
+        }
+      },
+      []
+    );
+
+  /* ==========================================================
+     INITIAL TRANSACTION LOAD
+  ========================================================== */
 
   useEffect(() => {
     loadTransactions();
   }, [loadTransactions]);
 
-  /* =========================================
-     CENTRAL FINANCIAL ENGINE
-  ========================================= */
+  /* ==========================================================
+     ONLINE / OFFLINE LISTENERS
+  ========================================================== */
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+    };
+
+    window.addEventListener(
+      "online",
+      handleOnline
+    );
+
+    window.addEventListener(
+      "offline",
+      handleOffline
+    );
+
+    return () => {
+      window.removeEventListener(
+        "online",
+        handleOnline
+      );
+
+      window.removeEventListener(
+        "offline",
+        handleOffline
+      );
+    };
+  }, []);
+
+  /* ==========================================================
+     DOCUMENT LANGUAGE
+  ========================================================== */
+
+  useEffect(() => {
+    if (
+      typeof document !== "undefined" &&
+      language
+    ) {
+      document.documentElement.lang =
+        language;
+    }
+  }, [language]);
+
+  /* ==========================================================
+     FINANCIAL ENGINE
+  ========================================================== */
+
   const financials = useMemo(() => {
     return computeFinancials(
       transactions
     );
   }, [transactions]);
 
-  /* =========================================
-     SOCKET REAL-TIME SYNC
-  ========================================= */
-  useSocket(userId, (event) => {
-    if (!event?.type) return;
+  /* ==========================================================
+     CREATE TRANSACTION
+  ========================================================== */
 
-    switch (event.type) {
-      /* =========================
-         CREATED
-      ========================= */
-      case "transaction:created": {
-        const tx = event.data;
+  const handleCreateTransaction =
+    useCallback(
+      (type = "expense") => {
+        setTransactionType(
+          type === "income"
+            ? "income"
+            : "expense"
+        );
 
-        setTransactions((prev) => {
-          const exists = prev.some(
-            (p) => p._id === tx._id
+        setTransactionModalOpen(
+          true
+        );
+      },
+      []
+    );
+
+  /* ==========================================================
+     OPEN TRANSACTION MODAL
+  ========================================================== */
+
+  const handleOpenTransactionModal =
+    useCallback(() => {
+      setTransactionType(
+        "expense"
+      );
+
+      setTransactionModalOpen(
+        true
+      );
+    }, []);
+
+  /* ==========================================================
+     CLOSE TRANSACTION MODAL
+  ========================================================== */
+
+  const handleCloseTransactionModal =
+    useCallback(() => {
+      setTransactionModalOpen(
+        false
+      );
+    }, []);
+
+  /* ==========================================================
+     REFRESH DASHBOARD
+  ========================================================== */
+
+  const handleRefresh =
+    useCallback(async () => {
+      return loadTransactions();
+    }, [
+      loadTransactions,
+    ]);
+
+  /* ==========================================================
+     EXPORT CSV
+  ========================================================== */
+
+  const handleExport =
+    useCallback(async () => {
+      try {
+        if (
+          !transactions.length
+        ) {
+          return {
+            success: false,
+          };
+        }
+
+        await exportTransactionsCSV(
+          transactions
+        );
+
+        return {
+          success: true,
+        };
+      } catch (error) {
+        console.error(
+          "DASHBOARD_EXPORT_ERROR:",
+          error
+        );
+
+        return {
+          success: false,
+          error,
+        };
+      }
+    }, [
+      transactions,
+    ]);
+
+  /* ==========================================================
+     ANALYTICS
+  ========================================================== */
+
+  const handleAnalytics =
+    useCallback(() => {
+      navigate("/analytics");
+    }, [navigate]);
+
+  /* ==========================================================
+     TRANSACTION SUCCESS
+  ========================================================== */
+
+  const handleTransactionSuccess =
+    useCallback(
+      (transaction) => {
+        if (!transaction) {
+          setTransactionModalOpen(
+            false
           );
 
-          if (exists) return prev;
+          return;
+        }
 
-          return [tx, ...prev];
-        });
+        const transactionId =
+          getTransactionId(
+            transaction
+          );
 
-        setNotifications((prev) => [
-          {
-            id: Date.now(),
-            type: "success",
-            message:
-              "Transaction added successfully",
-            createdAt: new Date(),
-          },
-          ...prev,
-        ]);
+        setTransactions(
+          (previous) => {
+            /*
+             * Prevent duplicate transactions.
+             *
+             * The transaction modal success event
+             * and WebSocket event can both arrive
+             * for the same transaction.
+             */
 
-        break;
-      }
+            if (!transactionId) {
+              return [
+                transaction,
+                ...previous,
+              ];
+            }
 
-      /* =========================
-         UPDATED
-      ========================= */
-      case "transaction:updated": {
-        const tx = event.data;
+            const exists =
+              previous.some(
+                (item) =>
+                  getTransactionId(
+                    item
+                  ) === transactionId
+              );
 
-        setTransactions((prev) =>
-          prev.map((item) =>
-            item._id === tx._id
-              ? tx
-              : item
-          )
+            if (exists) {
+              return previous.map(
+                (item) =>
+                  getTransactionId(
+                    item
+                  ) === transactionId
+                    ? transaction
+                    : item
+              );
+            }
+
+            return [
+              transaction,
+              ...previous,
+            ];
+          }
         );
 
-        setNotifications((prev) => [
-          {
-            id: Date.now(),
-            type: "info",
-            message:
-              "Transaction updated",
-            createdAt: new Date(),
-          },
-          ...prev,
-        ]);
-
-        break;
-      }
-
-      /* =========================
-         DELETED
-      ========================= */
-      case "transaction:deleted": {
-        const id = event.data;
-
-        setTransactions((prev) =>
-          prev.filter(
-            (item) => item._id !== id
-          )
+        setLastSync(
+          new Date()
         );
 
-        setNotifications((prev) => [
-          {
-            id: Date.now(),
-            type: "danger",
-            message:
-              "Transaction deleted",
-            createdAt: new Date(),
-          },
-          ...prev,
-        ]);
+        setTransactionModalOpen(
+          false
+        );
+      },
+      []
+    );
 
-        break;
-      }
+  /* ==========================================================
+     WEBSOCKET REAL-TIME TRANSACTION SYNC
+     
+     IMPORTANT:
+     Notifications are NOT handled here.
+     
+     NotificationContext is now the single source
+     of truth for application notifications.
+  ========================================================== */
 
-      /* =========================
-         PUSH NOTIFICATIONS
-      ========================= */
-      case "notification:new": {
-        setNotifications((prev) => [
-          event.data,
-          ...prev,
-        ]);
+  useSocket(
+    userId,
+    useCallback(
+      (event) => {
+        if (
+          !event ||
+          typeof event !== "object" ||
+          !event.type
+        ) {
+          return;
+        }
 
-        break;
-      }
+        switch (event.type) {
+          /* ==================================================
+             CREATED
+          ================================================== */
 
-      default:
-        break;
-    }
-  });
+          case "transaction:created": {
+            const transaction =
+              event.data;
 
-  /* =========================================
+            if (!transaction) {
+              return;
+            }
+
+            const transactionId =
+              getTransactionId(
+                transaction
+              );
+
+            setTransactions(
+              (previous) => {
+                if (!transactionId) {
+                  return [
+                    transaction,
+                    ...previous,
+                  ];
+                }
+
+                const exists =
+                  previous.some(
+                    (item) =>
+                      getTransactionId(
+                        item
+                      ) === transactionId
+                  );
+
+                if (exists) {
+                  return previous;
+                }
+
+                return [
+                  transaction,
+                  ...previous,
+                ];
+              }
+            );
+
+            setLastSync(
+              new Date()
+            );
+
+            break;
+          }
+
+          /* ==================================================
+             UPDATED
+          ================================================== */
+
+          case "transaction:updated": {
+            const transaction =
+              event.data;
+
+            if (!transaction) {
+              return;
+            }
+
+            const transactionId =
+              getTransactionId(
+                transaction
+              );
+
+            if (!transactionId) {
+              return;
+            }
+
+            setTransactions(
+              (previous) =>
+                previous.map(
+                  (item) =>
+                    getTransactionId(
+                      item
+                    ) === transactionId
+                      ? transaction
+                      : item
+                )
+            );
+
+            setLastSync(
+              new Date()
+            );
+
+            break;
+          }
+
+          /* ==================================================
+             DELETED
+          ================================================== */
+
+          case "transaction:deleted": {
+            const deletedId =
+              typeof event.data ===
+              "object"
+                ? getTransactionId(
+                    event.data
+                  )
+                : event.data;
+
+            if (!deletedId) {
+              return;
+            }
+
+            setTransactions(
+              (previous) =>
+                previous.filter(
+                  (item) =>
+                    getTransactionId(
+                      item
+                    ) !== deletedId
+                )
+            );
+
+            setLastSync(
+              new Date()
+            );
+
+            break;
+          }
+
+          /*
+           * notification:new intentionally removed.
+           *
+           * NotificationContext owns notification
+           * synchronization and the NotificationPage /
+           * NotificationDropdown consume that state.
+           */
+
+          default:
+            break;
+        }
+      },
+      []
+    )
+  );
+
+  /* ==========================================================
      LOADING STATE
-  ========================================= */
-  if (loading) {
+  ========================================================== */
+
+  if (
+    loading ||
+    preferencesLoading
+  ) {
     return (
-      <div className="min-h-screen bg-slate-50 p-6">
-        <div className="max-w-7xl mx-auto space-y-6 animate-pulse">
+      <div
+        className="
+          min-h-screen
+          p-4 sm:p-6 lg:p-8
+          bg-slate-50
+        "
+      >
+        <div
+          className="
+            max-w-7xl
+            space-y-6 mx-auto
+            animate-pulse
+          "
+        >
+          {/* HEADER */}
 
-          <div className="h-24 rounded-3xl bg-white" />
+          <div
+            className="
+              h-24
+              bg-white
+              border border-slate-200 rounded-3xl
+            "
+            /
+          >
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-            <div className="h-32 rounded-3xl bg-white" />
-            <div className="h-32 rounded-3xl bg-white" />
-            <div className="h-32 rounded-3xl bg-white" />
-            <div className="h-32 rounded-3xl bg-white" />
+          {/* KPI */}
+
+          <div
+            className="
+              grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4
+              gap-4
+            "
+          >
+            {[
+              1,
+              2,
+              3,
+              4,
+            ].map((item) => (
+              <div
+                key={item}
+                className="
+                  h-32
+                  bg-white
+                  border border-slate-200 rounded-3xl
+                "
+                /
+              >
+            ))}
           </div>
 
-          <div className="h-96 rounded-3xl bg-white" />
+          {/* MAIN CONTENT */}
 
+          <div
+            className="
+              h-96
+              bg-white
+              border border-slate-200 rounded-3xl
+            "
+            /
+          >
         </div>
       </div>
     );
   }
 
-  /* =========================================
-     UI
-  ========================================= */
+  /* ==========================================================
+     MAIN UI
+  ========================================================== */
+
   return (
-    <div className="min-h-screen bg-slate-50">
-
-      <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 space-y-6">
-
-        {/* =====================================
+    <div
+      className="
+        min-h-screen
+        bg-slate-50
+      "
+    >
+      <div
+        className="
+          max-w-7xl
+          space-y-6 mx-auto p-4 md:p-6 lg:p-8
+        "
+      >
+        {/* ==================================================
             HEADER
-        ===================================== */}
-        <DashboardHeader
-  user={JSON.parse(localStorage.getItem("user"))}
-  status={{
-    isOnline: navigator.onLine,
-    lastSync: new Date(),
-  }}
-  notificationsCount={notifications.length}
-  loading={loading}
-  syncing={refreshing}
-  onRefresh={loadTransactions}
-  onExport={handleExport}
-/>
+        ================================================== */}
 
-        {/* =====================================
-            KPI STATS
-        ===================================== */}
-        <DashboardStats
-          transactions={transactions}
+        <DashboardHeader
+          user={user}
+          preferences={preferences}
+          status={{
+            isOnline,
+            lastSync,
+          }}
+          loading={
+            loading ||
+            preferencesLoading
+          }
+          syncing={refreshing}
+          onRefresh={handleRefresh}
+          onExport={handleExport}
         />
 
-        {/* =====================================
-            BALANCE + ACTIONS
-        ===================================== */}
-        <div className="grid grid-cols-1 xl:grid-cols-1 gap-6">
+        {/* ==================================================
+            PREFERENCE ERROR
+        ================================================== */}
 
-          <div className="xl:col-span-2">
-            <RealTimeBalanceEngine
-              transactions={transactions}
-            />
+        {preferencesError && (
+          <div
+            className="
+              px-4 py-3
+              text-amber-800 text-sm
+              bg-amber-50
+              border border-amber-200 rounded-2xl
+            "
+            role="status"
+          >
+            Some preferences could not
+            be synchronized. Your saved
+            settings are being used.
           </div>
+        )}
 
-          <div>
-            <QuickActionsBar
-  onCreateTransaction={
-    handleCreateTransaction
-  }
-  onRefresh={handleRefresh}
-  onOpenExport={handleExport}
-  onOpenAnalytics={
-    handleAnalytics
-  }
-  onOpenTransactionModal={
-    handleOpenTransactionModal
-  }
-  refreshing={refreshing}
-/>
-            
-          </div>
+        {/* ==================================================
+            KPI STATS
+        ================================================== */}
 
+        <DashboardStats
+          transactions={
+            transactions
+          }
+          currency={currency}
+        />
+
+        {/* ==================================================
+            BALANCE + QUICK ACTIONS
+        ================================================== */}
+
+        <div
+          className="
+            grid grid-cols-1
+            gap-6
+          "
+        >
+          <RealTimeBalanceEngine
+            transactions={
+              transactions
+            }
+            currency={currency}
+          />
+
+          <QuickActionsBar
+            onCreateTransaction={
+              handleCreateTransaction
+            }
+            onRefresh={
+              handleRefresh
+            }
+            onOpenExport={
+              handleExport
+            }
+            onOpenAnalytics={
+              handleAnalytics
+            }
+            onOpenTransactionModal={
+              handleOpenTransactionModal
+            }
+            refreshing={
+              refreshing
+            }
+          />
         </div>
 
-        {/* =====================================
-            MONEY FLOW
-        ===================================== */}
-        {/* <MoneyMovementPanel
-          transactions={transactions}
-        /> */}
-
-        {/* =====================================
+        {/* ==================================================
             ANALYTICS
-        ===================================== */}
+        ================================================== */}
+
         <AnalyticsSwitcherEngine
-          transactions={transactions}
+          transactions={
+            transactions
+          }
+          currency={currency}
         />
 
-        {/* =====================================
+        {/* ==================================================
             AI INSIGHTS
-        ===================================== */}
+        ================================================== */}
+
         <InsightsPanel
-          transactions={transactions}
-          financials={financials}
-        />
-
-        {/* =====================================
-            TRANSACTION HISTORY
-        ===================================== */}
-        {/* <TransactionHistory
-          transactions={transactions}
-        /> */}
-
-        {/* =====================================
-            AUDIT TRAIL
-        ===================================== */}
-        <TransactionAuditTrail
-          transactions={transactions}
-        />
-
-        {/* =====================================
-            NOTIFICATIONS
-        ===================================== */}
-        <NotificationCenter
-          notifications={
-            notifications
+          transactions={
+            transactions
+          }
+          financials={
+            financials
           }
         />
-        
+
+        {/* ==================================================
+            AUDIT TRAIL
+        ================================================== */}
+
+        <TransactionAuditTrail
+          transactions={
+            transactions
+          }
+        />
+
+        {/* ==================================================
+            TRANSACTION MODAL
+        ================================================== */}
+
         <TransactionModal
-  open={transactionModalOpen}
-  type={transactionType}
-  onClose={() =>
-    setTransactionModalOpen(false)
-  }
-  onSuccess={(transaction) => {
-    setTransactions((prev) => [
-      transaction,
-      ...prev,
-    ]);
-
-    setNotifications((prev) => [
-      {
-        id: Date.now(),
-        type: "success",
-        message:
-          "Transaction created successfully",
-      },
-      ...prev,
-    ]);
-
-    setTransactionModalOpen(false);
-  }}
-/>
-
+          open={
+            transactionModalOpen
+          }
+          type={
+            transactionType
+          }
+          onClose={
+            handleCloseTransactionModal
+          }
+          onSuccess={
+            handleTransactionSuccess
+          }
+        />
       </div>
     </div>
   );

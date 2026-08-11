@@ -1,203 +1,500 @@
 import {
-  useState,
-  useEffect,
   useCallback,
+  useEffect,
+  useRef,
+  useState,
 } from "react";
 
 import {
   getPreferencesRequest,
   updatePreferencesRequest,
   resetPreferencesRequest,
+  getPreferenceError,
 } from "../../../services/preferencesService";
 
 /*
-============================================================
-DEFAULT PREFERENCES
-============================================================
+|--------------------------------------------------------------------------
+| DEFAULT PREFERENCES
+|--------------------------------------------------------------------------
+|
+| Keep this structure synchronized with the backend Preference model.
+|
 */
 
-const DEFAULT_PREFERENCES = {
-  currency: "NGN",
-  language: "en",
-  timezone: "Africa/Lagos",
-  density: "comfortable",
-};
+export const DEFAULT_PREFERENCES = Object.freeze({
+  regional: {
+    language: "en",
+    currency: "NGN",
+    timezone: "Africa/Lagos",
+    dateFormat: "DD/MM/YYYY",
+  },
+
+  display: {
+    compactMode: false,
+    animations: true,
+    highContrast: false,
+  },
+
+  privacy: {
+    analytics: true,
+    profileVisibility: "private",
+    shareUsageData: false,
+  },
+});
+
+/*
+|--------------------------------------------------------------------------
+| LOCAL STORAGE
+|--------------------------------------------------------------------------
+*/
 
 const STORAGE_KEY = "smartbudget_preferences";
 
 /*
-============================================================
-NORMALIZE PREFERENCES
-============================================================
+|--------------------------------------------------------------------------
+| UTILITY FUNCTIONS
+|--------------------------------------------------------------------------
 */
 
-const normalizePreferences = (value = {}) => {
-  if (!value || typeof value !== "object") {
-    return {
-      ...DEFAULT_PREFERENCES,
-    };
+/**
+ * Create a fresh default preferences object.
+ *
+ * We avoid returning DEFAULT_PREFERENCES directly because
+ * nested objects should never be mutated by React state.
+ */
+const createDefaultPreferences = () => ({
+  regional: {
+    ...DEFAULT_PREFERENCES.regional,
+  },
+
+  display: {
+    ...DEFAULT_PREFERENCES.display,
+  },
+
+  privacy: {
+    ...DEFAULT_PREFERENCES.privacy,
+  },
+});
+
+/**
+ * Check whether a value is a plain object.
+ */
+const isObject = (value) => {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value)
+  );
+};
+
+/**
+ * Deep clone preferences.
+ */
+const clonePreferences = (value) => {
+  if (!isObject(value)) {
+    return createDefaultPreferences();
   }
 
   return {
-    ...DEFAULT_PREFERENCES,
-    ...value,
+    regional: {
+      ...value.regional,
+    },
+
+    display: {
+      ...value.display,
+    },
+
+    privacy: {
+      ...value.privacy,
+    },
   };
 };
 
+/**
+ * Normalize preferences coming from the API or localStorage.
+ *
+ * This performs a DEEP merge so that a partial API response
+ * does not accidentally remove an entire preference section.
+ */
+const normalizePreferences = (value = {}) => {
+  if (!isObject(value)) {
+    return createDefaultPreferences();
+  }
+
+  return {
+    regional: {
+      ...DEFAULT_PREFERENCES.regional,
+      ...(isObject(value.regional)
+        ? value.regional
+        : {}),
+    },
+
+    display: {
+      ...DEFAULT_PREFERENCES.display,
+      ...(isObject(value.display)
+        ? value.display
+        : {}),
+    },
+
+    privacy: {
+      ...DEFAULT_PREFERENCES.privacy,
+      ...(isObject(value.privacy)
+        ? value.privacy
+        : {}),
+    },
+  };
+};
+
+/**
+ * Extract preferences from the backend response.
+ *
+ * The preferred production response is:
+ *
+ * {
+ *   success: true,
+ *   preferences: {...}
+ * }
+ *
+ * Your current controller returns:
+ *
+ * {
+ *   success: true,
+ *   settings: {...}
+ * }
+ *
+ * We temporarily support BOTH so the frontend does not break
+ * while the backend response naming is being standardized.
+ */
+const extractPreferences = (response) => {
+  if (!response) {
+    return null;
+  }
+
+  if (isObject(response.preferences)) {
+    return response.preferences;
+  }
+
+  if (isObject(response.settings)) {
+    return response.settings;
+  }
+
+  if (
+    isObject(response.data) &&
+    isObject(response.data.preferences)
+  ) {
+    return response.data.preferences;
+  }
+
+  if (
+    isObject(response.data) &&
+    isObject(response.data.settings)
+  ) {
+    return response.data.settings;
+  }
+
+  return null;
+};
+
+/**
+ * Compare two preference objects.
+ */
+const arePreferencesEqual = (
+  first,
+  second
+) => {
+  return (
+    JSON.stringify(first) ===
+    JSON.stringify(second)
+  );
+};
+
 /*
-============================================================
-HOOK
-============================================================
+|--------------------------------------------------------------------------
+| LOCAL STORAGE HELPERS
+|--------------------------------------------------------------------------
+*/
+
+/**
+ * Save preferences to localStorage.
+ *
+ * localStorage is only a cache/fallback.
+ * The backend remains the source of truth.
+ */
+const saveLocalPreferences = (
+  preferences
+) => {
+  try {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify(
+        normalizePreferences(preferences)
+      )
+    );
+
+    return true;
+  } catch (error) {
+    console.warn(
+      "PREFERENCES_LOCAL_SAVE_ERROR:",
+      error
+    );
+
+    return false;
+  }
+};
+
+/**
+ * Load preferences from localStorage.
+ */
+const loadLocalPreferences = () => {
+  try {
+    const stored =
+      localStorage.getItem(STORAGE_KEY);
+
+    if (!stored) {
+      return createDefaultPreferences();
+    }
+
+    const parsed = JSON.parse(stored);
+
+    return normalizePreferences(parsed);
+  } catch (error) {
+    console.warn(
+      "PREFERENCES_LOCAL_LOAD_ERROR:",
+      error
+    );
+
+    return createDefaultPreferences();
+  }
+};
+
+/**
+ * Remove the local preference cache.
+ */
+const clearLocalPreferences = () => {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch (error) {
+    console.warn(
+      "PREFERENCES_LOCAL_CLEAR_ERROR:",
+      error
+    );
+  }
+};
+
+/*
+|--------------------------------------------------------------------------
+| HOOK
+|--------------------------------------------------------------------------
 */
 
 const usePreferences = () => {
-  const [preferences, setPreferences] = useState(
-    DEFAULT_PREFERENCES
-  );
+  /*
+  |--------------------------------------------------------------------------
+  | STATE
+  |--------------------------------------------------------------------------
+  */
 
-  const [loading, setLoading] = useState(true);
+  /**
+   * Current editable preference state.
+   */
+  const [preferences, setPreferences] =
+    useState(
+      createDefaultPreferences()
+    );
 
-  const [saving, setSaving] = useState(false);
+  /**
+   * Last successfully persisted state.
+   *
+   * Used for:
+   * - isDirty
+   * - discardChanges
+   * - rollback
+   */
+  const [savedPreferences, setSavedPreferences] =
+    useState(
+      createDefaultPreferences()
+    );
 
-  const [message, setMessage] = useState("");
+  /**
+   * Initial/fetch loading state.
+   */
+  const [loading, setLoading] =
+    useState(true);
 
-  const [error, setError] = useState("");
+  /**
+   * Save request state.
+   */
+  const [saving, setSaving] =
+    useState(false);
+
+  /**
+   * Reset request state.
+   */
+  const [resetting, setResetting] =
+    useState(false);
+
+  /**
+   * User-facing success message.
+   */
+  const [message, setMessage] =
+    useState("");
+
+  /**
+   * User-facing error message.
+   */
+  const [error, setError] =
+    useState("");
 
   /*
-  ============================================================
-  CLEAR STATUS
-  ============================================================
+  |--------------------------------------------------------------------------
+  | REFS
+  |--------------------------------------------------------------------------
+  */
+
+  /**
+   * Prevent state updates after unmount.
+   */
+  const isMountedRef =
+    useRef(true);
+
+  /**
+   * Prevent duplicate save requests.
+   */
+  const saveRequestRef =
+    useRef(null);
+
+  /*
+  |--------------------------------------------------------------------------
+  | LIFECYCLE
+  |--------------------------------------------------------------------------
+  */
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  /*
+  |--------------------------------------------------------------------------
+  | STATUS
+  |--------------------------------------------------------------------------
   */
 
   const clearStatus = useCallback(() => {
+    if (!isMountedRef.current) {
+      return;
+    }
+
     setMessage("");
     setError("");
   }, []);
 
   /*
-  ============================================================
-  SAVE LOCAL CACHE
-  ============================================================
-  */
-
-  const saveLocal = useCallback((data) => {
-    try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify(
-          normalizePreferences(data)
-        )
-      );
-    } catch (storageError) {
-      console.warn(
-        "PREFERENCES_LOCAL_SAVE_ERROR:",
-        storageError
-      );
-    }
-  }, []);
-
-  /*
-  ============================================================
-  LOAD LOCAL CACHE
-  ============================================================
-  */
-
-  const loadLocal = useCallback(() => {
-    try {
-      const stored =
-        localStorage.getItem(STORAGE_KEY);
-
-      if (!stored) {
-        return {
-          ...DEFAULT_PREFERENCES,
-        };
-      }
-
-      return normalizePreferences(
-        JSON.parse(stored)
-      );
-    } catch (error) {
-      console.warn(
-        "PREFERENCES_LOCAL_LOAD_ERROR:",
-        error
-      );
-
-      return {
-        ...DEFAULT_PREFERENCES,
-      };
-    }
-  }, []);
-
-  /*
-  ============================================================
-  FETCH PREFERENCES
-  ============================================================
+  |--------------------------------------------------------------------------
+  | FETCH PREFERENCES
+  |--------------------------------------------------------------------------
   */
 
   const fetchPreferences =
-    useCallback(async () => {
-      try {
-        setLoading(true);
+    useCallback(
+      async ({
+        useCacheOnError = true,
+        silent = false,
+      } = {}) => {
+        if (!silent) {
+          setLoading(true);
+        }
+
         setError("");
 
-        const response =
-          await getPreferencesRequest();
+        try {
+          const response =
+            await getPreferencesRequest();
 
-        const data =
-          response?.preferences ??
-          response?.data?.preferences ??
-          response?.data ??
-          DEFAULT_PREFERENCES;
+          const serverPreferences =
+            extractPreferences(response);
 
-        const normalized =
-          normalizePreferences(data);
+          const normalized =
+            normalizePreferences(
+              serverPreferences
+            );
 
-        setPreferences(normalized);
+          if (isMountedRef.current) {
+            setPreferences(normalized);
 
-        saveLocal(normalized);
+            setSavedPreferences(
+              clonePreferences(normalized)
+            );
 
-        return {
-          success: true,
-          preferences: normalized,
-        };
-      } catch (err) {
-        console.error(
-          "FETCH_PREFERENCES_ERROR:",
-          err
-        );
+            setError("");
+          }
 
-        /*
-        --------------------------------------------------------
-        FALLBACK TO LOCAL CACHE
-        --------------------------------------------------------
-        */
+          /*
+          | Cache only successfully fetched
+          | server preferences.
+          */
+          saveLocalPreferences(
+            normalized
+          );
 
-        const cached = loadLocal();
+          return {
+            success: true,
+            preferences: normalized,
+          };
+        } catch (requestError) {
+          console.error(
+            "FETCH_PREFERENCES_ERROR:",
+            requestError
+          );
 
-        setPreferences(cached);
+          const cached =
+            loadLocalPreferences();
 
-        setError(
-          err?.response?.status === 404
-            ? "Preferences service is unavailable."
-            : "Unable to load preferences. Using saved settings."
-        );
+          if (
+            useCacheOnError &&
+            isMountedRef.current
+          ) {
+            setPreferences(cached);
 
-        return {
-          success: false,
-          preferences: cached,
-        };
-      } finally {
-        setLoading(false);
-      }
-    }, [
-      loadLocal,
-      saveLocal,
-    ]);
+            setSavedPreferences(
+              clonePreferences(cached)
+            );
+          }
+
+          const errorMessage =
+            getPreferenceError(
+              requestError,
+              "Unable to load preferences. Using saved settings."
+            );
+
+          if (isMountedRef.current) {
+            setError(errorMessage);
+          }
+
+          return {
+            success: false,
+            preferences: useCacheOnError
+              ? cached
+              : createDefaultPreferences(),
+            error: requestError,
+          };
+        } finally {
+          if (
+            !silent &&
+            isMountedRef.current
+          ) {
+            setLoading(false);
+          }
+        }
+      },
+      []
+    );
 
   /*
-  ============================================================
-  INITIAL LOAD
-  ============================================================
+  |--------------------------------------------------------------------------
+  | INITIAL LOAD
+  |--------------------------------------------------------------------------
   */
 
   useEffect(() => {
@@ -205,183 +502,485 @@ const usePreferences = () => {
   }, [fetchPreferences]);
 
   /*
-  ============================================================
-  UPDATE ONE PREFERENCE
-  ============================================================
+  |--------------------------------------------------------------------------
+  | UPDATE SINGLE PREFERENCE
+  |--------------------------------------------------------------------------
+  |
+  | Supports BOTH:
+  |
+  | updatePreference(
+  |   "regional.currency",
+  |   "USD"
+  | );
+  |
+  | AND:
+  |
+  | updatePreference(
+  |   "regional",
+  |   "currency",
+  |   "USD"
+  | );
+  |
   */
 
   const updatePreference =
     useCallback(
-      (key, value) => {
-        setPreferences((previous) => {
-          const updated = {
+      (
+        sectionOrPath,
+        keyOrValue,
+        possibleValue
+      ) => {
+        let section;
+        let key;
+        let value;
+
+        /*
+        | Dotted path:
+        |
+        | updatePreference(
+        |   "regional.currency",
+        |   "USD"
+        | );
+        */
+        if (
+          typeof sectionOrPath ===
+            "string" &&
+          sectionOrPath.includes(".")
+        ) {
+          [
+            section,
+            key,
+          ] = sectionOrPath.split(".");
+
+          value = keyOrValue;
+        }
+
+        /*
+        | Section/key/value:
+        |
+        | updatePreference(
+        |   "regional",
+        |   "currency",
+        |   "USD"
+        | );
+        */
+        else {
+          section =
+            sectionOrPath;
+
+          key =
+            keyOrValue;
+
+          value =
+            possibleValue;
+        }
+
+        if (
+          !section ||
+          !key
+        ) {
+          console.warn(
+            "UPDATE_PREFERENCE_WARNING: Section and key are required."
+          );
+
+          return;
+        }
+
+        if (
+          !Object.prototype.hasOwnProperty.call(
+            DEFAULT_PREFERENCES,
+            section
+          )
+        ) {
+          console.warn(
+            `UPDATE_PREFERENCE_WARNING: Unknown preference section "${section}".`
+          );
+
+          return;
+        }
+
+        if (
+          !Object.prototype.hasOwnProperty.call(
+            DEFAULT_PREFERENCES[section],
+            key
+          )
+        ) {
+          console.warn(
+            `UPDATE_PREFERENCE_WARNING: Unknown preference key "${section}.${key}".`
+          );
+
+          return;
+        }
+
+        setPreferences(
+          (previous) => ({
             ...previous,
-            [key]: value,
-          };
 
-          saveLocal(updated);
+            [section]: {
+              ...previous[section],
+              [key]: value,
+            },
+          })
+        );
 
-          return updated;
-        });
-
-        setMessage("");
-        setError("");
+        clearStatus();
       },
-      [saveLocal]
+      [clearStatus]
     );
 
   /*
-  ============================================================
-  UPDATE MULTIPLE PREFERENCES
-  ============================================================
+  |--------------------------------------------------------------------------
+  | UPDATE MULTIPLE PREFERENCES
+  |--------------------------------------------------------------------------
+  |
+  | Example:
+  |
+  | updateMany({
+  |   regional: {
+  |     currency: "USD",
+  |     language: "en"
+  |   },
+  |
+  |   display: {
+  |     compactMode: true
+  |   }
+  | });
+  |
   */
 
   const updateMany =
     useCallback(
       (updates = {}) => {
-        setPreferences((previous) => {
-          const updated = {
-            ...previous,
-            ...updates,
-          };
+        if (!isObject(updates)) {
+          console.warn(
+            "UPDATE_MANY_PREFERENCES_WARNING: Updates must be an object."
+          );
 
-          saveLocal(updated);
+          return;
+        }
 
-          return updated;
-        });
+        setPreferences(
+          (previous) =>
+            normalizePreferences({
+              ...previous,
 
-        setMessage("");
-        setError("");
+              regional: {
+                ...previous.regional,
+                ...(isObject(updates.regional)
+                  ? updates.regional
+                  : {}),
+              },
+
+              display: {
+                ...previous.display,
+                ...(isObject(updates.display)
+                  ? updates.display
+                  : {}),
+              },
+
+              privacy: {
+                ...previous.privacy,
+                ...(isObject(updates.privacy)
+                  ? updates.privacy
+                  : {}),
+              },
+            })
+        );
+
+        clearStatus();
       },
-      [saveLocal]
+      [clearStatus]
     );
 
   /*
-  ============================================================
-  SAVE PREFERENCES
-  ============================================================
+  |--------------------------------------------------------------------------
+  | DISCARD UNSAVED CHANGES
+  |--------------------------------------------------------------------------
+  */
+
+  const discardChanges =
+    useCallback(() => {
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      setPreferences(
+        clonePreferences(
+          savedPreferences
+        )
+      );
+
+      clearStatus();
+    }, [
+      savedPreferences,
+      clearStatus,
+    ]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | SAVE PREFERENCES
+  |--------------------------------------------------------------------------
   */
 
   const savePreferences =
     useCallback(async () => {
-      try {
+      /*
+      | Prevent duplicate PUT requests.
+      */
+      if (saveRequestRef.current) {
+        return saveRequestRef.current;
+      }
+
+      if (isMountedRef.current) {
         setSaving(true);
         setError("");
         setMessage("");
-
-        const payload =
-          normalizePreferences(
-            preferences
-          );
-
-        const response =
-          await updatePreferencesRequest(
-            payload
-          );
-
-        const data =
-          response?.preferences ??
-          response?.data?.preferences ??
-          response?.data ??
-          payload;
-
-        const normalized =
-          normalizePreferences(data);
-
-        setPreferences(normalized);
-
-        saveLocal(normalized);
-
-        setMessage(
-          "Preferences updated successfully."
-        );
-
-        return {
-          success: true,
-          preferences: normalized,
-        };
-      } catch (err) {
-        console.error(
-          "SAVE_PREFERENCES_ERROR:",
-          err
-        );
-
-        setError(
-          err?.response?.data?.message ||
-            "Unable to save preferences."
-        );
-
-        return {
-          success: false,
-        };
-      } finally {
-        setSaving(false);
       }
-    }, [
-      preferences,
-      saveLocal,
-    ]);
+
+      const payload =
+        normalizePreferences(
+          preferences
+        );
+
+      const request =
+        updatePreferencesRequest(
+          payload
+        )
+          .then((response) => {
+            /*
+            | Backend should eventually return:
+            |
+            | {
+            |   success: true,
+            |   preferences: {...}
+            | }
+            |
+            | We also support the current
+            | `settings` response temporarily.
+            */
+            const serverPreferences =
+              extractPreferences(
+                response
+              );
+
+            const normalized =
+              serverPreferences
+                ? normalizePreferences(
+                    serverPreferences
+                  )
+                : payload;
+
+            if (
+              isMountedRef.current
+            ) {
+              setPreferences(
+                normalized
+              );
+
+              setSavedPreferences(
+                clonePreferences(
+                  normalized
+                )
+              );
+
+              setMessage(
+                "Preferences updated successfully."
+              );
+
+              setError("");
+            }
+
+            /*
+            | Cache only after successful
+            | server persistence.
+            */
+            saveLocalPreferences(
+              normalized
+            );
+
+            return {
+              success: true,
+              preferences: normalized,
+            };
+          })
+          .catch((requestError) => {
+            console.error(
+              "SAVE_PREFERENCES_ERROR:",
+              requestError
+            );
+
+            const errorMessage =
+              getPreferenceError(
+                requestError,
+                "Unable to save preferences."
+              );
+
+            if (
+              isMountedRef.current
+            ) {
+              setError(
+                errorMessage
+              );
+
+              setMessage("");
+            }
+
+            return {
+              success: false,
+              error: requestError,
+            };
+          })
+          .finally(() => {
+            saveRequestRef.current =
+              null;
+
+            if (
+              isMountedRef.current
+            ) {
+              setSaving(false);
+            }
+          });
+
+      saveRequestRef.current =
+        request;
+
+      return request;
+    }, [preferences]);
 
   /*
-  ============================================================
-  RESET PREFERENCES
-  ============================================================
+  |--------------------------------------------------------------------------
+  | RESET PREFERENCES
+  |--------------------------------------------------------------------------
   */
 
   const resetPreferences =
     useCallback(async () => {
-      try {
-        setSaving(true);
+      if (resetting) {
+        return {
+          success: false,
+        };
+      }
+
+      if (isMountedRef.current) {
+        setResetting(true);
         setError("");
         setMessage("");
+      }
 
+      try {
         const response =
           await resetPreferencesRequest();
 
-        const data =
-          response?.preferences ??
-          response?.data?.preferences ??
-          response?.data ??
-          DEFAULT_PREFERENCES;
+        const serverPreferences =
+          extractPreferences(
+            response
+          );
 
         const normalized =
-          normalizePreferences(data);
+          normalizePreferences(
+            serverPreferences
+          );
 
-        setPreferences(normalized);
+        if (
+          isMountedRef.current
+        ) {
+          setPreferences(
+            normalized
+          );
 
-        saveLocal(normalized);
+          setSavedPreferences(
+            clonePreferences(
+              normalized
+            )
+          );
 
-        setMessage(
-          "Preferences restored successfully."
+          setMessage(
+            "Preferences restored successfully."
+          );
+
+          setError("");
+        }
+
+        /*
+        | Replace cache with the newly
+        | confirmed server state.
+        */
+        saveLocalPreferences(
+          normalized
         );
 
         return {
           success: true,
           preferences: normalized,
         };
-      } catch (err) {
+      } catch (requestError) {
         console.error(
           "RESET_PREFERENCES_ERROR:",
-          err
+          requestError
         );
 
-        setError(
-          err?.response?.data?.message ||
+        const errorMessage =
+          getPreferenceError(
+            requestError,
             "Unable to reset preferences."
-        );
+          );
+
+        if (
+          isMountedRef.current
+        ) {
+          setError(
+            errorMessage
+          );
+
+          setMessage("");
+        }
 
         return {
           success: false,
+          error: requestError,
         };
       } finally {
-        setSaving(false);
+        if (
+          isMountedRef.current
+        ) {
+          setResetting(false);
+        }
       }
-    }, [saveLocal]);
+    }, [resetting]);
 
   /*
-  ============================================================
-  AUTO CLEAR STATUS
-  ============================================================
+  |--------------------------------------------------------------------------
+  | REFRESH FROM SERVER
+  |--------------------------------------------------------------------------
+  */
+
+  const refreshPreferences =
+    useCallback(async () => {
+      clearStatus();
+
+      return fetchPreferences({
+        useCacheOnError: false,
+      });
+    }, [
+      clearStatus,
+      fetchPreferences,
+    ]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | CLEAR CACHE
+  |--------------------------------------------------------------------------
+  */
+
+  const clearCache =
+    useCallback(() => {
+      clearLocalPreferences();
+    }, []);
+
+  /*
+  |--------------------------------------------------------------------------
+  | AUTO-CLEAR STATUS
+  |--------------------------------------------------------------------------
   */
 
   useEffect(() => {
@@ -390,40 +989,99 @@ const usePreferences = () => {
     }
 
     const timer = setTimeout(() => {
-      clearStatus();
+      if (
+        isMountedRef.current
+      ) {
+        setMessage("");
+        setError("");
+      }
     }, 4000);
 
     return () => {
       clearTimeout(timer);
     };
-  }, [
-    message,
-    error,
-    clearStatus,
-  ]);
+  }, [message, error]);
 
   /*
-  ============================================================
-  RETURN API
-  ============================================================
+  |--------------------------------------------------------------------------
+  | DERIVED STATE
+  |--------------------------------------------------------------------------
+  */
+
+  const isDirty =
+    !arePreferencesEqual(
+      preferences,
+      savedPreferences
+    );
+
+  const hasError =
+    Boolean(error);
+
+  const hasMessage =
+    Boolean(message);
+
+  /*
+  |--------------------------------------------------------------------------
+  | RETURN API
+  |--------------------------------------------------------------------------
   */
 
   return {
+    /*
+    |----------------------------------------------------------------------
+    | Preferences
+    |----------------------------------------------------------------------
+    */
+
     preferences,
 
+    savedPreferences,
+
+    /*
+    |----------------------------------------------------------------------
+    | State
+    |----------------------------------------------------------------------
+    */
+
     loading,
+
     saving,
 
+    resetting,
+
+    isDirty,
+
     message,
+
     error,
+
+    hasError,
+
+    hasMessage,
+
+    /*
+    |----------------------------------------------------------------------
+    | Actions
+    |----------------------------------------------------------------------
+    */
 
     fetchPreferences,
 
+    refreshPreferences,
+
     updatePreference,
+
     updateMany,
 
     savePreferences,
+
+    discardChanges,
+
     resetPreferences,
+
+    clearStatus,
+
+    clearCache,
   };
 };
 

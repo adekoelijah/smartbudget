@@ -1,121 +1,204 @@
 
-
-
-
+import { useMemo } from "react";
 import {
+  ArrowDownRight,
+  ArrowUpRight,
+  ArrowUpCircle,
+  ArrowDownCircle,
+  Wallet,
+  PiggyBank,
+  Activity,
   TrendingUp,
   TrendingDown,
-  Wallet,
-  ArrowDownCircle,
-  ArrowUpCircle,
-  Percent,
-  Activity,
-  ShieldCheck,
-  Sparkles,
 } from "lucide-react";
 
-import { useMemo } from "react";
+import { computeFinancials } from "../engine/FinancialEngine";
 
-/* =========================================
-   CENTRAL FINANCIAL ENGINE
-========================================= */
-import {
-  computeFinancials,
-} from "../engine/FinancialEngine";
-
-/* =========================================
+/* =========================================================
    FORMATTERS
-========================================= */
-const formatCurrency = (value = 0) =>
-  new Intl.NumberFormat("en-NG", {
-    style: "currency",
-    currency: "NGN",
-    maximumFractionDigits: 0,
-  }).format(Number(value || 0));
+========================================================= */
 
-const formatPercent = (value = 0) =>
-  `${Number(value || 0).toFixed(1)}%`;
-
-/* =========================================
-   HEALTH ENGINE
-========================================= */
-const getHealthState = (
-  savingsRatio,
-  efficiencyRatio
+const formatCurrency = (
+  value = 0,
+  currency = "NGN"
 ) => {
-  if (
-    savingsRatio >= 30 &&
-    efficiencyRatio >= 70
-  ) {
-    return {
-      label: "Strong",
-      tone: "positive",
-      icon: ShieldCheck,
-      description:
-        "Healthy cashflow and spending discipline",
-    };
+  const amount = Number(value);
+
+  if (!Number.isFinite(amount)) {
+    return new Intl.NumberFormat("en-NG", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0,
+    }).format(0);
   }
 
-  if (
-    savingsRatio >= 10 &&
-    efficiencyRatio >= 50
-  ) {
-    return {
-      label: "Stable",
-      tone: "warning",
-      icon: Activity,
-      description:
-        "Moderate financial performance",
-    };
-  }
-
-  return {
-    label: "Weak",
-    tone: "negative",
-    icon: TrendingDown,
-    description:
-      "High expense pressure detected",
-  };
+  return new Intl.NumberFormat("en-NG", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 0,
+  }).format(amount);
 };
 
-/* =========================================
-   CARD COMPONENT
-========================================= */
+const formatNumber = (value = 0) => {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return "0";
+  }
+
+  return new Intl.NumberFormat("en-NG").format(number);
+};
+
+const formatPercent = (value = 0) => {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return "0.0%";
+  }
+
+  return `${number.toFixed(1)}%`;
+};
+
+/* =========================================================
+   SAFE NUMBER
+========================================================= */
+
+const toNumber = (value) => {
+  const number = Number(value);
+
+  return Number.isFinite(number)
+    ? number
+    : 0;
+};
+
+/* =========================================================
+   TREND INDICATOR
+========================================================= */
+
+const TrendIndicator = ({
+  value = 0,
+  positiveIsGood = true,
+}) => {
+  const trend = toNumber(value);
+
+  if (trend === 0) {
+    return (
+      <span
+        className="
+          inline-flex items-center
+          px-2 py-1
+          font-semibold text-[11px] text-slate-500
+          bg-slate-50
+          border border-slate-200 rounded-full
+        "
+      >
+        No change
+      </span>
+    );
+  }
+
+  const isPositive =
+    positiveIsGood
+      ? trend > 0
+      : trend < 0;
+
+  const Icon =
+    trend > 0
+      ? ArrowUpRight
+      : ArrowDownRight;
+
+  return (
+    <span
+      className={`
+        inline-flex
+        items-center
+        gap-0.5
+        rounded-full
+        border
+        px-2 py-1
+        text-[11px]
+        font-semibold
+        ${
+          isPositive
+            ? "border-emerald-100 bg-emerald-50 text-emerald-600"
+            : "border-rose-100 bg-rose-50 text-rose-600"
+        }
+      `}
+    >
+      <Icon size={12} strokeWidth={2.5} />
+
+      {Math.abs(trend).toFixed(1)}%
+    </span>
+  );
+};
+
+/* =========================================================
+   STAT CARD
+========================================================= */
+
 const StatCard = ({
   icon: Icon,
   label,
   value,
-  sub,
+  description,
   trend,
+  positiveIsGood = true,
   tone = "neutral",
+  primary = false,
 }) => {
   const tones = {
-    positive: {
-      bg: "bg-emerald-50/70",
-      border: "border-emerald-100",
-      icon: "text-emerald-600",
-      glow: "shadow-emerald-100",
+    primary: {
+      icon:
+        "bg-slate-900 text-white",
+      border:
+        "border-slate-200",
+      accent:
+        "bg-slate-900",
     },
 
-    negative: {
-      bg: "bg-rose-50/70",
-      border: "border-rose-100",
-      icon: "text-rose-600",
-      glow: "shadow-rose-100",
+    income: {
+      icon:
+        "bg-emerald-50 text-emerald-600",
+      border:
+        "border-emerald-100",
+      accent:
+        "bg-emerald-500",
     },
 
-    warning: {
-      bg: "bg-amber-50/70",
-      border: "border-amber-100",
-      icon: "text-amber-600",
-      glow: "shadow-amber-100",
+    expense: {
+      icon:
+        "bg-rose-50 text-rose-600",
+      border:
+        "border-rose-100",
+      accent:
+        "bg-rose-500",
+    },
+
+    savings: {
+      icon:
+        "bg-blue-50 text-blue-600",
+      border:
+        "border-blue-100",
+      accent:
+        "bg-blue-500",
+    },
+
+    cashflow: {
+      icon:
+        "bg-violet-50 text-violet-600",
+      border:
+        "border-violet-100",
+      accent:
+        "bg-violet-500",
     },
 
     neutral: {
-      bg: "bg-slate-50",
-      border: "border-slate-200",
-      icon: "text-slate-600",
-      glow: "shadow-slate-100",
+      icon:
+        "bg-slate-50 text-slate-600",
+      border:
+        "border-slate-200",
+      accent:
+        "bg-slate-400",
     },
   };
 
@@ -123,218 +206,361 @@ const StatCard = ({
     tones[tone] || tones.neutral;
 
   return (
-    <div
+    <article
       className={`
-        relative overflow-hidden
-        rounded-3xl border
+        group
+        relative
+        overflow-hidden
+        rounded-2xl
+        border
+        bg-white
         ${activeTone.border}
-        bg-white/90 backdrop-blur-xl
         p-5
-        shadow-sm hover:shadow-lg
-        transition-all duration-300
+        shadow-sm
+        transition-all
+        duration-200
+        hover:-translate-y-0.5
+        hover:shadow-md
+        ${
+          primary
+            ? "min-h-[170px]"
+            : "min-h-[155px]"
+        }
       `}
     >
-      {/* Glow */}
+      {/* Top accent */}
+
       <div
         className={`
-          absolute -top-10 -right-10
-          h-28 w-28 rounded-full blur-3xl opacity-20
-          ${activeTone.bg}
+          absolute
+          inset-x-0
+          top-0
+          h-0.5
+          ${activeTone.accent}
         `}
       />
 
       {/* Header */}
-      <div className="relative flex items-start justify-between">
-        <div>
-          <p className="text-[11px] uppercase tracking-wide text-slate-400 font-medium">
-            {label}
-          </p>
 
-          <h3 className="mt-3 text-2xl font-bold tracking-tight text-slate-900">
-            {value}
-          </h3>
-        </div>
-
+      <div
+        className="
+          flex justify-between items-start
+          gap-4
+        "
+      >
         <div
           className={`
-            flex h-11 w-11 items-center justify-center
-            rounded-2xl border bg-white
-            ${activeTone.border}
-            shadow-sm
+            flex
+            h-10
+            w-10
+            shrink-0
+            items-center
+            justify-center
+            rounded-xl
+            ${activeTone.icon}
           `}
         >
           <Icon
-            size={18}
-            className={activeTone.icon}
+            size={19}
+            strokeWidth={2}
           />
         </div>
-      </div>
-
-      {/* Footer */}
-      <div className="relative mt-5 flex items-center justify-between">
-        <p className="text-xs text-slate-500 leading-relaxed">
-          {sub}
-        </p>
 
         {trend !== undefined && (
-          <div
-            className={`
-              rounded-full px-2.5 py-1
-              text-[11px] font-semibold
-              ${activeTone.bg}
-              ${activeTone.icon}
-            `}
-          >
-            {trend > 0 ? "+" : ""}
-            {trend.toFixed(1)}%
-          </div>
+          <TrendIndicator
+            value={trend}
+            positiveIsGood={
+              positiveIsGood
+            }
+          />
         )}
       </div>
-    </div>
+
+      {/* Content */}
+
+      <div
+        className="
+          mt-5
+        "
+      >
+        <p
+          className="
+            font-semibold text-[11px] text-slate-400 uppercase tracking-[0.08em]
+          "
+        >
+          {label}
+        </p>
+
+        <h3
+          className={`
+            mt-1.5
+            truncate
+            font-bold
+            tracking-tight
+            text-slate-900
+            ${
+              primary
+                ? "text-2xl"
+                : "text-xl"
+            }
+          `}
+          title={value}
+        >
+          {value}
+        </h3>
+
+        {description && (
+          <p
+            className="
+              mt-2
+              text-slate-500 text-xs line-clamp-2 leading-5
+            "
+          >
+            {description}
+          </p>
+        )}
+      </div>
+    </article>
   );
 };
 
-/* =========================================
-   MAIN COMPONENT
-========================================= */
+/* =========================================================
+   DASHBOARD STATS
+========================================================= */
+
 const DashboardStats = ({
   transactions = [],
+  currency = "NGN",
 }) => {
-  /**
-   * SINGLE SOURCE OF TRUTH
+  /*
+   * FinancialEngine remains the single
+   * source of truth.
    */
+
   const financials = useMemo(() => {
     return computeFinancials(
-      transactions
+      Array.isArray(transactions)
+        ? transactions
+        : []
     );
   }, [transactions]);
 
   const {
-    income,
-    expense,
-    balance,
+    income = 0,
+    expense = 0,
+    balance = 0,
 
-    savingsRatio,
-    expenseRatio,
-    efficiencyRatio,
+    savingsRatio = 0,
 
-    transactionCount,
+    transactionCount = 0,
 
-    incomeTrend,
-    expenseTrend,
+    incomeTrend = 0,
+    expenseTrend = 0,
+  } = financials || {};
 
-    healthScore,
-  } = financials;
+  /* =======================================================
+     DERIVED METRICS
+  ======================================================= */
 
-  /**
-   * FLOW RATIOS
-   */
-  const totalFlow =
-    income + expense;
+  const netCashFlow =
+    toNumber(income) -
+    toNumber(expense);
 
-  const inflowRate =
-    totalFlow > 0
-      ? (income / totalFlow) * 100
-      : 0;
+  const savingsAmount =
+    Math.max(netCashFlow, 0);
 
-  const outflowRate =
-    totalFlow > 0
-      ? (expense / totalFlow) * 100
-      : 0;
+  const isPositiveBalance =
+    toNumber(balance) >= 0;
 
-  /**
-   * HEALTH
-   */
-  const health =
-    getHealthState(
-      savingsRatio,
-      efficiencyRatio
-    );
+  const savingsDescription =
+    savingsAmount > 0
+      ? `${formatCurrency(
+          savingsAmount,
+          currency
+        )} retained after expenses`
+      : "No positive savings recorded";
 
-  const HealthIcon = health.icon;
+  const cashFlowDescription =
+    netCashFlow > 0
+      ? "Money coming in exceeds money going out"
+      : netCashFlow < 0
+      ? "Expenses currently exceed income"
+      : "Income and expenses are balanced";
+
+  /* =======================================================
+     RENDER
+  ======================================================= */
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6 gap-5">
+    <section
+      aria-label="Financial overview"
+      className="
+        w-full
+      "
+    >
+      {/* Section heading */}
 
-      {/* INCOME */}
-      <StatCard
-        icon={ArrowUpCircle}
-        label="Total Income"
-        value={formatCurrency(income)}
-        sub={`Cash inflow accounts for ${formatPercent(
-          inflowRate
-        )} of total flow`}
-        trend={incomeTrend}
-        tone="positive"
-      />
+      <div
+        className="
+          flex flex-col sm:flex-row sm:justify-between sm:items-end
+          mb-4
+          gap-1
+        "
+      >
+        <div>
+          <h2
+            className="
+              font-bold text-slate-900 text-base tracking-tight
+            "
+          >
+            Financial overview
+          </h2>
 
-      {/* EXPENSE */}
-      <StatCard
-        icon={ArrowDownCircle}
-        label="Total Expense"
-        value={formatCurrency(expense)}
-        sub={`Expense ratio is ${formatPercent(
-          expenseRatio
-        )}`}
-        trend={expenseTrend}
-        tone="negative"
-      />
+          <p
+            className="
+              text-slate-500 text-xs
+            "
+          >
+            A real-time snapshot of your money
+          </p>
+        </div>
 
-      {/* BALANCE */}
-      <StatCard
-        icon={Wallet}
-        label="Net Balance"
-        value={formatCurrency(balance)}
-        sub={
-          balance >= 0
-            ? "Account operating above expense threshold"
-            : "Expense level exceeds inflow"
-        }
-        tone={
-          balance >= 0
-            ? "positive"
-            : "negative"
-        }
-      />
+        <span
+          className="
+            hidden sm:block
+            font-medium text-[11px] text-slate-400
+          "
+        >
+          {formatNumber(
+            transactionCount
+          )}{" "}
+          transaction
+          {transactionCount === 1
+            ? ""
+            : "s"}{" "}
+          recorded
+        </span>
+      </div>
 
-      {/* SAVINGS */}
-      <StatCard
-        icon={Percent}
-        label="Savings Ratio"
-        value={formatPercent(
-          savingsRatio
-        )}
-        sub={`You retain ${formatPercent(
-          savingsRatio
-        )} from total income`}
-        tone={
-          savingsRatio >= 20
-            ? "positive"
-            : savingsRatio >= 10
-            ? "warning"
-            : "negative"
-        }
-      />
+      {/* =================================================
+          KPI GRID
+      ================================================= */}
 
-      {/* TRANSACTIONS */}
-      <StatCard
-        icon={Activity}
-        label="Transactions"
-        value={transactionCount}
-        sub="Total processed financial activities"
-        tone="neutral"
-      />
+      <div
+        className="
+          grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6
+          gap-4
+        "
+      >
+        {/* =================================================
+            1. NET BALANCE
+        ================================================= */}
 
-      {/* FINANCIAL HEALTH */}
-      <StatCard
-        icon={HealthIcon}
-        label="Financial Health"
-        value={health.label}
-        sub={health.description}
-        trend={healthScore}
-        tone={health.tone}
-      />
-    </div>
+        <StatCard
+          icon={Wallet}
+          label="Net balance"
+          value={formatCurrency(
+            balance,
+            currency
+          )}
+          description={
+            isPositiveBalance
+              ? "Your recorded income is currently above expenses"
+              : "Your recorded expenses currently exceed income"
+          }
+          tone="primary"
+          primary
+        />
+
+        {/* =================================================
+            2. INCOME
+        ================================================= */}
+
+        <StatCard
+          icon={ArrowUpCircle}
+          label="Income"
+          value={formatCurrency(
+            income,
+            currency
+          )}
+          description="Total money received"
+          trend={incomeTrend}
+          positiveIsGood
+          tone="income"
+        />
+
+        {/* =================================================
+            3. EXPENSES
+        ================================================= */}
+
+        <StatCard
+          icon={ArrowDownCircle}
+          label="Expenses"
+          value={formatCurrency(
+            expense,
+            currency
+          )}
+          description="Total money spent"
+          trend={expenseTrend}
+          positiveIsGood={false}
+          tone="expense"
+        />
+
+        {/* =================================================
+            4. SAVINGS
+        ================================================= */}
+
+        <StatCard
+          icon={PiggyBank}
+          label="Savings"
+          value={formatCurrency(
+            savingsAmount,
+            currency
+          )}
+          description={
+            `${formatPercent(
+              savingsRatio
+            )} of income retained`
+          }
+          tone="savings"
+        />
+
+        {/* =================================================
+            5. CASH FLOW
+        ================================================= */}
+
+        <StatCard
+          icon={
+            netCashFlow >= 0
+              ? TrendingUp
+              : TrendingDown
+          }
+          label="Cash flow"
+          value={formatCurrency(
+            netCashFlow,
+            currency
+          )}
+          description={
+            cashFlowDescription
+          }
+          tone="cashflow"
+        />
+
+        {/* =================================================
+            6. ACTIVITY
+        ================================================= */}
+
+        <StatCard
+          icon={Activity}
+          label="Transactions"
+          value={formatNumber(
+            transactionCount
+          )}
+          description="Recorded financial activities"
+          tone="neutral"
+        />
+      </div>
+    </section>
   );
 };
 

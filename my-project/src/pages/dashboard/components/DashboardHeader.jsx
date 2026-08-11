@@ -1,6 +1,4 @@
 
-
-
 import {
   Bell,
   RefreshCcw,
@@ -13,60 +11,57 @@ import {
 import {
   useMemo,
   useCallback,
+  useState,
 } from "react";
 
 import { motion } from "framer-motion";
 
+import { useNotifications } from "../../../context/NotificationContext";
+
+import NotificationDropdown from "../../settings/components/sections/components/NotificationDropdown";
+
 /* =========================================
    SAFE HELPERS
 ========================================= */
+
 const safeText = (
   value,
   fallback = "—"
 ) => {
-  if (
-    typeof value !== "string"
-  )
+  if (typeof value !== "string") {
     return fallback;
+  }
 
-  const cleaned =
-    value.trim();
+  const cleaned = value.trim();
 
   return cleaned.length
     ? cleaned
     : fallback;
 };
 
-const formatLastSync = (
-  value
-) => {
-  if (!value) return "—";
-
-  const date =
-    new Date(value);
-
-  if (
-    Number.isNaN(
-      date.getTime()
-    )
-  ) {
+const formatLastSync = (value) => {
+  if (!value) {
     return "—";
   }
 
-  return date.toLocaleString(
-    [],
-    {
-      hour: "2-digit",
-      minute: "2-digit",
-      day: "2-digit",
-      month: "short",
-    }
-  );
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "—";
+  }
+
+  return date.toLocaleString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    day: "2-digit",
+    month: "short",
+  });
 };
 
 /* =========================================
    COMPONENT
 ========================================= */
+
 const DashboardHeader = ({
   user = null,
 
@@ -75,8 +70,6 @@ const DashboardHeader = ({
     lastSync: null,
   },
 
-  notificationsCount = 0,
-
   loading = false,
   syncing = false,
 
@@ -84,163 +77,208 @@ const DashboardHeader = ({
   onExport,
 }) => {
   /* =========================================
+     NOTIFICATION STATE
+  ========================================= */
+
+  const {
+    unreadCount = 0,
+    refreshNotifications,
+  } = useNotifications();
+
+  const [
+    notificationsOpen,
+    setNotificationsOpen,
+  ] = useState(false);
+
+  /* =========================================
      USER ENGINE
   ========================================= */
-  const safeUser =
-    useMemo(() => {
-      /**
-       * PRIMARY SOURCE
-       * ACTIVE AUTH USER
-       */
-      if (user?.name) {
-        return {
-          name:
-            safeText(
-              user.name,
-              "User"
-            ),
-        };
-      }
 
-      /**
-       * FALLBACK
-       * LOCAL STORAGE
-       */
-      try {
-        const local =
-          JSON.parse(
-            localStorage.getItem(
-              "user"
-            )
-          );
+  const safeUser = useMemo(() => {
+    /*
+     * PRIMARY SOURCE
+     * ACTIVE AUTH USER
+     */
 
-        return {
-          name:
-            safeText(
-              local?.name,
-              "User"
-            ),
-        };
-      } catch {
-        return {
-          name: "User",
-        };
-      }
-    }, [user]);
+    if (user?.name) {
+      return {
+        name: safeText(
+          user.name,
+          "User"
+        ),
+      };
+    }
+
+    /*
+     * FALLBACK
+     * LOCAL STORAGE
+     */
+
+    try {
+      const local = JSON.parse(
+        localStorage.getItem("user")
+      );
+
+      return {
+        name: safeText(
+          local?.name,
+          "User"
+        ),
+      };
+    } catch {
+      return {
+        name: "User",
+      };
+    }
+  }, [user]);
 
   /* =========================================
      REALTIME STATE
   ========================================= */
-  const connectionState =
-    useMemo(() => {
-      if (syncing)
-        return "syncing";
 
-      if (
-        status?.isOnline
-      )
-        return "online";
+  const connectionState = useMemo(() => {
+    if (syncing) {
+      return "syncing";
+    }
 
-      return "offline";
-    }, [
-      syncing,
-      status?.isOnline,
-    ]);
+    if (status?.isOnline) {
+      return "online";
+    }
+
+    return "offline";
+  }, [
+    syncing,
+    status?.isOnline,
+  ]);
 
   /* =========================================
      STATUS CONFIG
   ========================================= */
+
   const statusConfig = {
     online: {
-      text:
-        "Realtime Sync Active",
-
+      text: "Realtime Sync Active",
       icon: Wifi,
-
-      badge:
-        "bg-emerald-500",
+      badge: "bg-emerald-500",
     },
 
     syncing: {
-      text:
-        "Syncing Transactions",
-
-      icon:
-        RefreshCcw,
-
-      badge:
-        "bg-amber-500",
+      text: "Syncing Transactions",
+      icon: RefreshCcw,
+      badge: "bg-amber-500",
     },
 
     offline: {
-      text:
-        "Offline Mode",
-
+      text: "Offline Mode",
       icon: WifiOff,
-
-      badge:
-        "bg-rose-500",
+      badge: "bg-rose-500",
     },
   };
 
   const currentStatus =
-    statusConfig[
-      connectionState
-    ];
+    statusConfig[connectionState];
 
   const StatusIcon =
     currentStatus.icon;
 
   /* =========================================
-     ACTIONS
+     REFRESH DASHBOARD
   ========================================= */
-  const handleRefresh =
-    useCallback(
-      async () => {
-        if (
-          typeof onRefresh !==
-          "function"
-        )
-          return;
 
+  const handleRefresh = useCallback(
+    async () => {
+      if (
+        typeof onRefresh !==
+        "function"
+      ) {
+        return;
+      }
+
+      try {
+        await onRefresh();
+      } catch (err) {
+        console.error(
+          "DASHBOARD_REFRESH_ERROR:",
+          err
+        );
+      }
+    },
+    [onRefresh]
+  );
+
+  /* =========================================
+     EXPORT
+  ========================================= */
+
+  const handleExport = useCallback(
+    async () => {
+      if (
+        typeof onExport !==
+        "function"
+      ) {
+        return;
+      }
+
+      try {
+        await onExport();
+      } catch (err) {
+        console.error(
+          "EXPORT_ERROR:",
+          err
+        );
+      }
+    },
+    [onExport]
+  );
+
+  /* =========================================
+     NOTIFICATION TOGGLE
+  ========================================= */
+
+  const handleNotificationToggle =
+    useCallback(async () => {
+      const nextState =
+        !notificationsOpen;
+
+      setNotificationsOpen(
+        nextState
+      );
+
+      /*
+       * Refresh the complete notification
+       * state whenever the dropdown opens.
+       *
+       * This keeps the dropdown and badge
+       * synchronized with the backend.
+       */
+
+      if (nextState) {
         try {
-          await onRefresh();
-        } catch (err) {
+          await refreshNotifications();
+        } catch (error) {
           console.error(
-            "Dashboard refresh failed:",
-            err
+            "NOTIFICATION_REFRESH_ON_OPEN_ERROR:",
+            error
           );
         }
-      },
-      [onRefresh]
-    );
+      }
+    }, [
+      notificationsOpen,
+      refreshNotifications,
+    ]);
 
-  const handleExport =
-    useCallback(
-      async () => {
-        if (
-          typeof onExport !==
-          "function"
-        )
-          return;
-
-        try {
-          await onExport();
-        } catch (err) {
-          console.error(
-            "Export failed:",
-            err
-          );
-        }
-      },
-      [onExport]
-    );
+  const closeNotifications =
+    useCallback(() => {
+      setNotificationsOpen(false);
+    }, []);
 
   /* =========================================
      UI
   ========================================= */
+
   return (
-    <motion.div
+    <motion
+      .div
       initial={{
         opacity: 0,
         y: 10,
@@ -250,54 +288,60 @@ const DashboardHeader = ({
         y: 0,
       }}
       className="
-        relative overflow-hidden
-        rounded-3xl
-        border border-slate-200
+        relative overflow-visible
         bg-white
+        border border-slate-200 rounded-3xl
         shadow-sm
       "
     >
+      {/* =====================================
+          BACKDROP
+      ===================================== */}
 
-      {/* BACKDROP */}
       <div
         className="
           absolute inset-0
-          bg-gradient-to-r
-          from-slate-50
-          via-white
-          to-slate-50
+          bg-gradient-to-r from-slate-50 via-white to-slate-50
+          rounded-3xl
           opacity-60
+          pointer-events-none
         "
-      />
-
-      {/* CONTENT */}
-      <div
-        className="
-          relative z-10
-          flex flex-col gap-5
-          px-4 py-5
-          sm:px-6
-          lg:flex-row
-          lg:items-center
-          lg:justify-between
-        "
+        /
       >
 
+      {/* =====================================
+          CONTENT
+      ===================================== */}
+
+      <div
+        className="
+          z-10 relative flex flex-col lg:flex-row lg:justify-between
+          lg:items-center
+          px-4 sm:px-6 py-5
+          gap-5
+        "
+      >
         {/* =====================================
             LEFT
         ===================================== */}
-        <div className="flex items-center gap-4">
 
+        <div
+          className="
+            flex items-center
+            gap-4
+          "
+        >
           {/* AVATAR */}
+
           <div
             className="
-              flex h-12 w-12
-              items-center justify-center
-              rounded-2xl
+              flex justify-center items-center
+              w-12 h-12
+              font-semibold text-white text-sm
               bg-slate-900
-              text-sm font-semibold
-              text-white
+              rounded-2xl
               shadow-sm
+              shrink-0
             "
           >
             {safeUser.name
@@ -306,56 +350,62 @@ const DashboardHeader = ({
           </div>
 
           {/* USER */}
+
           <div>
-
-            <div className="flex items-center gap-2">
-
+            <div
+              className="
+                flex items-center
+                gap-2
+              "
+            >
               <h1
                 className="
-                  text-sm
-                  font-semibold
-                  text-slate-900
-                  sm:text-base
+                  font-semibold text-slate-900 text-sm sm:text-base
                 "
               >
                 Welcome back,{" "}
-                {
-                  safeUser.name
-                }
+                {safeUser.name}
               </h1>
 
               <ShieldCheck
                 size={16}
-                className="text-emerald-500"
-              />
-
+                className="
+                  text-emerald-500
+                "
+                /
+              >
             </div>
 
-            <p className="mt-1 text-xs text-slate-500">
+            <p
+              className="
+                mt-1
+                text-slate-500 text-xs
+              "
+            >
               SmartBudget Financial OS
             </p>
-
           </div>
         </div>
 
         {/* =====================================
             CENTER STATUS
         ===================================== */}
+
         <div
           className="
-            flex flex-wrap
-            items-center gap-2
-            rounded-2xl
-            border border-slate-200
-            bg-slate-50
+            flex flex-wrap items-center
             px-4 py-2
-            text-xs text-slate-600
+            text-slate-600 text-xs
+            bg-slate-50
+            border border-slate-200 rounded-2xl
+            gap-2
           "
         >
-
           <span
             className={`
-              h-2 w-2 rounded-full
+              h-2
+              w-2
+              rounded-full
               ${currentStatus.badge}
             `}
           />
@@ -370,12 +420,14 @@ const DashboardHeader = ({
           />
 
           <span>
-            {
-              currentStatus.text
-            }
+            {currentStatus.text}
           </span>
 
-          <span className="text-slate-300">
+          <span
+            className="
+              text-slate-300
+            "
+          >
             •
           </span>
 
@@ -385,53 +437,93 @@ const DashboardHeader = ({
               status?.lastSync
             )}
           </span>
-
         </div>
 
         {/* =====================================
             ACTIONS
         ===================================== */}
-        <div className="flex items-center gap-2">
 
-          {/* NOTIFICATIONS */}
-          <button
+        <div
+          className="
+            flex items-center
+            gap-2
+          "
+        >
+          {/* ===================================
+              NOTIFICATIONS
+          =================================== */}
+
+          <div
             className="
-              relative rounded-2xl
-              border border-slate-200
-              p-3
-              transition
-              hover:bg-slate-50
+              relative
             "
           >
+            <button
+              type="button"
+              onClick={
+                handleNotificationToggle
+              }
+              aria-label={
+                notificationsOpen
+                  ? "Close notifications"
+                  : "Open notifications"
+              }
+              aria-expanded={
+                notificationsOpen
+              }
+              className="
+                relative
+                p-3
+                text-slate-700 hover:text-slate-900
+                bg-white hover:bg-slate-50
+                border border-slate-200 rounded-2xl focus:outline-none
+                focus:ring-2 focus:ring-slate-300
+                transition
+              "
+            >
+              <Bell size={18} />
 
-            <Bell size={18} />
+              {/* UNREAD BADGE */}
 
-            {notificationsCount >
-              0 && (
-              <span
-                className="
-                  absolute -right-1 -top-1
-                  flex h-5 min-w-[20px]
-                  items-center justify-center
-                  rounded-full
-                  bg-rose-500
-                  px-1
-                  text-[10px]
-                  font-semibold
-                  text-white
-                "
-              >
-                {notificationsCount >
-                99
-                  ? "99+"
-                  : notificationsCount}
-              </span>
+              {unreadCount > 0 && (
+                <span
+                  className="
+                    absolute flex justify-center items-center
+                    min-w-[20px] h-5
+                    px-1
+                    font-semibold text-[10px] text-white
+                    bg-rose-500
+                    rounded-full
+                    shadow-sm
+                    -top-1 -right-1
+                  "
+                >
+                  {unreadCount > 99
+                    ? "99+"
+                    : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* =================================
+                NOTIFICATION DROPDOWN
+            ================================= */}
+
+            {notificationsOpen && (
+              <NotificationDropdown
+                onClose={
+                  closeNotifications
+                }
+              />
             )}
+          </div>
 
-          </button>
+          {/* ===================================
+              REFRESH
+          =================================== */}
 
-          {/* REFRESH */}
           <button
+            type="button"
             onClick={
               handleRefresh
             }
@@ -439,17 +531,17 @@ const DashboardHeader = ({
               loading ||
               syncing
             }
+            aria-label="Refresh dashboard"
             className="
-              rounded-2xl
-              border border-slate-200
               p-3
-              transition
-              hover:bg-slate-50
+              text-slate-700 hover:text-slate-900
+              bg-white hover:bg-slate-50
+              border border-slate-200 rounded-2xl focus:outline-none
+              focus:ring-2 focus:ring-slate-300
+              disabled:opacity-50 transition
               disabled:cursor-not-allowed
-              disabled:opacity-50
             "
           >
-
             <RefreshCcw
               size={18}
               className={
@@ -459,31 +551,30 @@ const DashboardHeader = ({
                   : ""
               }
             />
-
           </button>
 
-          {/* EXPORT */}
+          {/* ===================================
+              EXPORT
+          =================================== */}
+
           <button
+            type="button"
             onClick={
               handleExport
             }
+            aria-label="Export financial data"
             className="
-              rounded-2xl
-              border border-slate-200
               p-3
+              text-slate-700 hover:text-slate-900
+              bg-white hover:bg-slate-50
+              border border-slate-200 rounded-2xl focus:outline-none
+              focus:ring-2 focus:ring-slate-300
               transition
-              hover:bg-slate-50
             "
           >
-
-            <Download
-              size={18}
-            />
-
+            <Download size={18} />
           </button>
-
         </div>
-
       </div>
     </motion.div>
   );

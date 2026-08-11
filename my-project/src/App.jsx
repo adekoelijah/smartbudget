@@ -24,6 +24,7 @@ import AuthSuccess from "./pages/auth/AuthSuccess.jsx";
 
 // ⚡ LAZY LOADED PRIVATE PAGES
 const Dashboard = lazy(() => import("./pages/dashboard/Dashboard.jsx"));
+const NotificationsPage =lazy(() => import ("./pages/notification/NotificationsPage.jsx"));
 const Budgets = lazy(() => import("./pages/budgets/Budgets.jsx"));
 const Transactions = lazy(() => import("./pages/transactions/Transactions.jsx"));
 const AddTransaction = lazy(() => import("./pages/transactions/AddTransaction.jsx"));
@@ -77,6 +78,7 @@ const App = () => {
           
           <Route path="/app" element={<AppLayout />}>
             <Route index element={<Dashboard />} />
+            <Route path="NotificationsPage" element ={<NotificationsPage/>}/>
             <Route path="transactions" element={<Transactions />} />
             <Route path="add" element={<AddTransaction />} />
             <Route path="budgets" element={<Budgets />} />

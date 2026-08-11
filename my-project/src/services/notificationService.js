@@ -1,59 +1,90 @@
+
 import api from "./api";
 
-/*
-==================================================
-RESPONSE HANDLER
-==================================================
-*/
+/* =========================================================
+   RESPONSE HANDLER
+========================================================= */
 
-// const unwrap = (response) => {
-//   if (!response?.data) {
-//     throw new Error("Invalid server response.");
-//   }
-
-//   return response.data;
-// };
-
+/**
+ * Safely unwrap Axios responses.
+ *
+ * Axios response:
+ *
+ * {
+ *   data: {...},
+ *   status: 200,
+ *   ...
+ * }
+ *
+ * The notification service only exposes
+ * response.data to the context.
+ */
 const unwrap = (response) => {
   if (!response) {
-    throw new Error("No response received from the server.");
+    throw new Error(
+      "No response received from the server."
+    );
   }
 
-  if (!response.data) {
-    throw new Error("Invalid server response.");
+  if (typeof response.data === "undefined") {
+    throw new Error(
+      "Invalid server response."
+    );
   }
 
   return response.data;
 };
 
+/* =========================================================
+   ERROR HANDLER
+========================================================= */
+
+/**
+ * Centralized notification API error handler.
+ *
+ * We intentionally rethrow the original error so that
+ * NotificationContext can decide how the UI should react.
+ */
 const handleError = (error, label) => {
-  // Ignore intentionally cancelled requests
   if (
-    error.code === "ERR_CANCELED" ||
-    error.name === "CanceledError"
-) {
-    console.warn(`${label}: Request cancelled.`);
-    return {
-        notifications: [],
-        count: 0
-    };
-}
+    error?.code === "ERR_CANCELED" ||
+    error?.name === "CanceledError"
+  ) {
+    console.warn(
+      `${label}: Request cancelled.`
+    );
+
+    return null;
+  }
 
   console.error(
     `${label}:`,
-    error.response?.data || error.message || error
+    error?.response?.data ||
+      error?.message ||
+      error
   );
 
   throw error;
 };
 
-/*
-==================================================
-GET NOTIFICATIONS
-==================================================
-*/
+/* =========================================================
+   GET NOTIFICATIONS
+========================================================= */
 
-export const getNotifications = async (params = {}) => {
+/**
+ * Fetch notifications for the authenticated user.
+ *
+ * Supported params can include things such as:
+ *
+ * {
+ *   page: 1,
+ *   limit: 20,
+ *   unreadOnly: true
+ * }
+ */
+export const getNotifications = async (
+  params = {}
+) => {
   try {
     const response = await api.get(
       "/notifications",
@@ -64,21 +95,26 @@ export const getNotifications = async (params = {}) => {
 
     return unwrap(response);
   } catch (error) {
-    console.error(
-      "GET_NOTIFICATIONS_ERROR:",
-      error
+    return handleError(
+      error,
+      "GET_NOTIFICATIONS_ERROR"
     );
-
-    throw error;
   }
 };
 
-/*
-==================================================
-GET UNREAD COUNT
-==================================================
-*/
+/* =========================================================
+   GET UNREAD COUNT
+========================================================= */
 
+/**
+ * Fetch the backend unread notification count.
+ *
+ * Example response:
+ *
+ * {
+ *   count: 4
+ * }
+ */
 export const getUnreadCount = async () => {
   try {
     const response = await api.get(
@@ -87,24 +123,29 @@ export const getUnreadCount = async () => {
 
     return unwrap(response);
   } catch (error) {
-    console.error(
-      "GET_UNREAD_COUNT_ERROR:",
-      error
+    return handleError(
+      error,
+      "GET_UNREAD_COUNT_ERROR"
     );
-
-    throw error;
   }
 };
 
-/*
-==================================================
-MARK AS READ
-==================================================
-*/
+/* =========================================================
+   MARK ONE NOTIFICATION AS READ
+========================================================= */
 
+/**
+ * Mark a single notification as read.
+ */
 export const markAsRead = async (
   notificationId
 ) => {
+  if (!notificationId) {
+    throw new Error(
+      "Notification ID is required."
+    );
+  }
+
   try {
     const response = await api.patch(
       `/notifications/${notificationId}/read`
@@ -112,21 +153,21 @@ export const markAsRead = async (
 
     return unwrap(response);
   } catch (error) {
-    console.error(
-      "MARK_AS_READ_ERROR:",
-      error
+    return handleError(
+      error,
+      "MARK_AS_READ_ERROR"
     );
-
-    throw error;
   }
 };
 
-/*
-==================================================
-MARK ALL AS READ
-==================================================
-*/
+/* =========================================================
+   MARK ALL NOTIFICATIONS AS READ
+========================================================= */
 
+/**
+ * Mark every notification belonging to the
+ * authenticated user as read.
+ */
 export const markAllAsRead = async () => {
   try {
     const response = await api.patch(
@@ -135,45 +176,51 @@ export const markAllAsRead = async () => {
 
     return unwrap(response);
   } catch (error) {
-    console.error(
-      "MARK_ALL_AS_READ_ERROR:",
-      error
+    return handleError(
+      error,
+      "MARK_ALL_AS_READ_ERROR"
     );
-
-    throw error;
   }
 };
 
-/*
-==================================================
-DELETE NOTIFICATION
-==================================================
-*/
+/* =========================================================
+   DELETE ONE NOTIFICATION
+========================================================= */
 
-export const deleteNotification =
-  async (notificationId) => {
-    try {
-      const response = await api.delete(
-        `/notifications/${notificationId}`
-      );
+/**
+ * Delete a single notification.
+ */
+export const deleteNotification = async (
+  notificationId
+) => {
+  if (!notificationId) {
+    throw new Error(
+      "Notification ID is required."
+    );
+  }
 
-      return unwrap(response);
-    } catch (error) {
-      console.error(
-        "DELETE_NOTIFICATION_ERROR:",
-        error
-      );
+  try {
+    const response = await api.delete(
+      `/notifications/${notificationId}`
+    );
 
-      throw error;
-    }
-  };
+    return unwrap(response);
+  } catch (error) {
+    return handleError(
+      error,
+      "DELETE_NOTIFICATION_ERROR"
+    );
+  }
+};
 
-/*
-==================================================
-CLEAR ALL NOTIFICATIONS
-==================================================
-*/
+/* =========================================================
+   CLEAR ALL NOTIFICATIONS
+========================================================= */
 
+/**
+ * Delete all notifications belonging to
+ * the authenticated user.
+ */
 export const clearNotifications =
   async () => {
     try {
@@ -183,21 +230,20 @@ export const clearNotifications =
 
       return unwrap(response);
     } catch (error) {
-      console.error(
-        "CLEAR_NOTIFICATIONS_ERROR:",
-        error
+      return handleError(
+        error,
+        "CLEAR_NOTIFICATIONS_ERROR"
       );
-
-      throw error;
     }
   };
 
-/*
-==================================================
-GET NOTIFICATION SETTINGS
-==================================================
-*/
+/* =========================================================
+   GET NOTIFICATION PREFERENCES
+========================================================= */
 
+/**
+ * Fetch notification preferences.
+ */
 export const getNotificationPreferences =
   async () => {
     try {
@@ -207,23 +253,34 @@ export const getNotificationPreferences =
 
       return unwrap(response);
     } catch (error) {
-      console.error(
-        "GET_NOTIFICATION_SETTINGS_ERROR:",
-        error
+      return handleError(
+        error,
+        "GET_NOTIFICATION_PREFERENCES_ERROR"
       );
-
-      throw error;
     }
   };
 
-/*
-==================================================
-UPDATE NOTIFICATION SETTINGS
-==================================================
-*/
+/* =========================================================
+   UPDATE NOTIFICATION PREFERENCES
+========================================================= */
 
-export const updateNotificationPreferences  =
+/**
+ * Update notification preferences.
+ *
+ * IMPORTANT:
+ * This intentionally uses PUT because the current
+ * API contract uses:
+ *
+ * PUT /notifications/preferences
+ */
+export const updateNotificationPreferences =
   async (settings) => {
+    if (!settings) {
+      throw new Error(
+        "Notification settings are required."
+      );
+    }
+
     try {
       const response = await api.put(
         "/notifications/preferences",
@@ -232,30 +289,28 @@ export const updateNotificationPreferences  =
 
       return unwrap(response);
     } catch (error) {
-      console.error(
-        "UPDATE_NOTIFICATION_SETTINGS_ERROR:",
-        error
+      return handleError(
+        error,
+        "UPDATE_NOTIFICATION_PREFERENCES_ERROR"
       );
-
-      throw error;
     }
   };
 
-/*
-==================================================
-EXPORT
-==================================================
-*/
+/* =========================================================
+   SERVICE EXPORT
+========================================================= */
 
 const notificationService = {
   getNotifications,
   getUnreadCount,
+
   markAsRead,
   markAllAsRead,
+
   deleteNotification,
   clearNotifications,
-  getNotificationPreferences,
 
+  getNotificationPreferences,
   updateNotificationPreferences,
 };
 

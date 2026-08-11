@@ -163,9 +163,21 @@ export const resetPreferences = async (req, res) => {
   try {
     const preferences = await getOrCreatePreferences(req.user.id);
 
-    preferences.regional = DEFAULT_PREFERENCES.regional;
-    preferences.display = DEFAULT_PREFERENCES.display;
-    preferences.privacy = DEFAULT_PREFERENCES.privacy;
+    // preferences.regional = DEFAULT_PREFERENCES.regional;
+    // preferences.display = DEFAULT_PREFERENCES.display;
+    // preferences.privacy = DEFAULT_PREFERENCES.privacy;
+
+    preferences.regional = {
+  ...DEFAULT_PREFERENCES.regional,
+};
+
+preferences.display = {
+  ...DEFAULT_PREFERENCES.display,
+};
+
+preferences.privacy = {
+  ...DEFAULT_PREFERENCES.privacy,
+};
 
     await preferences.save();
 
