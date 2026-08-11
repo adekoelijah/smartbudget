@@ -1,6 +1,7 @@
 
 import {
   Download,
+  FileText,
   Plus,
   Search,
   SlidersHorizontal,
@@ -8,6 +9,9 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   WalletCards,
+  ChevronLeft,
+  ChevronRight,
+  RotateCcw,
 } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
@@ -24,6 +28,26 @@ import {
 import { useBudgets } from "../../hooks/useBudgets";
 import { computeFinancialInsights } from "../../utils/financeAI";
 
+/* =========================================================
+   CONSTANTS
+========================================================= */
+
+const TRANSACTION_CATEGORIES = [
+  "Rent",
+  "Food",
+  "Transport",
+  "Utilities",
+  "Shopping",
+  "Healthcare",
+  "Education",
+  "Entertainment",
+  "Salary",
+  "Business",
+  "Investment",
+  "Other",
+];
+
+const PAGE_SIZE = 10;
 
 /* =========================================================
    HELPERS
@@ -37,6 +61,9 @@ const getDateValue = (transaction) => {
   return transaction?.date || transaction?.createdAt;
 };
 
+const getTransactionId = (transaction) => {
+  return transaction?._id || transaction?.id;
+};
 
 /* =========================================================
    SUMMARY CARD
@@ -107,7 +134,6 @@ const SummaryCard = ({
   );
 };
 
-
 /* =========================================================
    TRANSACTIONS
 ========================================================= */
@@ -129,19 +155,21 @@ const Transactions = () => {
   /* MOBILE FILTER PANEL */
   const [showFilters, setShowFilters] = useState(false);
 
+  /* PAGINATION */
+  const [currentPage, setCurrentPage] = useState(1);
+
   /* TRANSACTION FORM */
   const [form, setForm] = useState({
     title: "",
     amount: "",
     type: "expense",
-    category: "general",
+    category: "Other",
     date: new Date().toISOString().split("T")[0],
   });
 
   const { budgets } = useBudgets?.() || {
     budgets: [],
   };
-
 
   /* =========================================================
      FETCH TRANSACTIONS
@@ -182,20 +210,6 @@ const Transactions = () => {
     };
   }, []);
 
-
-  /* =========================================================
-     CATEGORY OPTIONS
-  ========================================================= */
-
-  const categories = useMemo(() => {
-    const values = transactions
-      .map((transaction) => transaction.category)
-      .filter(Boolean);
-
-    return [...new Set(values)].sort();
-  }, [transactions]);
-
-
   /* =========================================================
      FILTER TRANSACTIONS
   ========================================================= */
@@ -209,19 +223,22 @@ const Transactions = () => {
     return transactions.filter((transaction) => {
       /* SEARCH */
 
+      const title =
+        transaction.title?.toLowerCase() || "";
+
+      const transactionCategory =
+        transaction.category?.toLowerCase() || "";
+
       const matchesSearch =
         !normalizedSearch ||
-        transaction.title
-          ?.toLowerCase()
-          .includes(normalizedSearch) ||
-        transaction.category
-          ?.toLowerCase()
-          .includes(normalizedSearch);
+        title.includes(normalizedSearch) ||
+        transactionCategory.includes(
+          normalizedSearch
+        );
 
       if (!matchesSearch) {
         return false;
       }
-
 
       /* TYPE */
 
@@ -232,7 +249,6 @@ const Transactions = () => {
         return false;
       }
 
-
       /* CATEGORY */
 
       if (
@@ -242,14 +258,18 @@ const Transactions = () => {
         return false;
       }
 
-
       /* DATE */
 
       if (dateRange !== "all") {
-        const transactionDate =
-          new Date(getDateValue(transaction));
+        const transactionDate = new Date(
+          getDateValue(transaction)
+        );
 
-        if (Number.isNaN(transactionDate.getTime())) {
+        if (
+          Number.isNaN(
+            transactionDate.getTime()
+          )
+        ) {
           return false;
         }
 
@@ -262,21 +282,21 @@ const Transactions = () => {
 
         if (
           dateRange === "7" &&
-          days > 7
+          (days < 0 || days > 7)
         ) {
           return false;
         }
 
         if (
           dateRange === "30" &&
-          days > 30
+          (days < 0 || days > 30)
         ) {
           return false;
         }
 
         if (
           dateRange === "90" &&
-          days > 90
+          (days < 0 || days > 90)
         ) {
           return false;
         }
@@ -292,6 +312,58 @@ const Transactions = () => {
     dateRange,
   ]);
 
+  /* =========================================================
+     RESET PAGINATION WHEN FILTERS CHANGE
+  ========================================================= */
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    search,
+    filter,
+    category,
+    dateRange,
+  ]);
+
+  /* =========================================================
+     PAGINATION
+  ========================================================= */
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(
+      filteredTransactions.length / PAGE_SIZE
+    )
+  );
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const paginatedTransactions = useMemo(() => {
+    const startIndex =
+      (currentPage - 1) * PAGE_SIZE;
+
+    return filteredTransactions.slice(
+      startIndex,
+      startIndex + PAGE_SIZE
+    );
+  }, [
+    filteredTransactions,
+    currentPage,
+  ]);
+
+  const paginationStart =
+    filteredTransactions.length === 0
+      ? 0
+      : (currentPage - 1) * PAGE_SIZE + 1;
+
+  const paginationEnd = Math.min(
+    currentPage * PAGE_SIZE,
+    filteredTransactions.length
+  );
 
   /* =========================================================
      SUMMARY
@@ -319,7 +391,6 @@ const Transactions = () => {
     };
   }, [transactions]);
 
-
   /* =========================================================
      ACTIVE FILTERS
   ========================================================= */
@@ -330,20 +401,16 @@ const Transactions = () => {
     category !== "all" ||
     dateRange !== "all";
 
-
   const clearFilters = () => {
     setSearch("");
     setFilter("all");
     setCategory("all");
     setDateRange("all");
+    setCurrentPage(1);
   };
 
-
   /* =========================================================
-     AI INSIGHTS
-     
-     Kept available for future analytics surfaces.
-     It should not dominate the transaction ledger.
+     AI INSIGHT
   ========================================================= */
 
   const aiInsights = useMemo(() => {
@@ -352,7 +419,6 @@ const Transactions = () => {
       budgets
     );
   }, [transactions, budgets]);
-
 
   /* =========================================================
      CREATE TRANSACTION
@@ -363,7 +429,8 @@ const Transactions = () => {
 
     if (
       !form.title?.trim() ||
-      !form.amount
+      !form.amount ||
+      Number(form.amount) <= 0
     ) {
       return;
     }
@@ -387,11 +454,13 @@ const Transactions = () => {
         title: "",
         amount: "",
         type: "expense",
-        category: "general",
+        category: "Other",
         date: new Date()
           .toISOString()
           .split("T")[0],
       });
+
+      setCurrentPage(1);
     } catch (error) {
       console.error(
         "CREATE_TRANSACTION_ERROR:",
@@ -401,7 +470,6 @@ const Transactions = () => {
       setCreating(false);
     }
   };
-
 
   /* =========================================================
      DELETE TRANSACTION
@@ -414,7 +482,7 @@ const Transactions = () => {
       setTransactions((previous) =>
         previous.filter(
           (transaction) =>
-            transaction._id !== id
+            getTransactionId(transaction) !== id
         )
       );
     } catch (error) {
@@ -425,18 +493,17 @@ const Transactions = () => {
     }
   };
 
-
   /* =========================================================
-     EXPORT
+     CSV EXPORT
   ========================================================= */
 
-  const handleExport = () => {
+  const handleExportCSV = () => {
     if (!filteredTransactions.length) {
       return;
     }
 
     const headers = [
-      "Title",
+      "Description",
       "Amount",
       "Type",
       "Category",
@@ -498,6 +565,199 @@ const Transactions = () => {
     URL.revokeObjectURL(url);
   };
 
+  /* =========================================================
+     PDF EXPORT
+     
+     Uses browser print-to-PDF so no additional
+     dependency is required.
+  ========================================================= */
+
+  const handleExportPDF = () => {
+    if (!filteredTransactions.length) {
+      return;
+    }
+
+    const rows = filteredTransactions
+      .map((transaction) => {
+        const date = getDateValue(transaction)
+          ? new Date(
+              getDateValue(transaction)
+            ).toLocaleDateString()
+          : "-";
+
+        return `
+          <tr>
+            <td>${transaction.title || "-"}</td>
+            <td>${transaction.category || "-"}</td>
+            <td>${transaction.type || "-"}</td>
+            <td>₦${Number(
+              transaction.amount || 0
+            ).toLocaleString()}</td>
+            <td>${date}</td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    const printWindow =
+      window.open(
+        "",
+        "_blank",
+        "width=1000,height=800"
+      );
+
+    if (!printWindow) {
+      return;
+    }
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>SmartBudget Transactions</title>
+
+          <style>
+            * {
+              box-sizing: border-box;
+            }
+
+            body {
+              margin: 0;
+              padding: 40px;
+              font-family:
+                Arial,
+                Helvetica,
+                sans-serif;
+              color: #0f172a;
+              background: #ffffff;
+            }
+
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              margin-bottom: 30px;
+              padding-bottom: 20px;
+              border-bottom: 1px solid #e2e8f0;
+            }
+
+            h1 {
+              margin: 0;
+              font-size: 26px;
+            }
+
+            .subtitle {
+              margin-top: 6px;
+              color: #64748b;
+              font-size: 13px;
+            }
+
+            .date {
+              color: #64748b;
+              font-size: 12px;
+            }
+
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 20px;
+            }
+
+            th {
+              padding: 12px;
+              text-align: left;
+              background: #f8fafc;
+              border-bottom: 1px solid #cbd5e1;
+              font-size: 11px;
+              text-transform: uppercase;
+              letter-spacing: .06em;
+            }
+
+            td {
+              padding: 12px;
+              border-bottom: 1px solid #e2e8f0;
+              font-size: 12px;
+            }
+
+            .footer {
+              margin-top: 25px;
+              padding-top: 15px;
+              border-top: 1px solid #e2e8f0;
+              color: #64748b;
+              font-size: 11px;
+            }
+
+            @media print {
+              body {
+                padding: 20px;
+              }
+            }
+          </style>
+        </head>
+
+        <body>
+          <div
+            class="
+              header
+            "
+          >
+            <div>
+              <h1>SmartBudget Transactions</h1>
+
+              <div
+                class="
+                  subtitle
+                "
+              >
+                Transaction activity report
+              </div>
+            </div>
+
+            <div
+              class="
+                date
+              "
+            >
+              Generated ${new Date().toLocaleString()}
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th>Category</th>
+                <th>Type</th>
+                <th>Amount</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+
+          <div
+            class="
+              footer
+            "
+          >
+            SmartBudget — Financial transaction report
+          </div>
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+
+    printWindow.focus();
+
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 300);
+  };
 
   /* =========================================================
      UI
@@ -517,146 +777,105 @@ const Transactions = () => {
         "
       >
 
-        {/* ===================================================
+        {/* =================================================
             PAGE HEADER
-        =================================================== */}
+        ================================================= */}
 
         <section
           className="
-            flex flex-col lg:flex-row lg:items-center lg:justify-between
             mb-5 sm:mb-6
-            gap-4
           "
         >
           <div
             className="
-              min-w-0
+              flex flex-col lg:flex-row lg:items-end lg:justify-between
+              gap-4
             "
           >
             <div
               className="
-                flex items-center
-                gap-2
+                min-w-0
               "
             >
-              <div
+              <h1
                 className="
-                  flex items-center justify-center
-                  h-9 w-9
-                  text-white
-                  bg-slate-900
-                  rounded-xl
-                  shrink-0
+                  text-2xl text-slate-950 sm:text-3xl font-bold tracking-tight
                 "
               >
-                <WalletCards size={17} />
-              </div>
+                Transactions
+              </h1>
 
               <p
                 className="
-                  text-xs text-slate-500 font-semibold uppercase
-                  tracking-[0.18em]
+                  max-w-2xl
+                  mt-1.5
+                  text-sm text-slate-500 leading-relaxed
                 "
               >
-                Financial ledger
+                Search, review, filter and manage
+                your complete financial activity.
               </p>
             </div>
 
-            <h1
+            {/* EXPORT ACTIONS */}
+
+            <div
               className="
-                mt-3
-                text-2xl text-slate-950 sm:text-3xl font-bold tracking-tight
-              "
-            >
-              Transactions
-            </h1>
-
-            <p
-              className="
-                max-w-2xl
-                mt-1.5
-                text-sm text-slate-500 leading-relaxed
-              "
-            >
-              Search, review, filter and manage
-              every income and expense recorded
-              in your account.
-            </p>
-          </div>
-
-
-          {/* HEADER ACTIONS */}
-
-          <div
-            className="
-              flex flex-col sm:flex-row
-              w-full lg:w-auto
-              gap-2
-            "
-          >
-            <button
-              type="button"
-              onClick={handleExport}
-              disabled={
-                filteredTransactions.length === 0
-              }
-              className="
-                inline-flex flex-1 sm:flex-none items-center justify-center
-                min-h-11
-                px-4
-                text-sm text-slate-700 font-semibold
-                bg-white hover:bg-slate-50
-                rounded-xl border border-slate-200
-                shadow-sm transition disabled:opacity-50
-                disabled:cursor-not-allowed
+                grid grid-cols-2 sm:flex
+                sm:w-auto
                 gap-2
               "
             >
-              <Download size={16} />
-              Export
-            </button>
+              <button
+                type="button"
+                onClick={handleExportCSV}
+                disabled={
+                  filteredTransactions.length === 0
+                }
+                className="
+                  inline-flex items-center justify-center
+                  min-h-10
+                  px-4
+                  text-xs text-slate-700 sm:text-sm font-semibold
+                  bg-white hover:bg-slate-50
+                  rounded-xl border border-slate-200
+                  shadow-sm transition disabled:opacity-50
+                  disabled:cursor-not-allowed
+                  gap-2
+                "
+              >
+                <Download size={16} />
+                CSV
+              </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                document
-                  .getElementById(
-                    "transaction-entry"
-                  )
-                  ?.scrollIntoView({
-                    behavior: "smooth",
-                    block: "center",
-                  });
-              }}
-              className="
-                inline-flex
-                min-h-11
-                flex-1
-                items-center
-                justify-center
-                gap-2
-                rounded-xl
-                bg-slate-950
-                px-4
-                text-sm
-                font-semibold
-                text-white
-                shadow-sm
-                transition
-                hover:bg-slate-800
-                sm:flex-none
-              "
-            >
-              <Plus size={17} />
-              Add transaction
-            </button>
+              <button
+                type="button"
+                onClick={handleExportPDF}
+                disabled={
+                  filteredTransactions.length === 0
+                }
+                className="
+                  inline-flex items-center justify-center
+                  min-h-10
+                  px-4
+                  text-xs text-white sm:text-sm font-semibold
+                  bg-slate-950 hover:bg-slate-800
+                  rounded-xl
+                  shadow-sm transition disabled:opacity-50
+                  disabled:cursor-not-allowed
+                  gap-2
+                "
+              >
+                <FileText size={16} />
+                PDF
+              </button>
+            </div>
           </div>
         </section>
 
-
-        {/* ===================================================
+        {/* =================================================
             SUMMARY
-        =================================================== */}
+        ================================================= */}
 
         <section
           className="
@@ -667,39 +886,29 @@ const Transactions = () => {
         >
           <SummaryCard
             label="Total income"
-            value={formatCurrency(
-              summary.income
-            )}
+            value={formatCurrency(summary.income)}
             icon={ArrowUpRight}
             iconClassName="
               bg-emerald-50
               text-emerald-600
             "
-            valueClassName="
-              text-emerald-700
-            "
+            valueClassName="text-emerald-700"
           />
 
           <SummaryCard
             label="Total expenses"
-            value={formatCurrency(
-              summary.expense
-            )}
+            value={formatCurrency(summary.expense)}
             icon={ArrowDownRight}
             iconClassName="
               bg-rose-50
               text-rose-600
             "
-            valueClassName="
-              text-rose-700
-            "
+            valueClassName="text-rose-700"
           />
 
           <SummaryCard
             label="Net balance"
-            value={formatCurrency(
-              summary.balance
-            )}
+            value={formatCurrency(summary.balance)}
             icon={WalletCards}
             iconClassName="
               bg-slate-100
@@ -708,10 +917,9 @@ const Transactions = () => {
           />
         </section>
 
-
-        {/* ===================================================
-            TRANSACTION ENTRY
-        =================================================== */}
+        {/* =================================================
+            ADD TRANSACTION
+        ================================================= */}
 
         <section
           id="transaction-entry"
@@ -724,42 +932,40 @@ const Transactions = () => {
         >
           <div
             className="
-              flex flex-col sm:flex-row sm:items-end sm:justify-between
               mb-4
-              gap-1
             "
           >
-            <div>
-              <h2
-                className="
-                  text-base text-slate-900 font-bold
-                "
-              >
-                Add transaction
-              </h2>
+            <h2
+              className="
+                text-base text-slate-900 font-bold
+              "
+            >
+              Add transaction
+            </h2>
 
-              <p
-                className="
-                  mt-1
-                  text-xs text-slate-500
-                "
-              >
-                Record an income or expense
-                directly into your ledger.
-              </p>
-            </div>
+            <p
+              className="
+                mt-1
+                text-xs text-slate-500
+              "
+            >
+              Record income or expenses using the
+              categories used across SmartBudget.
+            </p>
           </div>
 
           <form
             onSubmit={handleCreate}
             className="
-              grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5
+              grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12
               gap-3
             "
           >
+            {/* DESCRIPTION */}
+
             <div
               className="
-                lg:col-span-2
+                lg:col-span-4
               "
             >
               <label
@@ -782,13 +988,12 @@ const Transactions = () => {
                       event.target.value,
                   }))
                 }
-                placeholder="e.g. Salary payment"
+                placeholder="e.g. Monthly salary"
                 className="
                   h-11
                   w-full
                   rounded-xl
-                  border
-                  border-slate-200
+                  border border-slate-200
                   bg-white
                   px-3.5
                   text-sm
@@ -803,7 +1008,13 @@ const Transactions = () => {
               />
             </div>
 
-            <div>
+            {/* AMOUNT */}
+
+            <div
+              className="
+                lg:col-span-2
+              "
+            >
               <label
                 className="
                   block
@@ -831,8 +1042,7 @@ const Transactions = () => {
                   h-11
                   w-full
                   rounded-xl
-                  border
-                  border-slate-200
+                  border border-slate-200
                   bg-white
                   px-3.5
                   text-sm
@@ -847,7 +1057,13 @@ const Transactions = () => {
               />
             </div>
 
-            <div>
+            {/* TYPE */}
+
+            <div
+              className="
+                lg:col-span-2
+              "
+            >
               <label
                 className="
                   block
@@ -871,14 +1087,14 @@ const Transactions = () => {
                   h-11
                   w-full
                   rounded-xl
-                  border
-                  border-slate-200
+                  border border-slate-200
                   bg-white
                   px-3.5
                   text-sm
                   font-medium
                   text-slate-700
                   outline-none
+                  transition
                   focus:border-slate-400
                   focus:ring-2
                   focus:ring-slate-100
@@ -894,7 +1110,13 @@ const Transactions = () => {
               </select>
             </div>
 
-            <div>
+            {/* CATEGORY */}
+
+            <div
+              className="
+                lg:col-span-2
+              "
+            >
               <label
                 className="
                   block
@@ -905,8 +1127,7 @@ const Transactions = () => {
                 Category
               </label>
 
-              <input
-                type="text"
+              <select
                 value={form.category}
                 onChange={(event) =>
                   setForm((previous) => ({
@@ -915,31 +1136,42 @@ const Transactions = () => {
                       event.target.value,
                   }))
                 }
-                placeholder="General"
                 className="
                   h-11
                   w-full
                   rounded-xl
-                  border
-                  border-slate-200
+                  border border-slate-200
                   bg-white
                   px-3.5
                   text-sm
-                  text-slate-900
+                  font-medium
+                  text-slate-700
                   outline-none
                   transition
-                  placeholder:text-slate-400
                   focus:border-slate-400
                   focus:ring-2
                   focus:ring-slate-100
                 "
-              />
+              >
+                {TRANSACTION_CATEGORIES.map(
+                  (item) => (
+                    <option
+                      key={item}
+                      value={item}
+                    >
+                      {item}
+                    </option>
+                  )
+                )}
+              </select>
             </div>
+
+            {/* SAVE */}
 
             <div
               className="
-                lg:flex lg:justify-end
-                sm:col-span-2 lg:col-span-5
+                flex items-end
+                sm:col-span-2 lg:col-span-2
               "
             >
               <button
@@ -947,7 +1179,7 @@ const Transactions = () => {
                 disabled={creating}
                 className="
                   inline-flex items-center justify-center
-                  min-h-11 w-full lg:w-auto
+                  h-11 w-full
                   px-5
                   text-sm text-white font-semibold
                   bg-slate-950 hover:bg-slate-800
@@ -967,10 +1199,9 @@ const Transactions = () => {
           </form>
         </section>
 
-
-        {/* ===================================================
-            LEDGER
-        =================================================== */}
+        {/* =================================================
+            TRANSACTION LEDGER
+        ================================================= */}
 
         <section
           className="
@@ -980,7 +1211,6 @@ const Transactions = () => {
             shadow-[0_4px_20px_rgba(15,23,42,0.04)]
           "
         >
-
           {/* LEDGER HEADER */}
 
           <div
@@ -995,7 +1225,6 @@ const Transactions = () => {
                 gap-4
               "
             >
-
               <div>
                 <div
                   className="
@@ -1031,17 +1260,16 @@ const Transactions = () => {
                 >
                   {hasActiveFilters
                     ? "Showing transactions matching your filters."
-                    : "Your complete financial activity."}
+                    : "Complete financial activity."}
                 </p>
               </div>
 
-
-              {/* DESKTOP SEARCH */}
+              {/* SEARCH */}
 
               <div
                 className="
                   relative
-                  w-full lg:max-w-xs
+                  w-full lg:max-w-sm
                 "
               >
                 <Search
@@ -1068,8 +1296,7 @@ const Transactions = () => {
                     h-11
                     w-full
                     rounded-xl
-                    border
-                    border-slate-200
+                    border border-slate-200
                     bg-slate-50
                     pl-10
                     pr-10
@@ -1102,6 +1329,7 @@ const Transactions = () => {
                       justify-center
                       rounded-lg
                       text-slate-400
+                      transition
                       hover:bg-slate-200
                       hover:text-slate-700
                     "
@@ -1113,31 +1341,24 @@ const Transactions = () => {
               </div>
             </div>
 
-
-            {/* FILTER BAR */}
+            {/* FILTERS */}
 
             <div
               className="
-                flex flex-col sm:flex-row sm:flex-wrap sm:items-center
                 mt-4
-                gap-2
               "
             >
-              {/* MOBILE FILTER BUTTON */}
-
               <button
                 type="button"
                 onClick={() =>
                   setShowFilters(
-                    (previous) =>
-                      !previous
+                    (previous) => !previous
                   )
                 }
                 className="
                   inline-flex
                   min-h-10
                   items-center
-                  justify-center
                   gap-2
                   rounded-xl
                   border
@@ -1150,9 +1371,7 @@ const Transactions = () => {
                   sm:hidden
                 "
               >
-                <SlidersHorizontal
-                  size={15}
-                />
+                <SlidersHorizontal size={15} />
 
                 Filters
 
@@ -1172,12 +1391,13 @@ const Transactions = () => {
                 )}
               </button>
 
-
               <div
                 className={`
+                  mt-2
                   grid
                   grid-cols-1
                   gap-2
+                  sm:mt-0
                   sm:flex
                   sm:flex-wrap
                   ${
@@ -1187,6 +1407,8 @@ const Transactions = () => {
                   }
                 `}
               >
+                {/* TYPE */}
+
                 <select
                   value={filter}
                   onChange={(event) =>
@@ -1197,8 +1419,7 @@ const Transactions = () => {
                   className="
                     h-10
                     rounded-xl
-                    border
-                    border-slate-200
+                    border border-slate-200
                     bg-white
                     px-3
                     text-xs
@@ -1221,6 +1442,7 @@ const Transactions = () => {
                   </option>
                 </select>
 
+                {/* CATEGORY */}
 
                 <select
                   value={category}
@@ -1232,8 +1454,7 @@ const Transactions = () => {
                   className="
                     h-10
                     rounded-xl
-                    border
-                    border-slate-200
+                    border border-slate-200
                     bg-white
                     px-3
                     text-xs
@@ -1247,7 +1468,7 @@ const Transactions = () => {
                     All categories
                   </option>
 
-                  {categories.map(
+                  {TRANSACTION_CATEGORIES.map(
                     (item) => (
                       <option
                         key={item}
@@ -1259,6 +1480,7 @@ const Transactions = () => {
                   )}
                 </select>
 
+                {/* DATE */}
 
                 <select
                   value={dateRange}
@@ -1270,8 +1492,7 @@ const Transactions = () => {
                   className="
                     h-10
                     rounded-xl
-                    border
-                    border-slate-200
+                    border border-slate-200
                     bg-white
                     px-3
                     text-xs
@@ -1298,7 +1519,6 @@ const Transactions = () => {
                   </option>
                 </select>
 
-
                 {hasActiveFilters && (
                   <button
                     type="button"
@@ -1310,6 +1530,7 @@ const Transactions = () => {
                       text-xs text-slate-500 hover:text-slate-900 font-semibold
                       hover:bg-slate-100
                       rounded-xl
+                      transition
                       gap-1.5
                     "
                   >
@@ -1321,10 +1542,7 @@ const Transactions = () => {
             </div>
           </div>
 
-
-          {/* =================================================
-              TRANSACTION CONTENT
-          ================================================= */}
+          {/* TRANSACTION CONTENT */}
 
           <div
             className="
@@ -1376,19 +1594,242 @@ const Transactions = () => {
             ) : (
               <TransactionList
                 transactions={
-                  filteredTransactions
+                  paginatedTransactions
                 }
                 onDelete={handleDelete}
               />
             )}
           </div>
+
+          {/* PAGINATION */}
+
+          {!loading &&
+            filteredTransactions.length > 0 && (
+              <div
+                className="
+                  flex flex-col sm:flex-row sm:items-center sm:justify-between
+                  p-4 sm:px-5
+                  border-t border-slate-200
+                  gap-3
+                "
+              >
+                <div
+                  className="
+                    text-xs text-slate-500
+                  "
+                >
+                  Showing{" "}
+                  <span
+                    className="
+                      font-semibold text-slate-700
+                    "
+                  >
+                    {paginationStart}
+                  </span>{" "}
+                  to{" "}
+                  <span
+                    className="
+                      font-semibold text-slate-700
+                    "
+                  >
+                    {paginationEnd}
+                  </span>{" "}
+                  of{" "}
+                  <span
+                    className="
+                      font-semibold text-slate-700
+                    "
+                  >
+                    {filteredTransactions.length}
+                  </span>
+                </div>
+
+                <div
+                  className="
+                    flex items-center
+                    gap-1.5
+                  "
+                >
+                  {/* PREVIOUS */}
+
+                  <button
+                    type="button"
+                    disabled={currentPage === 1}
+                    onClick={() =>
+                      setCurrentPage(
+                        (previous) =>
+                          Math.max(
+                            1,
+                            previous - 1
+                          )
+                      )
+                    }
+                    className="
+                      inline-flex
+                      h-9
+                      w-9
+                      items-center
+                      justify-center
+                      rounded-lg
+                      border
+                      border-slate-200
+                      bg-white
+                      text-slate-600
+                      transition
+                      hover:bg-slate-50
+                      disabled:cursor-not-allowed
+                      disabled:opacity-40
+                    "
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+
+                  {/* PAGE NUMBERS */}
+
+                  <div
+                    className="
+                      flex items-center
+                      gap-1
+                    "
+                  >
+                    {Array.from(
+                      {
+                        length: totalPages,
+                      },
+                      (_, index) =>
+                        index + 1
+                    )
+                      .filter((page) => {
+                        if (
+                          totalPages <= 5
+                        ) {
+                          return true;
+                        }
+
+                        if (page === 1) {
+                          return true;
+                        }
+
+                        if (
+                          page === totalPages
+                        ) {
+                          return true;
+                        }
+
+                        return (
+                          Math.abs(
+                            page -
+                              currentPage
+                          ) <= 1
+                        );
+                      })
+                      .map((page, index, pages) => {
+                        const previousPage =
+                          pages[index - 1];
+
+                        const showEllipsis =
+                          previousPage &&
+                          page -
+                            previousPage >
+                            1;
+
+                        return (
+                          <div
+                            key={page}
+                            className="
+                              flex items-center
+                              gap-1
+                            "
+                          >
+                            {showEllipsis && (
+                              <span
+                                className="
+                                  px-1
+                                  text-xs text-slate-400
+                                "
+                              >
+                                …
+                              </span>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setCurrentPage(
+                                  page
+                                )
+                              }
+                              className={`
+                                flex
+                                h-9
+                                min-w-9
+                                items-center
+                                justify-center
+                                rounded-lg
+                                px-2
+                                text-xs
+                                font-semibold
+                                transition
+                                ${
+                                  currentPage ===
+                                  page
+                                    ? "bg-slate-950 text-white"
+                                    : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                }
+                              `}
+                            >
+                              {page}
+                            </button>
+                          </div>
+                        );
+                      })}
+                  </div>
+
+                  {/* NEXT */}
+
+                  <button
+                    type="button"
+                    disabled={
+                      currentPage === totalPages
+                    }
+                    onClick={() =>
+                      setCurrentPage(
+                        (previous) =>
+                          Math.min(
+                            totalPages,
+                            previous + 1
+                          )
+                      )
+                    }
+                    className="
+                      inline-flex
+                      h-9
+                      w-9
+                      items-center
+                      justify-center
+                      rounded-lg
+                      border
+                      border-slate-200
+                      bg-white
+                      text-slate-600
+                      transition
+                      hover:bg-slate-50
+                      disabled:cursor-not-allowed
+                      disabled:opacity-40
+                    "
+                    aria-label="Next page"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+            )}
         </section>
 
-
-        {/* ===================================================
-            SMALL FINANCIAL INSIGHT
-            Secondary — NOT THE MAIN PAGE
-        =================================================== */}
+        {/* =================================================
+            SECONDARY FINANCIAL INSIGHT
+        ================================================= */}
 
         {aiInsights?.message &&
           transactions.length > 0 && (
@@ -1442,7 +1883,6 @@ const Transactions = () => {
               </div>
             </section>
           )}
-
       </div>
     </main>
   );
