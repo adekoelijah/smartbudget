@@ -16,16 +16,37 @@ const Navbar = ({ onToggleSidebar }) => {
   const notifRef = useRef(null);
   const searchRef = useRef(null);
 
-  // 🧠 Derive page title from route
-  const pageTitle = useMemo(() => {
-    const path = location.pathname;
-    if (path.startsWith("/transactions")) return "Transactions";
-    if (path.startsWith("/budgets")) return "Budgets";
-    if (path.startsWith("/insights")) return "Insights";
-    if (path.startsWith("/reports")) return "Reports";
-    if (path.startsWith("/settings")) return "Settings";
-    return "Dashboard";
-  }, [location.pathname]);
+// 🧠 Derive page title from route
+const pageTitle = useMemo(() => {
+  const path = location.pathname;
+
+  if (path.startsWith("/transactions")) {
+    return "Transactions";
+  }
+
+  if (path.startsWith("/budgets")) {
+    return "Budgets";
+  }
+
+  if (path.startsWith("/smart-save")) {
+    return "SmartSave";
+  }
+
+  if (path.startsWith("/insights")) {
+    return "Insights";
+  }
+
+  if (path.startsWith("/reports")) {
+    return "Reports";
+  }
+
+  if (path.startsWith("/settings")) {
+    return "Settings";
+  }
+
+  return "Dashboard";
+}, [location.pathname]);
+
 
   // 🧹 Close popovers on outside click
   useEffect(() => {
@@ -74,25 +95,60 @@ const Navbar = ({ onToggleSidebar }) => {
   }, [query]);
 
   return (
-    <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b">
-      <div className="h-16 px-4 md:px-6 flex items-center justify-between gap-4">
+    <header
+      className="
+        top-0 z-40 sticky
+        bg-white/90
+        border-b
+        backdrop-blur
+      "
+    >
+      <div
+        className="
+          flex justify-between items-center
+          h-16
+          px-4 md:px-6
+          gap-4
+        "
+      >
         {/* LEFT: Menu (mobile) + Title + Search */}
-        <div className="flex items-center gap-3 w-full md:w-1/2">
+        <div
+          className="
+            flex items-center
+            w-full md:w-1/2
+            gap-3
+          "
+        >
           {/* Mobile sidebar toggle */}
           <button
             onClick={onToggleSidebar}
-            className="md:hidden p-2 rounded hover:bg-gray-100"
+            className="
+              md:hidden
+              p-2
+              hover:bg-gray-100
+              rounded
+            "
             aria-label="Toggle sidebar"
           >
             ☰
           </button>
 
-          <h1 className="text-lg md:text-xl font-semibold text-primary whitespace-nowrap">
+          <h1
+            className="
+              font-semibold text-primary text-lg md:text-xl whitespace-nowrap
+            "
+          >
             {pageTitle}
           </h1>
 
           {/* Search */}
-          <div className="relative w-full max-w-md ml-2 hidden sm:block">
+          <div
+            className="
+              hidden sm:block relative
+              w-full max-w-md
+              ml-2
+            "
+          >
             <input
               ref={searchRef}
               value={query}
@@ -100,28 +156,52 @@ const Navbar = ({ onToggleSidebar }) => {
               type="text"
               placeholder="Search (press /)"
               aria-label="Search"
-              className="w-full border rounded-lg pl-4 pr-10 py-2 text-sm
-                         focus:outline-none focus:ring-2 focus:ring-accent"
+              className="py-2 pr-10 pl-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent w-full text-sm"
             />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">
+            <span
+              className="
+                top-1/2 right-3 absolute
+                text-gray-400 text-xs
+                -translate-y-1/2
+              "
+            >
               /
             </span>
           </div>
         </div>
 
         {/* RIGHT: Actions */}
-        <div className="flex items-center gap-4 md:gap-6">
+        <div
+          className="
+            flex items-center
+            gap-4 md:gap-6
+          "
+        >
           {/* Notifications */}
-          <div className="relative" ref={notifRef}>
+          <div
+            className="
+              relative
+            "
+            ref={notifRef}
+          >
             <button
               onClick={() => setNotifOpen((v) => !v)}
-              className="relative p-2 rounded hover:bg-gray-100"
+              className="relative hover:bg-gray-100 p-2 rounded"
               aria-haspopup="menu"
               aria-expanded={notifOpen}
               aria-label="Notifications"
             >
               🔔
-              <span className="absolute -top-1 -right-1 text-[10px] bg-danger text-white rounded-full px-1.5 py-0.5">
+              <span
+                className="
+                  absolute
+                  px-1.5 py-0.5
+                  text-[10px] text-white
+                  bg-danger
+                  rounded-full
+                  -top-1 -right-1
+                "
+              >
                 3
               </span>
             </button>
@@ -129,17 +209,49 @@ const Navbar = ({ onToggleSidebar }) => {
             {notifOpen && (
               <div
                 role="menu"
-                className="absolute right-0 mt-3 w-80 bg-white border rounded-xl shadow-lg overflow-hidden"
+                className="
+                  right-0 absolute overflow-hidden
+                  w-80
+                  mt-3
+                  bg-white
+                  border rounded-xl
+                  shadow-lg
+                "
               >
-                <div className="px-4 py-3 border-b font-medium">
+                <div
+                  className="
+                    px-4 py-3
+                    font-medium
+                    border-b
+                  "
+                >
                   Notifications
                 </div>
 
-                <ul className="max-h-64 overflow-y-auto">
-                  <li className="px-4 py-3 text-sm hover:bg-gray-50 cursor-pointer">
+                <ul
+                  className="
+                    overflow-y-auto
+                    max-h-64
+                  "
+                >
+                  <li
+                    className="
+                      px-4 py-3
+                      text-sm
+                      hover:bg-gray-50
+                      cursor-pointer
+                    "
+                  >
                     Budget limit nearing in “Food”
                   </li>
-                  <li className="px-4 py-3 text-sm hover:bg-gray-50 cursor-pointer">
+                  <li
+                    className="
+                      px-4 py-3
+                      text-sm
+                      hover:bg-gray-50
+                      cursor-pointer
+                    "
+                  >
                     New insight generated for April
                   </li>
                 </ul>
@@ -149,7 +261,7 @@ const Navbar = ({ onToggleSidebar }) => {
                     setNotifOpen(false);
                     navigate("/reports");
                   }}
-                  className="w-full text-sm px-4 py-2 border-t hover:bg-gray-50"
+                  className="hover:bg-gray-50 px-4 py-2 border-t w-full text-sm"
                 >
                   View all
                 </button>
@@ -158,10 +270,15 @@ const Navbar = ({ onToggleSidebar }) => {
           </div>
 
           {/* User */}
-          <div className="relative" ref={dropdownRef}>
+          <div
+            className="
+              relative
+            "
+            ref={dropdownRef}
+          >
             <button
               onClick={() => setDropdownOpen((v) => !v)}
-              className="flex items-center gap-3 p-1 rounded-lg hover:bg-gray-100"
+              className="flex items-center gap-3 hover:bg-gray-100 p-1 rounded-lg"
               aria-haspopup="menu"
               aria-expanded={dropdownOpen}
             >
@@ -170,14 +287,31 @@ const Navbar = ({ onToggleSidebar }) => {
                   user?.name || "User"
                 }&background=1E293B&color=fff`}
                 alt="User avatar"
-                className="w-9 h-9 rounded-full"
-              />
+                className="
+                  w-9 h-9
+                  rounded-full
+                "
+                /
+              >
 
-              <div className="hidden md:block text-left">
-                <p className="text-sm font-medium leading-tight">
+              <div
+                className="
+                  hidden md:block
+                  text-left
+                "
+              >
+                <p
+                  className="
+                    font-medium text-sm leading-tight
+                  "
+                >
                   {user?.name || "User"}
                 </p>
-                <p className="text-xs text-gray-500 leading-tight">
+                <p
+                  className="
+                    text-gray-500 text-xs leading-tight
+                  "
+                >
                   {user?.email || ""}
                 </p>
               </div>
@@ -186,14 +320,21 @@ const Navbar = ({ onToggleSidebar }) => {
             {dropdownOpen && (
               <div
                 role="menu"
-                className="absolute right-0 mt-3 w-52 bg-white border rounded-xl shadow-lg overflow-hidden"
+                className="
+                  right-0 absolute overflow-hidden
+                  w-52
+                  mt-3
+                  bg-white
+                  border rounded-xl
+                  shadow-lg
+                "
               >
                 <button
                   onClick={() => {
                     setDropdownOpen(false);
                     navigate("/settings");
                   }}
-                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
+                  className="hover:bg-gray-50 px-4 py-2 w-full text-sm text-left"
                 >
                   Settings
                 </button>
@@ -203,16 +344,26 @@ const Navbar = ({ onToggleSidebar }) => {
                     setDropdownOpen(false);
                     navigate("/profile");
                   }}
-                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
+                  className="hover:bg-gray-50 px-4 py-2 w-full text-sm text-left"
                 >
                   Profile
                 </button>
 
-                <div className="border-t" />
+                <div
+                  className="
+                    border-t
+                  "
+                  /
+                >
 
                 <button
                   onClick={handleLogout}
-                  className="w-full text-left px-4 py-2 text-sm text-danger hover:bg-gray-50"
+                  className="
+                    w-full
+                    px-4 py-2
+                    text-danger text-sm text-left
+                    hover:bg-gray-50
+                  "
                 >
                   Logout
                 </button>
@@ -223,14 +374,18 @@ const Navbar = ({ onToggleSidebar }) => {
       </div>
 
       {/* Mobile search (separate row) */}
-      <div className="sm:hidden px-4 pb-3">
+      <div
+        className="
+          sm:hidden
+          px-4 pb-3
+        "
+      >
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           type="text"
           placeholder="Search"
-          className="w-full border rounded-lg px-4 py-2 text-sm
-                     focus:outline-none focus:ring-2 focus:ring-accent"
+          className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent w-full text-sm"
         />
       </div>
     </header>
