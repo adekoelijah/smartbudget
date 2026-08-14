@@ -1,4 +1,3 @@
-
 import {
   X,
   UploadCloud,
@@ -7,124 +6,204 @@ import {
 } from "lucide-react";
 
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
 } from "react";
 
+/*
+============================================================
+CHANGE PHOTO MODAL
+============================================================
+
+Responsibilities:
+- Display current profile photo
+- Allow user to select a new image
+- Validate image type and size
+- Show local preview
+- Send selected file to parent
+- Keep modal open when upload fails
+- Close only through the parent's success flow
+
+The actual API upload remains outside this component.
+============================================================
+*/
+
+const ALLOWED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+];
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+
 const ChangePhotoModal = ({
-  isOpen,
+  open,
+  currentImage = "",
+  loading = false,
   onClose,
-  currentPhoto,
   onUpload,
 }) => {
+  /* ============================================================
+     REFS
+  ============================================================ */
+
   const fileInputRef = useRef(null);
   const previewUrlRef = useRef(null);
 
-  const [selectedFile, setSelectedFile] =
-    useState(null);
+  /* ============================================================
+     STATE
+  ============================================================ */
 
-  const [preview, setPreview] = useState(
-    currentPhoto || null
-  );
-
-  const [isUploading, setIsUploading] =
-    useState(false);
-
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [preview, setPreview] = useState(currentImage || "");
   const [error, setError] = useState("");
 
-  /* =========================================
-     SYNC CURRENT PHOTO
-  ========================================= */
+  /* ============================================================
+     CLEAN PREVIEW URL
+  ============================================================ */
 
-  useEffect(() => {
-    if (!isOpen) {
+  const revokePreviewUrl = useCallback(() => {
+    if (!previewUrlRef.current) {
       return;
     }
+
+    URL.revokeObjectURL(previewUrlRef.current);
+    previewUrlRef.current = null;
+  }, []);
+
+  /* ============================================================
+     RESET MODAL
+  ============================================================ */
+
+  const resetModal = useCallback(() => {
+    revokePreviewUrl();
 
     setSelectedFile(null);
     setError("");
-    setPreview(currentPhoto || null);
-  }, [isOpen, currentPhoto]);
+    setPreview(currentImage || "");
 
-  /* =========================================
-     CLEAN OBJECT URL
-  ========================================= */
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }, [currentImage, revokePreviewUrl]);
+
+  /* ============================================================
+     SYNC CURRENT IMAGE
+  ============================================================ */
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    resetModal();
+  }, [open, resetModal]);
+
+  /* ============================================================
+     COMPONENT CLEANUP
+  ============================================================ */
 
   useEffect(() => {
     return () => {
-      if (previewUrlRef.current) {
-        URL.revokeObjectURL(
-          previewUrlRef.current
-        );
-      }
+      revokePreviewUrl();
     };
+  }, [revokePreviewUrl]);
+
+  /* ============================================================
+     CLOSE MODAL
+  ============================================================ */
+
+  const handleClose = useCallback(() => {
+    if (loading) {
+      return;
+    }
+
+    resetModal();
+
+    onClose?.();
+  }, [loading, onClose, resetModal]);
+
+  /* ============================================================
+     FILE VALIDATION
+  ============================================================ */
+
+  const validateFile = useCallback((file) => {
+    if (!file) {
+      return "Please select an image.";
+    }
+
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      return "Only JPG, PNG, and WEBP images are supported.";
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      return "Image size must be less than 5MB.";
+    }
+
+    return "";
   }, []);
 
-  /* =========================================
-     FILE CHANGE
-  ========================================= */
+  /* ============================================================
+     FILE SELECTION
+  ============================================================ */
 
-  const handleFileChange = (event) => {
-    const file =
-      event.target.files?.[0];
+  const handleFileChange = useCallback(
+    (event) => {
+      const file = event.target.files?.[0];
 
-    if (!file) {
+      if (!file) {
+        return;
+      }
+
+      const validationError = validateFile(file);
+
+      if (validationError) {
+        revokePreviewUrl();
+
+        setSelectedFile(null);
+        setError(validationError);
+
+        return;
+      }
+
+      revokePreviewUrl();
+
+      const objectUrl = URL.createObjectURL(file);
+
+      previewUrlRef.current = objectUrl;
+
+      setSelectedFile(file);
+      setPreview(objectUrl);
+      setError("");
+    },
+    [revokePreviewUrl, validateFile]
+  );
+
+  /* ============================================================
+     OPEN FILE PICKER
+  ============================================================ */
+
+  const handleChoosePhoto = useCallback(() => {
+    if (loading) {
       return;
     }
 
-    const allowedTypes = [
-      "image/jpeg",
-      "image/png",
-      "image/webp",
-    ];
+    fileInputRef.current?.click();
+  }, [loading]);
 
-    if (!allowedTypes.includes(file.type)) {
-      setError(
-        "Only JPG, PNG, and WEBP images are supported."
-      );
-
-      return;
-    }
-
-    const maxSize =
-      5 * 1024 * 1024;
-
-    if (file.size > maxSize) {
-      setError(
-        "Image size must be less than 5MB."
-      );
-
-      return;
-    }
-
-    setError("");
-    setSelectedFile(file);
-
-    if (previewUrlRef.current) {
-      URL.revokeObjectURL(
-        previewUrlRef.current
-      );
-    }
-
-    const imageUrl =
-      URL.createObjectURL(file);
-
-    previewUrlRef.current = imageUrl;
-
-    setPreview(imageUrl);
-  };
-
-  /* =========================================
+  /* ============================================================
      UPLOAD
-  ========================================= */
+  ============================================================ */
 
-  const handleUpload = async () => {
+  const handleUpload = useCallback(async () => {
+    if (loading) {
+      return;
+    }
+
     if (!selectedFile) {
-      setError(
-        "Please select an image first."
-      );
-
+      setError("Please select an image first.");
       return;
     }
 
@@ -137,65 +216,73 @@ const ChangePhotoModal = ({
     }
 
     try {
-      setIsUploading(true);
       setError("");
 
-      const result =
-        await onUpload(selectedFile);
+      const result = await onUpload(selectedFile);
+
+      /*
+      Parent should return:
+
+      {
+        success: true,
+        user: updatedUser
+      }
+
+      The parent controls the successful modal-close flow.
+      */
 
       if (!result?.success) {
-        throw new Error(
+        setError(
           result?.message ||
             "Unable to update profile photo."
         );
       }
-
-      onClose();
-    } catch (error) {
+    } catch (uploadError) {
       console.error(
-        "PROFILE_PHOTO_UPLOAD_ERROR:",
-        error
+        "CHANGE_PHOTO_UPLOAD_ERROR:",
+        uploadError
       );
 
       setError(
-        error?.message ||
+        uploadError?.message ||
           "Unable to update profile photo. Please try again."
       );
-    } finally {
-      setIsUploading(false);
     }
-  };
+  }, [loading, onUpload, selectedFile]);
 
-  /* =========================================
-     CLOSE
-  ========================================= */
+  /* ============================================================
+     ESCAPE KEY
+  ============================================================ */
 
-  const handleClose = () => {
-    if (isUploading) {
+  useEffect(() => {
+    if (!open || loading) {
       return;
     }
 
-    setSelectedFile(null);
-    setError("");
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        handleClose();
+      }
+    };
 
-    if (previewUrlRef.current) {
-      URL.revokeObjectURL(
-        previewUrlRef.current
+    document.addEventListener(
+      "keydown",
+      handleKeyDown
+    );
+
+    return () => {
+      document.removeEventListener(
+        "keydown",
+        handleKeyDown
       );
+    };
+  }, [open, loading, handleClose]);
 
-      previewUrlRef.current = null;
-    }
-
-    setPreview(currentPhoto || null);
-
-    onClose();
-  };
-
-  /* =========================================
+  /* ============================================================
      RENDER
-  ========================================= */
+  ============================================================ */
 
-  if (!isOpen) {
+  if (!open) {
     return null;
   }
 
@@ -207,28 +294,38 @@ const ChangePhotoModal = ({
         bg-slate-950/40
         backdrop-blur-sm
       "
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="change-photo-title"
     >
       <div
         className="
-          w-full max-w-md
+          overflow-y-auto
+          w-full max-w-md max-h-[90vh]
           p-6
           bg-white
           border border-slate-200 rounded-3xl
-          shadow-xl
+          shadow-2xl
         "
       >
-        {/* =========================================
+        {/* ==================================================
             HEADER
-        ========================================= */}
+        ================================================== */}
 
         <div
           className="
-            flex justify-between items-center
+            flex justify-between items-start
             mb-6
+            gap-4
           "
         >
-          <div>
+          <div
+            className="
+              min-w-0
+            "
+          >
             <h2
+              id="change-photo-title"
               className="
                 font-semibold text-slate-900 text-lg
               "
@@ -249,8 +346,8 @@ const ChangePhotoModal = ({
           <button
             type="button"
             onClick={handleClose}
-            disabled={isUploading}
-            aria-label="Close"
+            disabled={loading}
+            aria-label="Close profile photo modal"
             className="
               p-2
               text-slate-500
@@ -258,6 +355,7 @@ const ChangePhotoModal = ({
               rounded-xl
               disabled:opacity-50 transition
               disabled:cursor-not-allowed
+              shrink-0
             "
           >
             <X
@@ -269,9 +367,9 @@ const ChangePhotoModal = ({
           </button>
         </div>
 
-        {/* =========================================
-            PREVIEW
-        ========================================= */}
+        {/* ==================================================
+            IMAGE PREVIEW
+        ================================================== */}
 
         <div
           className="
@@ -287,46 +385,37 @@ const ChangePhotoModal = ({
               border border-slate-200 rounded-3xl
             "
           >
-            {preview ? (
-              <img
-                src={preview}
-                alt="Profile preview"
-                className="
-                  object-cover
-                  w-full h-full
-                "
-                /
-              >
-            ) : (
-              <ImageIcon
-                className="
-                  w-10 h-10
-                  text-slate-400
-                "
-                /
-              >
-            )}
+
           </div>
         </div>
 
-        {/* =========================================
-            UPLOAD AREA
-        ========================================= */}
+        {/* ==================================================
+            FILE PICKER
+        ================================================== */}
 
         <button
           type="button"
-          onClick={() =>
-            fileInputRef.current?.click()
-          }
-          disabled={isUploading}
-          className="flex flex-col items-center gap-3 hover:bg-blue-50 disabled:opacity-60 p-6 border-2 border-slate-300 hover:border-blue-500 border-dashed rounded-2xl w-full transition disabled:cursor-not-allowed"
+          onClick={handleChoosePhoto}
+          disabled={loading}
+          className="
+            flex flex-col items-center
+            w-full
+            p-6
+            hover:bg-blue-50
+            border-2 border-slate-300 hover:border-blue-500 border-dashed
+            rounded-2xl
+            disabled:opacity-60 transition
+            disabled:cursor-not-allowed
+            gap-3
+          "
         >
           <UploadCloud
             className="
               w-7 h-7
               text-blue-600
             "
-            /
+            aria-hidden="true"
+          /
           >
 
           <span
@@ -351,16 +440,16 @@ const ChangePhotoModal = ({
           type="file"
           accept="image/jpeg,image/png,image/webp"
           onChange={handleFileChange}
-          disabled={isUploading}
+          disabled={loading}
           className="
             hidden
           "
           /
         >
 
-        {/* =========================================
-            SUCCESS STATE
-        ========================================= */}
+        {/* ==================================================
+            SELECTED FILE
+        ================================================== */}
 
         {selectedFile && !error && (
           <div
@@ -376,35 +465,43 @@ const ChangePhotoModal = ({
             <CheckCircle2
               className="
                 w-4 h-4
+                shrink-0
               "
-              /
+              aria-hidden="true"
+            /
             >
 
-            Image ready for upload
+            <span
+              className="
+                truncate
+              "
+            >
+              {selectedFile.name}
+            </span>
           </div>
         )}
 
-        {/* =========================================
+        {/* ==================================================
             ERROR
-        ========================================= */}
+        ================================================== */}
 
         {error && (
-          <p
+          <div
             role="alert"
             className="
               mt-4 px-4 py-3
               text-red-600 text-sm
               bg-red-50
-              rounded-xl
+              border border-red-100 rounded-xl
             "
           >
             {error}
-          </p>
+          </div>
         )}
 
-        {/* =========================================
+        {/* ==================================================
             ACTIONS
-        ========================================= */}
+        ================================================== */}
 
         <div
           className="
@@ -416,7 +513,7 @@ const ChangePhotoModal = ({
           <button
             type="button"
             onClick={handleClose}
-            disabled={isUploading}
+            disabled={loading}
             className="
               flex-1
               py-3
@@ -433,10 +530,7 @@ const ChangePhotoModal = ({
           <button
             type="button"
             onClick={handleUpload}
-            disabled={
-              isUploading ||
-              !selectedFile
-            }
+            disabled={loading || !selectedFile}
             className="
               flex-1
               py-3
@@ -447,7 +541,7 @@ const ChangePhotoModal = ({
               disabled:cursor-not-allowed
             "
           >
-            {isUploading
+            {loading
               ? "Uploading..."
               : "Save Photo"}
           </button>

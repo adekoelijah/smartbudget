@@ -29,13 +29,30 @@ const Field = ({
 }) => {
   return (
     <div
-      className="md:items-center gap-4 grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_240px] bg-white p-4 sm:p-5 border border-slate-200 rounded-2xl"
+      className="
+        md:items-center grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_240px]
+        p-4 sm:p-5
+        bg-white
+        border border-slate-200 rounded-2xl
+        gap-4
+      "
     >
       <div
-        className="flex items-start gap-3 min-w-0"
+        className="
+          flex items-start
+          min-w-0
+          gap-3
+        "
       >
         <div
-          className="flex justify-center items-center bg-slate-50 border border-slate-200 rounded-xl w-10 h-10 text-slate-700 shrink-0"
+          className="
+            flex justify-center items-center
+            w-10 h-10
+            text-slate-700
+            bg-slate-50
+            border border-slate-200 rounded-xl
+            shrink-0
+          "
         >
           <Icon
             size={18}
@@ -45,16 +62,24 @@ const Field = ({
         </div>
 
         <div
-          className="min-w-0"
+          className="
+            min-w-0
+          "
         >
           <h4
-            className="font-semibold text-slate-900 text-sm"
+            className="
+              font-semibold text-slate-900 text-sm
+            "
           >
             {label}
           </h4>
 
           <p
-            className="mt-1 max-w-xl text-slate-500 text-xs leading-relaxed"
+            className="
+              max-w-xl
+              mt-1
+              text-slate-500 text-xs leading-relaxed
+            "
           >
             {description}
           </p>
@@ -62,7 +87,9 @@ const Field = ({
       </div>
 
       <div
-        className="w-full"
+        className="
+          w-full
+        "
       >
         {children}
       </div>
@@ -84,13 +111,30 @@ const SettingsSection = ({
 }) => {
   return (
     <section
-      className="bg-slate-50/50 border border-slate-200 rounded-3xl overflow-hidden"
+      className="
+        overflow-hidden
+        bg-slate-50/50
+        border border-slate-200 rounded-3xl
+      "
     >
       <div
-        className="flex items-start gap-3 bg-white p-4 sm:p-5 border-slate-200 border-b"
+        className="
+          flex items-start
+          p-4 sm:p-5
+          bg-white
+          border-slate-200 border-b
+          gap-3
+        "
       >
         <div
-          className="flex justify-center items-center bg-blue-50 border border-blue-100 rounded-xl w-10 h-10 text-blue-600 shrink-0"
+          className="
+            flex justify-center items-center
+            w-10 h-10
+            text-blue-600
+            bg-blue-50
+            border border-blue-100 rounded-xl
+            shrink-0
+          "
         >
           <Icon
             size={18}
@@ -100,16 +144,23 @@ const SettingsSection = ({
         </div>
 
         <div
-          className="min-w-0"
+          className="
+            min-w-0
+          "
         >
           <h3
-            className="font-bold text-slate-900 text-sm"
+            className="
+              font-bold text-slate-900 text-sm
+            "
           >
             {title}
           </h3>
 
           <p
-            className="mt-1 text-slate-500 text-xs leading-relaxed"
+            className="
+              mt-1
+              text-slate-500 text-xs leading-relaxed
+            "
           >
             {description}
           </p>
@@ -117,7 +168,9 @@ const SettingsSection = ({
       </div>
 
       <div
-        className="space-y-3 p-3 sm:p-4"
+        className="
+          space-y-3 p-3 sm:p-4
+        "
       >
         {children}
       </div>
@@ -144,7 +197,16 @@ const Select = ({
       onChange={onChange}
       disabled={disabled}
       aria-label={ariaLabel}
-      className="bg-slate-50 hover:bg-white focus:bg-white disabled:opacity-60 px-4 border border-slate-200 focus:border-blue-500 rounded-2xl outline-none focus:ring-2 focus:ring-blue-100 w-full h-11 font-medium text-slate-800 text-sm transition disabled:cursor-not-allowed"
+      className="
+        w-full h-11
+        px-4
+        font-medium text-slate-800 text-sm
+        bg-slate-50 hover:bg-white focus:bg-white
+        border border-slate-200 focus:border-blue-500 rounded-2xl outline-none
+        focus:ring-2 focus:ring-blue-100
+        disabled:opacity-60 transition
+        disabled:cursor-not-allowed
+      "
     >
       {children}
     </select>
@@ -230,28 +292,52 @@ const ToggleField = ({
 }) => {
   return (
     <div
-      className="flex justify-between items-center gap-4 bg-white p-4 sm:p-5 border border-slate-200 rounded-2xl"
+      className="
+        flex justify-between items-center
+        p-4 sm:p-5
+        bg-white
+        border border-slate-200 rounded-2xl
+        gap-4
+      "
     >
       <div
-        className="flex items-start gap-3 min-w-0"
+        className="
+          flex items-start
+          min-w-0
+          gap-3
+        "
       >
         <div
-          className="flex justify-center items-center bg-slate-50 border border-slate-200 rounded-xl w-10 h-10 text-slate-700 shrink-0"
+          className="
+            flex justify-center items-center
+            w-10 h-10
+            text-slate-700
+            bg-slate-50
+            border border-slate-200 rounded-xl
+            shrink-0
+          "
         >
           {icon}
         </div>
 
         <div
-          className="min-w-0"
+          className="
+            min-w-0
+          "
         >
           <h4
-            className="font-semibold text-slate-900 text-sm"
+            className="
+              font-semibold text-slate-900 text-sm
+            "
           >
             {label}
           </h4>
 
           <p
-            className="mt-1 text-slate-500 text-xs leading-relaxed"
+            className="
+              mt-1
+              text-slate-500 text-xs leading-relaxed
+            "
           >
             {description}
           </p>
@@ -306,14 +392,20 @@ const StatusMessage = ({
       {isError ? (
         <AlertCircle
           size={18}
-          className="mt-0.5 shrink-0"
+          className="
+            mt-0.5
+            shrink-0
+          "
           aria-hidden="true"
         /
         >
       ) : (
         <CheckCircle2
           size={18}
-          className="mt-0.5 shrink-0"
+          className="
+            mt-0.5
+            shrink-0
+          "
           aria-hidden="true"
         /
         >
@@ -333,52 +425,92 @@ const StatusMessage = ({
 const PreferenceSkeleton = () => {
   return (
     <section
-      className="bg-white shadow-sm border border-slate-200 rounded-3xl w-full overflow-hidden"
+      className="
+        overflow-hidden
+        w-full
+        bg-white
+        border border-slate-200 rounded-3xl
+        shadow-sm
+      "
       aria-busy="true"
       aria-label="Loading preferences"
     >
       <div
-        className="bg-slate-200 h-1"
+        className="
+          h-1
+          bg-slate-200
+        "
         /
       >
 
       <div
-        className="p-4 sm:p-6 lg:p-7 animate-pulse"
+        className="
+          p-4 sm:p-6 lg:p-7
+          animate-pulse
+        "
       >
         <div
-          className="flex items-start gap-3"
+          className="
+            flex items-start
+            gap-3
+          "
         >
           <div
-            className="bg-slate-200 rounded-2xl w-11 h-11"
+            className="
+              w-11 h-11
+              bg-slate-200
+              rounded-2xl
+            "
             /
           >
 
           <div
-            className="flex-1 space-y-2"
+            className="
+              flex-1
+              space-y-2
+            "
           >
             <div
-              className="bg-slate-200 rounded-lg w-40 h-5"
+              className="
+                w-40 h-5
+                bg-slate-200
+                rounded-lg
+              "
               /
             >
             <div
-              className="bg-slate-100 rounded-lg w-full max-w-xl h-4"
+              className="
+                w-full max-w-xl h-4
+                bg-slate-100
+                rounded-lg
+              "
               /
             >
           </div>
         </div>
 
         <div
-          className="bg-slate-100 my-6 h-px"
+          className="
+            h-px
+            my-6
+            bg-slate-100
+          "
           /
         >
 
         <div
-          className="space-y-3"
+          className="
+            space-y-3
+          "
         >
           {[1, 2, 3, 4, 5, 6].map((item) => (
             <div
               key={item}
-              className="bg-slate-100 rounded-2xl h-20"
+              className="
+                h-20
+                bg-slate-100
+                rounded-2xl
+              "
               /
             >
           ))}
@@ -555,24 +687,46 @@ const PreferenceSettings = () => {
 
   return (
     <section
-      className="relative bg-white shadow-sm border border-slate-200 rounded-3xl w-full overflow-hidden"
+      className="
+        relative overflow-hidden
+        w-full
+        bg-white
+        border border-slate-200 rounded-3xl
+        shadow-sm
+      "
     >
       {/* Accent */}
       <div
-        className="top-0 absolute inset-x-0 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 h-1"
+        className="
+          top-0 absolute inset-x-0
+          h-1
+          bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500
+        "
         aria-hidden="true"
       /
       >
 
       <div
-        className="p-4 sm:p-6 lg:p-7"
+        className="
+          p-4 sm:p-6 lg:p-7
+        "
       >
         {/* Header */}
         <div
-          className="flex items-start gap-3"
+          className="
+            flex items-start
+            gap-3
+          "
         >
           <div
-            className="flex justify-center items-center bg-blue-50 border border-blue-100 rounded-2xl w-11 h-11 text-blue-600 shrink-0"
+            className="
+              flex justify-center items-center
+              w-11 h-11
+              text-blue-600
+              bg-blue-50
+              border border-blue-100 rounded-2xl
+              shrink-0
+            "
           >
             <MonitorCog
               size={21}
@@ -582,20 +736,32 @@ const PreferenceSettings = () => {
           </div>
 
           <div
-            className="min-w-0"
+            className="
+              min-w-0
+            "
           >
             <div
-              className="flex flex-wrap items-center gap-2"
+              className="
+                flex flex-wrap items-center
+                gap-2
+              "
             >
               <h2
-                className="font-bold text-slate-900 text-lg sm:text-xl"
+                className="
+                  font-bold text-slate-900 text-lg sm:text-xl
+                "
               >
                 Preferences
               </h2>
 
               {isDirty && (
                 <span
-                  className="bg-amber-50 px-2.5 py-1 border border-amber-200 rounded-full font-semibold text-[11px] text-amber-700"
+                  className="
+                    px-2.5 py-1
+                    font-semibold text-[11px] text-amber-700
+                    bg-amber-50
+                    border border-amber-200 rounded-full
+                  "
                 >
                   Unsaved changes
                 </span>
@@ -603,7 +769,11 @@ const PreferenceSettings = () => {
             </div>
 
             <p
-              className="mt-1 max-w-2xl text-slate-500 text-sm leading-relaxed"
+              className="
+                max-w-2xl
+                mt-1
+                text-slate-500 text-sm leading-relaxed
+              "
             >
               Manage regional, display, and
               privacy settings for your
@@ -614,13 +784,19 @@ const PreferenceSettings = () => {
 
         {/* Divider */}
         <div
-          className="bg-slate-100 my-5 sm:my-6 h-px"
+          className="
+            h-px
+            my-5 sm:my-6
+            bg-slate-100
+          "
           /
         >
 
         {/* Status */}
         <div
-          className="space-y-3 mb-5"
+          className="
+            space-y-3 mb-5
+          "
         >
           <StatusMessage
             type="error"
@@ -635,7 +811,9 @@ const PreferenceSettings = () => {
 
         {/* Settings */}
         <div
-          className="space-y-5"
+          className="
+            space-y-5
+          "
         >
           {/* =========================================================
               REGIONAL
@@ -913,14 +1091,27 @@ const PreferenceSettings = () => {
         =========================================================== */}
 
         <div
-          className="flex sm:flex-row flex-col sm:justify-between sm:items-center gap-4 mt-6 pt-5 border-slate-100 border-t"
+          className="
+            flex flex-col sm:flex-row sm:justify-between sm:items-center
+            mt-6 pt-5
+            border-slate-100 border-t
+            gap-4
+          "
         >
           <div
-            className="flex items-start gap-2 text-slate-500 text-xs"
+            className="
+              flex items-start
+              text-slate-500 text-xs
+              gap-2
+            "
           >
             <ShieldCheck
               size={16}
-              className="mt-0.5 text-emerald-600 shrink-0"
+              className="
+                mt-0.5
+                text-emerald-600
+                shrink-0
+              "
               aria-hidden="true"
             /
             >
@@ -932,13 +1123,28 @@ const PreferenceSettings = () => {
           </div>
 
           <div
-            className="flex sm:flex-row flex-col gap-2 w-full sm:w-auto"
+            className="
+              flex flex-col sm:flex-row
+              w-full sm:w-auto
+              gap-2
+            "
           >
             <button
               type="button"
               onClick={handleReset}
               disabled={isBusy}
-              className="inline-flex justify-center items-center gap-2 bg-white hover:bg-slate-50 disabled:opacity-60 px-5 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-200 h-11 font-semibold text-slate-700 text-sm transition disabled:cursor-not-allowed"
+              className="
+                inline-flex justify-center items-center
+                h-11
+                px-5
+                font-semibold text-slate-700 text-sm
+                bg-white hover:bg-slate-50
+                border border-slate-200 rounded-2xl focus:outline-none
+                focus:ring-2 focus:ring-slate-200
+                disabled:opacity-60 transition
+                disabled:cursor-not-allowed
+                gap-2
+              "
             >
               <Undo2
                 size={16}
@@ -957,7 +1163,18 @@ const PreferenceSettings = () => {
                 !isDirty ||
                 isBusy
               }
-              className="inline-flex justify-center items-center gap-2 bg-white hover:bg-slate-50 disabled:opacity-50 px-5 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-200 h-11 font-semibold text-slate-700 text-sm transition disabled:cursor-not-allowed"
+              className="
+                inline-flex justify-center items-center
+                h-11
+                px-5
+                font-semibold text-slate-700 text-sm
+                bg-white hover:bg-slate-50
+                border border-slate-200 rounded-2xl focus:outline-none
+                focus:ring-2 focus:ring-slate-200
+                disabled:opacity-50 transition
+                disabled:cursor-not-allowed
+                gap-2
+              "
             >
               <Undo2
                 size={16}
@@ -974,7 +1191,17 @@ const PreferenceSettings = () => {
                 !isDirty ||
                 isBusy
               }
-              className="inline-flex justify-center items-center gap-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 shadow-sm px-6 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-200 w-full sm:w-auto h-11 font-semibold text-white text-sm transition disabled:cursor-not-allowed"
+              className="
+                inline-flex justify-center items-center
+                w-full sm:w-auto h-11
+                px-6
+                font-semibold text-white text-sm
+                bg-blue-600 hover:bg-blue-700 active:bg-blue-800
+                rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-200
+                disabled:opacity-50 shadow-sm transition
+                disabled:cursor-not-allowed
+                gap-2
+              "
             >
               <Save
                 size={17}
