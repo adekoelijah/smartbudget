@@ -1,8 +1,13 @@
+
+
+
 import { NavLink } from "react-router-dom";
+
 import {
   LayoutDashboard,
   Receipt,
   Wallet,
+  PiggyBank,
   Brain,
   BarChart3,
   Settings,
@@ -25,6 +30,11 @@ const navItems = [
     icon: Wallet,
   },
   {
+    name: "SmartSave",
+    path: "/smart-save",
+    icon: PiggyBank,
+  },
+  {
     name: "Insights",
     path: "/insights",
     icon: Brain,
@@ -43,16 +53,39 @@ const navItems = [
 
 const Sidebar = () => {
   return (
-    <aside className="w-64 h-screen bg-primary text-white fixed top-0 left-0 flex flex-col">
+    <aside
+      className="
+        top-0 left-0 fixed flex flex-col
+        w-64 h-screen
+        text-white
+        bg-primary
+      "
+    >
       {/* LOGO */}
-      <div className="h-16 flex items-center px-6 border-b border-white/10">
-        <h1 className="text-xl font-bold tracking-wide">
+      <div
+        className="
+          flex items-center
+          h-16
+          px-6
+          border-white/10 border-b
+        "
+      >
+        <h1
+          className="
+            font-bold text-xl tracking-wide
+          "
+        >
           SmartBudget
         </h1>
       </div>
 
       {/* NAVIGATION */}
-      <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+      <nav
+        className="
+          flex-1 overflow-y-auto
+          space-y-2 px-4 py-6
+        "
+      >
         {navItems.map((item) => {
           const Icon = item.icon;
 
@@ -78,7 +111,13 @@ const Sidebar = () => {
       </nav>
 
       {/* FOOTER */}
-      <div className="p-4 border-t border-white/10 text-xs text-gray-400">
+      <div
+        className="
+          p-4
+          text-gray-400 text-xs
+          border-white/10 border-t
+        "
+      >
         <p>© {new Date().getFullYear()} SmartBudget</p>
       </div>
     </aside>
