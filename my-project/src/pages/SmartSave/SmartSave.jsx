@@ -17,6 +17,9 @@ import SavingsActivitySection from "../SmartSave/components/SavingsActivity/Savi
 import SavingsInsightsSection from "../SmartSave/components/SavingsInsights/SavingsInsightsSection";
 import SavingsStrategiesSection from "../SmartSave/components/SavingsStrategies/SavingsStrategiesSection";
 import EmergencyFundProgress from "../SmartSave/components/EmergencyFund/EmergencyFundProgress"
+import EmergencyFundCoverage from "../SmartSave/components/EmergencyFund/EmergencyFundCoverage"
+import EmergencyFundRecommendation from "../SmartSave/components/EmergencyFund/EmergencyFundRecommendation"
+import EmergencyFundInsights from "../SmartSave/components/EmergencyFund/EmergencyFundInsights"
 
 import SavingsForecastCard from "../SmartSave/components/SavingsForecast/SavingsForecastCard";
 import SavingsHealthScore from "../SmartSave/components/SavingsHealthScore";
