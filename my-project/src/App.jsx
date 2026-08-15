@@ -26,7 +26,7 @@ import AuthSuccess from "./pages/auth/AuthSuccess.jsx";
 const Dashboard = lazy(() => import("./pages/dashboard/Dashboard.jsx"));
 const NotificationsPage =lazy(() => import ("./pages/notification/NotificationsPage.jsx"));
 const Budgets = lazy(() => import("./pages/budgets/Budgets.jsx"));
-const SmartSave = lazy(() => import("./pages/smartSave/SmartSave.jsx"));
+const SmartSave = lazy(() => import("./pages/SmartSave/SmartSave.jsx"));
 const Transactions = lazy(() => import("./pages/transactions/Transactions.jsx"));
 const AddTransaction = lazy(() => import("./pages/transactions/AddTransaction.jsx"));
 const Reports = lazy(() => import("./pages/reports/Reports.jsx"));
