@@ -4,6 +4,7 @@ import Login from "../pages/auth/Login";
 import Signup from "../pages/auth/Signup";
 import Insights from "../pages/Insights";
 import Budgets from "../pages/Budgets";
+import SmartSave from "../pages/SmartSave/SmartSave";
 import BudgetCard from "../components/ui/BudgetCard";
 import Button from "../components/ui/Button";
 import ChartCard from "../components/ui/ChartCard";
