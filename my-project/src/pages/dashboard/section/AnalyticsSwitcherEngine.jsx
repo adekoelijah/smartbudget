@@ -93,22 +93,51 @@ const AnalyticsSwitcherEngine = ({ transactions = [] }) => {
   const pieRadius = isMobile ? 70 : 110;
 
   return (
-    <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-5 shadow-sm">
+    <div
+      className="
+        p-4 sm:p-5
+        bg-white
+        border border-slate-200 rounded-3xl
+        shadow-sm
+      "
+    >
 
       {/* ================= HEADER ================= */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+      <div
+        className="
+          flex flex-col sm:flex-row sm:justify-between sm:items-center
+          mb-5
+          gap-3
+        "
+      >
 
         <div>
-          <h2 className="text-sm font-semibold text-slate-900">
+          <h2
+            className="
+              font-semibold text-slate-900 text-sm
+            "
+          >
             Financial Analytics
           </h2>
-          <p className="text-xs text-slate-500">
+          <p
+            className="
+              text-slate-500 text-xs
+            "
+          >
             Real-time transaction intelligence
           </p>
         </div>
 
         {/* TOGGLE */}
-        <div className="flex bg-slate-100 rounded-2xl p-1 w-full sm:w-auto">
+        <div
+          className="
+            flex
+            w-full sm:w-auto
+            p-1
+            bg-slate-100
+            rounded-2xl
+          "
+        >
 
           {["bar", "pie", "trend"].map((v) => (
             <button
@@ -129,18 +158,25 @@ const AnalyticsSwitcherEngine = ({ transactions = [] }) => {
       </div>
 
       {/* ================= CHART ================= */}
-      <div className="h-[260px] sm:h-[320px] w-full">
+      <div
+        className="
+          w-full h-[260px] sm:h-[320px]
+        "
+      >
 
         <AnimatePresence mode="wait">
 
           {/* BAR */}
           {view === "bar" && (
-            <motion.div
+            <motion
+              .div
               key="bar"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="h-full"
+              className="
+                h-full
+              "
             >
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={data}>
@@ -156,12 +192,16 @@ const AnalyticsSwitcherEngine = ({ transactions = [] }) => {
 
           {/* PIE */}
           {view === "pie" && (
-            <motion.div
+            <motion
+              .div
               key="pie"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="h-full flex items-center justify-center"
+              className="
+                flex justify-center items-center
+                w-full min-w-0 h-[280px] h-full
+              "
             >
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -183,12 +223,15 @@ const AnalyticsSwitcherEngine = ({ transactions = [] }) => {
 
           {/* TREND */}
           {view === "trend" && (
-            <motion.div
+            <motion
+              .div
               key="trend"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="h-full"
+              className="
+                h-full
+              "
             >
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data}>
@@ -207,13 +250,32 @@ const AnalyticsSwitcherEngine = ({ transactions = [] }) => {
       </div>
 
       {/* ================= FOOTER ================= */}
-      <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-slate-600">
+      <div
+        className="
+          grid grid-cols-1 sm:grid-cols-3
+          mt-4
+          text-slate-600 text-xs
+          gap-2
+        "
+      >
 
-        <div className="p-3 rounded-xl bg-emerald-50">
+        <div
+          className="
+            p-3
+            bg-emerald-50
+            rounded-xl
+          "
+        >
           Income: ₦{totals.income.toLocaleString()}
         </div>
 
-        <div className="p-3 rounded-xl bg-rose-50">
+        <div
+          className="
+            p-3
+            bg-rose-50
+            rounded-xl
+          "
+        >
           Expense: ₦{totals.expense.toLocaleString()}
         </div>
 

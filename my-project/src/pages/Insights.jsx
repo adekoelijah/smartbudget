@@ -114,22 +114,43 @@ const Insights = () => {
   const isEmpty = !loading && transactions.length === 0;
 
   return (
-    <div className="space-y-6">
+    <div
+      className="
+        space-y-6
+      "
+    >
       {/* HEADER */}
       <div>
-        <h1 className="text-lg font-semibold">Insights</h1>
-        <p className="text-sm text-gray-500">
+        <h1
+          className="
+            font-semibold text-lg
+          "
+        >Insights</h1>
+        <p
+          className="
+            text-gray-500 text-sm
+          "
+        >
           Understand your financial behavior
         </p>
       </div>
 
       {/* ERROR */}
       {error && (
-        <div className="text-sm text-red-500">{error}</div>
+        <div
+          className="
+            text-red-500 text-sm
+          "
+        >{error}</div>
       )}
 
       {/* STATS */}
-      <div className="grid md:grid-cols-3 gap-6">
+      <div
+        className="
+          grid md:grid-cols-3
+          gap-6
+        "
+      >
         <StatCard
           title="Total Income"
           value={totalIncome}
@@ -158,7 +179,13 @@ const Insights = () => {
       </div>
 
       {/* CHARTS */}
-      <div className="grid md:grid-cols-2 gap-6">
+      <div
+        className="
+          grid md:grid-cols-2
+          w-full min-w-0 h-[280px]
+          gap-6
+        "
+      >
         {/* CATEGORY PIE */}
         <ChartCard
           title="Spending by Category"
@@ -202,19 +229,48 @@ const Insights = () => {
       </div>
 
       {/* SMART INSIGHTS */}
-      <div className="bg-white rounded-xl p-5 shadow-sm">
-        <h3 className="text-sm font-semibold mb-3">
+      <div
+        className="
+          p-5
+          bg-white
+          rounded-xl
+          shadow-sm
+        "
+      >
+        <h3
+          className="
+            mb-3
+            font-semibold text-sm
+          "
+        >
           Smart Insights
         </h3>
 
         {loading ? (
-          <div className="h-16 bg-gray-100 animate-pulse rounded" />
+          <div
+            className="
+              h-16
+              bg-gray-100
+              rounded
+              animate-pulse
+            "
+            /
+          >
         ) : isEmpty ? (
-          <p className="text-sm text-gray-400">
+          <p
+            className="
+              text-gray-400 text-sm
+            "
+          >
             No insights available yet
           </p>
         ) : (
-          <ul className="space-y-2 text-sm text-gray-700">
+          <ul
+            className="
+              space-y-2
+              text-gray-700 text-sm
+            "
+          >
             {savings < 0 && (
               <li>
                 ⚠️ You are spending more than you earn.

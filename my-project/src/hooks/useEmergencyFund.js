@@ -327,26 +327,7 @@ const useEmergencyFund = ({
   const [refreshing, setRefreshing] =
     useState(false);
 
-  /* =======================================================
-     SYNC INITIAL DATA
-  ======================================================= */
-
-  useEffect(() => {
-    if (
-      initialData === null ||
-      initialData === undefined
-    ) {
-      return;
-    }
-
-    setFund(
-      normalizeEmergencyFund(
-        initialData
-      )
-    );
-
-    setError("");
-  }, [initialData]);
+ ;
 
   /* =======================================================
      FETCH
@@ -423,20 +404,63 @@ const useEmergencyFund = ({
   ======================================================= */
 
   useEffect(() => {
+  let cancelled = false;
+
+  const loadInitialFund = async () => {
     if (
       !autoFetch ||
-      typeof fetchEmergencyFund !==
-        "function"
+      typeof fetchEmergencyFund !== "function"
     ) {
       return;
     }
 
-    fetchFund();
-  }, [
-    autoFetch,
-    fetchEmergencyFund,
-    fetchFund,
-  ]);
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await fetchEmergencyFund();
+
+      if (cancelled) {
+        return;
+      }
+
+      const normalized =
+        normalizeEmergencyFund(response);
+
+      setFund(normalized);
+    } catch (requestError) {
+      if (cancelled) {
+        return;
+      }
+
+      const message =
+        requestError?.response?.data?.message ||
+        requestError?.response?.data?.error ||
+        requestError?.message ||
+        "Unable to load your emergency fund.";
+
+      setError(message);
+
+      if (typeof onError === "function") {
+        onError(requestError);
+      }
+    } finally {
+      if (!cancelled) {
+        setLoading(false);
+      }
+    }
+  };
+
+  loadInitialFund();
+
+  return () => {
+    cancelled = true;
+  };
+}, [
+  autoFetch,
+  fetchEmergencyFund,
+  onError,
+]);
 
   /* =======================================================
      REFRESH
