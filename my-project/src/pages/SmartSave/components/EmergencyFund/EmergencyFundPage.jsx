@@ -1,26 +1,38 @@
 import {
-  AlertTriangle,
+  AlertCircle,
   PiggyBank,
   RefreshCw,
   ShieldCheck,
 } from "lucide-react";
 
-import useSmartSave from "../../../../hooks/useSmartSave";
+import {
+  useCallback,
+  useMemo,
+} from "react";
+
+import useEmergencyFund from "../../../../hooks/useEmergencyFund";
 
 import {
   DEFAULT_CURRENCY,
 } from "../../../../constants/smartSaveConstants";
 
-import EmergencyFundProgress from "./EmergencyFundProgress";
+import EmergencyFundCalculator from "./EmergencyFundCalculator";
 import EmergencyFundCoverage from "./EmergencyFundCoverage";
-import EmergencyFundRecommendation from "./EmergencyFundRecommendation";
 import EmergencyFundInsights from "./EmergencyFundInsights";
-
-import SavingsSkeleton from "../shared/SavingsSkeleton";
-import SavingsErrorState from "../shared/SavingsErrorState";
+import EmergencyFundProgress from "./EmergencyFundProgress";
+import EmergencyFundRecommendation from "./EmergencyFundRecommendation";
 
 /* =========================================================
-   SAFE OBJECT RESOLVER
+   CONSTANTS
+========================================================= */
+
+const DEFAULT_RECOMMENDED_MONTHS = 6;
+
+const DEFAULT_DESCRIPTION =
+  "Build a financial safety buffer that can help protect you from unexpected expenses.";
+
+/* =========================================================
+   SAFE HELPERS
 ========================================================= */
 
 const isObject = (value) =>
@@ -28,92 +40,655 @@ const isObject = (value) =>
   typeof value === "object" &&
   !Array.isArray(value);
 
-/* =========================================================
-   SMARTSAVE RESPONSE RESOLVER
-========================================================= */
+const firstDefined = (...values) =>
+  values.find(
+    (value) =>
+      value !== undefined &&
+      value !== null &&
+      value !== ""
+  );
 
-const resolveData = (data) => {
-  if (!isObject(data)) {
-    return {};
-  }
+const toNumber = (
+  value,
+  fallback = 0
+) => {
+  const number = Number(value);
 
-  if (isObject(data.data)) {
-    return data.data;
-  }
-
-  if (isObject(data.result)) {
-    return data.result;
-  }
-
-  return data;
+  return Number.isFinite(number)
+    ? number
+    : fallback;
 };
 
 /* =========================================================
-   EMERGENCY FUND RESOLVER
+   RESPONSE NORMALIZATION
 ========================================================= */
 
-const resolveEmergencyFund = (data) =>
-  data.emergencyFund ??
-  data.emergencyFundStatus ??
-  null;
+const resolveData = (value) => {
+  if (!isObject(value)) {
+    return {};
+  }
+
+  /*
+   * Handle:
+   *
+   * {
+   *   data: {...}
+   * }
+   *
+   * and:
+   *
+   * {
+   *   result: {...}
+   * }
+   */
+
+  if (isObject(value.data)) {
+    return {
+      ...value.data,
+      ...value,
+    };
+  }
+
+  if (isObject(value.result)) {
+    return {
+      ...value.result,
+      ...value,
+    };
+  }
+
+  return value;
+};
+
+const resolveArray = (...values) => {
+  for (const value of values) {
+    if (Array.isArray(value)) {
+      return value;
+    }
+
+    if (Array.isArray(value?.data)) {
+      return value.data;
+    }
+
+    if (Array.isArray(value?.items)) {
+      return value.items;
+    }
+
+    if (Array.isArray(value?.results)) {
+      return value.results;
+    }
+
+    if (Array.isArray(value?.insights)) {
+      return value.insights;
+    }
+
+    if (
+      Array.isArray(
+        value?.recommendations
+      )
+    ) {
+      return value.recommendations;
+    }
+  }
+
+  return [];
+};
+
+/* =========================================================
+   ERROR NORMALIZATION
+========================================================= */
+
+const getErrorMessage = (error) => {
+  if (!error) {
+    return "";
+  }
+
+  if (typeof error === "string") {
+    return error;
+  }
+
+  return (
+    error?.response?.data?.message ||
+    error?.response?.data?.error?.message ||
+    error?.response?.data?.error ||
+    error?.message ||
+    error?.error ||
+    error?.data?.message ||
+    "We could not load your emergency fund information."
+  );
+};
+
+/* =========================================================
+   EMERGENCY FUND NORMALIZER
+========================================================= */
+
+const normalizeEmergencyFund = ({
+  source,
+  fallbackCurrency,
+  recommendedMonths,
+}) => {
+  const rawData = resolveData(source);
+
+  /* -------------------------------------------------------
+     CURRENT AMOUNT
+  ------------------------------------------------------- */
+
+  const currentAmount = toNumber(
+    firstDefined(
+      rawData.currentAmount,
+      rawData.currentBalance,
+      rawData.balance,
+      rawData.amountSaved,
+      rawData.savedAmount,
+      rawData.progress?.current
+    )
+  );
+
+  /* -------------------------------------------------------
+     MONTHLY EXPENSES
+  ------------------------------------------------------- */
+
+  const monthlyExpenses = toNumber(
+    firstDefined(
+      rawData.monthlyExpenses,
+      rawData.monthlyEssentialExpenses,
+      rawData.essentialMonthlyExpenses,
+      rawData.expenses?.monthly
+    )
+  );
+
+  /* -------------------------------------------------------
+     TARGET AMOUNT
+  ------------------------------------------------------- */
+
+  const backendTargetAmount =
+    toNumber(
+      firstDefined(
+        rawData.targetAmount,
+        rawData.emergencyFundTarget,
+        rawData.recommendedAmount,
+        rawData.goalAmount
+      )
+    );
+
+  /* -------------------------------------------------------
+     RECOMMENDED MONTHS
+  ------------------------------------------------------- */
+
+  const resolvedRecommendedMonths =
+    Math.max(
+      1,
+      toNumber(
+        firstDefined(
+          rawData.recommendedMonths,
+          rawData.coverageTargetMonths,
+          rawData.targetMonths,
+          recommendedMonths
+        ),
+        recommendedMonths
+      )
+    );
+
+  /* -------------------------------------------------------
+     TARGET MONTHS
+  ------------------------------------------------------- */
+
+  const targetMonths =
+    Math.max(
+      resolvedRecommendedMonths,
+      toNumber(
+        firstDefined(
+          rawData.targetMonths,
+          rawData.coverageTargetMonths,
+          resolvedRecommendedMonths
+        ),
+        resolvedRecommendedMonths
+      )
+    );
+
+  /* -------------------------------------------------------
+     RESOLVED TARGET
+  ------------------------------------------------------- */
+
+  const targetAmount =
+    backendTargetAmount > 0
+      ? backendTargetAmount
+      : monthlyExpenses * targetMonths;
+
+  /* -------------------------------------------------------
+     MONTHS COVERED
+  ------------------------------------------------------- */
+
+  const monthsCovered =
+    toNumber(
+      firstDefined(
+        rawData.monthsCovered,
+        rawData.coverageMonths,
+        rawData.monthsOfCoverage,
+        monthlyExpenses > 0
+          ? currentAmount /
+            monthlyExpenses
+          : 0
+      )
+    );
+
+  /* -------------------------------------------------------
+     REMAINING AMOUNT
+  ------------------------------------------------------- */
+
+  const remainingAmount =
+    Math.max(
+      0,
+      toNumber(
+        firstDefined(
+          rawData.remainingAmount,
+          rawData.amountRemaining,
+          targetAmount -
+            currentAmount
+        )
+      )
+    );
+
+  /* -------------------------------------------------------
+     PROGRESS
+  ------------------------------------------------------- */
+
+  const calculatedProgress =
+    targetAmount > 0
+      ? (currentAmount /
+          targetAmount) *
+        100
+      : 0;
+
+  const progressPercentage =
+    Math.min(
+      100,
+      Math.max(
+        0,
+        toNumber(
+          firstDefined(
+            rawData.progressPercentage,
+            rawData.progressPercent,
+            rawData.progress?.percentage,
+            calculatedProgress
+          )
+        )
+      )
+    );
+
+  /* -------------------------------------------------------
+     CONTRIBUTION
+  ------------------------------------------------------- */
+
+  const recommendedContribution =
+    toNumber(
+      firstDefined(
+        rawData.recommendedContribution,
+        rawData.requiredContribution,
+        rawData.monthlyContribution,
+        rawData.contributionAmount
+      )
+    );
+
+  const contributionFrequency =
+    firstDefined(
+      rawData.contributionFrequency,
+      rawData.frequency,
+      rawData.interval
+    );
+
+  /* -------------------------------------------------------
+     STATUS
+  ------------------------------------------------------- */
+
+  const status =
+    firstDefined(
+      rawData.status,
+      rawData.health,
+      rawData.coverageStatus
+    );
+
+  /* -------------------------------------------------------
+     RECOMMENDATION
+  ------------------------------------------------------- */
+
+  const recommendation =
+    firstDefined(
+      rawData.recommendation,
+      rawData.primaryRecommendation
+    );
+
+  /* -------------------------------------------------------
+     INSIGHTS
+  ------------------------------------------------------- */
+
+  const insights =
+    resolveArray(
+      rawData.insights,
+      rawData.recommendations
+    );
+
+  /* -------------------------------------------------------
+     PROJECTION
+  ------------------------------------------------------- */
+
+  const projection =
+    firstDefined(
+      rawData.projection,
+      rawData.forecast,
+      rawData.savingsProjection
+    );
+
+  /* -------------------------------------------------------
+     FINAL NORMALIZED OBJECT
+  ------------------------------------------------------- */
+
+  return {
+    ...rawData,
+
+    currentAmount,
+
+    monthlyExpenses,
+
+    targetAmount,
+
+    targetMonths,
+
+    recommendedMonths:
+      resolvedRecommendedMonths,
+
+    monthsCovered,
+
+    remainingAmount,
+
+    progressPercentage,
+
+    recommendedContribution,
+
+    contributionFrequency,
+
+    status,
+
+    recommendation,
+
+    insights,
+
+    projection,
+
+    currency:
+      firstDefined(
+        rawData.currency,
+        fallbackCurrency
+      ),
+  };
+};
 
 /* =========================================================
    PAGE
 ========================================================= */
 
-const EmergencyFundPage = () => {
-  const smartSave = useSmartSave();
+const EmergencyFundPage = ({
+  goalId = null,
+  planId = null,
+
+  emergencyFund:
+    suppliedEmergencyFund = null,
+
+  title = "Emergency Fund",
+
+  description =
+    DEFAULT_DESCRIPTION,
+
+  currency =
+    DEFAULT_CURRENCY || "NGN",
+
+  recommendedMonths =
+    DEFAULT_RECOMMENDED_MONTHS,
+
+  onCreateFund,
+
+  onContribute,
+
+  onAction,
+
+  onRefresh,
+
+  showCalculator = true,
+
+  showCoverage = true,
+
+  showProgress = true,
+
+  showRecommendation = true,
+
+  showInsights = true,
+
+  showRefresh = true,
+
+  className = "",
+}) => {
+  /* =======================================================
+     SINGLE DATA OWNER
+  ======================================================= */
+
+  const emergencyFundState =
+    useEmergencyFund({
+      goalId,
+      planId,
+      enabled:
+        !suppliedEmergencyFund,
+    }) || {};
 
   const {
-    data,
-    loading,
-    error,
+    emergencyFund:
+      hookEmergencyFund = null,
+
+    data = null,
+
+    loading = false,
+
+    isLoading = false,
+
+    refreshing = false,
+
+    isRefreshing = false,
+
+    error = null,
+
     refresh,
-    isRefreshing,
-  } = smartSave ?? {};
+
+    refetch,
+  } = emergencyFundState;
 
   /* =======================================================
-     NORMALIZED DATA
+     RESOLVE SOURCE
   ======================================================= */
 
-  const savingsData = resolveData(data);
-
-  const emergencyFund =
-    resolveEmergencyFund(savingsData);
-
-  const currency =
-    DEFAULT_CURRENCY ?? "NGN";
+  const sourceData = useMemo(
+    () =>
+      firstDefined(
+        suppliedEmergencyFund,
+        hookEmergencyFund,
+        data?.emergencyFund,
+        data
+      ),
+    [
+      suppliedEmergencyFund,
+      hookEmergencyFund,
+      data,
+    ]
+  );
 
   /* =======================================================
-     ACTIONS
+     NORMALIZE DATA
   ======================================================= */
 
-  const handleRefresh = async () => {
-    if (typeof refresh !== "function") {
-      return;
-    }
+  const emergencyFund = useMemo(
+    () =>
+      normalizeEmergencyFund({
+        source: sourceData,
+        fallbackCurrency:
+          currency,
+        recommendedMonths,
+      }),
+    [
+      sourceData,
+      currency,
+      recommendedMonths,
+    ]
+  );
 
-    try {
-      await refresh();
-    } catch {
-      /*
-       * Refresh state and error handling
-       * remain owned by useSmartSave.
-       */
-    }
-  };
+  /* =======================================================
+     STATE
+  ======================================================= */
+
+  const isBusy =
+    Boolean(loading) ||
+    Boolean(isLoading);
+
+  const isRefreshingFund =
+    Boolean(refreshing) ||
+    Boolean(isRefreshing);
+
+  const hasData =
+    isObject(sourceData) &&
+    Object.keys(sourceData).length >
+      0;
+
+  const errorMessage = useMemo(
+    () =>
+      getErrorMessage(error),
+    [error]
+  );
+
+  /* =======================================================
+     REFRESH
+  ======================================================= */
+
+  const refreshFund = useCallback(
+    async () => {
+      let result;
+
+      if (
+        typeof refresh ===
+        "function"
+      ) {
+        result =
+          await refresh();
+      } else if (
+        typeof refetch ===
+        "function"
+      ) {
+        result =
+          await refetch();
+      } else {
+        return undefined;
+      }
+
+      if (
+        typeof onRefresh ===
+        "function"
+      ) {
+        await onRefresh(result);
+      }
+
+      return result;
+    },
+    [
+      refresh,
+      refetch,
+      onRefresh,
+    ]
+  );
+
+  /* =======================================================
+     RETRY
+  ======================================================= */
+
+  const handleRetry = useCallback(
+    () => {
+      void refreshFund();
+    },
+    [refreshFund]
+  );
+
+  /* =======================================================
+     CREATE FUND
+  ======================================================= */
+
+  const handleCreateFund =
+    useCallback(() => {
+      if (
+        typeof onCreateFund !==
+        "function"
+      ) {
+        return;
+      }
+
+      onCreateFund();
+    }, [onCreateFund]);
+
+  /* =======================================================
+     CONTRIBUTE
+  ======================================================= */
+
+  const handleContribute =
+    useCallback(() => {
+      if (
+        typeof onContribute !==
+        "function"
+      ) {
+        return;
+      }
+
+      onContribute(
+        emergencyFund
+      );
+    }, [
+      onContribute,
+      emergencyFund,
+    ]);
+
+  /* =======================================================
+     ACTION
+  ======================================================= */
+
+  const handleAction =
+    useCallback(
+      (...args) => {
+        if (
+          typeof onAction !==
+          "function"
+        ) {
+          return;
+        }
+
+        onAction(
+          emergencyFund,
+          ...args
+        );
+      },
+      [
+        onAction,
+        emergencyFund,
+      ]
+    );
 
   /* =======================================================
      INITIAL LOADING
   ======================================================= */
 
-  if (loading && !data) {
+  if (
+    isBusy &&
+    !hasData
+  ) {
     return (
       <main
-        className="
-          w-full min-h-screen
+        className={`
+          w-full
+          min-h-screen
           bg-slate-50
-        "
+          ${className}
+        `}
         aria-busy="true"
         aria-label="Loading emergency fund"
       >
@@ -123,7 +698,57 @@ const EmergencyFundPage = () => {
             mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8
           "
         >
-          <SavingsSkeleton module="page" />
+          <div
+            className="
+              flex justify-center items-center
+              min-h-[60vh]
+            "
+          >
+            <div
+              className="
+                flex flex-col items-center
+                text-center
+              "
+            >
+              <div
+                className="
+                  flex justify-center items-center
+                  w-12 h-12
+                  bg-slate-900
+                  rounded-xl
+                "
+              >
+                <RefreshCw
+                  size={20}
+                  className="
+                    text-white
+                    animate-spin
+                  "
+                  aria-hidden="true"
+                /
+                >
+              </div>
+
+              <p
+                className="
+                  mt-4
+                  font-semibold text-slate-900 text-sm
+                "
+              >
+                Loading your emergency fund
+              </p>
+
+              <p
+                className="
+                  mt-1
+                  text-slate-500 text-xs
+                "
+              >
+                Preparing your financial
+                safety overview...
+              </p>
+            </div>
+          </div>
         </div>
       </main>
     );
@@ -133,13 +758,18 @@ const EmergencyFundPage = () => {
      INITIAL ERROR
   ======================================================= */
 
-  if (error && !data) {
+  if (
+    error &&
+    !hasData
+  ) {
     return (
       <main
-        className="
-          w-full min-h-screen
+        className={`
+          w-full
+          min-h-screen
           bg-slate-50
-        "
+          ${className}
+        `}
       >
         <div
           className="
@@ -148,16 +778,92 @@ const EmergencyFundPage = () => {
             mx-auto px-4 sm:px-6 lg:px-8 py-8
           "
         >
-          <div
+          <section
             className="
               w-full
+              p-6 sm:p-8
+              bg-white
+              border border-slate-200 rounded-2xl
+              shadow-sm
             "
+            role="alert"
           >
-            <SavingsErrorState
-              error={error}
-              onRetry={handleRefresh}
-            />
-          </div>
+            <div
+              className="
+                flex flex-col items-center
+                max-w-lg
+                mx-auto
+                text-center
+              "
+            >
+              <div
+                className="
+                  flex justify-center items-center
+                  w-12 h-12
+                  bg-red-50
+                  rounded-xl
+                "
+              >
+                <AlertCircle
+                  size={22}
+                  className="
+                    text-red-600
+                  "
+                  aria-hidden="true"
+                /
+                >
+              </div>
+
+              <h1
+                className="
+                  mt-4
+                  font-bold text-slate-900 text-lg
+                "
+              >
+                Emergency fund unavailable
+              </h1>
+
+              <p
+                className="
+                  mt-2
+                  text-slate-500 text-sm leading-6
+                "
+              >
+                {errorMessage}
+              </p>
+
+              <button
+                type="button"
+                onClick={handleRetry}
+                disabled={
+                  isRefreshingFund
+                }
+                className="
+                  inline-flex justify-center items-center
+                  mt-5 px-4 py-2.5
+                  font-semibold text-white text-sm
+                  bg-slate-900 hover:bg-slate-800
+                  rounded-xl
+                  disabled:opacity-50 transition
+                  disabled:cursor-not-allowed
+                  gap-2
+                "
+              >
+                <RefreshCw
+                  size={15}
+                  className={
+                    isRefreshingFund
+                      ? "animate-spin"
+                      : ""
+                  }
+                />
+
+                {isRefreshingFund
+                  ? "Retrying..."
+                  : "Try again"}
+              </button>
+            </div>
+          </section>
         </div>
       </main>
     );
@@ -169,10 +875,12 @@ const EmergencyFundPage = () => {
 
   return (
     <main
-      className="
-        w-full min-h-screen
+      className={`
+        w-full
+        min-h-screen
         bg-slate-50
-      "
+        ${className}
+      `}
     >
       <div
         className="
@@ -181,7 +889,7 @@ const EmergencyFundPage = () => {
         "
       >
         {/* =================================================
-            PAGE HEADER
+            HEADER
         ================================================= */}
 
         <header
@@ -236,7 +944,7 @@ const EmergencyFundPage = () => {
                   font-bold text-slate-900 text-xl sm:text-2xl tracking-tight
                 "
               >
-                Emergency Fund
+                {title}
               </h1>
 
               <p
@@ -246,56 +954,54 @@ const EmergencyFundPage = () => {
                   text-slate-500 text-sm leading-6
                 "
               >
-                Build a financial safety net that
-                protects you from unexpected expenses
-                without disrupting your long-term
-                savings goals.
+                {description}
               </p>
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={handleRefresh}
-            disabled={
-              isRefreshing ||
-              typeof refresh !== "function"
-            }
-            className="
-              inline-flex justify-center items-center
-              w-full sm:w-auto
-              px-4 py-2.5
-              font-semibold text-slate-700 text-sm
-              bg-white hover:bg-slate-100
-              border border-slate-200 rounded-xl focus:outline-none
-              focus:ring-2 focus:ring-slate-300
-              disabled:opacity-50 shadow-sm transition
-              disabled:cursor-not-allowed
-              gap-2
-            "
-            aria-label="Refresh emergency fund data"
-          >
-            <RefreshCw
-              size={15}
-              className={
-                isRefreshing
-                  ? "animate-spin"
-                  : ""
+          {showRefresh && (
+            <button
+              type="button"
+              onClick={() =>
+                void refreshFund()
               }
-              aria-hidden="true"
-            />
+              disabled={
+                isRefreshingFund ||
+                (
+                  typeof refresh !==
+                    "function" &&
+                  typeof refetch !==
+                    "function"
+                )
+              }
+              className="inline-flex justify-center items-center gap-2 bg-white hover:bg-slate-100 disabled:opacity-50 shadow-sm px-4 py-2.5 border border-slate-200 rounded-xl w-full sm:w-auto font-semibold text-slate-700 text-sm transition disabled:cursor-not-allowed"
+              aria-label={
+                isRefreshingFund
+                  ? "Refreshing emergency fund"
+                  : "Refresh emergency fund"
+              }
+            >
+              <RefreshCw
+                size={15}
+                className={
+                  isRefreshingFund
+                    ? "animate-spin"
+                    : ""
+                }
+              />
 
-            {isRefreshing
-              ? "Updating..."
-              : "Refresh"}
-          </button>
+              {isRefreshingFund
+                ? "Updating..."
+                : "Refresh"}
+            </button>
+          )}
         </header>
 
         {/* =================================================
             REFRESH STATUS
         ================================================= */}
 
-        {isRefreshing && (
+        {isRefreshingFund && (
           <div
             className="
               flex items-center
@@ -326,7 +1032,7 @@ const EmergencyFundPage = () => {
             PARTIAL ERROR
         ================================================= */}
 
-        {error && data && (
+        {error && hasData && (
           <div
             className="
               flex flex-col sm:flex-row sm:justify-between sm:items-center
@@ -344,7 +1050,7 @@ const EmergencyFundPage = () => {
                 gap-3
               "
             >
-              <AlertTriangle
+              <AlertCircle
                 size={17}
                 className="
                   mt-0.5
@@ -375,16 +1081,18 @@ const EmergencyFundPage = () => {
                     text-amber-700 text-xs leading-5
                   "
                 >
-                  Your previously loaded information
-                  remains available.
+                  {errorMessage ||
+                    "Your previously loaded information remains available."}
                 </p>
               </div>
             </div>
 
             <button
               type="button"
-              onClick={handleRefresh}
-              disabled={isRefreshing}
+              onClick={handleRetry}
+              disabled={
+                isRefreshingFund
+              }
               className="
                 inline-flex justify-center items-center
                 w-full sm:w-auto
@@ -400,11 +1108,10 @@ const EmergencyFundPage = () => {
               <RefreshCw
                 size={13}
                 className={
-                  isRefreshing
+                  isRefreshingFund
                     ? "animate-spin"
                     : ""
                 }
-                aria-hidden="true"
               />
 
               Retry
@@ -416,7 +1123,7 @@ const EmergencyFundPage = () => {
             EMPTY STATE
         ================================================= */}
 
-        {!emergencyFund && (
+        {!hasData && !isBusy && (
           <section
             className="
               mt-6 sm:mt-8 p-6 sm:p-8
@@ -424,7 +1131,6 @@ const EmergencyFundPage = () => {
               border border-slate-200 rounded-2xl
               shadow-sm
             "
-            aria-labelledby="emergency-fund-empty-title"
           >
             <div
               className="
@@ -441,7 +1147,6 @@ const EmergencyFundPage = () => {
                   bg-slate-100
                   rounded-2xl
                 "
-                aria-hidden="true"
               >
                 <PiggyBank
                   size={26}
@@ -453,10 +1158,9 @@ const EmergencyFundPage = () => {
               </div>
 
               <h2
-                id="emergency-fund-empty-title"
                 className="
                   mt-5
-                  font-bold text-slate-900 text-lg sm:text-xl tracking-tight
+                  font-bold text-slate-900 text-lg sm:text-xl
                 "
               >
                 Your emergency fund starts here
@@ -475,102 +1179,16 @@ const EmergencyFundPage = () => {
                 move you toward greater financial
                 resilience.
               </p>
-
-              <div
-                className="
-                  grid grid-cols-1 sm:grid-cols-3 overflow-hidden
-                  w-full
-                  mt-6
-                  border border-slate-200 rounded-xl
-                "
-              >
-                <div
-                  className="
-                    p-4
-                    border-slate-200 border-b sm:border-r sm:border-b-0
-                  "
-                >
-                  <p
-                    className="
-                      font-semibold text-slate-900 text-sm
-                    "
-                  >
-                    Target
-                  </p>
-
-                  <p
-                    className="
-                      mt-1
-                      text-slate-500 text-xs leading-5
-                    "
-                  >
-                    Know how much protection you need.
-                  </p>
-                </div>
-
-                <div
-                  className="
-                    p-4
-                    border-slate-200 border-b sm:border-r sm:border-b-0
-                  "
-                >
-                  <p
-                    className="
-                      font-semibold text-slate-900 text-sm
-                    "
-                  >
-                    Coverage
-                  </p>
-
-                  <p
-                    className="
-                      mt-1
-                      text-slate-500 text-xs leading-5
-                    "
-                  >
-                    Track how much of your target is
-                    covered.
-                  </p>
-                </div>
-
-                <div
-                  className="
-                    p-4
-                  "
-                >
-                  <p
-                    className="
-                      font-semibold text-slate-900 text-sm
-                    "
-                  >
-                    Guidance
-                  </p>
-
-                  <p
-                    className="
-                      mt-1
-                      text-slate-500 text-xs leading-5
-                    "
-                  >
-                    Get recommendations based on your
-                    savings position.
-                  </p>
-                </div>
-              </div>
             </div>
           </section>
         )}
 
         {/* =================================================
-            EMERGENCY FUND CONTENT
+            FINANCIAL SUMMARY
         ================================================= */}
 
-        {emergencyFund && (
+        {hasData && (
           <>
-            {/* =============================================
-                HERO / SUMMARY
-            ============================================= */}
-
             <section
               className="
                 overflow-hidden
@@ -602,7 +1220,6 @@ const EmergencyFundPage = () => {
                       rounded-xl
                       shrink-0
                     "
-                    aria-hidden="true"
                   >
                     <ShieldCheck
                       size={19}
@@ -654,6 +1271,7 @@ const EmergencyFundPage = () => {
 
                 <div
                   className="
+                    self-start lg:self-auto
                     px-3 py-2
                     font-medium text-slate-200 text-xs
                     bg-white/10
@@ -661,106 +1279,255 @@ const EmergencyFundPage = () => {
                     shrink-0
                   "
                 >
-                  Currency: {currency}
+                  Currency:{" "}
+                  {emergencyFund.currency}
                 </div>
               </div>
             </section>
 
-            {/* =============================================
+            {/* =================================================
                 PROGRESS
-            ============================================= */}
+            ================================================= */}
 
-            <section
-              className="
-                mt-5 sm:mt-6
-              "
-              aria-labelledby="emergency-fund-progress"
-            >
-              <h2
-                id="emergency-fund-progress"
+            {showProgress && (
+              <section
                 className="
-                  sr-only
+                  mt-5 sm:mt-6
                 "
+                aria-labelledby="emergency-fund-progress"
               >
-                Emergency fund progress
-              </h2>
+                <h2
+                  id="emergency-fund-progress"
+                  className="
+                    sr-only
+                  "
+                >
+                  Emergency fund progress
+                </h2>
 
-              <EmergencyFundProgress
-                data={emergencyFund}
-              />
-            </section>
+                <EmergencyFundProgress
+                  currentAmount={
+                    emergencyFund.currentAmount
+                  }
+                  targetAmount={
+                    emergencyFund.targetAmount
+                  }
+                  progressPercentage={
+                    emergencyFund.progressPercentage
+                  }
+                  monthlyExpenses={
+                    emergencyFund.monthlyExpenses
+                  }
+                  monthsCovered={
+                    emergencyFund.monthsCovered
+                  }
+                  recommendedMonths={
+                    emergencyFund.recommendedMonths
+                  }
+                  currency={
+                    emergencyFund.currency
+                  }
+                  status={
+                    emergencyFund.status
+                  }
+                  loading={isBusy}
+                  onContribute={
+                    typeof onContribute ===
+                    "function"
+                      ? handleContribute
+                      : undefined
+                  }
+                />
+              </section>
+            )}
 
-            {/* =============================================
+            {/* =================================================
                 COVERAGE
-            ============================================= */}
+            ================================================= */}
 
-            <section
-              className="
-                mt-5 sm:mt-6
-              "
-              aria-labelledby="emergency-fund-coverage"
-            >
-              <h2
-                id="emergency-fund-coverage"
+            {showCoverage && (
+              <section
                 className="
-                  sr-only
+                  mt-5 sm:mt-6
                 "
+                aria-labelledby="emergency-fund-coverage"
               >
-                Emergency fund coverage
-              </h2>
+                <h2
+                  id="emergency-fund-coverage"
+                  className="
+                    sr-only
+                  "
+                >
+                  Emergency fund coverage
+                </h2>
 
-              <EmergencyFundCoverage
-                data={emergencyFund}
-              />
-            </section>
+                <EmergencyFundCoverage
+                  currentAmount={
+                    emergencyFund.currentAmount
+                  }
+                  monthlyExpenses={
+                    emergencyFund.monthlyExpenses
+                  }
+                  monthsCovered={
+                    emergencyFund.monthsCovered
+                  }
+                  recommendedMonths={
+                    emergencyFund.recommendedMonths
+                  }
+                  targetMonths={
+                    emergencyFund.targetMonths
+                  }
+                  targetAmount={
+                    emergencyFund.targetAmount
+                  }
+                  currency={
+                    emergencyFund.currency
+                  }
+                />
+              </section>
+            )}
 
-            {/* =============================================
+            {/* =================================================
                 RECOMMENDATION
-            ============================================= */}
+            ================================================= */}
 
-            <section
-              className="
-                mt-5 sm:mt-6
-              "
-              aria-labelledby="emergency-fund-recommendation"
-            >
-              <h2
-                id="emergency-fund-recommendation"
+            {showRecommendation && (
+              <section
                 className="
-                  sr-only
+                  mt-5 sm:mt-6
                 "
+                aria-labelledby="emergency-fund-recommendation"
               >
-                Emergency fund recommendation
-              </h2>
+                <h2
+                  id="emergency-fund-recommendation"
+                  className="
+                    sr-only
+                  "
+                >
+                  Emergency fund recommendation
+                </h2>
 
-              <EmergencyFundRecommendation
-                data={emergencyFund}
-              />
-            </section>
+                <EmergencyFundRecommendation
+                  recommendation={
+                    emergencyFund.recommendation
+                  }
+                  currentAmount={
+                    emergencyFund.currentAmount
+                  }
+                  targetAmount={
+                    emergencyFund.targetAmount
+                  }
+                  remainingAmount={
+                    emergencyFund.remainingAmount
+                  }
+                  monthsCovered={
+                    emergencyFund.monthsCovered
+                  }
+                  recommendedMonths={
+                    emergencyFund.recommendedMonths
+                  }
+                  currency={
+                    emergencyFund.currency
+                  }
+                  onAction={
+                    typeof onAction ===
+                    "function"
+                      ? handleAction
+                      : undefined
+                  }
+                />
+              </section>
+            )}
 
-            {/* =============================================
+            {/* =================================================
                 INSIGHTS
-            ============================================= */}
+            ================================================= */}
 
-            <section
-              className="
-                mt-5 sm:mt-6
-              "
-              aria-labelledby="emergency-fund-insights"
-            >
-              <h2
-                id="emergency-fund-insights"
+            {showInsights && (
+              <section
                 className="
-                  sr-only
+                  mt-5 sm:mt-6
                 "
+                aria-labelledby="emergency-fund-insights"
               >
-                Emergency fund insights
-              </h2>
+                <h2
+                  id="emergency-fund-insights"
+                  className="
+                    sr-only
+                  "
+                >
+                  Emergency fund insights
+                </h2>
 
-              <EmergencyFundInsights
-                data={emergencyFund}
-              />
-            </section>
+                <EmergencyFundInsights
+                  insights={
+                    emergencyFund.insights
+                  }
+                  emergencyFund={
+                    emergencyFund
+                  }
+                  currency={
+                    emergencyFund.currency
+                  }
+                  loading={isBusy}
+                  onRefresh={
+                    refreshFund
+                  }
+                />
+              </section>
+            )}
+
+            {/* =================================================
+                CALCULATOR
+            ================================================= */}
+
+            {showCalculator && (
+              <section
+                className="
+                  mt-5 sm:mt-6
+                "
+                aria-labelledby="emergency-fund-calculator"
+              >
+                <h2
+                  id="emergency-fund-calculator"
+                  className="
+                    sr-only
+                  "
+                >
+                  Emergency fund calculator
+                </h2>
+
+                <EmergencyFundCalculator
+                  currentAmount={
+                    emergencyFund.currentAmount
+                  }
+                  monthlyExpenses={
+                    emergencyFund.monthlyExpenses
+                  }
+                  targetAmount={
+                    emergencyFund.targetAmount
+                  }
+                  recommendedMonths={
+                    emergencyFund.recommendedMonths
+                  }
+                  currency={
+                    emergencyFund.currency
+                  }
+                  onCreateFund={
+                    typeof onCreateFund ===
+                    "function"
+                      ? handleCreateFund
+                      : undefined
+                  }
+                  onContribute={
+                    typeof onContribute ===
+                    "function"
+                      ? handleContribute
+                      : undefined
+                  }
+                />
+              </section>
+            )}
           </>
         )}
 
@@ -791,7 +1558,9 @@ const EmergencyFundPage = () => {
                 font-medium
               "
             >
-              Currency: {currency}
+              Currency:{" "}
+              {emergencyFund.currency ||
+                currency}
             </p>
           </div>
         </footer>

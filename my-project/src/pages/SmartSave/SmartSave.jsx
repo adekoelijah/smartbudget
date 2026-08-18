@@ -21,7 +21,7 @@ import SmartSaveHeader from "../SmartSave/components/SmartSaveHeader";
 
 import SavingsHealthScore from "../SmartSave/components/SavingsHealthScore";
 import SafeToSaveCard from "../SmartSave/components/SafeToSaveCard";
-import SavingsForecastCard from "../SmartSave/components/SavingsForecast/SavingsForecastCard";
+
 
 import SavingsEmptyState from "../SmartSave/components/shared/SavingsEmptyState";
 import SavingsSkeleton from "../SmartSave/components/shared/SavingsSkeleton";
@@ -287,13 +287,13 @@ const SummaryCard = ({
     >
       <div
         className="
-          flex items-start justify-between
+          flex justify-between items-start
           gap-3
         "
       >
         <div
           className="
-            flex items-center justify-center
+            flex justify-center items-center
             w-10 h-10
             text-slate-700
             bg-slate-100
@@ -421,7 +421,7 @@ const GoalProgressCard = ({
     >
       <div
         className="
-          flex items-center justify-between
+          flex justify-between items-center
           gap-3
         "
       >
@@ -509,7 +509,7 @@ const ActivityPreview = ({
       >
         <div
           className="
-            flex items-center justify-center
+            flex justify-center items-center
             w-10 h-10
             bg-slate-100
             rounded-xl
@@ -559,12 +559,12 @@ const ActivityPreview = ({
       <div
         className="
           p-5
-          border-b border-slate-100
+          border-slate-100 border-b
         "
       >
         <div
           className="
-            flex items-center justify-between
+            flex justify-between items-center
             gap-3
           "
         >
@@ -591,7 +591,7 @@ const ActivityPreview = ({
             to={SMART_SAVE_ROUTES.ACTIVITY}
             className="
               inline-flex items-center
-              font-semibold text-slate-700 text-xs hover:text-slate-900
+              font-semibold text-slate-700 hover:text-slate-900 text-xs
               gap-1
             "
           >
@@ -630,13 +630,13 @@ const ActivityPreview = ({
                   className="
                     flex items-center
                     px-5 py-4
-                    border-b border-slate-100 last:border-b-0
+                    border-slate-100 border-b last:border-b-0
                     gap-3
                   "
                 >
                   <div
                     className="
-                      flex items-center justify-center
+                      flex justify-center items-center
                       w-9 h-9
                       bg-slate-100
                       rounded-lg
@@ -672,7 +672,7 @@ const ActivityPreview = ({
                     <p
                       className="
                         mt-0.5
-                        text-slate-400 text-[11px]
+                        text-[11px] text-slate-400
                       "
                     >
                       Savings activity
@@ -697,7 +697,7 @@ const QuickAccess = () => (
   >
     <div
       className="
-        flex items-end justify-between
+        flex justify-between items-end
         mb-4
         gap-4
       "
@@ -751,7 +751,7 @@ const QuickAccess = () => (
             >
               <div
                 className="
-                  flex items-center justify-center
+                  flex justify-center items-center
                   w-10 h-10
                   text-slate-700
                   bg-slate-100
@@ -928,7 +928,7 @@ const SmartSaveOverviewPage = () => {
     return (
       <main
         className="
-          min-h-screen w-full
+          w-full min-h-screen
           bg-slate-50
         "
         aria-busy="true"
@@ -957,7 +957,7 @@ const SmartSaveOverviewPage = () => {
     return (
       <main
         className="
-          min-h-screen w-full
+          w-full min-h-screen
           bg-slate-50
         "
       >
@@ -990,7 +990,7 @@ const SmartSaveOverviewPage = () => {
   return (
     <main
       className="
-        min-h-screen w-full
+        w-full min-h-screen
         bg-slate-50
       "
     >
@@ -1011,7 +1011,7 @@ const SmartSaveOverviewPage = () => {
             className="
               flex items-center
               mb-4 px-4 py-2.5
-              text-slate-500 text-xs font-medium
+              font-medium text-slate-500 text-xs
               bg-white
               border border-slate-200 rounded-xl
               gap-2
@@ -1038,7 +1038,7 @@ const SmartSaveOverviewPage = () => {
 
         <section
           className="
-            overflow-hidden relative
+            relative overflow-hidden
             p-5 sm:p-7
             bg-slate-900
             rounded-2xl
@@ -1047,7 +1047,7 @@ const SmartSaveOverviewPage = () => {
         >
           <div
             className="
-              flex flex-col lg:flex-row lg:items-center lg:justify-between
+              flex flex-col lg:flex-row lg:justify-between lg:items-center
               gap-6
             "
           >
@@ -1060,7 +1060,7 @@ const SmartSaveOverviewPage = () => {
                 className="
                   inline-flex items-center
                   px-2.5 py-1.5
-                  text-slate-200 text-[11px] font-semibold
+                  font-semibold text-[11px] text-slate-200
                   bg-white/10
                   border border-white/10 rounded-lg
                   gap-2
@@ -1105,10 +1105,10 @@ const SmartSaveOverviewPage = () => {
               <Link
                 to={SMART_SAVE_ROUTES.GOALS}
                 className="
-                  inline-flex items-center justify-center
+                  inline-flex justify-center items-center
                   min-h-10
                   px-4 py-2.5
-                  text-slate-900 text-sm font-semibold
+                  font-semibold text-slate-900 text-sm
                   bg-white hover:bg-slate-100
                   rounded-xl
                   transition
@@ -1128,10 +1128,10 @@ const SmartSaveOverviewPage = () => {
                   SMART_SAVE_ROUTES.INSIGHTS
                 }
                 className="
-                  inline-flex items-center justify-center
+                  inline-flex justify-center items-center
                   min-h-10
                   px-4 py-2.5
-                  text-white text-sm font-semibold
+                  font-semibold text-white text-sm
                   bg-white/10 hover:bg-white/15
                   border border-white/10 rounded-xl
                   transition
@@ -1157,7 +1157,7 @@ const SmartSaveOverviewPage = () => {
           data && (
             <div
               className="
-                flex flex-col sm:flex-row sm:items-center sm:justify-between
+                flex flex-col sm:flex-row sm:justify-between sm:items-center
                 mt-4 p-4
                 bg-amber-50
                 border border-amber-200 rounded-xl
@@ -1195,10 +1195,10 @@ const SmartSaveOverviewPage = () => {
                   isRefreshing
                 }
                 className="
-                  inline-flex items-center justify-center
+                  inline-flex justify-center items-center
                   min-h-9
                   px-3 py-2
-                  text-amber-800 text-xs font-semibold
+                  font-semibold text-amber-800 text-xs
                   bg-white hover:bg-amber-100
                   border border-amber-200 rounded-lg
                   disabled:opacity-50
@@ -1383,7 +1383,7 @@ const SmartSaveOverviewPage = () => {
                 >
                   <div
                     className="
-                      flex items-center justify-between
+                      flex justify-between items-center
                       gap-3
                     "
                   >
@@ -1413,7 +1413,7 @@ const SmartSaveOverviewPage = () => {
                       }
                       className="
                         inline-flex items-center
-                        text-slate-300 hover:text-white text-xs font-semibold
+                        font-semibold text-slate-300 hover:text-white text-xs
                         gap-1
                       "
                     >
@@ -1512,7 +1512,7 @@ const SmartSaveOverviewPage = () => {
                   >
                     <div
                       className="
-                        flex items-start justify-between
+                        flex justify-between items-start
                         p-5
                         gap-4
                       "
@@ -1525,7 +1525,7 @@ const SmartSaveOverviewPage = () => {
                       >
                         <div
                           className="
-                            flex items-center justify-center
+                            flex justify-center items-center
                             w-10 h-10
                             bg-slate-100
                             rounded-xl
@@ -1579,8 +1579,8 @@ const SmartSaveOverviewPage = () => {
                         }
                         className="
                           inline-flex items-center
-                          text-slate-600 hover:text-slate-900 text-xs
                           font-semibold
+                          text-slate-600 hover:text-slate-900 text-xs
                           gap-1 shrink-0
                         "
                       >
@@ -1698,15 +1698,121 @@ const SmartSaveOverviewPage = () => {
                   )}
 
                   {forecast && (
-                    <SavingsForecastCard
-                      forecast={
-                        forecast
-                      }
-                      currency={
-                        currency
-                      }
-                    />
-                  )}
+  <Link
+    to={SMART_SAVE_ROUTES.FORECAST}
+    className="
+      block
+      p-5
+      bg-white
+      border border-slate-200 hover:border-slate-300 rounded-2xl
+      focus:outline-none
+      shadow-sm transition
+      group
+      focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2
+    "
+  >
+    <div
+      className="
+        flex justify-between items-start
+        gap-4
+      "
+    >
+      <div
+        className="
+          flex items-start
+          gap-3
+        "
+      >
+        <div
+          className="
+            flex justify-center items-center
+            w-10 h-10
+            text-slate-700
+            bg-slate-100
+            rounded-xl
+            shrink-0
+          "
+          aria-hidden="true"
+        >
+          <TrendingUp
+            size={18}
+          />
+        </div>
+
+        <div
+          className="
+            min-w-0
+          "
+        >
+          <p
+            className="
+              font-semibold text-slate-500 text-xs uppercase tracking-wide
+            "
+          >
+            Savings forecast
+          </p>
+
+          <h3
+            className="
+              mt-1
+              font-bold text-slate-900 text-lg
+            "
+          >
+            See where your savings are heading
+          </h3>
+
+          <p
+            className="
+              max-w-xl
+              mt-1
+              text-slate-500 text-xs leading-5
+            "
+          >
+            Explore your projected savings,
+            timelines, milestones and future
+            financial position.
+          </p>
+        </div>
+      </div>
+
+      <ArrowRight
+        size={17}
+        className="
+          mt-1
+          text-slate-400
+          transition
+          group-hover:text-slate-700 group-hover:translate-x-0.5 shrink-0
+        "
+        aria-hidden="true"
+      /
+      >
+    </div>
+
+    <div
+      className="
+        flex justify-between items-center
+        mt-5 pt-4
+        border-slate-100 border-t
+      "
+    >
+      <span
+        className="
+          font-medium text-slate-500 text-xs
+        "
+      >
+        Open forecast
+      </span>
+
+      <span
+        className="
+          font-semibold text-slate-700 text-xs
+        "
+      >
+        View details
+      </span>
+    </div>
+  </Link>
+)}
                 </div>
               </section>
             )}
@@ -1738,7 +1844,7 @@ const SmartSaveOverviewPage = () => {
               >
                 <div
                   className="
-                    flex items-start justify-between
+                    flex justify-between items-start
                     gap-4
                   "
                 >
@@ -1750,7 +1856,7 @@ const SmartSaveOverviewPage = () => {
                   >
                     <div
                       className="
-                        flex items-center justify-center
+                        flex justify-center items-center
                         w-10 h-10
                         bg-slate-100
                         rounded-xl
@@ -1794,7 +1900,7 @@ const SmartSaveOverviewPage = () => {
                     }
                     className="
                       inline-flex items-center
-                      text-slate-600 hover:text-slate-900 text-xs font-semibold
+                      font-semibold text-slate-600 hover:text-slate-900 text-xs
                       gap-1
                     "
                   >
@@ -1879,12 +1985,12 @@ const SmartSaveOverviewPage = () => {
         <footer
           className="
             mt-10 pt-5
-            border-t border-slate-200
+            border-slate-200 border-t
           "
         >
           <div
             className="
-              flex flex-col sm:flex-row sm:items-center sm:justify-between
+              flex flex-col sm:flex-row sm:justify-between sm:items-center
               text-slate-400 text-xs
               gap-2
             "

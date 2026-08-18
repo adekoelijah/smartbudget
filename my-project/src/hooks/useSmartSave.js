@@ -17,6 +17,18 @@ import smartSaveService from "../services/smartSaveService";
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
 
+const EMPTY_QUERY = Object.freeze({});
+
+const RESOURCE_KEYS = [
+  "accounts",
+  "goals",
+  "plans",
+  "schedules",
+  "executions",
+  "challenges",
+  "insights",
+];
+
 const INITIAL_DATA = {
   accounts: [],
   goals: [],
@@ -69,26 +81,6 @@ const asArray = (value) => {
   }
 
   return [];
-};
-
-const asObject = (value) => {
-  if (
-    value &&
-    typeof value === "object" &&
-    !Array.isArray(value)
-  ) {
-    return value;
-  }
-
-  if (
-    value?.data &&
-    typeof value.data === "object" &&
-    !Array.isArray(value.data)
-  ) {
-    return value.data;
-  }
-
-  return null;
 };
 
 const normalizePagination = (value) => {
@@ -172,11 +164,6 @@ const normalizeError = (error) => {
    SERVICE METHOD SAFETY
 ============================================================ */
 
-/**
- * Keeps the hook synchronized with smartSaveService.
- *
- * We deliberately do not silently invent methods.
- */
 const requireServiceMethod = (
   methodName
 ) => {
@@ -193,18 +180,53 @@ const requireServiceMethod = (
 };
 
 /* ============================================================
+   QUERY NORMALIZATION
+============================================================ */
+
+/*
+ * Convert query objects into stable primitive signatures.
+ *
+ * This prevents a caller passing:
+ *
+ * useSmartSave({
+ *   goalsQuery: {}
+ * })
+ *
+ * from causing a new dependency identity every render.
+ */
+
+const createQueryKey = (query) => {
+  if (
+    !query ||
+    typeof query !== "object"
+  ) {
+    return "";
+  }
+
+  try {
+    return JSON.stringify(
+      query,
+      Object.keys(query).sort()
+    );
+  } catch {
+    return "";
+  }
+};
+
+/* ============================================================
    HOOK
 ============================================================ */
 
 const useSmartSave = ({
   autoFetch = true,
-  accountsQuery = {},
-  goalsQuery = {},
-  plansQuery = {},
-  schedulesQuery = {},
-  executionsQuery = {},
-  challengesQuery = {},
-  insightsQuery = {},
+
+  accountsQuery = EMPTY_QUERY,
+  goalsQuery = EMPTY_QUERY,
+  plansQuery = EMPTY_QUERY,
+  schedulesQuery = EMPTY_QUERY,
+  executionsQuery = EMPTY_QUERY,
+  challengesQuery = EMPTY_QUERY,
+  insightsQuery = EMPTY_QUERY,
 } = {}) => {
   /* ==========================================================
      STATE
@@ -222,15 +244,12 @@ const useSmartSave = ({
   const [refreshing, setRefreshing] =
     useState(false);
 
-  const mountedRef =
-    useRef(true);
-
-  const requestIdRef =
-    useRef(0);
-
   /* ==========================================================
-     MOUNT / UNMOUNT SAFETY
+     MOUNT SAFETY
   ========================================================== */
+
+  const mountedRef =
+    useRef(false);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -239,6 +258,35 @@ const useSmartSave = ({
       mountedRef.current = false;
     };
   }, []);
+
+  /* ==========================================================
+     REFRESH GENERATION
+  ========================================================== */
+
+  /*
+   * Every complete refresh receives a generation number.
+   *
+   * This prevents an older refresh from overwriting
+   * newer state.
+   */
+
+  const generationRef =
+    useRef(0);
+
+  /* ==========================================================
+     INITIALIZATION GUARD
+  ========================================================== */
+
+  /*
+   * Prevent accidental duplicate initialization.
+   *
+   * React StrictMode intentionally mounts effects twice
+   * during development. This guard prevents the SmartSave
+   * initialization request storm.
+   */
+
+  const initializedRef =
+    useRef(false);
 
   /* ==========================================================
      SAFE STATE HELPERS
@@ -250,10 +298,18 @@ const useSmartSave = ({
         return;
       }
 
-      setLoading((previous) => ({
-        ...previous,
-        [key]: value,
-      }));
+      setLoading((previous) => {
+        if (
+          previous[key] === value
+        ) {
+          return previous;
+        }
+
+        return {
+          ...previous,
+          [key]: value,
+        };
+      });
     },
     []
   );
@@ -264,10 +320,21 @@ const useSmartSave = ({
         return;
       }
 
-      setErrors((previous) => ({
-        ...previous,
-        [key]: normalizeError(error),
-      }));
+      const message =
+        normalizeError(error);
+
+      setErrors((previous) => {
+        if (
+          previous[key] === message
+        ) {
+          return previous;
+        }
+
+        return {
+          ...previous,
+          [key]: message,
+        };
+      });
     },
     []
   );
@@ -278,534 +345,359 @@ const useSmartSave = ({
         return;
       }
 
-      setErrors((previous) => ({
-        ...previous,
-        [key]: null,
-      }));
+      setErrors((previous) => {
+        if (
+          previous[key] === null
+        ) {
+          return previous;
+        }
+
+        return {
+          ...previous,
+          [key]: null,
+        };
+      });
     },
     []
   );
 
   /* ==========================================================
-     FETCH ACCOUNTS
+     QUERY SIGNATURES
+  ========================================================== */
+
+  const accountsQueryKey =
+    useMemo(
+      () =>
+        createQueryKey(
+          accountsQuery
+        ),
+      [accountsQuery]
+    );
+
+  const goalsQueryKey =
+    useMemo(
+      () =>
+        createQueryKey(
+          goalsQuery
+        ),
+      [goalsQuery]
+    );
+
+  const plansQueryKey =
+    useMemo(
+      () =>
+        createQueryKey(
+          plansQuery
+        ),
+      [plansQuery]
+    );
+
+  const schedulesQueryKey =
+    useMemo(
+      () =>
+        createQueryKey(
+          schedulesQuery
+        ),
+      [schedulesQuery]
+    );
+
+  const executionsQueryKey =
+    useMemo(
+      () =>
+        createQueryKey(
+          executionsQuery
+        ),
+      [executionsQuery]
+    );
+
+  const challengesQueryKey =
+    useMemo(
+      () =>
+        createQueryKey(
+          challengesQuery
+        ),
+      [challengesQuery]
+    );
+
+  const insightsQueryKey =
+    useMemo(
+      () =>
+        createQueryKey(
+          insightsQuery
+        ),
+      [insightsQuery]
+    );
+
+  /* ==========================================================
+     QUERY REFS
+  ========================================================== */
+
+  const accountsQueryRef =
+    useRef(accountsQuery);
+
+  const goalsQueryRef =
+    useRef(goalsQuery);
+
+  const plansQueryRef =
+    useRef(plansQuery);
+
+  const schedulesQueryRef =
+    useRef(schedulesQuery);
+
+  const executionsQueryRef =
+    useRef(executionsQuery);
+
+  const challengesQueryRef =
+    useRef(challengesQuery);
+
+  const insightsQueryRef =
+    useRef(insightsQuery);
+
+  useEffect(() => {
+    accountsQueryRef.current =
+      accountsQuery;
+  }, [accountsQueryKey]);
+
+  useEffect(() => {
+    goalsQueryRef.current =
+      goalsQuery;
+  }, [goalsQueryKey]);
+
+  useEffect(() => {
+    plansQueryRef.current =
+      plansQuery;
+  }, [plansQueryKey]);
+
+  useEffect(() => {
+    schedulesQueryRef.current =
+      schedulesQuery;
+  }, [schedulesQueryKey]);
+
+  useEffect(() => {
+    executionsQueryRef.current =
+      executionsQuery;
+  }, [executionsQueryKey]);
+
+  useEffect(() => {
+    challengesQueryRef.current =
+      challengesQuery;
+  }, [challengesQueryKey]);
+
+  useEffect(() => {
+    insightsQueryRef.current =
+      insightsQuery;
+  }, [insightsQueryKey]);
+
+  /* ==========================================================
+     GENERIC RESOURCE FETCHER
+  ========================================================== */
+
+  const fetchResource = useCallback(
+    async ({
+      key,
+      methodName,
+      query,
+      generation,
+    }) => {
+      if (!mountedRef.current) {
+        return null;
+      }
+
+      updateLoading(key, true);
+      clearError(key);
+
+      try {
+        const method =
+          requireServiceMethod(
+            methodName
+          );
+
+        const response =
+          await method(query);
+
+        /*
+         * Ignore stale results.
+         */
+        if (
+          !mountedRef.current ||
+          generation !==
+            generationRef.current
+        ) {
+          return response;
+        }
+
+        setData((previous) => ({
+          ...previous,
+          [key]:
+            asArray(response),
+        }));
+
+        return response;
+      } catch (error) {
+        if (
+          mountedRef.current &&
+          generation ===
+            generationRef.current
+        ) {
+          updateError(
+            key,
+            error
+          );
+        }
+
+        throw error;
+      } finally {
+        if (
+          mountedRef.current &&
+          generation ===
+            generationRef.current
+        ) {
+          updateLoading(
+            key,
+            false
+          );
+        }
+      }
+    },
+    [
+      clearError,
+      updateError,
+      updateLoading,
+    ]
+  );
+
+  /* ==========================================================
+     INDIVIDUAL FETCH METHODS
   ========================================================== */
 
   const fetchAccounts = useCallback(
-    async (query = accountsQuery) => {
-      const requestId =
-        ++requestIdRef.current;
+    async (query) => {
+      const generation =
+        generationRef.current;
 
-      updateLoading(
-        "accounts",
-        true
-      );
-
-      clearError("accounts");
-
-      try {
-        const method =
-          requireServiceMethod(
-            "getSavingAccounts"
-          );
-
-        const response =
-          await method(query);
-
-        if (
-          !mountedRef.current ||
-          requestId !==
-            requestIdRef.current
-        ) {
-          return response;
-        }
-
-        setData((previous) => ({
-          ...previous,
-          accounts:
-            asArray(response),
-        }));
-
-        return response;
-      } catch (error) {
-        if (
-          mountedRef.current &&
-          requestId ===
-            requestIdRef.current
-        ) {
-          updateError(
-            "accounts",
-            error
-          );
-        }
-
-        throw error;
-      } finally {
-        if (
-          mountedRef.current &&
-          requestId ===
-            requestIdRef.current
-        ) {
-          updateLoading(
-            "accounts",
-            false
-          );
-        }
-      }
+      return fetchResource({
+        key: "accounts",
+        methodName:
+          "getSavingAccounts",
+        query:
+          query ??
+          accountsQueryRef.current,
+        generation,
+      });
     },
-    [
-      accountsQuery,
-      clearError,
-      updateError,
-      updateLoading,
-    ]
+    [fetchResource]
   );
-
-  /* ==========================================================
-     FETCH GOALS
-  ========================================================== */
 
   const fetchGoals = useCallback(
-    async (query = goalsQuery) => {
-      const requestId =
-        ++requestIdRef.current;
+    async (query) => {
+      const generation =
+        generationRef.current;
 
-      updateLoading(
-        "goals",
-        true
-      );
-
-      clearError("goals");
-
-      try {
-        const method =
-          requireServiceMethod(
-            "getSavingGoals"
-          );
-
-        const response =
-          await method(query);
-
-        if (
-          !mountedRef.current ||
-          requestId !==
-            requestIdRef.current
-        ) {
-          return response;
-        }
-
-        setData((previous) => ({
-          ...previous,
-          goals:
-            asArray(response),
-        }));
-
-        return response;
-      } catch (error) {
-        if (
-          mountedRef.current &&
-          requestId ===
-            requestIdRef.current
-        ) {
-          updateError(
-            "goals",
-            error
-          );
-        }
-
-        throw error;
-      } finally {
-        if (
-          mountedRef.current &&
-          requestId ===
-            requestIdRef.current
-        ) {
-          updateLoading(
-            "goals",
-            false
-          );
-        }
-      }
+      return fetchResource({
+        key: "goals",
+        methodName:
+          "getSavingGoals",
+        query:
+          query ??
+          goalsQueryRef.current,
+        generation,
+      });
     },
-    [
-      goalsQuery,
-      clearError,
-      updateError,
-      updateLoading,
-    ]
+    [fetchResource]
   );
-
-  /* ==========================================================
-     FETCH PLANS
-  ========================================================== */
 
   const fetchPlans = useCallback(
-    async (query = plansQuery) => {
-      const requestId =
-        ++requestIdRef.current;
+    async (query) => {
+      const generation =
+        generationRef.current;
 
-      updateLoading(
-        "plans",
-        true
-      );
-
-      clearError("plans");
-
-      try {
-        const method =
-          requireServiceMethod(
-            "getSavingPlans"
-          );
-
-        const response =
-          await method(query);
-
-        if (
-          !mountedRef.current ||
-          requestId !==
-            requestIdRef.current
-        ) {
-          return response;
-        }
-
-        setData((previous) => ({
-          ...previous,
-          plans:
-            asArray(response),
-        }));
-
-        return response;
-      } catch (error) {
-        if (
-          mountedRef.current &&
-          requestId ===
-            requestIdRef.current
-        ) {
-          updateError(
-            "plans",
-            error
-          );
-        }
-
-        throw error;
-      } finally {
-        if (
-          mountedRef.current &&
-          requestId ===
-            requestIdRef.current
-        ) {
-          updateLoading(
-            "plans",
-            false
-          );
-        }
-      }
+      return fetchResource({
+        key: "plans",
+        methodName:
+          "getSavingPlans",
+        query:
+          query ??
+          plansQueryRef.current,
+        generation,
+      });
     },
-    [
-      plansQuery,
-      clearError,
-      updateError,
-      updateLoading,
-    ]
+    [fetchResource]
   );
-
-  /* ==========================================================
-     FETCH SCHEDULES
-  ========================================================== */
 
   const fetchSchedules = useCallback(
-    async (query = schedulesQuery) => {
-      const requestId =
-        ++requestIdRef.current;
+    async (query) => {
+      const generation =
+        generationRef.current;
 
-      updateLoading(
-        "schedules",
-        true
-      );
-
-      clearError("schedules");
-
-      try {
-        const method =
-          requireServiceMethod(
-            "getSavingSchedules"
-          );
-
-        const response =
-          await method(query);
-
-        if (
-          !mountedRef.current ||
-          requestId !==
-            requestIdRef.current
-        ) {
-          return response;
-        }
-
-        setData((previous) => ({
-          ...previous,
-          schedules:
-            asArray(response),
-        }));
-
-        return response;
-      } catch (error) {
-        if (
-          mountedRef.current &&
-          requestId ===
-            requestIdRef.current
-        ) {
-          updateError(
-            "schedules",
-            error
-          );
-        }
-
-        throw error;
-      } finally {
-        if (
-          mountedRef.current &&
-          requestId ===
-            requestIdRef.current
-        ) {
-          updateLoading(
-            "schedules",
-            false
-          );
-        }
-      }
+      return fetchResource({
+        key: "schedules",
+        methodName:
+          "getSavingSchedules",
+        query:
+          query ??
+          schedulesQueryRef.current,
+        generation,
+      });
     },
-    [
-      schedulesQuery,
-      clearError,
-      updateError,
-      updateLoading,
-    ]
+    [fetchResource]
   );
-
-  /* ==========================================================
-     FETCH EXECUTIONS
-  ========================================================== */
 
   const fetchExecutions = useCallback(
-    async (query = executionsQuery) => {
-      const requestId =
-        ++requestIdRef.current;
+    async (query) => {
+      const generation =
+        generationRef.current;
 
-      updateLoading(
-        "executions",
-        true
-      );
-
-      clearError("executions");
-
-      try {
-        const method =
-          requireServiceMethod(
-            "getSavingExecutions"
-          );
-
-        const response =
-          await method(query);
-
-        if (
-          !mountedRef.current ||
-          requestId !==
-            requestIdRef.current
-        ) {
-          return response;
-        }
-
-        setData((previous) => ({
-          ...previous,
-          executions:
-            asArray(response),
-        }));
-
-        return response;
-      } catch (error) {
-        if (
-          mountedRef.current &&
-          requestId ===
-            requestIdRef.current
-        ) {
-          updateError(
-            "executions",
-            error
-          );
-        }
-
-        throw error;
-      } finally {
-        if (
-          mountedRef.current &&
-          requestId ===
-            requestIdRef.current
-        ) {
-          updateLoading(
-            "executions",
-            false
-          );
-        }
-      }
+      return fetchResource({
+        key: "executions",
+        methodName:
+          "getSavingExecutions",
+        query:
+          query ??
+          executionsQueryRef.current,
+        generation,
+      });
     },
-    [
-      executionsQuery,
-      clearError,
-      updateError,
-      updateLoading,
-    ]
+    [fetchResource]
   );
-
-  /* ==========================================================
-     FETCH CHALLENGES
-  ========================================================== */
 
   const fetchChallenges = useCallback(
-    async (query = challengesQuery) => {
-      const requestId =
-        ++requestIdRef.current;
+    async (query) => {
+      const generation =
+        generationRef.current;
 
-      updateLoading(
-        "challenges",
-        true
-      );
-
-      clearError("challenges");
-
-      try {
-        const method =
-          requireServiceMethod(
-            "getSavingsChallenges"
-          );
-
-        const response =
-          await method(query);
-
-        if (
-          !mountedRef.current ||
-          requestId !==
-            requestIdRef.current
-        ) {
-          return response;
-        }
-
-        setData((previous) => ({
-          ...previous,
-          challenges:
-            asArray(response),
-        }));
-
-        return response;
-      } catch (error) {
-        if (
-          mountedRef.current &&
-          requestId ===
-            requestIdRef.current
-        ) {
-          updateError(
-            "challenges",
-            error
-          );
-        }
-
-        throw error;
-      } finally {
-        if (
-          mountedRef.current &&
-          requestId ===
-            requestIdRef.current
-        ) {
-          updateLoading(
-            "challenges",
-            false
-          );
-        }
-      }
+      return fetchResource({
+        key: "challenges",
+        methodName:
+          "getSavingsChallenges",
+        query:
+          query ??
+          challengesQueryRef.current,
+        generation,
+      });
     },
-    [
-      challengesQuery,
-      clearError,
-      updateError,
-      updateLoading,
-    ]
+    [fetchResource]
   );
-
-  /* ==========================================================
-     FETCH INSIGHTS
-  ========================================================== */
 
   const fetchInsights = useCallback(
-    async (query = insightsQuery) => {
-      const requestId =
-        ++requestIdRef.current;
+    async (query) => {
+      const generation =
+        generationRef.current;
 
-      updateLoading(
-        "insights",
-        true
-      );
-
-      clearError("insights");
-
-      try {
-        const method =
-          requireServiceMethod(
-            "getDashboardSavingInsights"
-          );
-
-        const response =
-          await method(query);
-
-        if (
-          !mountedRef.current ||
-          requestId !==
-            requestIdRef.current
-        ) {
-          return response;
-        }
-
-        setData((previous) => ({
-          ...previous,
-          insights:
-            asArray(response),
-        }));
-
-        return response;
-      } catch (error) {
-        if (
-          mountedRef.current &&
-          requestId ===
-            requestIdRef.current
-        ) {
-          updateError(
-            "insights",
-            error
-          );
-        }
-
-        throw error;
-      } finally {
-        if (
-          mountedRef.current &&
-          requestId ===
-            requestIdRef.current
-        ) {
-          updateLoading(
-            "insights",
-            false
-          );
-        }
-      }
+      return fetchResource({
+        key: "insights",
+        methodName:
+          "getDashboardSavingInsights",
+        query:
+          query ??
+          insightsQueryRef.current,
+        generation,
+      });
     },
-    [
-      insightsQuery,
-      clearError,
-      updateError,
-      updateLoading,
-    ]
+    [fetchResource]
   );
 
   /* ==========================================================
-     FETCH EVERYTHING
+     REFRESH EVERYTHING
   ========================================================== */
 
   const refresh = useCallback(
@@ -814,38 +706,87 @@ const useSmartSave = ({
         return;
       }
 
+      const generation =
+        ++generationRef.current;
+
       setRefreshing(true);
 
       try {
-        /*
-         * Promise.allSettled prevents one failed
-         * resource from preventing the others
-         * from refreshing.
-         */
         await Promise.allSettled([
-          fetchAccounts(),
-          fetchGoals(),
-          fetchPlans(),
-          fetchSchedules(),
-          fetchExecutions(),
-          fetchChallenges(),
-          fetchInsights(),
+          fetchResource({
+            key: "accounts",
+            methodName:
+              "getSavingAccounts",
+            query:
+              accountsQueryRef.current,
+            generation,
+          }),
+
+          fetchResource({
+            key: "goals",
+            methodName:
+              "getSavingGoals",
+            query:
+              goalsQueryRef.current,
+            generation,
+          }),
+
+          fetchResource({
+            key: "plans",
+            methodName:
+              "getSavingPlans",
+            query:
+              plansQueryRef.current,
+            generation,
+          }),
+
+          fetchResource({
+            key: "schedules",
+            methodName:
+              "getSavingSchedules",
+            query:
+              schedulesQueryRef.current,
+            generation,
+          }),
+
+          fetchResource({
+            key: "executions",
+            methodName:
+              "getSavingExecutions",
+            query:
+              executionsQueryRef.current,
+            generation,
+          }),
+
+          fetchResource({
+            key: "challenges",
+            methodName:
+              "getSavingsChallenges",
+            query:
+              challengesQueryRef.current,
+            generation,
+          }),
+
+          fetchResource({
+            key: "insights",
+            methodName:
+              "getDashboardSavingInsights",
+            query:
+              insightsQueryRef.current,
+            generation,
+          }),
         ]);
       } finally {
-        if (mountedRef.current) {
+        if (
+          mountedRef.current &&
+          generation ===
+            generationRef.current
+        ) {
           setRefreshing(false);
         }
       }
     },
-    [
-      fetchAccounts,
-      fetchGoals,
-      fetchPlans,
-      fetchSchedules,
-      fetchExecutions,
-      fetchChallenges,
-      fetchInsights,
-    ]
+    [fetchResource]
   );
 
   /* ==========================================================
@@ -857,21 +798,15 @@ const useSmartSave = ({
       return undefined;
     }
 
-    let cancelled = false;
+    if (initializedRef.current) {
+      return undefined;
+    }
 
-    const load = async () => {
-      if (cancelled) {
-        return;
-      }
+    initializedRef.current = true;
 
-      await refresh();
-    };
+    refresh();
 
-    load();
-
-    return () => {
-      cancelled = true;
-    };
+    return undefined;
   }, [autoFetch, refresh]);
 
   /* ==========================================================
@@ -880,25 +815,25 @@ const useSmartSave = ({
 
   const metrics = useMemo(() => {
     const goals =
-      data.goals || [];
+      data.goals;
 
     const accounts =
-      data.accounts || [];
+      data.accounts;
 
     const plans =
-      data.plans || [];
+      data.plans;
 
     const schedules =
-      data.schedules || [];
+      data.schedules;
 
     const challenges =
-      data.challenges || [];
+      data.challenges;
 
     const executions =
-      data.executions || [];
+      data.executions;
 
     const insights =
-      data.insights || [];
+      data.insights;
 
     const totalTarget =
       goals.reduce(
@@ -1024,94 +959,116 @@ const useSmartSave = ({
   }, [data]);
 
   /* ==========================================================
-     LOADING STATE
+     LOADING
   ========================================================== */
 
   const isLoading =
-    Object.values(loading).some(
-      Boolean
+    useMemo(
+      () =>
+        Object.values(
+          loading
+        ).some(Boolean),
+      [loading]
     );
 
   /* ==========================================================
-     ERROR STATE
+     ERRORS
   ========================================================== */
 
   const hasError =
-    Object.values(errors).some(
-      Boolean
+    useMemo(
+      () =>
+        Object.values(
+          errors
+        ).some(Boolean),
+      [errors]
     );
 
   const firstError =
-    Object.values(errors).find(
-      Boolean
-    ) || null;
+    useMemo(
+      () =>
+        Object.values(
+          errors
+        ).find(Boolean) || null,
+      [errors]
+    );
 
   /* ==========================================================
      PAGINATION
   ========================================================== */
 
-  const pagination = useMemo(
-    () => ({
-      accounts:
-        normalizePagination(
-          data.accounts
-        ),
+  const pagination =
+    useMemo(
+      () => ({
+        accounts:
+          normalizePagination(
+            data.accounts
+          ),
 
-      goals:
-        normalizePagination(
-          data.goals
-        ),
+        goals:
+          normalizePagination(
+            data.goals
+          ),
 
-      plans:
-        normalizePagination(
-          data.plans
-        ),
+        plans:
+          normalizePagination(
+            data.plans
+          ),
 
-      schedules:
-        normalizePagination(
-          data.schedules
-        ),
+        schedules:
+          normalizePagination(
+            data.schedules
+          ),
 
-      executions:
-        normalizePagination(
-          data.executions
-        ),
+        executions:
+          normalizePagination(
+            data.executions
+          ),
 
-      challenges:
-        normalizePagination(
-          data.challenges
-        ),
-    }),
-    [data]
-  );
+        challenges:
+          normalizePagination(
+            data.challenges
+          ),
+      }),
+      [data]
+    );
 
   /* ==========================================================
      RESET
   ========================================================== */
 
-  const reset = useCallback(() => {
-    if (!mountedRef.current) {
-      return;
-    }
+  const reset =
+    useCallback(() => {
+      if (!mountedRef.current) {
+        return;
+      }
 
-    requestIdRef.current += 1;
+      generationRef.current += 1;
 
-    setData(INITIAL_DATA);
-    setLoading(INITIAL_LOADING);
-    setErrors(INITIAL_ERRORS);
-    setRefreshing(false);
-  }, []);
+      initializedRef.current =
+        false;
+
+      setData({
+        ...INITIAL_DATA,
+      });
+
+      setLoading({
+        ...INITIAL_LOADING,
+      });
+
+      setErrors({
+        ...INITIAL_ERRORS,
+      });
+
+      setRefreshing(false);
+    }, []);
 
   /* ==========================================================
-     RETURN
+     RETURN VALUE
   ========================================================== */
 
   return useMemo(
     () => ({
-      /* ------------------------------------------------------
-         RAW DATA
-      ------------------------------------------------------ */
-
       data,
 
       accounts:
@@ -1135,19 +1092,11 @@ const useSmartSave = ({
       insights:
         data.insights,
 
-      /* ------------------------------------------------------
-         LOADING
-      ------------------------------------------------------ */
-
       loading,
 
       isLoading,
 
       refreshing,
-
-      /* ------------------------------------------------------
-         ERRORS
-      ------------------------------------------------------ */
 
       errors,
 
@@ -1156,21 +1105,9 @@ const useSmartSave = ({
 
       hasError,
 
-      /* ------------------------------------------------------
-         METRICS
-      ------------------------------------------------------ */
-
       metrics,
 
-      /* ------------------------------------------------------
-         PAGINATION
-      ------------------------------------------------------ */
-
       pagination,
-
-      /* ------------------------------------------------------
-         FETCH METHODS
-      ------------------------------------------------------ */
 
       fetchAccounts,
       fetchGoals,
@@ -1179,32 +1116,28 @@ const useSmartSave = ({
       fetchExecutions,
       fetchChallenges,
       fetchInsights,
-
-      /* ------------------------------------------------------
-         REFRESH / RESET
-      ------------------------------------------------------ */
 
       refresh,
       reset,
     }),
     [
       data,
+      loading,
+      isLoading,
+      refreshing,
       errors,
-      fetchAccounts,
-      fetchChallenges,
-      fetchExecutions,
-      fetchGoals,
-      fetchInsights,
-      fetchPlans,
-      fetchSchedules,
       firstError,
       hasError,
-      isLoading,
-      loading,
       metrics,
       pagination,
+      fetchAccounts,
+      fetchGoals,
+      fetchPlans,
+      fetchSchedules,
+      fetchExecutions,
+      fetchChallenges,
+      fetchInsights,
       refresh,
-      refreshing,
       reset,
     ]
   );

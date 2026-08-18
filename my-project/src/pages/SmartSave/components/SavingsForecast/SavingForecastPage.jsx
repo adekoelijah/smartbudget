@@ -1,131 +1,757 @@
 import {
-  AlertTriangle,
-  CalendarClock,
+  AlertCircle,
   RefreshCw,
   TrendingUp,
 } from "lucide-react";
 
-import useSmartSave from "../../../../hooks/useSmartSave";
+import {
+  memo,
+  useCallback,
+  useMemo,
+} from "react";
+
+import useSavingsForecast from "../../../../hooks/useSavingsForecast";
+
+import SavingsForecastSummary from "./SavingsForecastSummary";
+import SavingsProjectionChart from "./SavingsProjectionChart";
+import SavingsGoalForecast from "./SavingsGoalForecast";
+import SavingsForecastSkeleton from "./SavingsForecastSkeleton";
+import SavingsForecastEmptyState from "./SavingsForecastEmptyState";
+import SavingsForecastErrorState from "./SavingsForecastErrorState";
 
 import {
-  DEFAULT_CURRENCY,
-} from "../../../../constants/smartSaveConstants";
-
-import SavingsForecastCard from "./SavingsForecastCard";
-import SavingsSkeleton from "../shared/SavingsSkeleton";
-import SavingsErrorState from "../shared/SavingsErrorState";
+  normalizeForecast,
+} from "../../../../utils/smartSave/savingsNormalizers";
 
 /* =========================================================
-   SAFE OBJECT RESOLVER
+   CONSTANTS
 ========================================================= */
 
-const isObject = (value) =>
-  value !== null &&
-  typeof value === "object" &&
-  !Array.isArray(value);
+const DEFAULT_TITLE = "Savings Forecast";
+
+const DEFAULT_DESCRIPTION =
+  "Understand where your savings are heading and what it may take to reach your target.";
+
+const DEFAULT_ERROR_MESSAGE =
+  "We couldn't load your savings forecast.";
+
+const EMPTY_STRING = "";
 
 /* =========================================================
-   SMARTSAVE RESPONSE RESOLVER
+   SAFE HELPERS
 ========================================================= */
 
-const resolveData = (data) => {
-  if (!isObject(data)) {
-    return {};
+/**
+ * Returns the first meaningful value.
+ *
+ * Important:
+ * - 0 is considered valid.
+ * - false is considered valid.
+ * - null / undefined / empty string are ignored.
+ */
+const firstDefined = (...values) => {
+  return values.find(
+    (value) =>
+      value !== undefined &&
+      value !== null &&
+      value !== EMPTY_STRING
+  );
+};
+
+/**
+ * Safely resolve an error into a user-facing message.
+ *
+ * Raw Axios/backend error objects should never be rendered
+ * directly by presentation components.
+ */
+const getErrorMessage = (error) => {
+  if (!error) {
+    return EMPTY_STRING;
   }
 
-  if (isObject(data.data)) {
-    return data.data;
+  if (typeof error === "string") {
+    return error;
   }
 
-  if (isObject(data.result)) {
-    return data.result;
+  return (
+    error?.message ||
+    error?.error ||
+    error?.response?.data?.message ||
+    error?.response?.data?.error ||
+    DEFAULT_ERROR_MESSAGE
+  );
+};
+
+/**
+ * Resolve the forecast from supported hook/service envelopes.
+ *
+ * The hook/service layer remains the source of truth.
+ * This function only protects the presentation boundary
+ * against inconsistent response wrappers.
+ */
+const resolveForecast = ({
+  suppliedForecast,
+  hookForecast,
+  data,
+}) => {
+  const resolved = firstDefined(
+    suppliedForecast,
+    hookForecast,
+    data?.forecast,
+    data
+  );
+
+  if (
+    !resolved ||
+    typeof resolved !== "object" ||
+    Array.isArray(resolved)
+  ) {
+    return null;
   }
 
-  return data;
+  return resolved;
+};
+
+/**
+ * Resolve a stable savings-goal identifier.
+ */
+const resolveGoalId = (
+  forecast,
+  fallback = null
+) => {
+  return firstDefined(
+    forecast?.goalId,
+    forecast?.goal?._id,
+    forecast?.goal?.id,
+    fallback
+  ) ?? null;
+};
+
+/**
+ * Resolve a stable savings-plan identifier.
+ */
+const resolvePlanId = (
+  forecast,
+  fallback = null
+) => {
+  return firstDefined(
+    forecast?.planId,
+    forecast?.plan?._id,
+    forecast?.plan?.id,
+    fallback
+  ) ?? null;
+};
+
+/**
+ * Resolve projection/timeline data.
+ *
+ * Chart-specific transformation remains inside
+ * SavingsProjectionChart.
+ */
+const resolveProjectionData = (
+  forecast
+) => {
+  if (!forecast) {
+    return [];
+  }
+
+  const candidates = [
+    forecast?.projections,
+    forecast?.projection,
+    forecast?.timeline,
+    forecast?.forecast,
+    forecast?.data,
+  ];
+
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      return candidate;
+    }
+  }
+
+  return [];
 };
 
 /* =========================================================
-   FORECAST RESOLVER
+   HEADER
 ========================================================= */
 
-const resolveForecast = (data) =>
-  data.forecast ??
-  data.savingsForecast ??
-  null;
+const ForecastHeader = memo(
+  ({
+    title,
+    description,
+    showRefresh,
+    refreshing,
+    canRefresh,
+    onRefresh,
+  }) => {
+    return (
+      <header
+        className="
+          flex flex-col sm:flex-row sm:justify-between sm:items-start
+          px-5 sm:px-6 py-5
+          border-slate-100 border-b
+          gap-4
+        "
+      >
+        <div
+          className="
+            flex items-start
+            min-w-0
+            gap-3
+          "
+        >
+          <div
+            className="
+              flex justify-center items-center
+              w-10 h-10
+              text-slate-700
+              bg-slate-100
+              rounded-xl
+              shrink-0
+            "
+            aria-hidden="true"
+          >
+            <TrendingUp
+              size={19}
+              strokeWidth={1.9}
+            />
+          </div>
+
+          <div
+            className="
+              min-w-0
+            "
+          >
+            <h2
+              id="savings-forecast-title"
+              className="
+                font-bold text-slate-900 text-base sm:text-lg tracking-tight
+              "
+            >
+              {title}
+            </h2>
+
+            {description ? (
+              <p
+                className="
+                  max-w-2xl
+                  mt-1
+                  text-slate-500 text-xs sm:text-sm leading-5
+                "
+              >
+                {description}
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        {showRefresh && canRefresh ? (
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={refreshing}
+            className="
+              inline-flex justify-center items-center self-start
+              w-9 h-9
+              text-slate-500 hover:text-slate-900
+              bg-white hover:bg-slate-50
+              border border-slate-200 hover:border-slate-300 rounded-lg
+              focus:outline-none focus:ring-2 focus:ring-slate-400/30
+              disabled:opacity-50 transition
+              disabled:cursor-not-allowed
+              shrink-0
+            "
+            aria-label={
+              refreshing
+                ? "Refreshing savings forecast"
+                : "Refresh savings forecast"
+            }
+            title="Refresh forecast"
+          >
+            <RefreshCw
+              size={15}
+              className={
+                refreshing
+                  ? "animate-spin"
+                  : ""
+              }
+              aria-hidden="true"
+            />
+          </button>
+        ) : null}
+      </header>
+    );
+  }
+);
+
+ForecastHeader.displayName =
+  "ForecastHeader";
+
+/* =========================================================
+   NON-BLOCKING ERROR
+========================================================= */
+
+const ForecastRefreshWarning = memo(
+  ({
+    message,
+    refreshing,
+    canRefresh,
+    onRetry,
+  }) => {
+    return (
+      <div
+        className="
+          flex items-start
+          mx-5 sm:mx-6 mt-4 p-3
+          text-amber-800 text-xs
+          bg-amber-50
+          border border-amber-200 rounded-xl
+          gap-2
+        "
+        role="status"
+        aria-live="polite"
+      >
+        <AlertCircle
+          size={15}
+          className="
+            mt-0.5
+            shrink-0
+          "
+          aria-hidden="true"
+        /
+        >
+
+        <div
+          className="
+            flex-1
+            min-w-0
+          "
+        >
+          <p
+            className="
+              font-medium
+            "
+          >
+            Forecast may be outdated.
+          </p>
+
+          {message ? (
+            <p
+              className="
+                mt-0.5
+                text-amber-700
+              "
+            >
+              {message}
+            </p>
+          ) : null}
+        </div>
+
+        {canRefresh ? (
+          <button
+            type="button"
+            onClick={onRetry}
+            disabled={refreshing}
+            className="
+              font-semibold underline underline-offset-2
+              disabled:opacity-50
+              disabled:cursor-not-allowed
+              shrink-0
+            "
+          >
+            {refreshing
+              ? "Retrying..."
+              : "Retry"}
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+);
+
+ForecastRefreshWarning.displayName =
+  "ForecastRefreshWarning";
+
+/* =========================================================
+   REFRESH STATUS
+========================================================= */
+
+const ForecastRefreshStatus = memo(
+  ({
+    refreshing,
+  }) => {
+    if (!refreshing) {
+      return null;
+    }
+
+    return (
+      <div
+        className="
+          flex justify-center items-center
+          pt-1
+          text-slate-400 text-xs
+          gap-2
+        "
+        role="status"
+        aria-live="polite"
+      >
+        <RefreshCw
+          size={13}
+          className="
+            animate-spin
+          "
+          aria-hidden="true"
+        /
+        >
+
+        Updating your savings forecast...
+      </div>
+    );
+  }
+);
+
+ForecastRefreshStatus.displayName =
+  "ForecastRefreshStatus";
 
 /* =========================================================
    PAGE
 ========================================================= */
 
-const SavingForecastPage = () => {
-  const smartSave = useSmartSave();
+const SavingForecastPage = ({
+  goalId = null,
+  planId = null,
+
+  /**
+   * Optional externally supplied forecast.
+   *
+   * When supplied, the page does not need to request
+   * forecast data again.
+   */
+  forecast: suppliedForecast = null,
+
+  title = DEFAULT_TITLE,
+
+  description = DEFAULT_DESCRIPTION,
+
+  className = "",
+
+  showRefresh = true,
+
+  showSummary = true,
+
+  showGoalForecast = true,
+
+  showProjectionChart = true,
+
+  onViewGoal,
+
+  onViewPlan,
+}) => {
+  /* =======================================================
+     FORECAST DATA OWNER
+  ======================================================= */
+
+  /**
+   * IMPORTANT ARCHITECTURAL RULE:
+   *
+   * This is the ONLY component in this forecast tree
+   * that owns useSavingsForecast().
+   *
+   * SavingsForecastSummary
+   * SavingsGoalForecast
+   * SavingsProjectionChart
+   * SavingsForecastSkeleton
+   * SavingsForecastEmptyState
+   * SavingsForecastErrorState
+   *
+   * must remain presentation components.
+   */
+  const forecastState =
+    useSavingsForecast({
+      goalId,
+      planId,
+      enabled:
+        !suppliedForecast,
+    }) || {};
 
   const {
-    data,
-    loading,
-    error,
+    forecast: hookForecast = null,
+
+    data = null,
+
+    loading = false,
+
+    isLoading = false,
+
+    refreshing = false,
+
+    isRefreshing = false,
+
+    error = null,
+
     refresh,
-    isRefreshing,
-  } = smartSave ?? {};
+
+    refetch,
+  } = forecastState;
 
   /* =======================================================
-     NORMALIZED DATA
+     RESOLVE FORECAST
   ======================================================= */
 
-  const savingsData = resolveData(data);
+  const rawForecast =
+    useMemo(
+      () =>
+        resolveForecast({
+          suppliedForecast,
+          hookForecast,
+          data,
+        }),
+      [
+        suppliedForecast,
+        hookForecast,
+        data,
+      ]
+    );
+
+  /* =======================================================
+     NORMALIZE FORECAST
+  ======================================================= */
 
   const forecast =
-    resolveForecast(savingsData);
+    useMemo(() => {
+      if (!rawForecast) {
+        return null;
+      }
 
-  const currency =
-    DEFAULT_CURRENCY ?? "NGN";
+      const normalized =
+        normalizeForecast(
+          rawForecast
+        );
 
-  const hasForecast =
-    forecast !== null &&
-    forecast !== undefined;
+      return normalized || null;
+    }, [
+      rawForecast,
+    ]);
 
   /* =======================================================
-     ACTIONS
+     REQUEST STATE
   ======================================================= */
 
-  const handleRefresh = async () => {
-    if (typeof refresh !== "function") {
-      return;
-    }
+  const isLoadingForecast =
+    Boolean(
+      loading ||
+        isLoading
+    );
 
-    try {
-      await refresh();
-    } catch {
-      /*
-       * Refresh errors remain owned by
-       * useSmartSave.
-       */
-    }
-  };
+  const isRefreshingForecast =
+    Boolean(
+      refreshing ||
+        isRefreshing
+    );
+
+  /* =======================================================
+     REFRESH CAPABILITY
+  ======================================================= */
+
+  const canRefresh =
+    typeof refresh ===
+      "function" ||
+    typeof refetch ===
+      "function";
+
+  /* =======================================================
+     REFRESH
+  ======================================================= */
+
+  const refreshForecast =
+    useCallback(
+      async () => {
+        if (
+          typeof refresh ===
+          "function"
+        ) {
+          return refresh();
+        }
+
+        if (
+          typeof refetch ===
+          "function"
+        ) {
+          return refetch();
+        }
+
+        return undefined;
+      },
+      [
+        refresh,
+        refetch,
+      ]
+    );
+
+  const handleRefresh =
+    useCallback(() => {
+      void refreshForecast();
+    }, [
+      refreshForecast,
+    ]);
+
+  /* =======================================================
+     DERIVED DATA
+  ======================================================= */
+
+  const projectionData =
+    useMemo(
+      () =>
+        resolveProjectionData(
+          forecast
+        ),
+      [forecast]
+    );
+
+  const resolvedGoalId =
+    useMemo(
+      () =>
+        resolveGoalId(
+          forecast,
+          goalId
+        ),
+      [
+        forecast,
+        goalId,
+      ]
+    );
+
+  const resolvedPlanId =
+    useMemo(
+      () =>
+        resolvePlanId(
+          forecast,
+          planId
+        ),
+      [
+        forecast,
+        planId,
+      ]
+    );
+
+  const errorMessage =
+    useMemo(
+      () =>
+        getErrorMessage(
+          error
+        ),
+      [error]
+    );
+
+  const hasForecast =
+    Boolean(forecast);
+
+  const hasProjectionData =
+    projectionData.length > 0;
+
+  const showInitialLoading =
+    isLoadingForecast &&
+    !hasForecast;
+
+  const showInitialError =
+    Boolean(error) &&
+    !hasForecast;
+
+  const showEmpty =
+    !isLoadingForecast &&
+    !error &&
+    !hasForecast;
+
+  /* =======================================================
+     VIEW GOAL
+  ======================================================= */
+
+  const handleViewGoal =
+    useCallback(() => {
+      if (
+        typeof onViewGoal !==
+          "function" ||
+        !resolvedGoalId
+      ) {
+        return;
+      }
+
+      onViewGoal(
+        resolvedGoalId,
+        forecast
+      );
+    }, [
+      onViewGoal,
+      resolvedGoalId,
+      forecast,
+    ]);
+
+  /* =======================================================
+     VIEW PLAN
+  ======================================================= */
+
+  const handleViewPlan =
+    useCallback(() => {
+      if (
+        typeof onViewPlan !==
+          "function" ||
+        !resolvedPlanId
+      ) {
+        return;
+      }
+
+      onViewPlan(
+        resolvedPlanId,
+        forecast
+      );
+    }, [
+      onViewPlan,
+      resolvedPlanId,
+      forecast,
+    ]);
+
+  /* =======================================================
+     SHARED SHELL
+  ======================================================= */
+
+  const shellClassName = `
+    w-full
+    overflow-hidden
+    rounded-2xl
+    border border-slate-200
+    bg-white
+    shadow-sm
+    ${className}
+  `;
 
   /* =======================================================
      INITIAL LOADING
   ======================================================= */
 
-  if (loading && !data) {
+  if (showInitialLoading) {
     return (
-      <main
-        className="
-          w-full min-h-screen
-          bg-slate-50
-        "
+      <section
+        className={shellClassName}
+        aria-labelledby="savings-forecast-title"
         aria-busy="true"
-        aria-label="Loading savings forecast"
       >
+        <ForecastHeader
+          title={title}
+          description={description}
+          showRefresh={false}
+          refreshing={false}
+          canRefresh={false}
+        />
+
         <div
           className="
-            w-full max-w-7xl
-            mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8
+            p-5 sm:p-6
           "
         >
-          <SavingsSkeleton module="page" />
+          <SavingsForecastSkeleton />
         </div>
-      </main>
+      </section>
     );
   }
 
@@ -133,577 +759,243 @@ const SavingForecastPage = () => {
      INITIAL ERROR
   ======================================================= */
 
-  if (error && !data) {
+  if (showInitialError) {
     return (
-      <main
-        className="
-          w-full min-h-screen
-          bg-slate-50
-        "
+      <section
+        className={shellClassName}
+        aria-labelledby="savings-forecast-title"
       >
+        <ForecastHeader
+          title={title}
+          description={description}
+          showRefresh={false}
+          refreshing={false}
+          canRefresh={false}
+        />
+
         <div
           className="
-            flex items-center
-            w-full max-w-7xl min-h-screen
-            mx-auto px-4 sm:px-6 lg:px-8 py-8
+            p-5 sm:p-6
           "
         >
-          <div
-            className="
-              w-full
-            "
-          >
-            <SavingsErrorState
-              error={error}
-              onRetry={handleRefresh}
-            />
-          </div>
+          <SavingsForecastErrorState
+            message={
+              errorMessage
+            }
+            onRetry={
+              canRefresh
+                ? handleRefresh
+                : undefined
+            }
+            retrying={
+              isRefreshingForecast
+            }
+          />
         </div>
-      </main>
+      </section>
     );
   }
 
   /* =======================================================
-     PAGE
+     EMPTY STATE
+  ======================================================= */
+
+  if (showEmpty) {
+    return (
+      <section
+        className={shellClassName}
+        aria-labelledby="savings-forecast-title"
+      >
+        <ForecastHeader
+          title={title}
+          description={description}
+          showRefresh={showRefresh}
+          refreshing={
+            isRefreshingForecast
+          }
+          canRefresh={
+            canRefresh
+          }
+          onRefresh={
+            handleRefresh
+          }
+        />
+
+        <div
+          className="
+            p-5 sm:p-6
+          "
+        >
+          <SavingsForecastEmptyState
+            onRetry={
+              canRefresh
+                ? handleRefresh
+                : undefined
+            }
+            isRefreshing={
+              isRefreshingForecast
+            }
+          />
+        </div>
+      </section>
+    );
+  }
+
+  /* =======================================================
+     MAIN RENDER
   ======================================================= */
 
   return (
-    <main
-      className="
-        w-full min-h-screen
-        bg-slate-50
-      "
+    <section
+      className={shellClassName}
+      aria-labelledby="savings-forecast-title"
+      aria-busy={
+        isRefreshingForecast
+      }
     >
+      {/* =================================================
+          HEADER
+      ================================================= */}
+
+      <ForecastHeader
+        title={title}
+        description={description}
+        showRefresh={
+          showRefresh
+        }
+        refreshing={
+          isRefreshingForecast
+        }
+        canRefresh={
+          canRefresh
+        }
+        onRefresh={
+          handleRefresh
+        }
+      />
+
+      {/* =================================================
+          NON-BLOCKING REFRESH ERROR
+      ================================================= */}
+
+      {error && hasForecast ? (
+        <ForecastRefreshWarning
+          message={
+            errorMessage
+          }
+          refreshing={
+            isRefreshingForecast
+          }
+          canRefresh={
+            canRefresh
+          }
+          onRetry={
+            handleRefresh
+          }
+        />
+      ) : null}
+
+      {/* =================================================
+          FORECAST CONTENT
+      ================================================= */}
+
       <div
         className="
-          w-full max-w-7xl
-          mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-7 lg:py-8
+          space-y-5 p-5 sm:p-6
         "
       >
-        {/* =================================================
-            PAGE HEADER
-        ================================================= */}
+        {/* ===============================================
+            SUMMARY
+        =============================================== */}
 
-        <header
-          className="
-            flex flex-col sm:flex-row sm:justify-between sm:items-center
-            gap-4
-          "
-        >
-          <div
-            className="
-              flex items-start
-              min-w-0
-              gap-3
-            "
-          >
-            <div
-              className="
-                flex justify-center items-center
-                w-11 h-11
-                bg-slate-900
-                rounded-xl
-                shadow-sm
-                shrink-0
-              "
-              aria-hidden="true"
-            >
-              <TrendingUp
-                size={20}
-                className="
-                  text-white
-                "
-                /
-              >
-            </div>
-
-            <div
-              className="
-                min-w-0
-              "
-            >
-              <p
-                className="
-                  font-semibold text-slate-500 text-xs uppercase tracking-wide
-                "
-              >
-                SmartSave
-              </p>
-
-              <h1
-                className="
-                  mt-1
-                  font-bold text-slate-900 text-xl sm:text-2xl tracking-tight
-                "
-              >
-                Savings Forecast
-              </h1>
-
-              <p
-                className="
-                  max-w-2xl
-                  mt-1
-                  text-slate-500 text-sm leading-6
-                "
-              >
-                See how your current savings behavior
-                can translate into future progress and
-                make better decisions with forward-looking
-                financial insight.
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleRefresh}
-            disabled={
-              isRefreshing ||
-              typeof refresh !== "function"
+        {showSummary ? (
+          <SavingsForecastSummary
+            forecast={
+              forecast
             }
-            className="
-              inline-flex justify-center items-center
-              w-full sm:w-auto
-              px-4 py-2.5
-              font-semibold text-slate-700 text-sm
-              bg-white hover:bg-slate-100
-              border border-slate-200 rounded-xl focus:outline-none
-              focus:ring-2 focus:ring-slate-300
-              disabled:opacity-50 shadow-sm transition
-              disabled:cursor-not-allowed
-              gap-2
-            "
-            aria-label="Refresh savings forecast"
-          >
-            <RefreshCw
-              size={15}
-              className={
-                isRefreshing
-                  ? "animate-spin"
-                  : ""
-              }
-              aria-hidden="true"
-            />
+          />
+        ) : null}
 
-            {isRefreshing
-              ? "Updating..."
-              : "Refresh"}
-          </button>
-        </header>
+        {/* ===============================================
+            GOAL FORECAST
+        =============================================== */}
 
-        {/* =================================================
-            REFRESH STATUS
-        ================================================= */}
+        {showGoalForecast ? (
+          <SavingsGoalForecast
+            forecast={
+              forecast
+            }
+            goalId={
+              resolvedGoalId
+            }
+            onViewGoal={
+              typeof onViewGoal ===
+              "function"
+                ? handleViewGoal
+                : undefined
+            }
+          />
+        ) : null}
 
-        {isRefreshing && (
-          <div
-            className="
-              flex items-center
-              mt-4 px-4 py-2.5
-              font-medium text-slate-500 text-xs
-              bg-white
-              border border-slate-200 rounded-xl
-              shadow-sm
-              gap-2
-            "
-            role="status"
-            aria-live="polite"
-          >
-            <RefreshCw
-              size={13}
-              className="
-                animate-spin
-              "
-              aria-hidden="true"
-            /
-            >
+        {/* ===============================================
+            PROJECTION CHART
+        =============================================== */}
 
-            Updating your savings forecast...
-          </div>
-        )}
+        {showProjectionChart &&
+        hasProjectionData ? (
+          <SavingsProjectionChart
+            forecast={
+              forecast
+            }
+            projections={
+              projectionData
+            }
+            goalId={
+              resolvedGoalId
+            }
+            planId={
+              resolvedPlanId
+            }
+            onViewGoal={
+              typeof onViewGoal ===
+              "function"
+                ? handleViewGoal
+                : undefined
+            }
+            onViewPlan={
+              typeof onViewPlan ===
+              "function"
+                ? handleViewPlan
+                : undefined
+            }
+          />
+        ) : null}
 
-        {/* =================================================
-            PARTIAL ERROR
-        ================================================= */}
+        {/* ===============================================
+            BACKGROUND REFRESH
+        =============================================== */}
 
-        {error && data && (
-          <div
-            className="
-              flex flex-col sm:flex-row sm:justify-between sm:items-center
-              mt-4 p-4
-              bg-amber-50
-              border border-amber-200 rounded-xl
-              gap-3
-            "
-            role="alert"
-          >
-            <div
-              className="
-                flex items-start
-                min-w-0
-                gap-3
-              "
-            >
-              <AlertTriangle
-                size={17}
-                className="
-                  mt-0.5
-                  text-amber-600
-                  shrink-0
-                "
-                aria-hidden="true"
-              /
-              >
-
-              <div
-                className="
-                  min-w-0
-                "
-              >
-                <p
-                  className="
-                    font-semibold text-amber-900 text-sm
-                  "
-                >
-                  Forecast data may be out of date.
-                </p>
-
-                <p
-                  className="
-                    mt-0.5
-                    text-amber-700 text-xs leading-5
-                  "
-                >
-                  Your previously loaded forecast
-                  remains available.
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              className="
-                inline-flex justify-center items-center
-                w-full sm:w-auto
-                px-3 py-2
-                font-semibold text-amber-800 text-xs
-                bg-white hover:bg-amber-100
-                border border-amber-200 rounded-lg
-                disabled:opacity-50 transition
-                disabled:cursor-not-allowed
-                gap-2 shrink-0
-              "
-            >
-              <RefreshCw
-                size={13}
-                className={
-                  isRefreshing
-                    ? "animate-spin"
-                    : ""
-                }
-                aria-hidden="true"
-              />
-
-              Retry
-            </button>
-          </div>
-        )}
-
-        {/* =================================================
-            FORECAST CONTEXT
-        ================================================= */}
-
-        <section
-          className="
-            mt-6 sm:mt-8 p-5 sm:p-6
-            bg-slate-900
-            rounded-2xl
-            shadow-sm
-          "
-          aria-labelledby="forecast-context-title"
-        >
-          <div
-            className="
-              flex flex-col lg:flex-row lg:justify-between lg:items-center
-              gap-5
-            "
-          >
-            <div
-              className="
-                flex items-start
-                min-w-0
-                gap-3
-              "
-            >
-              <div
-                className="
-                  flex justify-center items-center
-                  w-10 h-10
-                  bg-white/10
-                  rounded-xl
-                  shrink-0
-                "
-                aria-hidden="true"
-              >
-                <CalendarClock
-                  size={19}
-                  className="
-                    text-white
-                  "
-                  /
-                >
-              </div>
-
-              <div
-                className="
-                  min-w-0
-                "
-              >
-                <p
-                  className="
-                    font-semibold text-slate-300 text-xs uppercase tracking-wide
-                  "
-                >
-                  Forward-looking insight
-                </p>
-
-                <h2
-                  id="forecast-context-title"
-                  className="
-                    mt-1
-                    font-bold text-white text-lg sm:text-xl
-                  "
-                >
-                  Plan your savings with visibility
-                </h2>
-
-                <p
-                  className="
-                    max-w-2xl
-                    mt-1
-                    text-slate-300 text-sm leading-6
-                  "
-                >
-                  Your forecast helps translate your
-                  current savings position into a
-                  forward-looking view of potential
-                  progress.
-                </p>
-              </div>
-            </div>
-
-            <div
-              className="
-                px-3 py-2
-                font-medium text-slate-200 text-xs
-                bg-white/10
-                border border-white/10 rounded-lg
-                shrink-0
-              "
-            >
-              Currency: {currency}
-            </div>
-          </div>
-        </section>
-
-        {/* =================================================
-            EMPTY STATE
-        ================================================= */}
-
-        {!hasForecast && (
-          <section
-            className="
-              mt-6 p-6 sm:p-8
-              bg-white
-              border border-slate-200 rounded-2xl
-              shadow-sm
-            "
-            aria-labelledby="forecast-empty-title"
-          >
-            <div
-              className="
-                flex flex-col items-center
-                max-w-xl
-                mx-auto
-                text-center
-              "
-            >
-              <div
-                className="
-                  flex justify-center items-center
-                  w-14 h-14
-                  bg-slate-100
-                  rounded-2xl
-                "
-                aria-hidden="true"
-              >
-                <TrendingUp
-                  size={26}
-                  className="
-                    text-slate-700
-                  "
-                  /
-                >
-              </div>
-
-              <h2
-                id="forecast-empty-title"
-                className="
-                  mt-5
-                  font-bold text-slate-900 text-lg sm:text-xl tracking-tight
-                "
-              >
-                Your savings forecast is not available
-                yet
-              </h2>
-
-              <p
-                className="
-                  max-w-lg
-                  mt-2
-                  text-slate-500 text-sm leading-6
-                "
-              >
-                SmartSave needs sufficient savings
-                information before it can provide a
-                meaningful forward-looking forecast.
-                Continue building your savings activity
-                and refresh this page when new data is
-                available.
-              </p>
-
-              <button
-                type="button"
-                onClick={handleRefresh}
-                disabled={
-                  isRefreshing ||
-                  typeof refresh !== "function"
-                }
-                className="
-                  inline-flex justify-center items-center
-                  mt-6 px-5 py-2.5
-                  font-semibold text-white text-sm
-                  bg-slate-900 hover:bg-slate-800
-                  rounded-xl focus:outline-none
-                  focus:ring-2 focus:ring-slate-300
-                  disabled:opacity-50 shadow-sm transition
-                  disabled:cursor-not-allowed
-                  gap-2
-                "
-              >
-                <RefreshCw
-                  size={15}
-                  className={
-                    isRefreshing
-                      ? "animate-spin"
-                      : ""
-                  }
-                  aria-hidden="true"
-                />
-
-                Refresh forecast
-              </button>
-            </div>
-          </section>
-        )}
-
-        {/* =================================================
-            FORECAST
-        ================================================= */}
-
-        {hasForecast && (
-          <section
-            className="
-              mt-6 sm:mt-8
-            "
-            aria-labelledby="savings-forecast-heading"
-          >
-            <div
-              className="
-                flex flex-col sm:flex-row sm:justify-between sm:items-end
-                mb-4
-                gap-3
-              "
-            >
-              <div>
-                <h2
-                  id="savings-forecast-heading"
-                  className="
-                    font-bold text-slate-900 text-lg
-                  "
-                >
-                  Your savings outlook
-                </h2>
-
-                <p
-                  className="
-                    mt-1
-                    text-slate-500 text-sm
-                  "
-                >
-                  Review the forecast generated from
-                  your current SmartSave position.
-                </p>
-              </div>
-
-              <span
-                className="
-                  inline-flex items-center
-                  w-fit
-                  px-2.5 py-1
-                  font-semibold text-slate-600 text-xs
-                  bg-slate-100
-                  rounded-full
-                "
-              >
-                {currency}
-              </span>
-            </div>
-
-            <SavingsForecastCard
-              forecast={forecast}
-              currency={currency}
-            />
-          </section>
-        )}
-
-        {/* =================================================
-            FOOTER
-        ================================================= */}
-
-        <footer
-          className="
-            mt-8 sm:mt-10 pt-5
-            border-slate-200 border-t
-          "
-        >
-          <div
-            className="
-              flex flex-col sm:flex-row sm:justify-between sm:items-center
-              text-slate-400 text-xs
-              gap-2
-            "
-          >
-            <p>
-              Forecasts are intended to support
-              savings decisions using your available
-              SmartSave data.
-            </p>
-
-            <p
-              className="
-                font-medium
-              "
-            >
-              Currency: {currency}
-            </p>
-          </div>
-        </footer>
+        <ForecastRefreshStatus
+          refreshing={
+            isRefreshingForecast
+          }
+        />
       </div>
-    </main>
+    </section>
   );
 };
 
-export default SavingForecastPage;
+/* =========================================================
+   DISPLAY NAME
+========================================================= */
+
+SavingForecastPage.displayName =
+  "SavingForecastPage";
+
+/* =========================================================
+   MEMOIZATION
+========================================================= */
+
+export default memo(
+  SavingForecastPage
+);
