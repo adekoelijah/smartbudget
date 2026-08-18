@@ -1,1008 +1,582 @@
-
 import {
-  ArrowRight,
-  PiggyBank,
-  RefreshCw,
-  Sparkles,
+  Activity,
+  BarChart3,
+  ChevronDown,
+  ChevronRight,
+  Lightbulb,
+  Menu,
   Target,
+  Trophy,
   TrendingUp,
-  WalletCards,
+  X,
+  Zap,
 } from "lucide-react";
 
-/* =========================================================
-   SMARTSAVE HOOK
-========================================================= */
-
-import useSmartSave from "../../../hooks/useSmartSave";
-
-/* =========================================================
-   SMARTSAVE CONSTANTS
-========================================================= */
-
 import {
-  DEFAULT_CURRENCY,
-} from "../../../constants/smartSaveConstants";
+  NavLink,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
+
+import { useState } from "react";
 
 /* =========================================================
-   SMARTSAVE UTILITIES
+   NAVIGATION CONFIGURATION
 ========================================================= */
 
-import {
-  formatCurrency,
-} from "../../../utils/smartSave/savingsFormatters";
+const SMART_SAVE_NAVIGATION = [
+  {
+    label: "Overview",
+    description: "SmartSave dashboard",
+    path: "/app/smartsave",
+    icon: BarChart3,
+  },
+  {
+    label: "Goals",
+    description: "Track savings targets",
+    path: "/app/smartsave/goals",
+    icon: Target,
+  },
+  {
+    label: "Activity",
+    description: "Review savings activity",
+    path: "/app/smartsave/activity",
+    icon: Activity,
+  },
+  {
+    label: "Challenges",
+    description: "Build better saving habits",
+    path: "/app/smartsave/challenges",
+    icon: Trophy,
+  },
+  {
+    label: "Forecast",
+    description: "View future savings outlook",
+    path: "/app/smartsave/forecast",
+    icon: TrendingUp,
+  },
+  {
+    label: "Insights",
+    description: "Financial intelligence",
+    path: "/app/smartsave/insights",
+    icon: Lightbulb,
+  },
+  {
+    label: "Strategies",
+    description: "Manage saving strategies",
+    path: "/app/smartsave/strategies",
+    icon: Zap,
+  },
+];
 
 /* =========================================================
-   SAFE HELPERS
+   ACTIVE PATH HELPERS
 ========================================================= */
 
-const toFiniteNumber = (
-  value,
-  fallback = 0
+const isNavigationItemActive = (
+  pathname,
+  itemPath
 ) => {
-  if (
-    value === null ||
-    value === undefined ||
-    value === ""
-  ) {
-    return fallback;
+  if (itemPath === "/app/smartsave") {
+    return pathname === itemPath;
   }
 
-  const number =
-    typeof value === "number"
-      ? value
-      : Number(value);
-
-  return Number.isFinite(number)
-    ? number
-    : fallback;
-};
-
-const clamp = (
-  value,
-  min = 0,
-  max = 100
-) =>
-  Math.min(
-    max,
-    Math.max(
-      min,
-      value
-    )
-  );
-
-const normalizeObject = (
-  value
-) =>
-  value &&
-  typeof value ===
-    "object" &&
-  !Array.isArray(value)
-    ? value
-    : {};
-
-const resolveSavingsData = (
-  data
-) => {
-  const source =
-    normalizeObject(
-      data
-    );
-
-  /*
-   * Support the common response
-   * envelopes used by SmartSave
-   * without changing the service
-   * contract.
-   */
-  return normalizeObject(
-    source.data ??
-      source.result ??
-      source.summary ??
-      source
+  return (
+    pathname === itemPath ||
+    pathname.startsWith(`${itemPath}/`)
   );
 };
 
-const resolveTotalSaved = (
-  data
-) =>
-  Math.max(
-    0,
-    toFiniteNumber(
-      data.totalSaved ??
-        data.totalSavings ??
-        data.savedAmount ??
-        data.currentSavings ??
-        data.savingsBalance
-    )
+/* =========================================================
+   DESKTOP NAVIGATION ITEM
+========================================================= */
+
+const DesktopNavigationItem = ({
+  item,
+  pathname,
+}) => {
+  const Icon = item.icon;
+
+  const isActive = isNavigationItemActive(
+    pathname,
+    item.path
   );
 
-const resolveTarget = (
-  data
-) =>
-  Math.max(
-    0,
-    toFiniteNumber(
-      data.totalTarget ??
-        data.savingsTarget ??
-        data.targetAmount
-    )
-  );
-
-const resolveGoalCount = (
-  data
-) =>
-  Math.max(
-    0,
-    toFiniteNumber(
-      data.activeGoals ??
-        data.goalsCount ??
-        data.totalGoals
-    )
-  );
-
-const resolveProgress = (
-  data,
-  saved,
-  target
-) => {
-  const explicit =
-    data.progress ??
-    data.progressPercentage ??
-    data.savingsProgress;
-
-  if (
-    explicit !==
-      undefined &&
-    explicit !== null
-  ) {
-    const value =
-      toFiniteNumber(
-        explicit
-      );
-
-    return clamp(
-      value <= 1
-        ? value * 100
-        : value
-    );
-  }
-
-  if (
-    target <= 0
-  ) {
-    return 0;
-  }
-
-  return clamp(
-    (saved /
-      target) *
-      100
-  );
-};
-
-const resolveHealthScore = (
-  data
-) => {
-  const health =
-    normalizeObject(
-      data.health ??
-        data.savingsHealth
-    );
-
-  const value =
-    data.healthScore ??
-    data.savingsHealthScore ??
-    health.score;
-
-  if (
-    value ===
-    undefined ||
-    value === null
-  ) {
-    return null;
-  }
-
-  return clamp(
-    toFiniteNumber(
-      value
-    )
-  );
-};
-
-const resolveHealthLabel = (
-  score
-) => {
-  if (
-    score === null
-  ) {
-    return "Savings health";
-  }
-
-  if (
-    score >= 80
-  ) {
-    return "Excellent";
-  }
-
-  if (
-    score >= 65
-  ) {
-    return "Good";
-  }
-
-  if (
-    score >= 45
-  ) {
-    return "Fair";
-  }
-
-  if (
-    score >= 25
-  ) {
-    return "Needs attention";
-  }
-
-  return "At risk";
-};
-
-const safeFormatCurrency = (
-  value,
-  currency
-) => {
-  const amount =
-    toFiniteNumber(
-      value
-    );
-
-  try {
-    return formatCurrency(
-      amount,
-      currency
-    );
-  } catch {
-    try {
-      return new Intl.NumberFormat(
-        undefined,
-        {
-          style: "currency",
-          currency:
-            currency ||
-            DEFAULT_CURRENCY ||
-            "NGN",
-          maximumFractionDigits: 2,
+  return (
+    <NavLink
+      to={item.path}
+      end={item.path === "/app/smartsave"}
+      className={`
+        group
+        relative
+        inline-flex
+        items-center
+        gap-2
+        min-h-10
+        px-3
+        rounded-lg
+        text-sm
+        font-semibold
+        transition-colors
+        focus:outline-none
+        focus-visible:ring-2
+        focus-visible:ring-slate-400
+        focus-visible:ring-offset-2
+        ${
+          isActive
+            ? "bg-slate-900 text-white"
+            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
         }
-      ).format(amount);
-    } catch {
-      return `${currency || "NGN"} ${amount.toLocaleString()}`;
-    }
-  }
-};
-
-/* =========================================================
-   STAT ITEM
-========================================================= */
-
-const HeaderStat = ({
-  icon: Icon,
-  label,
-  value,
-  description,
-}) => (
-  <div
-    className="
-      flex items-center
-      min-w-0
-      gap-3
-    "
-  >
-    <div
-      className="
-        flex justify-center items-center
-        w-9 h-9
-        bg-slate-100
-        rounded-xl
-        shrink-0
-      "
+      `}
+      aria-current={isActive ? "page" : undefined}
+      title={item.description}
     >
       <Icon
-        size={17}
-        strokeWidth={1.9}
-        className="
-          text-slate-700
-        "
+        size={16}
+        strokeWidth={2}
         aria-hidden="true"
-      /
-      >
-    </div>
+      />
 
-    <div
-      className="
-        min-w-0
-      "
-    >
-      <p
-        className="
-          font-medium text-[10px] text-slate-400 truncate uppercase
-          tracking-wide
-        "
-      >
-        {label}
-      </p>
-
-      <p
-        className="
-          mt-0.5
-          font-bold tabular-nums text-slate-900 text-sm truncate
-        "
-      >
-        {value}
-      </p>
-
-      {description && (
-        <p
-          className="
-            mt-0.5
-            text-[10px] text-slate-400 truncate
-          "
-        >
-          {description}
-        </p>
-      )}
-    </div>
-  </div>
-);
+      <span>{item.label}</span>
+    </NavLink>
+  );
+};
 
 /* =========================================================
-   MAIN COMPONENT
+   MOBILE NAVIGATION ITEM
 ========================================================= */
 
-const SmartSaveHeader = ({
-  title = "SmartSave",
-
-  subtitle =
-    "Build smarter saving habits and stay on track with your financial goals.",
-
-  currency =
-    DEFAULT_CURRENCY ??
-    "NGN",
-
-  onViewOverview,
-
-  onCreateGoal,
-
-  showStats = true,
-
-  showRefresh = true,
-
-  className = "",
+const MobileNavigationItem = ({
+  item,
+  pathname,
+  onNavigate,
 }) => {
-  /* =======================================================
-     SMARTSAVE STATE
-  ======================================================= */
+  const Icon = item.icon;
 
-  const smartSave =
-    useSmartSave();
+  const isActive = isNavigationItemActive(
+    pathname,
+    item.path
+  );
 
-  const {
-    data,
-    loading,
-    error,
-    refresh,
-    isRefreshing,
-  } =
-    smartSave ?? {};
-
-  /* =======================================================
-     NORMALIZED HEADER DATA
-  ======================================================= */
-
-  const savingsData =
-    resolveSavingsData(
-      data
-    );
-
-  const totalSaved =
-    resolveTotalSaved(
-      savingsData
-    );
-
-  const target =
-    resolveTarget(
-      savingsData
-    );
-
-  const goalCount =
-    resolveGoalCount(
-      savingsData
-    );
-
-  const progress =
-    resolveProgress(
-      savingsData,
-      totalSaved,
-      target
-    );
-
-  const healthScore =
-    resolveHealthScore(
-      savingsData
-    );
-
-  const healthLabel =
-    resolveHealthLabel(
-      healthScore
-    );
-
-  /* =======================================================
-     REFRESH
-  ======================================================= */
-
-  const handleRefresh =
-    async () => {
-      if (
-        typeof refresh !==
-        "function"
-      ) {
-        return;
-      }
-
-      try {
-        await refresh();
-      } catch {
-        /*
-         * Refresh errors remain owned
-         * by useSmartSave().
-         */
-      }
-    };
-
-  /* =======================================================
-     LOADING STATE
-  ======================================================= */
-
-  if (loading) {
-    return (
-      <header
+  return (
+    <NavLink
+      to={item.path}
+      end={item.path === "/app/smartsave"}
+      onClick={onNavigate}
+      className={`
+        flex
+        items-center
+        w-full
+        min-h-12
+        px-3
+        rounded-xl
+        transition-colors
+        focus:outline-none
+        focus-visible:ring-2
+        focus-visible:ring-slate-400
+        ${
+          isActive
+            ? "bg-slate-900 text-white"
+            : "text-slate-700 hover:bg-slate-100"
+        }
+      `}
+      aria-current={isActive ? "page" : undefined}
+    >
+      <span
         className={`
-          w-full
-          ${className}
+          flex
+          items-center
+          justify-center
+          w-9
+          h-9
+          rounded-lg
+          shrink-0
+          ${
+            isActive
+              ? "bg-white/10"
+              : "bg-slate-100"
+          }
         `}
-        aria-busy="true"
-        aria-label="Loading SmartSave"
       >
-        <div
+        <Icon
+          size={17}
+          strokeWidth={2}
+          aria-hidden="true"
+        />
+      </span>
+
+      <span
+        className="
+          flex-1
+          min-w-0
+          ml-3
+          text-left
+        "
+      >
+        <span
           className="
-            p-5
-            bg-white
-            border border-slate-200 rounded-2xl
-            shadow-sm animate-pulse
+            block
+            font-semibold text-sm
           "
         >
-          <div
-            className="
-              w-32 h-5
-              bg-slate-200
-              rounded
-            "
-            /
-          >
+          {item.label}
+        </span>
 
-          <div
-            className="
-              max-w-md h-3
-              mt-3
-              bg-slate-100
-              rounded
-            "
-            /
-          >
-
-          {showStats && (
-            <div
-              className="
-                grid grid-cols-1 sm:grid-cols-3
-                mt-6
-                gap-4
-              "
-            >
-              {[
-                1,
-                2,
-                3,
-              ].map(
-                (item) => (
-                  <div
-                    key={item}
-                    className="
-                      h-12
-                      bg-slate-100
-                      rounded-xl
-                    "
-                    /
-                  >
-                )
-              )}
-            </div>
-          )}
-        </div>
-      </header>
-    );
-  }
-
-  /* =======================================================
-     ERROR
-  ======================================================= */
-
-  if (error) {
-    return (
-      <header
-        className={`
-          w-full
-          ${className}
-        `}
-        role="alert"
-      >
-        <div
-          className="
-            flex flex-col sm:flex-row sm:justify-between sm:items-center
-            p-5
-            bg-red-50
-            border border-red-100 rounded-2xl
-            gap-4
-          "
+        <span
+          className={`
+            block
+            mt-0.5
+            text-xs
+            truncate
+            ${
+              isActive
+                ? "text-slate-300"
+                : "text-slate-500"
+            }
+          `}
         >
-          <div
-            className="
-              min-w-0
-            "
-          >
-            <p
-              className="
-                font-semibold text-red-800 text-sm
-              "
-            >
-              SmartSave could not load
-              your savings data.
-            </p>
+          {item.description}
+        </span>
+      </span>
 
-            <p
-              className="
-                mt-1
-                text-red-600 text-xs leading-5
-              "
-            >
-              Please try refreshing the
-              savings overview.
-            </p>
-          </div>
+      <ChevronRight
+        size={16}
+        className={
+          isActive
+            ? "text-slate-300"
+            : "text-slate-400"
+        }
+        aria-hidden="true"
+      />
+    </NavLink>
+  );
+};
 
-          {typeof refresh ===
-            "function" && (
-            <button
-              type="button"
-              onClick={
-                handleRefresh
-              }
-              disabled={
-                isRefreshing
-              }
-              className="
-                inline-flex justify-center items-center
-                px-4 py-2.5
-                font-semibold text-red-700 text-sm
-                bg-white hover:bg-red-50
-                border border-red-200 rounded-xl focus:outline-none
-                focus:ring-2 focus:ring-red-600 focus:ring-offset-2
-                disabled:opacity-50 shadow-sm transition
-                disabled:cursor-not-allowed
-                gap-2 shrink-0
-              "
-            >
-              <RefreshCw
-                size={15}
-                className={
-                  isRefreshing
-                    ? "animate-spin"
-                    : ""
-                }
-                aria-hidden="true"
-              />
+/* =========================================================
+   SMART SAVE HEADER
+========================================================= */
 
-              {isRefreshing
-                ? "Retrying..."
-                : "Try again"}
-            </button>
-          )}
-        </div>
-      </header>
+const SmartSaveHeader = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const [
+    mobileMenuOpen,
+    setMobileMenuOpen,
+  ] = useState(false);
+
+  const pathname = location.pathname;
+
+  const currentNavigation =
+    SMART_SAVE_NAVIGATION.find(
+      (item) =>
+        isNavigationItemActive(
+          pathname,
+          item.path
+        )
+    ) ??
+    SMART_SAVE_NAVIGATION[0];
+
+  const CurrentIcon =
+    currentNavigation.icon;
+
+  const handleOverviewNavigation = () => {
+    setMobileMenuOpen(false);
+    navigate("/app/smartsave");
+  };
+
+  const handleMobileMenuToggle = () => {
+    setMobileMenuOpen(
+      (current) => !current
     );
-  }
+  };
 
-  /* =======================================================
-     MAIN HEADER
-  ======================================================= */
+  const handleCloseMobileMenu = () => {
+    setMobileMenuOpen(false);
+  };
 
   return (
     <header
-      className={`
+      className="
+        top-0 z-40 sticky
         w-full
-        overflow-hidden
-        rounded-2xl
-        border
-        border-slate-200
-        bg-white
-        shadow-sm
-        ${className}
-      `}
+        bg-white/95
+        border-slate-200 border-b
+        backdrop-blur-xl
+      "
     >
       <div
         className="
-          p-5 sm:p-6
+          w-full max-w-7xl
+          mx-auto px-4 sm:px-6 lg:px-8
         "
       >
-        {/* ===============================================
-            TOP ROW
-        =============================================== */}
+        {/* =================================================
+            PRIMARY HEADER
+        ================================================= */}
 
         <div
           className="
-            flex flex-col sm:flex-row sm:justify-between sm:items-start
-            gap-5
+            flex justify-between items-center
+            min-h-[68px]
+            gap-4
           "
         >
-          <div
+          {/* BRAND */}
+
+          <button
+            type="button"
+            onClick={handleOverviewNavigation}
             className="
-              flex items-start
+              flex items-center
               min-w-0
+              rounded-xl focus:outline-none
               gap-3
+              focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2
             "
+            aria-label="Go to SmartSave overview"
           >
-            <div
+            <span
               className="
                 flex justify-center items-center
-                w-11 h-11
+                w-10 h-10
                 bg-slate-900
                 rounded-xl
+                shadow-sm
                 shrink-0
               "
             >
-              <PiggyBank
-                size={21}
-                strokeWidth={1.9}
+              <Zap
+                size={19}
                 className="
                   text-white
                 "
+                strokeWidth={2.2}
                 aria-hidden="true"
               /
               >
-            </div>
+            </span>
 
-            <div
+            <span
               className="
+                hidden xs:block
                 min-w-0
-              "
-            >
-              <div
-                className="
-                  flex flex-wrap items-center
-                  gap-2
-                "
-              >
-                <h1
-                  className="
-                    font-bold text-slate-900 text-xl sm:text-2xl tracking-tight
-                  "
-                >
-                  {title}
-                </h1>
-
-                <span
-                  className="
-                    inline-flex items-center
-                    px-2 py-1
-                    font-semibold text-[10px] text-slate-600
-                    bg-slate-100
-                    rounded-full
-                    gap-1
-                  "
-                >
-                  <Sparkles
-                    size={11}
-                    aria-hidden="true"
-                  />
-
-                  Smart
-                </span>
-              </div>
-
-              <p
-                className="
-                  max-w-2xl
-                  mt-1.5
-                  text-slate-500 text-sm leading-6
-                "
-              >
-                {subtitle}
-              </p>
-            </div>
-          </div>
-
-          {/* =============================================
-              ACTIONS
-          ============================================= */}
-
-          <div
-            className="
-              flex flex-wrap items-center
-              gap-2 shrink-0
-            "
-          >
-            {showRefresh && (
-              <button
-                type="button"
-                onClick={
-                  handleRefresh
-                }
-                disabled={
-                  isRefreshing
-                }
-                className="
-                  inline-flex justify-center items-center
-                  px-3.5 py-2.5
-                  font-semibold text-slate-700 text-sm
-                  bg-white hover:bg-slate-50
-                  border border-slate-200 hover:border-slate-300 rounded-xl
-                  focus:outline-none
-                  focus:ring-2 focus:ring-slate-900 focus:ring-offset-2
-                  disabled:opacity-50 shadow-sm transition
-                  disabled:cursor-not-allowed
-                  gap-2
-                "
-              >
-                <RefreshCw
-                  size={15}
-                  className={
-                    isRefreshing
-                      ? "animate-spin"
-                      : ""
-                  }
-                  aria-hidden="true"
-                />
-
-                <span
-                  className="
-                    hidden sm:inline
-                  "
-                >
-                  {isRefreshing
-                    ? "Refreshing..."
-                    : "Refresh"}
-                </span>
-              </button>
-            )}
-
-            {typeof onCreateGoal ===
-              "function" && (
-              <button
-                type="button"
-                onClick={
-                  onCreateGoal
-                }
-                className="
-                  inline-flex justify-center items-center
-                  px-4 py-2.5
-                  font-semibold text-white text-sm
-                  bg-slate-900 hover:bg-slate-800
-                  rounded-xl focus:outline-none
-                  focus:ring-2 focus:ring-slate-900 focus:ring-offset-2
-                  shadow-sm transition
-                  gap-2
-                "
-              >
-                <Target
-                  size={15}
-                  aria-hidden="true"
-                />
-
-                <span>
-                  New goal
-                </span>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* ===============================================
-            STATS
-        =============================================== */}
-
-        {showStats && (
-          <div
-            className="
-              grid grid-cols-1 sm:grid-cols-3
-              mt-6
-              bg-slate-50
-              border border-slate-100 rounded-xl
-              divide-y divide-slate-100 sm:divide-x sm:divide-y-0
-            "
-          >
-            <div
-              className="
-                p-4
-              "
-            >
-              <HeaderStat
-                icon={WalletCards}
-                label="Total saved"
-                value={safeFormatCurrency(
-                  totalSaved,
-                  currency
-                )}
-                description={
-                  target > 0
-                    ? `Target ${safeFormatCurrency(
-                        target,
-                        currency
-                      )}`
-                    : "Current savings"
-                }
-              />
-            </div>
-
-            <div
-              className="
-                p-4
-              "
-            >
-              <HeaderStat
-                icon={
-                  TrendingUp
-                }
-                label="Progress"
-                value={`${Math.round(
-                  progress
-                )}%`}
-                description="Toward savings target"
-              />
-            </div>
-
-            <div
-              className="
-                p-4
-              "
-            >
-              <HeaderStat
-                icon={
-                  Target
-                }
-                label="Goals"
-                value={Math.round(
-                  goalCount
-                )}
-                description={
-                  healthScore !==
-                  null
-                    ? `${healthLabel} · ${Math.round(
-                        healthScore
-                      )}/100`
-                    : "Active savings goals"
-                }
-              />
-            </div>
-          </div>
-        )}
-
-        {/* ===============================================
-            PROGRESS STRIP
-        =============================================== */}
-
-        {target > 0 && (
-          <div
-            className="
-              mt-5
-            "
-          >
-            <div
-              className="
-                flex justify-between items-center
-                mb-2
-                gap-3
+                text-left
               "
             >
               <span
                 className="
-                  font-semibold text-[10px] text-slate-400 uppercase
-                  tracking-wide
+                  block
+                  font-bold text-slate-900 text-sm sm:text-base leading-tight
                 "
               >
-                Savings progress
+                SmartSave
               </span>
 
               <span
                 className="
-                  font-semibold tabular-nums text-slate-600 text-xs
+                  hidden sm:block
+                  mt-0.5
+                  font-medium text-[11px] text-slate-500
                 "
               >
-                {Math.round(
-                  progress
-                )}%
+                Savings intelligence
               </span>
-            </div>
+            </span>
+          </button>
 
-            <div
-              className="
-                overflow-hidden
-                h-2
-                bg-slate-100
-                rounded-full
-              "
-              role="progressbar"
-              aria-valuemin="0"
-              aria-valuemax="100"
-              aria-valuenow={Math.round(
-                progress
-              )}
-              aria-label="Savings progress"
-            >
-              <div
-                className="
-                  h-full
-                  bg-slate-900
-                  rounded-full
-                  transition-[width] duration-500 ease-out
-                "
-                style={{
-                  width: `${progress}%`,
-                }}
-              /
-              >
-            </div>
-          </div>
-        )}
+          {/* DESKTOP NAVIGATION */}
 
-        {/* ===============================================
-            OVERVIEW LINK
-        =============================================== */}
+          <nav
+            className="
+              hidden flex-1 xl:flex justify-center items-center
+              min-w-0
+              gap-1
+            "
+            aria-label="SmartSave navigation"
+          >
+            {SMART_SAVE_NAVIGATION.map(
+              (item) => (
+                <DesktopNavigationItem
+                  key={item.path}
+                  item={item}
+                  pathname={pathname}
+                />
+              )
+            )}
+          </nav>
 
-        {typeof onViewOverview ===
-          "function" && (
+          {/* TABLET CURRENT PAGE */}
+
           <div
             className="
-              flex justify-end
-              mt-5
+              hidden xl:hidden flex-1 md:flex justify-center items-center
+              min-w-0
             "
           >
-            <button
-              type="button"
-              onClick={
-                onViewOverview
-              }
+            <div
               className="
                 inline-flex items-center
-                font-semibold text-slate-600 hover:text-slate-900 text-xs
-                focus:outline-none
-                focus:ring-2 focus:ring-slate-900 focus:ring-offset-2
-                transition
-                group gap-1.5
+                min-w-0 max-w-full
+                px-3 py-2
+                bg-slate-50
+                border border-slate-200 rounded-xl
+                gap-2
               "
             >
-              View savings overview
-
-              <ArrowRight
-                size={13}
+              <CurrentIcon
+                size={16}
                 className="
-                  transition-transform
-                  group-hover:translate-x-0.5
+                  text-slate-700
+                  shrink-0
                 "
                 aria-hidden="true"
               /
               >
-            </button>
+
+              <span
+                className="
+                  font-semibold text-slate-700 text-sm truncate
+                "
+              >
+                {currentNavigation.label}
+              </span>
+
+              <ChevronDown
+                size={14}
+                className="
+                  text-slate-400
+                "
+                aria-hidden="true"
+              /
+              >
+            </div>
+          </div>
+
+          {/* MOBILE MENU BUTTON */}
+
+          <button
+            type="button"
+            onClick={handleMobileMenuToggle}
+            className="
+              xl:hidden inline-flex justify-center items-center
+              w-10 h-10
+              text-slate-700
+              bg-slate-100 hover:bg-slate-200
+              rounded-xl focus:outline-none
+              transition
+              focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2
+            "
+            aria-expanded={mobileMenuOpen}
+            aria-controls="smartsave-mobile-navigation"
+            aria-label={
+              mobileMenuOpen
+                ? "Close SmartSave navigation"
+                : "Open SmartSave navigation"
+            }
+          >
+            {mobileMenuOpen ? (
+              <X
+                size={19}
+                aria-hidden="true"
+              />
+            ) : (
+              <Menu
+                size={19}
+                aria-hidden="true"
+              />
+            )}
+          </button>
+        </div>
+
+        {/* MOBILE / TABLET NAVIGATION */}
+
+        {mobileMenuOpen && (
+          <div
+            id="smartsave-mobile-navigation"
+            className="
+              xl:hidden
+              pb-4
+            "
+          >
+            <div
+              className="
+                p-2
+                bg-slate-50
+                border border-slate-200 rounded-2xl
+              "
+            >
+              <div
+                className="
+                  flex justify-between items-center
+                  mb-1 px-3 py-2
+                "
+              >
+                <div>
+                  <p
+                    className="
+                      font-semibold text-slate-900 text-sm
+                    "
+                  >
+                    SmartSave
+                  </p>
+
+                  <p
+                    className="
+                      mt-0.5
+                      text-slate-500 text-xs
+                    "
+                  >
+                    Navigate your savings workspace
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleCloseMobileMenu}
+                  className="
+                    flex justify-center items-center
+                    w-8 h-8
+                    text-slate-500 hover:text-slate-900
+                    hover:bg-white
+                    rounded-lg focus:outline-none
+                    transition
+                    focus-visible:ring-2 focus-visible:ring-slate-400
+                  "
+                  aria-label="Close navigation"
+                >
+                  <X
+                    size={16}
+                    aria-hidden="true"
+                  />
+                </button>
+              </div>
+
+              <nav
+                className="
+                  flex flex-col
+                  gap-1
+                "
+                aria-label="SmartSave mobile navigation"
+              >
+                {SMART_SAVE_NAVIGATION.map(
+                  (item) => (
+                    <MobileNavigationItem
+                      key={item.path}
+                      item={item}
+                      pathname={pathname}
+                      onNavigate={
+                        handleCloseMobileMenu
+                      }
+                    />
+                  )
+                )}
+              </nav>
+            </div>
           </div>
         )}
       </div>
     </header>
   );
 };
-
 export default SmartSaveHeader;

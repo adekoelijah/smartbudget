@@ -934,34 +934,24 @@ CARD HEADER
 
     {showCalculator ? (
       <EmergencyFundCalculator
-        currentAmount={
-          values.currentAmount
-        }
-        monthlyExpenses={
-          values.monthlyExpenses
-        }
-        targetAmount={
-          values.targetAmount
-        }
-        recommendedMonths={
-          values.recommendedMonths
-        }
-        currency={
-          values.currency
-        }
-        onCreateFund={
-          typeof onCreateFund ===
-          "function"
-            ? handleCreateFund
-            : undefined
-        }
-        onContribute={
-          typeof onContribute ===
-          "function"
-            ? handleContribute
-            : undefined
-        }
-      />
+  initialValues={{
+    monthlyEssentialExpenses:
+      values.monthlyExpenses,
+
+    currentFund:
+      values.currentAmount,
+
+    targetMonths:
+      values.targetMonths,
+
+    monthlyIncome:
+      values.monthlyIncome || "",
+
+    monthlyContribution:
+      values.recommendedContribution || "",
+  }}
+  onCalculated={onAction}
+/>
     ) : null}
   </div>
 

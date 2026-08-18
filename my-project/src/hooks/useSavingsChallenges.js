@@ -30,18 +30,21 @@ import smartSaveService from "../services/smartSaveService";
  * - Update challenges
  * - Manage challenge lifecycle
  * - Apply confirmed contributions
- * - Register successful/missed periods
+ * - Register successful / missed periods
  * - Archive / restore challenges
- * - Maintain loading/error/mutation state
+ * - Maintain loading / error / mutation state
  * - Prevent stale requests from overwriting newer state
+ * - Prevent state updates after unmount
+ * - Keep query-driven fetching stable
  *
  * IMPORTANT:
  *
- * API endpoints and request/response normalization belong to:
+ * API endpoints and business logic belong to:
  *
  *   smartSaveService.js
  *
- * This hook must NOT duplicate backend URLs or business logic.
+ * This hook must not duplicate backend URLs or
+ * backend business rules.
  * ============================================================
  */
 
@@ -64,7 +67,6 @@ const INITIAL_COLLECTION = {
 };
 
 const INITIAL_SUMMARY = null;
-
 const INITIAL_ERROR = null;
 
 /* ============================================================
@@ -72,10 +74,10 @@ const INITIAL_ERROR = null;
 ============================================================ */
 
 /**
- * Keeps the hook's error contract predictable.
+ * Keeps the hook's public error contract predictable.
  *
- * smartSaveService is still responsible for converting Axios /
- * backend errors into its normalized service error.
+ * smartSaveService remains responsible for converting
+ * Axios / backend failures into normalized service errors.
  */
 const normalizeHookError = (error) => {
   if (!error) {
@@ -109,10 +111,10 @@ const normalizeHookError = (error) => {
 ============================================================ */
 
 /**
- * Only performs frontend-level normalization.
+ * Performs only frontend-level normalization.
  *
- * smartSaveService remains responsible for the final API
- * query construction.
+ * smartSaveService remains responsible for the final
+ * request/query construction.
  */
 const normalizeQuery = (query = {}) => ({
   page:
@@ -128,34 +130,32 @@ const normalizeQuery = (query = {}) => ({
       : DEFAULT_LIMIT,
 
   ...(query.status
-    ? { status: query.status }
+    ? {
+        status: query.status,
+      }
     : {}),
 
   ...(query.challengeType
     ? {
-        challengeType:
-          query.challengeType,
+        challengeType: query.challengeType,
       }
     : {}),
 
   ...(query.difficulty
     ? {
-        difficulty:
-          query.difficulty,
+        difficulty: query.difficulty,
       }
     : {}),
 
   ...(query.savingPlan
     ? {
-        savingPlan:
-          query.savingPlan,
+        savingPlan: query.savingPlan,
       }
     : {}),
 
   ...(query.savingAccount
     ? {
-        savingAccount:
-          query.savingAccount,
+        savingAccount: query.savingAccount,
       }
     : {}),
 
@@ -166,6 +166,46 @@ const normalizeQuery = (query = {}) => ({
       }
     : {}),
 });
+
+/* ============================================================
+   QUERY COMPARISON
+============================================================ */
+
+/**
+ * Performs a shallow comparison of normalized query objects.
+ *
+ * Because normalizeQuery() produces primitive query values,
+ * Object.is() is sufficient here.
+ */
+const areQueriesEqual = (
+  first,
+  second
+) => {
+  const firstKeys =
+    Object.keys(first);
+
+  const secondKeys =
+    Object.keys(second);
+
+  if (
+    firstKeys.length !==
+    secondKeys.length
+  ) {
+    return false;
+  }
+
+  return firstKeys.every(
+    (key) =>
+      Object.prototype.hasOwnProperty.call(
+        second,
+        key
+      ) &&
+      Object.is(
+        first[key],
+        second[key]
+      )
+  );
+};
 
 /* ============================================================
    COLLECTION NORMALIZATION
@@ -259,7 +299,13 @@ const useSavingsChallenges = ({
   const [loadingSummary, setLoadingSummary] =
     useState(false);
 
-  const [loadingLists, setLoadingLists] =
+  const [loadingActive, setLoadingActive] =
+    useState(false);
+
+  const [loadingPaused, setLoadingPaused] =
+    useState(false);
+
+  const [loadingCompleted, setLoadingCompleted] =
     useState(false);
 
   const [mutating, setMutating] =
@@ -275,441 +321,737 @@ const useSavingsChallenges = ({
     useState(null);
 
   /* ==========================================================
-     REQUEST TRACKING
+     MOUNT TRACKING
   ========================================================== */
 
-  const requestIdRef =
-    useRef(0);
-
   const mountedRef =
-    useRef(true);
+    useRef(false);
 
   useEffect(() => {
+    mountedRef.current = true;
+
     return () => {
       mountedRef.current = false;
     };
   }, []);
 
-  const nextRequestId = useCallback(
-    () => {
-      requestIdRef.current += 1;
-
-      return requestIdRef.current;
-    },
-    []
-  );
-
   /* ==========================================================
-     SAFE STATE UPDATE
+     QUERY REF
   ========================================================== */
 
-  const isCurrentRequest = useCallback(
-    (requestId) =>
-      mountedRef.current &&
-      requestId === requestIdRef.current,
-    []
-  );
+  /**
+   * query remains React state because it drives rendering.
+   *
+   * queryRef provides the latest query to stable callbacks
+   * without forcing those callbacks to depend directly on
+   * query.
+   *
+   * IMPORTANT:
+   *
+   * The ref is synchronized inside an effect rather than
+   * being read/written as part of render logic.
+   */
+  const queryRef =
+    useRef(query);
+
+  useEffect(() => {
+    queryRef.current = query;
+  }, [query]);
+
+  /* ==========================================================
+     CHALLENGE ID REF
+  ========================================================== */
+
+  const challengeIdRef =
+    useRef(challengeId);
+
+  useEffect(() => {
+    challengeIdRef.current =
+      challengeId;
+  }, [challengeId]);
+
+  /* ==========================================================
+     REQUEST TRACKING
+  ========================================================== */
+
+  /**
+   * Each resource has its own request sequence.
+   *
+   * This is important because refresh() can intentionally
+   * execute several requests concurrently.
+   *
+   * A single global request ID would incorrectly invalidate
+   * otherwise valid responses.
+   */
+
+  const challengesRequestIdRef =
+    useRef(0);
+
+  const challengeRequestIdRef =
+    useRef(0);
+
+  const snapshotRequestIdRef =
+    useRef(0);
+
+  const summaryRequestIdRef =
+    useRef(0);
+
+  const activeRequestIdRef =
+    useRef(0);
+
+  const pausedRequestIdRef =
+    useRef(0);
+
+  const completedRequestIdRef =
+    useRef(0);
+
+  /* ==========================================================
+     REQUEST ID HELPERS
+  ========================================================== */
+
+  const nextChallengesRequestId =
+    useCallback(() => {
+      challengesRequestIdRef.current += 1;
+
+      return challengesRequestIdRef.current;
+    }, []);
+
+  const nextChallengeRequestId =
+    useCallback(() => {
+      challengeRequestIdRef.current += 1;
+
+      return challengeRequestIdRef.current;
+    }, []);
+
+  const nextSnapshotRequestId =
+    useCallback(() => {
+      snapshotRequestIdRef.current += 1;
+
+      return snapshotRequestIdRef.current;
+    }, []);
+
+  const nextSummaryRequestId =
+    useCallback(() => {
+      summaryRequestIdRef.current += 1;
+
+      return summaryRequestIdRef.current;
+    }, []);
+
+  const nextActiveRequestId =
+    useCallback(() => {
+      activeRequestIdRef.current += 1;
+
+      return activeRequestIdRef.current;
+    }, []);
+
+  const nextPausedRequestId =
+    useCallback(() => {
+      pausedRequestIdRef.current += 1;
+
+      return pausedRequestIdRef.current;
+    }, []);
+
+  const nextCompletedRequestId =
+    useCallback(() => {
+      completedRequestIdRef.current += 1;
+
+      return completedRequestIdRef.current;
+    }, []);
+
+  /* ==========================================================
+     REQUEST VALIDATION HELPERS
+  ========================================================== */
+
+  const isCurrentChallengesRequest =
+    useCallback(
+      (requestId) =>
+        mountedRef.current &&
+        requestId ===
+          challengesRequestIdRef.current,
+      []
+    );
+
+  const isCurrentChallengeRequest =
+    useCallback(
+      (requestId) =>
+        mountedRef.current &&
+        requestId ===
+          challengeRequestIdRef.current,
+      []
+    );
+
+  const isCurrentSnapshotRequest =
+    useCallback(
+      (requestId) =>
+        mountedRef.current &&
+        requestId ===
+          snapshotRequestIdRef.current,
+      []
+    );
+
+  const isCurrentSummaryRequest =
+    useCallback(
+      (requestId) =>
+        mountedRef.current &&
+        requestId ===
+          summaryRequestIdRef.current,
+      []
+    );
+
+  const isCurrentActiveRequest =
+    useCallback(
+      (requestId) =>
+        mountedRef.current &&
+        requestId ===
+          activeRequestIdRef.current,
+      []
+    );
+
+  const isCurrentPausedRequest =
+    useCallback(
+      (requestId) =>
+        mountedRef.current &&
+        requestId ===
+          pausedRequestIdRef.current,
+      []
+    );
+
+  const isCurrentCompletedRequest =
+    useCallback(
+      (requestId) =>
+        mountedRef.current &&
+        requestId ===
+          completedRequestIdRef.current,
+      []
+    );
 
   /* ==========================================================
      FETCH USER CHALLENGES
   ========================================================== */
 
-  const fetchChallenges = useCallback(
-    async (nextQuery = query) => {
-      const normalizedQuery =
-        normalizeQuery(nextQuery);
-
-      const requestId =
-        nextRequestId();
-
-      setLoading(true);
-      setError(null);
-
-      try {
-        const response =
-          await smartSaveService.getSavingsChallenges(
-            normalizedQuery
+  const fetchChallenges =
+    useCallback(
+      async (nextQuery) => {
+        const normalizedQuery =
+          normalizeQuery(
+            nextQuery ??
+              queryRef.current
           );
 
-        if (
-          !isCurrentRequest(requestId)
-        ) {
+        const requestId =
+          nextChallengesRequestId();
+
+        if (!mountedRef.current) {
+          return null;
+        }
+
+        setLoading(true);
+        setError(null);
+
+        try {
+          const response =
+            await smartSaveService.getSavingsChallenges(
+              normalizedQuery
+            );
+
+          if (
+            !isCurrentChallengesRequest(
+              requestId
+            )
+          ) {
+            return response;
+          }
+
+          const normalized =
+            normalizeCollectionResponse(
+              response
+            );
+
+          setCollection(
+            normalized
+          );
+
+          setLastUpdated(
+            new Date()
+          );
+
           return response;
+        } catch (requestError) {
+          const normalizedError =
+            normalizeHookError(
+              requestError
+            );
+
+          if (
+            isCurrentChallengesRequest(
+              requestId
+            )
+          ) {
+            setError(
+              normalizedError
+            );
+          }
+
+          throw requestError;
+        } finally {
+          if (
+            isCurrentChallengesRequest(
+              requestId
+            )
+          ) {
+            setLoading(false);
+          }
         }
-
-        const normalized =
-          normalizeCollectionResponse(
-            response
-          );
-
-        setCollection(normalized);
-        setQuery(normalizedQuery);
-        setLastUpdated(new Date());
-
-        return response;
-      } catch (requestError) {
-        const normalizedError =
-          normalizeHookError(
-            requestError
-          );
-
-        if (
-          isCurrentRequest(requestId)
-        ) {
-          setError(normalizedError);
-        }
-
-        throw requestError;
-      } finally {
-        if (
-          isCurrentRequest(requestId)
-        ) {
-          setLoading(false);
-        }
-      }
-    },
-    [
-      query,
-      nextRequestId,
-      isCurrentRequest,
-    ]
-  );
+      },
+      [
+        nextChallengesRequestId,
+        isCurrentChallengesRequest,
+      ]
+    );
 
   /* ==========================================================
      FETCH SINGLE CHALLENGE
   ========================================================== */
 
-  const fetchChallenge = useCallback(
-    async (id = challengeId) => {
-      const requestId =
-        nextRequestId();
+  const fetchChallenge =
+    useCallback(
+      async (
+        id = challengeIdRef.current
+      ) => {
+        if (!id) {
+          return null;
+        }
 
-      setLoadingChallenge(true);
-      setError(null);
+        const requestId =
+          nextChallengeRequestId();
 
-      try {
-        const response =
-          await smartSaveService.getSavingsChallenge(
-            id
+        if (!mountedRef.current) {
+          return null;
+        }
+
+        setLoadingChallenge(true);
+        setError(null);
+
+        try {
+          const response =
+            await smartSaveService.getSavingsChallenge(
+              id
+            );
+
+          if (
+            !isCurrentChallengeRequest(
+              requestId
+            )
+          ) {
+            return response;
+          }
+
+          setChallenge(response);
+          setLastUpdated(
+            new Date()
           );
 
-        if (
-          !isCurrentRequest(requestId)
-        ) {
           return response;
+        } catch (requestError) {
+          const normalizedError =
+            normalizeHookError(
+              requestError
+            );
+
+          if (
+            isCurrentChallengeRequest(
+              requestId
+            )
+          ) {
+            setError(
+              normalizedError
+            );
+          }
+
+          throw requestError;
+        } finally {
+          if (
+            isCurrentChallengeRequest(
+              requestId
+            )
+          ) {
+            setLoadingChallenge(
+              false
+            );
+          }
         }
-
-        setChallenge(response);
-        setLastUpdated(new Date());
-
-        return response;
-      } catch (requestError) {
-        const normalizedError =
-          normalizeHookError(
-            requestError
-          );
-
-        if (
-          isCurrentRequest(requestId)
-        ) {
-          setError(normalizedError);
-        }
-
-        throw requestError;
-      } finally {
-        if (
-          isCurrentRequest(requestId)
-        ) {
-          setLoadingChallenge(false);
-        }
-      }
-    },
-    [
-      challengeId,
-      nextRequestId,
-      isCurrentRequest,
-    ]
-  );
+      },
+      [
+        nextChallengeRequestId,
+        isCurrentChallengeRequest,
+      ]
+    );
 
   /* ==========================================================
      FETCH SNAPSHOT
   ========================================================== */
 
-  const fetchSnapshot = useCallback(
-    async (id = challengeId) => {
-      const requestId =
-        nextRequestId();
+  const fetchSnapshot =
+    useCallback(
+      async (
+        id = challengeIdRef.current
+      ) => {
+        if (!id) {
+          return null;
+        }
 
-      setLoadingSnapshot(true);
-      setError(null);
+        const requestId =
+          nextSnapshotRequestId();
 
-      try {
-        const response =
-          await smartSaveService.getChallengeSnapshot(
-            id
+        if (!mountedRef.current) {
+          return null;
+        }
+
+        setLoadingSnapshot(true);
+        setError(null);
+
+        try {
+          const response =
+            await smartSaveService.getChallengeSnapshot(
+              id
+            );
+
+          if (
+            !isCurrentSnapshotRequest(
+              requestId
+            )
+          ) {
+            return response;
+          }
+
+          setSnapshot(response);
+          setLastUpdated(
+            new Date()
           );
 
-        if (
-          !isCurrentRequest(requestId)
-        ) {
           return response;
+        } catch (requestError) {
+          const normalizedError =
+            normalizeHookError(
+              requestError
+            );
+
+          if (
+            isCurrentSnapshotRequest(
+              requestId
+            )
+          ) {
+            setError(
+              normalizedError
+            );
+          }
+
+          throw requestError;
+        } finally {
+          if (
+            isCurrentSnapshotRequest(
+              requestId
+            )
+          ) {
+            setLoadingSnapshot(
+              false
+            );
+          }
         }
-
-        setSnapshot(response);
-        setLastUpdated(new Date());
-
-        return response;
-      } catch (requestError) {
-        const normalizedError =
-          normalizeHookError(
-            requestError
-          );
-
-        if (
-          isCurrentRequest(requestId)
-        ) {
-          setError(normalizedError);
-        }
-
-        throw requestError;
-      } finally {
-        if (
-          isCurrentRequest(requestId)
-        ) {
-          setLoadingSnapshot(false);
-        }
-      }
-    },
-    [
-      challengeId,
-      nextRequestId,
-      isCurrentRequest,
-    ]
-  );
+      },
+      [
+        nextSnapshotRequestId,
+        isCurrentSnapshotRequest,
+      ]
+    );
 
   /* ==========================================================
      FETCH SUMMARY
   ========================================================== */
 
-  const fetchSummary = useCallback(
-    async () => {
-      const requestId =
-        nextRequestId();
+  const fetchSummary =
+    useCallback(
+      async () => {
+        const requestId =
+          nextSummaryRequestId();
 
-      setLoadingSummary(true);
-      setError(null);
-
-      try {
-        const response =
-          await smartSaveService.getSavingsChallengeSummary();
-
-        if (
-          !isCurrentRequest(requestId)
-        ) {
-          return response;
+        if (!mountedRef.current) {
+          return null;
         }
 
-        setSummary(response);
-        setLastUpdated(new Date());
+        setLoadingSummary(true);
+        setError(null);
 
-        return response;
-      } catch (requestError) {
-        const normalizedError =
-          normalizeHookError(
-            requestError
+        try {
+          const response =
+            await smartSaveService.getSavingsChallengeSummary();
+
+          if (
+            !isCurrentSummaryRequest(
+              requestId
+            )
+          ) {
+            return response;
+          }
+
+          setSummary(response);
+          setLastUpdated(
+            new Date()
           );
 
-        if (
-          isCurrentRequest(requestId)
-        ) {
-          setError(normalizedError);
-        }
+          return response;
+        } catch (requestError) {
+          const normalizedError =
+            normalizeHookError(
+              requestError
+            );
 
-        throw requestError;
-      } finally {
-        if (
-          isCurrentRequest(requestId)
-        ) {
-          setLoadingSummary(false);
+          if (
+            isCurrentSummaryRequest(
+              requestId
+            )
+          ) {
+            setError(
+              normalizedError
+            );
+          }
+
+          throw requestError;
+        } finally {
+          if (
+            isCurrentSummaryRequest(
+              requestId
+            )
+          ) {
+            setLoadingSummary(
+              false
+            );
+          }
         }
-      }
-    },
-    [
-      nextRequestId,
-      isCurrentRequest,
-    ]
-  );
+      },
+      [
+        nextSummaryRequestId,
+        isCurrentSummaryRequest,
+      ]
+    );
 
   /* ==========================================================
      FETCH ACTIVE CHALLENGES
   ========================================================== */
 
   const fetchActiveChallenges =
-    useCallback(async () => {
-      const requestId =
-        nextRequestId();
+    useCallback(
+      async () => {
+        const requestId =
+          nextActiveRequestId();
 
-      setLoadingLists(true);
-      setError(null);
+        if (!mountedRef.current) {
+          return null;
+        }
 
-      try {
-        const response =
-          await smartSaveService.getActiveSavingsChallenges();
+        setLoadingActive(true);
+        setError(null);
 
-        if (
-          !isCurrentRequest(requestId)
-        ) {
+        try {
+          const response =
+            await smartSaveService.getActiveSavingsChallenges();
+
+          if (
+            !isCurrentActiveRequest(
+              requestId
+            )
+          ) {
+            return response;
+          }
+
+          const normalized =
+            normalizeCollectionResponse(
+              response
+            );
+
+          setActiveChallenges(
+            normalized.items
+          );
+
           return response;
+        } catch (requestError) {
+          const normalizedError =
+            normalizeHookError(
+              requestError
+            );
+
+          if (
+            isCurrentActiveRequest(
+              requestId
+            )
+          ) {
+            setError(
+              normalizedError
+            );
+          }
+
+          throw requestError;
+        } finally {
+          if (
+            isCurrentActiveRequest(
+              requestId
+            )
+          ) {
+            setLoadingActive(false);
+          }
         }
-
-        const normalized =
-          normalizeCollectionResponse(
-            response
-          );
-
-        setActiveChallenges(
-          normalized.items
-        );
-
-        return response;
-      } catch (requestError) {
-        const normalizedError =
-          normalizeHookError(
-            requestError
-          );
-
-        if (
-          isCurrentRequest(requestId)
-        ) {
-          setError(normalizedError);
-        }
-
-        throw requestError;
-      } finally {
-        if (
-          isCurrentRequest(requestId)
-        ) {
-          setLoadingLists(false);
-        }
-      }
-    }, [
-      nextRequestId,
-      isCurrentRequest,
-    ]);
+      },
+      [
+        nextActiveRequestId,
+        isCurrentActiveRequest,
+      ]
+    );
 
   /* ==========================================================
      FETCH PAUSED CHALLENGES
   ========================================================== */
 
   const fetchPausedChallenges =
-    useCallback(async () => {
-      const requestId =
-        nextRequestId();
+    useCallback(
+      async () => {
+        const requestId =
+          nextPausedRequestId();
 
-      setLoadingLists(true);
-      setError(null);
+        if (!mountedRef.current) {
+          return null;
+        }
 
-      try {
-        const response =
-          await smartSaveService.getPausedSavingsChallenges();
+        setLoadingPaused(true);
+        setError(null);
 
-        if (
-          !isCurrentRequest(requestId)
-        ) {
+        try {
+          const response =
+            await smartSaveService.getPausedSavingsChallenges();
+
+          if (
+            !isCurrentPausedRequest(
+              requestId
+            )
+          ) {
+            return response;
+          }
+
+          const normalized =
+            normalizeCollectionResponse(
+              response
+            );
+
+          setPausedChallenges(
+            normalized.items
+          );
+
           return response;
+        } catch (requestError) {
+          const normalizedError =
+            normalizeHookError(
+              requestError
+            );
+
+          if (
+            isCurrentPausedRequest(
+              requestId
+            )
+          ) {
+            setError(
+              normalizedError
+            );
+          }
+
+          throw requestError;
+        } finally {
+          if (
+            isCurrentPausedRequest(
+              requestId
+            )
+          ) {
+            setLoadingPaused(false);
+          }
         }
-
-        const normalized =
-          normalizeCollectionResponse(
-            response
-          );
-
-        setPausedChallenges(
-          normalized.items
-        );
-
-        return response;
-      } catch (requestError) {
-        const normalizedError =
-          normalizeHookError(
-            requestError
-          );
-
-        if (
-          isCurrentRequest(requestId)
-        ) {
-          setError(normalizedError);
-        }
-
-        throw requestError;
-      } finally {
-        if (
-          isCurrentRequest(requestId)
-        ) {
-          setLoadingLists(false);
-        }
-      }
-    }, [
-      nextRequestId,
-      isCurrentRequest,
-    ]);
+      },
+      [
+        nextPausedRequestId,
+        isCurrentPausedRequest,
+      ]
+    );
 
   /* ==========================================================
      FETCH COMPLETED CHALLENGES
   ========================================================== */
 
   const fetchCompletedChallenges =
-    useCallback(async () => {
-      const requestId =
-        nextRequestId();
+    useCallback(
+      async () => {
+        const requestId =
+          nextCompletedRequestId();
 
-      setLoadingLists(true);
-      setError(null);
+        if (!mountedRef.current) {
+          return null;
+        }
 
-      try {
-        const response =
-          await smartSaveService.getCompletedSavingsChallenges();
+        setLoadingCompleted(true);
+        setError(null);
 
-        if (
-          !isCurrentRequest(requestId)
-        ) {
+        try {
+          const response =
+            await smartSaveService.getCompletedSavingsChallenges();
+
+          if (
+            !isCurrentCompletedRequest(
+              requestId
+            )
+          ) {
+            return response;
+          }
+
+          const normalized =
+            normalizeCollectionResponse(
+              response
+            );
+
+          setCompletedChallenges(
+            normalized.items
+          );
+
           return response;
+        } catch (requestError) {
+          const normalizedError =
+            normalizeHookError(
+              requestError
+            );
+
+          if (
+            isCurrentCompletedRequest(
+              requestId
+            )
+          ) {
+            setError(
+              normalizedError
+            );
+          }
+
+          throw requestError;
+        } finally {
+          if (
+            isCurrentCompletedRequest(
+              requestId
+            )
+          ) {
+            setLoadingCompleted(
+              false
+            );
+          }
         }
-
-        const normalized =
-          normalizeCollectionResponse(
-            response
-          );
-
-        setCompletedChallenges(
-          normalized.items
-        );
-
-        return response;
-      } catch (requestError) {
-        const normalizedError =
-          normalizeHookError(
-            requestError
-          );
-
-        if (
-          isCurrentRequest(requestId)
-        ) {
-          setError(normalizedError);
-        }
-
-        throw requestError;
-      } finally {
-        if (
-          isCurrentRequest(requestId)
-        ) {
-          setLoadingLists(false);
-        }
-      }
-    }, [
-      nextRequestId,
-      isCurrentRequest,
-    ]);
+      },
+      [
+        nextCompletedRequestId,
+        isCurrentCompletedRequest,
+      ]
+    );
 
   /* ==========================================================
      MUTATION WRAPPER
@@ -726,6 +1068,10 @@ const useSavingsChallenges = ({
           refreshLists = false,
         } = {}
       ) => {
+        if (!mountedRef.current) {
+          return null;
+        }
+
         setMutating(true);
         setMutationError(null);
         setError(null);
@@ -739,29 +1085,38 @@ const useSavingsChallenges = ({
           }
 
           /*
-           * Refresh collection after a mutation when
-           * requested. This keeps UI state synchronized
-           * with the backend source of truth.
+           * Refresh collection using the latest query.
            */
           if (refresh) {
             await fetchChallenges(
-              query
+              queryRef.current
             );
           }
 
+          /*
+           * Refresh the currently selected challenge.
+           */
           if (
             refreshSnapshot &&
-            challengeId
+            challengeIdRef.current
           ) {
             await fetchSnapshot(
-              challengeId
+              challengeIdRef.current
             );
           }
 
+          /*
+           * Refresh summary.
+           */
           if (refreshSummary) {
             await fetchSummary();
           }
 
+          /*
+           * Refresh status-specific collections.
+           *
+           * These are intentionally concurrent.
+           */
           if (refreshLists) {
             await Promise.allSettled([
               fetchActiveChallenges(),
@@ -770,10 +1125,16 @@ const useSavingsChallenges = ({
             ]);
           }
 
-          setLastUpdated(new Date());
+          if (mountedRef.current) {
+            setLastUpdated(
+              new Date()
+            );
+          }
 
           return response;
-        } catch (mutationRequestError) {
+        } catch (
+          mutationRequestError
+        ) {
           const normalizedError =
             normalizeHookError(
               mutationRequestError
@@ -793,14 +1154,12 @@ const useSavingsChallenges = ({
         }
       },
       [
-        challengeId,
         fetchChallenges,
         fetchSnapshot,
         fetchSummary,
         fetchActiveChallenges,
         fetchPausedChallenges,
         fetchCompletedChallenges,
-        query,
       ]
     );
 
@@ -1089,23 +1448,47 @@ const useSavingsChallenges = ({
   const updateQuery =
     useCallback(
       (updates = {}) => {
-        setQuery((previous) =>
-          normalizeQuery({
-            ...previous,
-            ...updates,
-          })
-        );
+        setQuery((previous) => {
+          const next =
+            normalizeQuery({
+              ...previous,
+              ...updates,
+            });
+
+          if (
+            areQueriesEqual(
+              previous,
+              next
+            )
+          ) {
+            return previous;
+          }
+
+          return next;
+        });
       },
       []
     );
 
   const resetQuery =
     useCallback(() => {
-      setQuery(
-        normalizeQuery(
-          DEFAULT_QUERY
-        )
-      );
+      setQuery((previous) => {
+        const next =
+          normalizeQuery(
+            DEFAULT_QUERY
+          );
+
+        if (
+          areQueriesEqual(
+            previous,
+            next
+          )
+        ) {
+          return previous;
+        }
+
+        return next;
+      });
     }, []);
 
   /* ==========================================================
@@ -1113,32 +1496,43 @@ const useSavingsChallenges = ({
   ========================================================== */
 
   const refresh =
-    useCallback(async () => {
-      const operations = [
-        fetchChallenges(query),
-        fetchSummary(),
-      ];
+    useCallback(
+      async () => {
+        const operations = [
+          fetchChallenges(
+            queryRef.current
+          ),
 
-      if (challengeId) {
-        operations.push(
-          fetchChallenge(challengeId),
-          fetchSnapshot(challengeId)
+          fetchSummary(),
+        ];
+
+        if (
+          challengeIdRef.current
+        ) {
+          operations.push(
+            fetchChallenge(
+              challengeIdRef.current
+            ),
+
+            fetchSnapshot(
+              challengeIdRef.current
+            )
+          );
+        }
+
+        await Promise.allSettled(
+          operations
         );
-      }
 
-      await Promise.allSettled(
-        operations
-      );
-
-      return true;
-    }, [
-      challengeId,
-      fetchChallenges,
-      fetchSummary,
-      fetchChallenge,
-      fetchSnapshot,
-      query,
-    ]);
+        return true;
+      },
+      [
+        fetchChallenges,
+        fetchSummary,
+        fetchChallenge,
+        fetchSnapshot,
+      ]
+    );
 
   /* ==========================================================
      CLEAR ERRORS
@@ -1146,14 +1540,28 @@ const useSavingsChallenges = ({
 
   const clearError =
     useCallback(() => {
+      if (!mountedRef.current) {
+        return;
+      }
+
       setError(null);
       setMutationError(null);
     }, []);
 
   /* ==========================================================
-     INITIAL FETCH
+     INITIAL / QUERY FETCH
   ========================================================== */
 
+  /**
+   * fetchChallenges is intentionally stable.
+   *
+   * Query is included here because query changes should
+   * automatically fetch the corresponding collection.
+   *
+   * This does NOT create a render loop because:
+   *
+   * fetchChallenges does not depend on query.
+   */
   useEffect(() => {
     if (!autoFetch) {
       return;
@@ -1162,8 +1570,8 @@ const useSavingsChallenges = ({
     fetchChallenges(query);
   }, [
     autoFetch,
-    fetchChallenges,
     query,
+    fetchChallenges,
   ]);
 
   /* ==========================================================
@@ -1184,6 +1592,11 @@ const useSavingsChallenges = ({
   const hasItems =
     items.length > 0;
 
+  const loadingLists =
+    loadingActive ||
+    loadingPaused ||
+    loadingCompleted;
+
   const isEmpty =
     !loading &&
     !hasItems;
@@ -1191,22 +1604,26 @@ const useSavingsChallenges = ({
   const hasNextPage =
     Boolean(
       pagination?.hasNextPage ??
-      (
-        pagination?.page &&
-        pagination?.pages &&
-        pagination.page <
-          pagination.pages
-      )
+        (
+          pagination?.page &&
+          pagination?.pages &&
+          pagination.page <
+            pagination.pages
+        )
     );
 
   const hasPreviousPage =
     Boolean(
       pagination?.hasPreviousPage ??
-      (
-        pagination?.page &&
-        pagination.page > 1
-      )
+        (
+          pagination?.page &&
+          pagination.page > 1
+        )
     );
+
+  /* ==========================================================
+     STABLE STATE OBJECT
+  ========================================================== */
 
   const state =
     useMemo(
@@ -1249,6 +1666,12 @@ const useSavingsChallenges = ({
 
         loadingLists,
 
+        loadingActive,
+
+        loadingPaused,
+
+        loadingCompleted,
+
         mutating,
 
         error,
@@ -1277,6 +1700,9 @@ const useSavingsChallenges = ({
         loadingSnapshot,
         loadingSummary,
         loadingLists,
+        loadingActive,
+        loadingPaused,
+        loadingCompleted,
         mutating,
         error,
         mutationError,
@@ -1291,7 +1717,10 @@ const useSavingsChallenges = ({
   return {
     ...state,
 
-    /* Fetch */
+    /* --------------------------------------------------------
+       Fetch
+    -------------------------------------------------------- */
+
     fetchChallenges,
     fetchChallenge,
     fetchSnapshot,
@@ -1301,11 +1730,17 @@ const useSavingsChallenges = ({
     fetchPausedChallenges,
     fetchCompletedChallenges,
 
-    /* CRUD */
+    /* --------------------------------------------------------
+       CRUD
+    -------------------------------------------------------- */
+
     createChallenge,
     updateChallenge,
 
-    /* Lifecycle */
+    /* --------------------------------------------------------
+       Lifecycle
+    -------------------------------------------------------- */
+
     activateChallenge,
     pauseChallenge,
     resumeChallenge,
@@ -1314,20 +1749,32 @@ const useSavingsChallenges = ({
     failChallenge,
     expireChallenge,
 
-    /* Progress */
+    /* --------------------------------------------------------
+       Progress
+    -------------------------------------------------------- */
+
     applyContribution,
     registerSuccessfulPeriod,
     registerMissedPeriod,
 
-    /* Archive */
+    /* --------------------------------------------------------
+       Archive
+    -------------------------------------------------------- */
+
     archiveChallenge,
     restoreChallenge,
 
-    /* Query */
+    /* --------------------------------------------------------
+       Query
+    -------------------------------------------------------- */
+
     updateQuery,
     resetQuery,
 
-    /* General */
+    /* --------------------------------------------------------
+       General
+    -------------------------------------------------------- */
+
     refresh,
     clearError,
   };
