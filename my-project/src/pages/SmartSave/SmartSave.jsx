@@ -10,10 +10,12 @@ import {
   Zap,
 } from "lucide-react";
 
-import { Link } from "react-router-dom";
+import {
+  Link,
+  useNavigate,
+} from "react-router-dom";
 
 import useSmartSave from "../../hooks/useSmartSave";
-
 
 import SavingsHealthScore from "../SmartSave/components/SavingsHealthScore";
 import SafeToSaveCard from "../SmartSave/components/SafeToSaveCard";
@@ -87,10 +89,13 @@ const QUICK_ACCESS_ITEMS = Object.freeze([
 /* =========================================================
    NORMALIZATION HELPERS
    ---------------------------------------------------------
-   These functions are intentionally pure.
+   These functions are pure.
 
-   The page never modifies server data and never mirrors
-   server data into local React state.
+   The page does not:
+   - fetch data
+   - mutate server data
+   - mirror server state
+   - create synchronization effects
 ========================================================= */
 
 const isObject = (value) =>
@@ -140,54 +145,54 @@ const resolveData = (value) => {
 
 const resolveGoals = (data) =>
   toArray(
-    data.goals ??
-      data.savingsGoals
+    data?.goals ??
+      data?.savingsGoals
   );
 
 const resolveChallenges = (data) =>
   toArray(
-    data.challenges ??
-      data.savingsChallenges
+    data?.challenges ??
+      data?.savingsChallenges
   );
 
 const resolveActivity = (data) =>
   toArray(
-    data.activity ??
-      data.activities ??
-      data.savingsActivity
+    data?.activity ??
+      data?.activities ??
+      data?.savingsActivity
   );
 
 const resolveInsights = (data) =>
   toArray(
-    data.insights ??
-      data.savingsInsights
+    data?.insights ??
+      data?.savingsInsights
   );
 
 const resolveStrategies = (data) =>
   toArray(
-    data.strategies ??
-      data.savingStrategies
+    data?.strategies ??
+      data?.savingStrategies
   );
 
 const resolveForecast = (data) =>
-  data.forecast ??
-  data.savingsForecast ??
+  data?.forecast ??
+  data?.savingsForecast ??
   null;
 
 const resolveHealth = (data) =>
-  data.health ??
-  data.savingsHealth ??
-  data.healthScore ??
+  data?.health ??
+  data?.savingsHealth ??
+  data?.healthScore ??
   null;
 
 const resolveSafeToSave = (data) =>
-  data.safeToSave ??
-  data.safeToSaveResult ??
+  data?.safeToSave ??
+  data?.safeToSaveResult ??
   null;
 
 const resolveEmergencyFund = (data) =>
-  data.emergencyFund ??
-  data.emergencyFundStatus ??
+  data?.emergencyFund ??
+  data?.emergencyFundStatus ??
   null;
 
 /* =========================================================
@@ -388,12 +393,13 @@ const SummaryCard = ({
 const GoalProgressCard = ({ goal }) => {
   const progress = getGoalProgress(goal);
   const goalName = getGoalName(goal);
+  const goalId = getItemId(goal);
 
   return (
     <Link
       to={SMART_SAVE_ROUTES.GOALS}
       state={{
-        goalId: getItemId(goal),
+        goalId,
       }}
       className="
         block
@@ -582,11 +588,12 @@ const ActivityPreview = ({ activity }) => {
             className="
               inline-flex items-center
               font-semibold text-slate-700 hover:text-slate-900 text-xs
-              focus:outline-none rounded
+              rounded focus:outline-none
               gap-1 focus-visible:ring-2 focus-visible:ring-slate-400
             "
           >
             View all
+
             <ArrowRight
               size={13}
               aria-hidden="true"
@@ -854,11 +861,12 @@ const EmergencyFundPreview = () => (
         className="
           inline-flex items-center
           font-semibold text-slate-600 hover:text-slate-900 text-xs
-          focus:outline-none rounded
-          gap-1 shrink-0 focus-visible:ring-2 focus-visible:ring-slate-400
+          rounded focus:outline-none
+          gap-1 focus-visible:ring-2 focus-visible:ring-slate-400 shrink-0
         "
       >
         Details
+
         <ArrowRight
           size={13}
           aria-hidden="true"
@@ -1021,7 +1029,11 @@ const IntelligenceSection = ({
   forecast,
   currency,
 }) => {
-  if (!health && !safeToSave && !forecast) {
+  if (
+    !health &&
+    !safeToSave &&
+    !forecast
+  ) {
     return null;
   }
 
@@ -1166,11 +1178,12 @@ const InsightsPreview = ({ insights }) => {
           className="
             inline-flex items-center
             font-semibold text-slate-600 hover:text-slate-900 text-xs
-            focus:outline-none rounded
+            rounded focus:outline-none
             gap-1 focus-visible:ring-2 focus-visible:ring-slate-400
           "
         >
           View all
+
           <ArrowRight
             size={13}
             aria-hidden="true"
@@ -1225,18 +1238,19 @@ const InsightsPreview = ({ insights }) => {
 ========================================================= */
 
 const SmartSaveOverviewPage = () => {
+  const navigate = useNavigate();
+
   /*
-   * IMPORTANT:
+   * SmartSave data ownership remains centralized.
    *
-   * useSmartSave is the single source of truth.
+   * This page:
+   * - does not fetch
+   * - does not use effects
+   * - does not create local server state
+   * - does not synchronize state manually
    *
-   * There is intentionally:
-   * - no useEffect
-   * - no useState
-   * - no page-level data synchronization
-   * - no derived state
-   *
-   * Everything below is derived directly from the hook.
+   * SmartSaveLayout/useSmartSave remains responsible
+   * for the SmartSave data lifecycle.
    */
 
   const {
@@ -1250,7 +1264,7 @@ const SmartSaveOverviewPage = () => {
   const currency = DEFAULT_CURRENCY || "NGN";
 
   /* =======================================================
-     NORMALIZE SERVER RESPONSE ONCE
+     NORMALIZE SERVER RESPONSE
   ======================================================= */
 
   const savingsData = resolveData(data);
@@ -1283,15 +1297,6 @@ const SmartSaveOverviewPage = () => {
 
   /* =======================================================
      REFRESH
-     -------------------------------------------------------
-     No local state is created here.
-
-     The hook remains responsible for:
-     - request state
-     - server state
-     - errors
-     - cache
-     - refresh behavior
   ======================================================= */
 
   const handleRefresh = async () => {
@@ -1299,7 +1304,15 @@ const SmartSaveOverviewPage = () => {
       return;
     }
 
-    await refresh();
+    try {
+      await refresh();
+    } catch {
+      /*
+       * The hook owns the actual error state.
+       *
+       * Intentionally do not create local error state here.
+       */
+    }
   };
 
   /* =======================================================
@@ -1316,7 +1329,6 @@ const SmartSaveOverviewPage = () => {
         aria-busy="true"
         aria-label="Loading SmartSave"
       >
-
         <div
           className="
             w-full max-w-7xl
@@ -1331,6 +1343,11 @@ const SmartSaveOverviewPage = () => {
 
   /* =======================================================
      INITIAL ERROR
+     -------------------------------------------------------
+     SmartSaveLayout owns the persistent header.
+
+     Therefore this page intentionally renders ONLY
+     its content state here.
   ======================================================= */
 
   if (error && !data) {
@@ -1341,8 +1358,6 @@ const SmartSaveOverviewPage = () => {
           bg-slate-50
         "
       >
-        <SmartSaveHeader />
-
         <div
           className="
             flex items-center
@@ -1376,8 +1391,6 @@ const SmartSaveOverviewPage = () => {
         bg-slate-50
       "
     >
-      <SmartSaveHeader />
-
       <div
         className="
           w-full max-w-7xl
@@ -1572,7 +1585,10 @@ const SmartSaveOverviewPage = () => {
             <button
               type="button"
               onClick={handleRefresh}
-              disabled={isRefreshing}
+              disabled={
+                isRefreshing ||
+                typeof refresh !== "function"
+              }
               className="
                 inline-flex justify-center items-center
                 min-h-9
@@ -1614,11 +1630,11 @@ const SmartSaveOverviewPage = () => {
               title="Your SmartSave workspace is ready"
               description="Create your first savings goal and start building a smarter savings plan."
               actionLabel="Explore savings goals"
-              onAction={() => {
-                window.location.assign(
+              onAction={() =>
+                navigate(
                   SMART_SAVE_ROUTES.GOALS
-                );
-              }}
+                )
+              }
             />
           </section>
         )}
@@ -1784,11 +1800,12 @@ const SmartSaveOverviewPage = () => {
                       className="
                         inline-flex items-center
                         font-semibold text-slate-300 hover:text-white text-xs
-                        focus:outline-none rounded
+                        rounded focus:outline-none
                         gap-1 focus-visible:ring-2 focus-visible:ring-white
                       "
                     >
                       View all
+
                       <ArrowRight
                         size={13}
                         aria-hidden="true"
@@ -1906,11 +1923,12 @@ const SmartSaveOverviewPage = () => {
                         mt-5
                         font-semibold
                         text-slate-700 hover:text-slate-900 text-xs
-                        focus:outline-none rounded
+                        rounded focus:outline-none
                         gap-1 focus-visible:ring-2 focus-visible:ring-slate-400
                       "
                     >
                       Explore emergency fund
+
                       <ArrowRight
                         size={13}
                         aria-hidden="true"
