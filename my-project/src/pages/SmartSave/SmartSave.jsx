@@ -35,14 +35,16 @@ import {
    CONSTANTS
 ========================================================= */
 
+
 const SMART_SAVE_ROUTES = {
-  OVERVIEW: "/app/smartsave",
-  GOALS: "/app/smartsave/goals",
-  ACTIVITY: "/app/smartsave/activity",
-  CHALLENGES: "/app/smartsave/challenges",
-  FORECAST: "/app/smartsave/forecast",
-  INSIGHTS: "/app/smartsave/insights",
-  STRATEGIES: "/app/smartsave/strategies",
+  OVERVIEW: "/app/smart-save",
+  GOALS: "/app/smart-save/goals",
+  ACTIVITY: "/app/smart-save/activity",
+  CHALLENGES: "/app/smart-save/challenges",
+  FORECAST: "/app/smart-save/forecast",
+  INSIGHTS: "/app/smart-save/insights",
+  STRATEGIES: "/app/smart-save/strategies",
+  EMERGENCY_FUND: "/app/smart-save/emergency-fund",
 };
 
 const QUICK_ACCESS_ITEMS = [
@@ -1575,7 +1577,7 @@ const SmartSaveOverviewPage = () => {
 
                       <Link
                         to={
-                          "/app/smartsave/emergency-fund"
+                          SMART_SAVE_ROUTES.EMERGENCY_FUND
                         }
                         className="
                           inline-flex items-center

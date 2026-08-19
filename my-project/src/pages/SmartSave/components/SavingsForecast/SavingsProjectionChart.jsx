@@ -832,7 +832,7 @@ const SavingsProjectionChart = ({
         <div>
           <div
             className="
-              w-full
+              w-full min-w-0 h-72
             "
             style={{
               height,

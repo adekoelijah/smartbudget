@@ -1,15 +1,14 @@
 import {
-  Routes,
-  Route,
-} from "react-router-dom";
-
-import {
   lazy,
   Suspense,
 } from "react";
 
-import AppLayout from "./layouts/AppLayout";
+import {
+  Route,
+  Routes,
+} from "react-router-dom";
 
+import AppLayout from "./layouts/AppLayout";
 import ProtectedRoute from "./routes/ProtectedRoute";
 
 /* =========================================================
@@ -50,13 +49,6 @@ const Budgets = lazy(
     )
 );
 
-const SmartSave = lazy(
-  () =>
-    import(
-      "./pages/SmartSave/SmartSave.jsx"
-    )
-);
-
 const Transactions = lazy(
   () =>
     import(
@@ -79,8 +71,22 @@ const Reports = lazy(
 );
 
 /* =========================================================
-   SMARTSAVE PAGES
+   SMARTSAVE
 ========================================================= */
+
+/*
+ * SmartSave overview page.
+ *
+ * IMPORTANT:
+ * This is the overview page only.
+ * Child SmartSave pages are registered separately below.
+ */
+const SmartSaveOverviewPage = lazy(
+  () =>
+    import(
+      "./pages/SmartSave/SmartSave.jsx"
+    )
+);
 
 const SavingsGoalsPage = lazy(
   () =>
@@ -110,7 +116,7 @@ const SavingsChallengesPage = lazy(
     )
 );
 
-const SavingForecastPage = lazy(
+const SavingsForecastPage = lazy(
   () =>
     import(
       "./pages/SmartSave/components/SavingsForecast/SavingForecastPage.jsx"
@@ -178,261 +184,344 @@ const BillingSettings = lazy(
 );
 
 /* =========================================================
-   APP
+   LOADING FALLBACK
+========================================================= */
+
+const RouteLoadingFallback = () => (
+  <div
+    className="
+      flex justify-center items-center
+      w-full min-h-[60vh]
+      bg-slate-50
+    "
+    role="status"
+    aria-live="polite"
+    aria-label="Loading page"
+  >
+    <div
+      className="
+        flex items-center
+        text-slate-500 text-sm
+        gap-3
+      "
+    >
+      <span
+        className="
+          block
+          w-5 h-5
+          border-2 border-slate-300 border-t-slate-800 rounded-full
+          animate-spin
+        "
+        aria-hidden="true"
+      /
+      >
+
+      Loading...
+    </div>
+  </div>
+);
+
+/* =========================================================
+   ROUTER
 ========================================================= */
 
 const App = () => {
   return (
-    <Routes>
+    <Suspense
+      fallback={
+        <RouteLoadingFallback />
+      }
+    >
+      <Routes>
 
-      {/* ===================================================
-          PUBLIC ROUTES
-      =================================================== */}
-
-      <Route
-        path="/"
-        element={<Landing />}
-      />
-
-      <Route
-        path="/login"
-        element={<Login />}
-      />
-
-      <Route
-        path="/signup"
-        element={<Signup />}
-      />
-
-      <Route
-        path="/verify-email"
-        element={<VerifyEmail />}
-      />
-
-      <Route
-        path="/email-verified"
-        element={
-          <EmailVerificationSuccess />
-        }
-      />
-
-      <Route
-        path="/forgot-password"
-        element={<ForgotPassword />}
-      />
-
-      <Route
-        path="/reset-password/:token"
-        element={<ResetPassword />}
-      />
-
-      <Route
-        path="/auth/success"
-        element={<AuthSuccess />}
-      />
-
-      {/* ===================================================
-          PROTECTED ROUTES
-      =================================================== */}
-
-      <Route element={<ProtectedRoute />}>
+        {/* =================================================
+            PUBLIC ROUTES
+        ================================================= */}
 
         <Route
-          path="/app"
-          element={<AppLayout />}
+          path="/"
+          element={<Landing />}
+        />
+
+        <Route
+          path="/login"
+          element={<Login />}
+        />
+
+        <Route
+          path="/signup"
+          element={<Signup />}
+        />
+
+        <Route
+          path="/verify-email"
+          element={<VerifyEmail />}
+        />
+
+        <Route
+          path="/email-verified"
+          element={
+            <EmailVerificationSuccess />
+          }
+        />
+
+        <Route
+          path="/forgot-password"
+          element={<ForgotPassword />}
+        />
+
+        <Route
+          path="/reset-password/:token"
+          element={<ResetPassword />}
+        />
+
+        <Route
+          path="/auth/success"
+          element={<AuthSuccess />}
+        />
+
+        {/* =================================================
+            PROTECTED APPLICATION
+        ================================================= */}
+
+        <Route
+          element={<ProtectedRoute />}
         >
-
-          {/* ===============================================
-              DASHBOARD
-          =============================================== */}
-
           <Route
-            index
-            element={<Dashboard />}
-          />
-
-          {/* ===============================================
-              NOTIFICATIONS
-          =============================================== */}
-
-          <Route
-            path="notifications"
-            element={
-              <NotificationsPage />
-            }
-          />
-
-          {/* ===============================================
-              TRANSACTIONS
-          =============================================== */}
-
-          <Route
-            path="transactions"
-            element={<Transactions />}
-          />
-
-          <Route
-            path="add"
-            element={<AddTransaction />}
-          />
-
-          {/* ===============================================
-              SMARTSAVE
-          =============================================== */}
-
-          <Route
-            path="smart-save"
-            element={<SmartSave />}
+            path="/app"
+            element={<AppLayout />}
           >
 
-            {/* SmartSave Overview */}
+            {/* =============================================
+                DASHBOARD
+            ============================================= */}
 
             <Route
               index
-              element={<SmartSave />}
+              element={<Dashboard />}
             />
 
-            {/* Goals */}
-
-            <Route
-              path="goals"
-              element={
-                <SavingsGoalsPage />
-              }
-            />
-
-            {/* Activity */}
-
-            <Route
-              path="activity"
-              element={
-                <SavingsActivityPage />
-              }
-            />
-
-            {/* Strategies */}
-
-            <Route
-              path="strategies"
-              element={
-                <SavingsStrategiesPage />
-              }
-            />
-
-            {/* Challenges */}
-
-            <Route
-              path="challenges"
-              element={
-                <SavingsChallengesPage />
-              }
-            />
-
-            {/* Forecast */}
-
-            <Route
-              path="forecast"
-              element={
-                <SavingForecastPage />
-              }
-            />
-
-            {/* Insights */}
-
-            <Route
-              path="insights"
-              element={
-                <SavingsInsightsPage />
-              }
-            />
-
-            {/* Emergency Fund */}
-
-            <Route
-              path="emergency-fund"
-              element={
-                <EmergencyFundPage />
-              }
-            />
-
-          </Route>
-
-          {/* ===============================================
-              BUDGETS
-          =============================================== */}
-
-          <Route
-            path="budgets"
-            element={<Budgets />}
-          />
-
-          {/* ===============================================
-              REPORTS
-          =============================================== */}
-
-          <Route
-            path="reports"
-            element={<Reports />}
-          />
-
-          {/* ===============================================
-              SETTINGS
-          =============================================== */}
-
-          <Route
-            path="settings"
-            element={<Settings />}
-          >
-
-            <Route
-              index
-              element={
-                <ProfileSettings />
-              }
-            />
-
-            <Route
-              path="profile"
-              element={
-                <ProfileSettings />
-              }
-            />
-
-            <Route
-              path="security"
-              element={
-                <SecuritySettings />
-              }
-            />
+            {/* =============================================
+                NOTIFICATIONS
+            ============================================= */}
 
             <Route
               path="notifications"
               element={
-                <NotificationSettings />
+                <NotificationsPage />
+              }
+            />
+
+            {/* =============================================
+                TRANSACTIONS
+            ============================================= */}
+
+            <Route
+              path="transactions"
+              element={
+                <Transactions />
               }
             />
 
             <Route
-              path="preferences"
+              path="add"
               element={
-                <PreferenceSettings />
+                <AddTransaction />
               }
             />
 
+            {/* =============================================
+                SMARTSAVE
+                Canonical route:
+                /app/smart-save
+            ============================================= */}
+
             <Route
-              path="billing"
-              element={
-                <BillingSettings />
-              }
+              path="smart-save"
+            >
+
+              {/* -----------------------------------------
+                  SmartSave Overview
+
+                  /app/smart-save
+              ----------------------------------------- */}
+
+              <Route
+                index
+                element={
+                  <SmartSaveOverviewPage />
+                }
+              />
+
+              {/* -----------------------------------------
+                  Savings Goals
+
+                  /app/smart-save/goals
+              ----------------------------------------- */}
+
+              <Route
+                path="goals"
+                element={
+                  <SavingsGoalsPage />
+                }
+              />
+
+              {/* -----------------------------------------
+                  Savings Activity
+
+                  /app/smart-save/activity
+              ----------------------------------------- */}
+
+              <Route
+                path="activity"
+                element={
+                  <SavingsActivityPage />
+                }
+              />
+
+              {/* -----------------------------------------
+                  Savings Strategies
+
+                  /app/smart-save/strategies
+              ----------------------------------------- */}
+
+              <Route
+                path="strategies"
+                element={
+                  <SavingsStrategiesPage />
+                }
+              />
+
+              {/* -----------------------------------------
+                  Savings Challenges
+
+                  /app/smart-save/challenges
+              ----------------------------------------- */}
+
+              <Route
+                path="challenges"
+                element={
+                  <SavingsChallengesPage />
+                }
+              />
+
+              {/* -----------------------------------------
+                  Savings Forecast
+
+                  /app/smart-save/forecast
+              ----------------------------------------- */}
+
+              <Route
+                path="forecast"
+                element={
+                  <SavingsForecastPage />
+                }
+              />
+
+              {/* -----------------------------------------
+                  Savings Insights
+
+                  /app/smart-save/insights
+              ----------------------------------------- */}
+
+              <Route
+                path="insights"
+                element={
+                  <SavingsInsightsPage />
+                }
+              />
+
+              {/* -----------------------------------------
+                  Emergency Fund
+
+                  /app/smart-save/emergency-fund
+              ----------------------------------------- */}
+
+              <Route
+                path="emergency-fund"
+                element={
+                  <EmergencyFundPage />
+                }
+              />
+
+            </Route>
+
+            {/* =============================================
+                BUDGETS
+            ============================================= */}
+
+            <Route
+              path="budgets"
+              element={<Budgets />}
             />
+
+            {/* =============================================
+                REPORTS
+            ============================================= */}
+
+            <Route
+              path="reports"
+              element={<Reports />}
+            />
+
+            {/* =============================================
+                SETTINGS
+            ============================================= */}
+
+            <Route
+              path="settings"
+              element={<Settings />}
+            >
+
+              <Route
+                index
+                element={
+                  <ProfileSettings />
+                }
+              />
+
+              <Route
+                path="profile"
+                element={
+                  <ProfileSettings />
+                }
+              />
+
+              <Route
+                path="security"
+                element={
+                  <SecuritySettings />
+                }
+              />
+
+              <Route
+                path="notifications"
+                element={
+                  <NotificationSettings />
+                }
+              />
+
+              <Route
+                path="preferences"
+                element={
+                  <PreferenceSettings />
+                }
+              />
+
+              <Route
+                path="billing"
+                element={
+                  <BillingSettings />
+                }
+              />
+
+            </Route>
 
           </Route>
-
         </Route>
 
-      </Route>
-
-    </Routes>
+      </Routes>
+    </Suspense>
   );
 };
 
