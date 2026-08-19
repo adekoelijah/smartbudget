@@ -28,43 +28,43 @@ const SMART_SAVE_NAVIGATION = [
   {
     label: "Overview",
     description: "SmartSave dashboard",
-    path: "/app/smartsave",
+    path: "/app/smart-save",
     icon: BarChart3,
   },
   {
     label: "Goals",
     description: "Track savings targets",
-    path: "/app/smartsave/goals",
+    path: "/app/smart-save/goals",
     icon: Target,
   },
   {
     label: "Activity",
     description: "Review savings activity",
-    path: "/app/smartsave/activity",
+    path: "/app/smart-save/activity",
     icon: Activity,
   },
   {
     label: "Challenges",
     description: "Build better saving habits",
-    path: "/app/smartsave/challenges",
+    path: "/app/smart-save/challenges",
     icon: Trophy,
   },
   {
     label: "Forecast",
     description: "View future savings outlook",
-    path: "/app/smartsave/forecast",
+    path: "/app/smart-save/forecast",
     icon: TrendingUp,
   },
   {
     label: "Insights",
     description: "Financial intelligence",
-    path: "/app/smartsave/insights",
+    path: "/app/smart-save/insights",
     icon: Lightbulb,
   },
   {
     label: "Strategies",
     description: "Manage saving strategies",
-    path: "/app/smartsave/strategies",
+    path: "/app/smart-save/strategies",
     icon: Zap,
   },
 ];
@@ -77,7 +77,7 @@ const isNavigationItemActive = (
   pathname,
   itemPath
 ) => {
-  if (itemPath === "/app/smartsave") {
+  if (itemPath === "/app/smart-save") {
     return pathname === itemPath;
   }
 
@@ -105,7 +105,7 @@ const DesktopNavigationItem = ({
   return (
     <NavLink
       to={item.path}
-      end={item.path === "/app/smartsave"}
+      end={item.path === "/app/smart-save"}
       className={`
         group
         relative
@@ -161,7 +161,7 @@ const MobileNavigationItem = ({
   return (
     <NavLink
       to={item.path}
-      end={item.path === "/app/smartsave"}
+      end={item.path === "/app/smart-save"}
       onClick={onNavigate}
       className={`
         flex
@@ -282,7 +282,7 @@ const SmartSaveHeader = () => {
 
   const handleOverviewNavigation = () => {
     setMobileMenuOpen(false);
-    navigate("/app/smartsave");
+    navigate("/app/smart-save");
   };
 
   const handleMobileMenuToggle = () => {
