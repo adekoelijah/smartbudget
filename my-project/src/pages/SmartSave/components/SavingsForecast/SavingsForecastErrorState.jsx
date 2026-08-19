@@ -1,56 +1,143 @@
+import { memo } from "react";
 
 import {
   AlertCircle,
   RefreshCw,
 } from "lucide-react";
 
-import { useMemo } from "react";
-
 /* =========================================================
-   DEFAULT MESSAGE
+   CONSTANTS
 ========================================================= */
 
 const DEFAULT_ERROR_MESSAGE =
   "We couldn't load your savings forecast right now.";
 
+const DEFAULT_TITLE =
+  "Forecast unavailable";
+
+const DEFAULT_RETRY_LABEL =
+  "Try again";
+
+const DEFAULT_ARIA_LABEL =
+  "Savings forecast error";
+
 /* =========================================================
-   ERROR MESSAGE NORMALIZER
+   HELPERS
 ========================================================= */
 
-const normalizeErrorMessage = (error) => {
+/**
+ * Safely extracts a usable error message from
+ * common Axios, API, Error, and string formats.
+ */
+const normalizeErrorMessage = (
+  error
+) => {
   if (!error) {
     return DEFAULT_ERROR_MESSAGE;
   }
 
-  if (typeof error === "string") {
-    return error.trim() || DEFAULT_ERROR_MESSAGE;
-  }
+  /* -----------------------------------------
+     STRING ERROR
+  ----------------------------------------- */
 
-  if (error instanceof Error) {
+  if (typeof error === "string") {
+    const message =
+      error.trim();
+
     return (
-      error.message?.trim() ||
+      message ||
       DEFAULT_ERROR_MESSAGE
     );
   }
 
-  if (typeof error === "object") {
-    const message =
-      error?.response?.data?.message ||
-      error?.response?.data?.error ||
-      error?.data?.message ||
-      error?.data?.error ||
-      error?.message ||
-      error?.error;
+  /* -----------------------------------------
+     NATIVE ERROR
+  ----------------------------------------- */
 
-    if (typeof message === "string") {
-      return (
-        message.trim() ||
-        DEFAULT_ERROR_MESSAGE
-      );
+  if (error instanceof Error) {
+    const message =
+      typeof error.message ===
+      "string"
+        ? error.message.trim()
+        : "";
+
+    return (
+      message ||
+      DEFAULT_ERROR_MESSAGE
+    );
+  }
+
+  /* -----------------------------------------
+     API / AXIOS ERROR
+  ----------------------------------------- */
+
+  if (
+    typeof error === "object"
+  ) {
+    const candidates = [
+      error?.response?.data?.message,
+      error?.response?.data?.error,
+      error?.data?.message,
+      error?.data?.error,
+      error?.message,
+      error?.error,
+    ];
+
+    for (
+      const candidate of candidates
+    ) {
+      if (
+        typeof candidate ===
+        "string"
+      ) {
+        const message =
+          candidate.trim();
+
+        if (message) {
+          return message;
+        }
+      }
     }
   }
 
   return DEFAULT_ERROR_MESSAGE;
+};
+
+/**
+ * Safely resolves display text.
+ */
+const resolveText = (
+  value,
+  fallback
+) => {
+  if (
+    typeof value !== "string"
+  ) {
+    return fallback;
+  }
+
+  const trimmed =
+    value.trim();
+
+  return (
+    trimmed ||
+    fallback
+  );
+};
+
+/**
+ * Safely resolves className.
+ */
+const resolveClassName = (
+  value
+) => {
+  if (
+    typeof value !== "string"
+  ) {
+    return "";
+  }
+
+  return value.trim();
 };
 
 /* =========================================================
@@ -59,51 +146,93 @@ const normalizeErrorMessage = (error) => {
 
 const SavingsForecastErrorState = ({
   error = null,
+
   message = "",
+
   onRetry,
-  retryLabel = "Try again",
-  title = "Forecast unavailable",
+
+  retryLabel =
+    DEFAULT_RETRY_LABEL,
+
+  title =
+    DEFAULT_TITLE,
+
   className = "",
 }) => {
   /* =======================================================
-     DERIVED ERROR MESSAGE
+     DISPLAY MESSAGE
   ======================================================= */
 
-  const displayMessage = useMemo(() => {
-    if (typeof message === "string" && message.trim()) {
-      return message.trim();
-    }
-
-    return normalizeErrorMessage(error);
-  }, [error, message]);
+  const displayMessage =
+    resolveText(
+      message,
+      normalizeErrorMessage(
+        error
+      )
+    );
 
   /* =======================================================
-     RETRY AVAILABILITY
+     SAFE CONTENT
+  ======================================================= */
+
+  const safeTitle =
+    resolveText(
+      title,
+      DEFAULT_TITLE
+    );
+
+  const safeRetryLabel =
+    resolveText(
+      retryLabel,
+      DEFAULT_RETRY_LABEL
+    );
+
+  const safeClassName =
+    resolveClassName(
+      className
+    );
+
+  /* =======================================================
+     RETRY
   ======================================================= */
 
   const canRetry =
-    typeof onRetry === "function";
+    typeof onRetry ===
+    "function";
+
+  /* =======================================================
+     CLASS NAME
+  ======================================================= */
+
+  const containerClassName = [
+    "flex flex-col justify-center items-center",
+    "px-5 sm:px-6 py-8 sm:py-10",
+    "text-center",
+    "bg-white",
+    "border border-slate-200",
+    "rounded-2xl",
+    safeClassName,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   /* =======================================================
      RENDER
   ======================================================= */
 
   return (
-    <div
+    <section
+      className={
+        containerClassName
+      }
       role="alert"
-      aria-live="polite"
-      className={`
-        flex flex-col justify-center items-center
-        px-5 sm:px-6 py-8 sm:py-10
-        text-center
-        bg-white
-        border border-slate-200
-        rounded-2xl
-        ${className}
-      `}
+      aria-live="assertive"
+      aria-label={
+        DEFAULT_ARIA_LABEL
+      }
     >
       {/* =================================================
-          ICON
+          ERROR ICON
       ================================================= */}
 
       <div
@@ -114,6 +243,7 @@ const SavingsForecastErrorState = ({
           text-red-600
           bg-red-50
           border border-red-100 rounded-xl
+          shrink-0
         "
         aria-hidden="true"
       >
@@ -129,7 +259,7 @@ const SavingsForecastErrorState = ({
 
       <div
         className="
-          max-w-md
+          min-w-0 max-w-md
         "
       >
         <h3
@@ -137,13 +267,13 @@ const SavingsForecastErrorState = ({
             font-semibold text-slate-900 text-sm sm:text-base
           "
         >
-          {title}
+          {safeTitle}
         </h3>
 
         <p
           className="
             mt-1.5
-            text-slate-500 text-xs sm:text-sm leading-5
+            text-slate-500 text-xs sm:text-sm break-words leading-5
           "
         >
           {displayMessage}
@@ -163,23 +293,41 @@ const SavingsForecastErrorState = ({
             min-h-10
             mt-5 px-4
             font-medium text-blue-700 text-sm
-            bg-blue-50 hover:bg-blue-100
+            bg-blue-50 hover:bg-blue-100 active:bg-blue-200
             border border-blue-100 rounded-xl focus:outline-none
-            focus:ring-4 focus:ring-blue-500/15
-            transition
-            gap-2
+            shadow-sm transition-colors
+            gap-2 focus-visible:ring-4 focus-visible:ring-blue-500/15
           "
+          aria-label={
+            safeRetryLabel
+          }
         >
           <RefreshCw
             size={16}
+            strokeWidth={2}
             aria-hidden="true"
           />
 
-          {retryLabel}
+          <span>
+            {safeRetryLabel}
+          </span>
         </button>
       )}
-    </div>
+    </section>
   );
 };
 
-export default SavingsForecastErrorState;
+/* =========================================================
+   COMPONENT CONTRACT
+========================================================= */
+
+SavingsForecastErrorState.displayName =
+  "SavingsForecastErrorState";
+
+/* =========================================================
+   EXPORT
+========================================================= */
+
+export default memo(
+  SavingsForecastErrorState
+);

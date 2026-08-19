@@ -1,4 +1,3 @@
-
 import {
   AlertTriangle,
   CheckCircle2,
@@ -7,7 +6,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 
-import { useMemo } from "react";
+import { useId } from "react";
 
 import {
   formatCurrency,
@@ -17,26 +16,102 @@ import {
   calculateProgressPercentage,
 } from "../../../../utils/smartSave/emergencyFundProgress";
 
-import {
-  EMERGENCY_FUND_STATUS,
-} from "../../../../constants/emergencyFundConstants";
+/* =========================================================
+   CONSTANTS
+========================================================= */
+
+const DEFAULT_STATUS = "starting";
+
+const STATUS_CONFIG = {
+  funded: {
+    label: "Fully funded",
+    description:
+      "Your emergency fund has reached its current target.",
+    icon: CheckCircle2,
+    className:
+      "border-emerald-200 bg-emerald-50 text-emerald-700",
+    barClass: "bg-emerald-600",
+  },
+
+  healthy: {
+    label: "Healthy progress",
+    description:
+      "Your emergency fund is progressing well toward its target.",
+    icon: ShieldCheck,
+    className:
+      "border-blue-200 bg-blue-50 text-blue-700",
+    barClass: "bg-blue-600",
+  },
+
+  building: {
+    label: "Building",
+    description:
+      "You are making progress toward your emergency fund target.",
+    icon: TrendingUp,
+    className:
+      "border-slate-200 bg-slate-50 text-slate-700",
+    barClass: "bg-slate-900",
+  },
+
+  starting: {
+    label: "Getting started",
+    description:
+      "Start building your emergency fund with consistent contributions.",
+    icon: Target,
+    className:
+      "border-slate-200 bg-slate-50 text-slate-700",
+    barClass: "bg-slate-700",
+  },
+
+  behind: {
+    label: "Behind target",
+    description:
+      "Your current balance is below the pace needed to reach the target.",
+    icon: AlertTriangle,
+    className:
+      "border-amber-200 bg-amber-50 text-amber-700",
+    barClass: "bg-amber-500",
+  },
+
+  at_risk: {
+    label: "Needs attention",
+    description:
+      "Your emergency fund needs additional contributions or a revised target.",
+    icon: AlertTriangle,
+    className:
+      "border-red-200 bg-red-50 text-red-700",
+    barClass: "bg-red-600",
+  },
+};
 
 /* =========================================================
    SAFE HELPERS
 ========================================================= */
 
-const firstDefined = (...values) =>
-  values.find(
-    (value) =>
+/**
+ * Returns the first value that is actually defined.
+ *
+ * Important:
+ * 0 is considered a valid value.
+ */
+const firstDefined = (...values) => {
+  for (const value of values) {
+    if (
       value !== undefined &&
       value !== null &&
       value !== ""
-  );
+    ) {
+      return value;
+    }
+  }
 
-const toNumber = (
-  value,
-  fallback = 0
-) => {
+  return undefined;
+};
+
+/**
+ * Safely converts a value to a finite number.
+ */
+const toNumber = (value, fallback = 0) => {
   const number = Number(value);
 
   return Number.isFinite(number)
@@ -44,6 +119,21 @@ const toNumber = (
     : fallback;
 };
 
+/**
+ * Converts a value to a non-negative finite number.
+ */
+const normalizeNonNegativeNumber = (
+  value,
+  fallback = 0
+) =>
+  Math.max(
+    0,
+    toNumber(value, fallback)
+  );
+
+/**
+ * Restricts a number to a known range.
+ */
 const clamp = (
   value,
   min = 0,
@@ -53,9 +143,40 @@ const clamp = (
     max,
     Math.max(
       min,
-      toNumber(value)
+      toNumber(value, min)
     )
   );
+
+/**
+ * Determines whether a value is actually usable.
+ */
+const hasValue = (value) =>
+  value !== undefined &&
+  value !== null &&
+  value !== "";
+
+/**
+ * Ensures the supplied source is a usable object.
+ */
+const normalizeSource = (
+  emergencyFund,
+  data
+) => {
+  const source = firstDefined(
+    emergencyFund,
+    data
+  );
+
+  if (
+    !source ||
+    typeof source !== "object" ||
+    Array.isArray(source)
+  ) {
+    return null;
+  }
+
+  return source;
+};
 
 /* =========================================================
    STATUS NORMALIZER
@@ -71,36 +192,51 @@ const normalizeStatus = ({
     status || ""
   )
     .trim()
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
 
-  if (
-    normalizedStatus.includes("complete") ||
-    normalizedStatus.includes("funded") ||
-    normalizedStatus.includes("reached")
-  ) {
-    return "funded";
+  /*
+   * Explicit backend status always wins when
+   * it maps to a supported UI status.
+   */
+  switch (normalizedStatus) {
+    case "funded":
+    case "fully_funded":
+    case "complete":
+    case "completed":
+    case "reached":
+      return "funded";
+
+    case "at_risk":
+    case "risk":
+    case "critical":
+      return "at_risk";
+
+    case "behind":
+    case "behind_target":
+      return "behind";
+
+    case "healthy":
+    case "good":
+    case "strong":
+      return "healthy";
+
+    case "building":
+    case "in_progress":
+      return "building";
+
+    case "starting":
+    case "new":
+      return "starting";
+
+    default:
+      break;
   }
 
-  if (
-    normalizedStatus.includes("risk") ||
-    normalizedStatus.includes("critical")
-  ) {
-    return "at_risk";
-  }
-
-  if (
-    normalizedStatus.includes("behind")
-  ) {
-    return "behind";
-  }
-
-  if (
-    normalizedStatus.includes("healthy") ||
-    normalizedStatus.includes("good")
-  ) {
-    return "healthy";
-  }
-
+  /*
+   * Only derive a status when the backend did not
+   * provide a recognized status.
+   */
   if (
     targetAmount > 0 &&
     currentAmount >= targetAmount
@@ -116,79 +252,202 @@ const normalizeStatus = ({
     return "building";
   }
 
-  return "starting";
+  if (progress > 0) {
+    return "starting";
+  }
+
+  return DEFAULT_STATUS;
 };
 
 /* =========================================================
-   STATUS CONFIG
+   DERIVE EMERGENCY FUND VALUES
 ========================================================= */
 
-const STATUS_CONFIG = {
-  funded: {
-    label: "Fully funded",
-    description:
-      "Your emergency fund has reached its current target.",
-    icon: CheckCircle2,
-    className:
-      "border-emerald-200 bg-emerald-50 text-emerald-700",
-    barClass:
-      "bg-emerald-600",
-  },
+/**
+ * Pure function.
+ *
+ * No hooks.
+ * No state.
+ * No side effects.
+ * No memoization.
+ *
+ * This is intentionally outside the component so React
+ * has nothing to track.
+ */
+const deriveEmergencyFundValues = ({
+  source,
+  suppliedCurrentAmount,
+  suppliedTargetAmount,
+  suppliedProgress,
+}) => {
+  /* -------------------------------------------------------
+     CURRENT AMOUNT
+  ------------------------------------------------------- */
 
-  healthy: {
-    label: "Healthy progress",
-    description:
-      "Your emergency fund is progressing well toward its target.",
-    icon: ShieldCheck,
-    className:
-      "border-blue-200 bg-blue-50 text-blue-700",
-    barClass:
-      "bg-blue-600",
-  },
+  const currentAmount =
+    normalizeNonNegativeNumber(
+      firstDefined(
+        suppliedCurrentAmount,
+        source?.currentAmount,
+        source?.currentBalance,
+        source?.balance,
+        source?.amountSaved,
+        source?.savedAmount,
+        source?.progress?.current,
+        0
+      )
+    );
 
-  building: {
-    label: "Building",
-    description:
-      "You are making progress toward your emergency fund target.",
-    icon: TrendingUp,
-    className:
-      "border-slate-200 bg-slate-50 text-slate-700",
-    barClass:
-      "bg-slate-900",
-  },
+  /* -------------------------------------------------------
+     TARGET AMOUNT
+     
+     Deliberately do NOT use recommendedTarget here.
+     Recommended target is advisory data, not the actual
+     configured target.
+  ------------------------------------------------------- */
 
-  starting: {
-    label: "Getting started",
-    description:
-      "Start building your emergency fund with consistent contributions.",
-    icon: Target,
-    className:
-      "border-slate-200 bg-slate-50 text-slate-700",
-    barClass:
-      "bg-slate-700",
-  },
+  const targetAmount =
+    normalizeNonNegativeNumber(
+      firstDefined(
+        suppliedTargetAmount,
+        source?.targetAmount,
+        source?.target,
+        source?.fundTarget,
+        source?.goalAmount,
+        source?.progress?.target,
+        0
+      )
+    );
 
-  behind: {
-    label: "Behind target",
-    description:
-      "Your current balance is below the pace needed to reach the target.",
-    icon: AlertTriangle,
-    className:
-      "border-amber-200 bg-amber-50 text-amber-700",
-    barClass:
-      "bg-amber-500",
-  },
+  /* -------------------------------------------------------
+     PROGRESS
+  ------------------------------------------------------- */
 
-  at_risk: {
-    label: "Needs attention",
-    description:
-      "Your emergency fund needs additional contributions or a revised target.",
-    icon: AlertTriangle,
-    className:
-      "border-red-200 bg-red-50 text-red-700",
-    barClass:
-      "bg-red-600",
-  },
+  const explicitProgress =
+    firstDefined(
+      suppliedProgress,
+      source?.progressPercentage,
+      source?.progressPercent,
+      source?.percentage,
+      source?.progress?.percentage
+    );
+
+  let progress;
+
+  if (hasValue(explicitProgress)) {
+    progress = clamp(
+      explicitProgress
+    );
+  } else if (targetAmount > 0) {
+    progress = clamp(
+      calculateProgressPercentage({
+        targetAmount,
+        currentAmount,
+      })
+    );
+  } else {
+    progress = 0;
+  }
+
+  /* -------------------------------------------------------
+     REMAINING
+  ------------------------------------------------------- */
+
+  const calculatedRemaining =
+    Math.max(
+      targetAmount -
+        currentAmount,
+      0
+    );
+
+  const suppliedRemaining =
+    firstDefined(
+      source?.remainingAmount,
+      source?.amountRemaining
+    );
+
+  const remainingAmount =
+    hasValue(suppliedRemaining)
+      ? normalizeNonNegativeNumber(
+          suppliedRemaining
+        )
+      : calculatedRemaining;
+
+  /*
+   * Never allow remaining to exceed the target when
+   * a target exists.
+   */
+  const safeRemainingAmount =
+    targetAmount > 0
+      ? Math.min(
+          remainingAmount,
+          targetAmount
+        )
+      : remainingAmount;
+
+  /* -------------------------------------------------------
+     MONTHS COVERED
+  ------------------------------------------------------- */
+
+  const rawMonthsCovered =
+    firstDefined(
+      source?.monthsCovered,
+      source?.coverageMonths,
+      source?.monthsOfCoverage,
+      source?.coverage?.months
+    );
+
+  const monthsCovered =
+    hasValue(rawMonthsCovered)
+      ? normalizeNonNegativeNumber(
+          rawMonthsCovered
+        )
+      : null;
+
+  /* -------------------------------------------------------
+     RECOMMENDED TARGET
+  ------------------------------------------------------- */
+
+  const rawRecommendedTarget =
+    firstDefined(
+      source?.recommendedTarget,
+      source?.recommendedAmount,
+      source?.idealTarget
+    );
+
+  const recommendedTarget =
+    hasValue(rawRecommendedTarget)
+      ? normalizeNonNegativeNumber(
+          rawRecommendedTarget
+        )
+      : null;
+
+  /* -------------------------------------------------------
+     STATUS
+  ------------------------------------------------------- */
+
+  const status =
+    normalizeStatus({
+      status: firstDefined(
+        source?.status,
+        source?.health,
+        source?.fundStatus
+      ),
+      progress,
+      targetAmount,
+      currentAmount,
+    });
+
+  return {
+    currentAmount,
+    targetAmount,
+    progress,
+    remainingAmount:
+      safeRemainingAmount,
+    monthsCovered,
+    recommendedTarget,
+    status,
+  };
 };
 
 /* =========================================================
@@ -217,7 +476,6 @@ const EmergencyFundProgressSkeleton = () => (
         "
         /
       >
-
       <div
         className="
           w-16 h-4
@@ -290,6 +548,7 @@ const EmergencyFundProgressEmpty = () => (
         rounded-full
         shadow-sm
       "
+      aria-hidden="true"
     >
       <ShieldCheck
         size={20}
@@ -394,169 +653,86 @@ const EmergencyFundProgress = ({
 
   className = "",
 }) => {
-  /* =======================================================
+  /* -------------------------------------------------------
+     ACCESSIBILITY
+  ------------------------------------------------------- */
+
+  const componentId = useId();
+
+  const titleId =
+    `emergency-fund-progress-title-${componentId}`;
+
+  const progressId =
+    `emergency-fund-progress-${componentId}`;
+
+  /* -------------------------------------------------------
      SOURCE
-  ======================================================= */
+     
+     IMPORTANT:
+     This is intentionally NOT memoized.
+     
+     There is no expensive computation here and no reason
+     for React to retain an object reference.
+  ------------------------------------------------------- */
 
-  const source = useMemo(
-    () =>
-      firstDefined(
-        emergencyFund,
-        data
-      ),
-    [
-      emergencyFund,
-      data,
-    ]
+  const source = normalizeSource(
+    emergencyFund,
+    data
   );
 
-  /* =======================================================
-     DERIVED VALUES
-  ======================================================= */
-  
-const values = (() => {
-  const currentAmount = toNumber(
-    firstDefined(
+  /* -------------------------------------------------------
+     DERIVED DATA
+     
+     Pure synchronous calculation.
+     
+     No useMemo.
+     No useEffect.
+     No setState.
+  ------------------------------------------------------- */
+
+  const values =
+    deriveEmergencyFundValues({
+      source,
       suppliedCurrentAmount,
-      source?.currentAmount,
-      source?.currentBalance,
-      source?.balance,
-      source?.amountSaved,
-      source?.savedAmount,
-      source?.progress?.current,
-      0
-    ),
-    0
-  );
-
-  const targetAmount = toNumber(
-    firstDefined(
       suppliedTargetAmount,
-      source?.targetAmount,
-      source?.target,
-      source?.recommendedTarget,
-      source?.fundTarget,
-      source?.goalAmount,
-      source?.progress?.target,
-      0
-    ),
-    0
-  );
+      suppliedProgress,
+    });
 
-  const explicitProgress = firstDefined(
-    suppliedProgress,
-    source?.progressPercentage,
-    source?.progressPercent,
-    source?.percentage,
-    source?.progress?.percentage
-  );
-
-  let progress = 0;
-
-  if (
-    explicitProgress !== undefined &&
-    explicitProgress !== null &&
-    explicitProgress !== ""
-  ) {
-    progress = clamp(
-      toNumber(explicitProgress, 0)
-    );
-  } else if (targetAmount > 0) {
-    progress = clamp(
-      calculateProgressPercentage({
-        targetAmount,
-        currentAmount,
-      })
-    );
-  }
-
-  const calculatedRemaining = Math.max(
-    targetAmount - currentAmount,
-    0
-  );
-
-  const remainingAmount = Math.max(
-    0,
-    toNumber(
-      firstDefined(
-        source?.remainingAmount,
-        source?.amountRemaining,
-        calculatedRemaining
-      ),
-      calculatedRemaining
-    )
-  );
-
-  const rawMonthsCovered = firstDefined(
-    source?.monthsCovered,
-    source?.coverageMonths,
-    source?.monthsOfCoverage,
-    source?.coverage?.months
-  );
-
-  const monthsCovered =
-    rawMonthsCovered !== undefined &&
-    rawMonthsCovered !== null &&
-    rawMonthsCovered !== ""
-      ? Math.max(
-          0,
-          toNumber(rawMonthsCovered, 0)
-        )
-      : null;
-
-  const rawRecommendedTarget = firstDefined(
-    source?.recommendedTarget,
-    source?.recommendedAmount,
-    source?.idealTarget
-  );
-
-  const recommendedTarget =
-    rawRecommendedTarget !== undefined &&
-    rawRecommendedTarget !== null &&
-    rawRecommendedTarget !== ""
-      ? Math.max(
-          0,
-          toNumber(rawRecommendedTarget, 0)
-        )
-      : null;
-
-  const status = normalizeStatus({
-    status:
-      source?.status ||
-      source?.health ||
-      source?.fundStatus ||
-      null,
-
-    progress,
-    targetAmount,
-    currentAmount,
-  });
-
-  return {
-    currentAmount,
-    targetAmount,
-    progress,
-    remainingAmount,
-    monthsCovered,
-    recommendedTarget,
-    status,
-  };
-})();
-
-
-
-  /* =======================================================
+  /* -------------------------------------------------------
      LOADING
-  ======================================================= */
+  ------------------------------------------------------- */
 
   const isBusy =
     Boolean(loading) ||
     Boolean(isLoading);
 
-  if (isBusy && !source) {
+  /* -------------------------------------------------------
+     STATUS
+  ------------------------------------------------------- */
+
+  const statusConfig =
+    STATUS_CONFIG[
+      values.status
+    ] ||
+    STATUS_CONFIG[
+      DEFAULT_STATUS
+    ];
+
+  const StatusIcon =
+    statusConfig.icon;
+
+  /* =======================================================
+     LOADING STATE
+  ======================================================= */
+
+  if (
+    isBusy &&
+    !source
+  ) {
     return (
       <section
         aria-label="Emergency fund progress"
+        aria-busy="true"
         className={`
           rounded-2xl
           border border-slate-200
@@ -572,7 +748,7 @@ const values = (() => {
   }
 
   /* =======================================================
-     EMPTY
+     EMPTY STATE
   ======================================================= */
 
   if (
@@ -597,26 +773,13 @@ const values = (() => {
   }
 
   /* =======================================================
-     STATUS
-  ======================================================= */
-
-  const statusConfig =
-    STATUS_CONFIG[
-      values.status
-    ] ||
-    STATUS_CONFIG.starting;
-
-  const StatusIcon =
-    statusConfig.icon;
-
-  /* =======================================================
      COMPACT
   ======================================================= */
 
   if (compact) {
     return (
       <section
-        aria-label="Emergency fund progress"
+        aria-labelledby={titleId}
         className={`
           rounded-xl
           border border-slate-200
@@ -633,6 +796,7 @@ const values = (() => {
           "
         >
           <span
+            id={titleId}
             className="
               font-medium text-slate-600 text-xs
             "
@@ -650,23 +814,24 @@ const values = (() => {
         </div>
 
         <div
+          id={progressId}
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={values.progress}
+          aria-labelledby={titleId}
           className="
             overflow-hidden
             h-2
             bg-slate-100
             rounded-full
           "
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={values.progress}
-          aria-label="Emergency fund progress"
         >
           <div
             className={`
               h-full
               rounded-full
-              transition-all
+              transition-[width]
               duration-500
               ${statusConfig.barClass}
             `}
@@ -714,7 +879,7 @@ const values = (() => {
 
   return (
     <section
-      aria-labelledby="emergency-fund-progress-title"
+      aria-labelledby={titleId}
       className={`
         rounded-2xl
         border border-slate-200
@@ -724,9 +889,7 @@ const values = (() => {
         ${className}
       `}
     >
-      {/* ===================================================
-          HEADER
-      =================================================== */}
+      {/* HEADER */}
 
       <header
         className="
@@ -760,7 +923,7 @@ const values = (() => {
           "
         >
           <h3
-            id="emergency-fund-progress-title"
+            id={titleId}
             className="
               font-bold text-slate-900 text-sm
             "
@@ -779,9 +942,7 @@ const values = (() => {
         </div>
       </header>
 
-      {/* ===================================================
-          STATUS
-      =================================================== */}
+      {/* STATUS */}
 
       {showStatus ? (
         <div
@@ -803,7 +964,10 @@ const values = (() => {
               ${statusConfig.className}
             `}
           >
-            <StatusIcon size={14} />
+            <StatusIcon
+              size={14}
+              aria-hidden="true"
+            />
 
             {statusConfig.label}
           </div>
@@ -819,9 +983,7 @@ const values = (() => {
         </div>
       ) : null}
 
-      {/* ===================================================
-          PROGRESS
-      =================================================== */}
+      {/* PROGRESS */}
 
       <div
         className="
@@ -883,23 +1045,24 @@ const values = (() => {
         </div>
 
         <div
+          id={progressId}
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={values.progress}
+          aria-labelledby={titleId}
           className="
             overflow-hidden
             h-3
             bg-slate-100
             rounded-full
           "
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={values.progress}
-          aria-label="Emergency fund progress"
         >
           <div
             className={`
               h-full
               rounded-full
-              transition-all
+              transition-[width]
               duration-700
               ${statusConfig.barClass}
             `}
@@ -937,9 +1100,7 @@ const values = (() => {
         </div>
       </div>
 
-      {/* ===================================================
-          METRICS
-      =================================================== */}
+      {/* METRICS */}
 
       {showMetrics ? (
         <div
@@ -968,11 +1129,8 @@ const values = (() => {
           <ProgressMetric
             label="Coverage"
             value={
-              values.monthsCovered !==
-              undefined
-                ? `${toNumber(
-                    values.monthsCovered
-                  ).toFixed(1)} months`
+              values.monthsCovered !== null
+                ? `${values.monthsCovered.toFixed(1)} months`
                 : "—"
             }
             description="Estimated expense coverage"
@@ -980,13 +1138,9 @@ const values = (() => {
         </div>
       ) : null}
 
-      {/* ===================================================
-          RECOMMENDED TARGET
-      =================================================== */}
+      {/* RECOMMENDED TARGET */}
 
-      {values.recommendedTarget !==
-        undefined &&
-      values.recommendedTarget !== null ? (
+      {values.recommendedTarget !== null ? (
         <div
           className="
             flex items-start
@@ -1003,7 +1157,8 @@ const values = (() => {
               text-slate-500
               shrink-0
             "
-            /
+            aria-hidden="true"
+          /
           >
 
           <div>
@@ -1021,8 +1176,8 @@ const values = (() => {
                 text-slate-500 text-xs leading-5
               "
             >
-              Based on your current financial
-              profile, a target of{" "}
+              Based on your current financial profile,
+              a target of{" "}
               <strong
                 className="
                   text-slate-700
@@ -1032,8 +1187,7 @@ const values = (() => {
                   values.recommendedTarget
                 )}
               </strong>{" "}
-              may provide a stronger emergency
-              reserve.
+              may provide a stronger emergency reserve.
             </p>
           </div>
         </div>

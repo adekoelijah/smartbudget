@@ -1,180 +1,267 @@
+import { memo, useCallback, useMemo } from "react";
 
 import {
-  useCallback,
-  useMemo,
-} from "react";
-
-import {
-  Target,
+  AlertCircle,
   CheckCircle2,
+  CircleDollarSign,
+  RefreshCw,
+  Target,
   TrendingUp,
   Wallet,
-  RefreshCw,
-  AlertCircle,
-  CircleDollarSign,
 } from "lucide-react";
 
 import useSavingsGoals from "../../../../hooks/useSavingsGoals";
 
-/**
- * =========================================================
- * SAVINGS GOAL STATS
- * =========================================================
- *
- * Production responsibilities:
- *
- * - Consume savings-goal state through useSavingsGoals
- * - Display aggregate goal statistics
- * - Remain responsive and accessible
- * - Handle loading, error and empty states
- * - Normalize defensive response shapes
- * - Never call the service layer directly
- * - Never mutate server state
- * - Never duplicate financial business logic
- *
- * Data flow:
- *
- * smartSaveService
- *        ↓
- * useSavingsGoals
- *        ↓
- * SavingsGoalStats
- *
- * =========================================================
- */
+import {
+  formatCurrency,
+  formatPercentage,
+} from "../../../../utils/smartSave/savingsFormatters";
 
 /* =========================================================
-   SAFE NUMBER NORMALIZATION
+   CONSTANTS
 ========================================================= */
 
-const toFiniteNumber = (
-  value,
-  fallback = 0
-) => {
+const DEFAULT_CURRENCY = "NGN";
+
+const DEFAULT_ERROR_MESSAGE =
+  "Unable to load your savings goal statistics.";
+
+const STAT_CARD_CLASS =
+  "min-w-0 p-4 bg-white border border-slate-100 rounded-2xl shadow-sm";
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+const toFiniteNumber = (value, fallback = 0) => {
   const number = Number(value);
 
-  return Number.isFinite(number)
-    ? number
-    : fallback;
+  return Number.isFinite(number) ? number : fallback;
 };
 
-/* =========================================================
-   RESPONSE NORMALIZATION
-========================================================= */
+const clampPercentage = (value) => {
+  const number = toFiniteNumber(value);
+
+  return Math.min(100, Math.max(0, number));
+};
+
+const normalizeCurrency = (currency) => {
+  if (typeof currency !== "string") {
+    return DEFAULT_CURRENCY;
+  }
+
+  const normalized = currency.trim().toUpperCase();
+
+  return normalized || DEFAULT_CURRENCY;
+};
+
+const getErrorMessage = (error) => {
+  if (!error) {
+    return null;
+  }
+
+  if (typeof error === "string") {
+    const message = error.trim();
+
+    return message || DEFAULT_ERROR_MESSAGE;
+  }
+
+  const message =
+    error?.response?.data?.message ??
+    error?.response?.data?.error ??
+    error?.data?.message ??
+    error?.message ??
+    error?.error;
+
+  if (typeof message === "string" && message.trim()) {
+    return message.trim();
+  }
+
+  return DEFAULT_ERROR_MESSAGE;
+};
+
+const isObject = (value) =>
+  value !== null &&
+  typeof value === "object" &&
+  !Array.isArray(value);
 
 const normalizeStats = (value) => {
-  if (!value || typeof value !== "object") {
+  if (!isObject(value)) {
     return {};
   }
 
-  if (
-    value.data &&
-    typeof value.data === "object" &&
-    !Array.isArray(value.data)
-  ) {
-    return {
-      ...value.data,
-    };
+  if (isObject(value.data)) {
+    return value.data;
   }
 
-  if (
-    value.stats &&
-    typeof value.stats === "object" &&
-    !Array.isArray(value.stats)
-  ) {
-    return {
-      ...value.stats,
-    };
+  if (isObject(value.stats)) {
+    return value.stats;
   }
 
-  return {
-    ...value,
-  };
+  return value;
 };
 
-/* =========================================================
-   CURRENCY FORMATTER
- *
- * Prefer the application's existing savings formatter if
- * the hook already returns formatted values.
- *
- * This local fallback prevents this component from crashing
- * when a value is missing.
-========================================================= */
-
-const formatCurrency = (
-  value,
-  currency = "NGN"
-) => {
-  const amount = toFiniteNumber(value);
-
-  try {
-    return new Intl.NumberFormat(
-      "en-NG",
-      {
-        style: "currency",
-        currency,
-        maximumFractionDigits: 0,
-      }
-    ).format(amount);
-  } catch {
-    return `${currency} ${amount.toLocaleString()}`;
+const normalizeGoals = (value) => {
+  if (Array.isArray(value)) {
+    return value;
   }
+
+  if (Array.isArray(value?.goals)) {
+    return value.goals;
+  }
+
+  if (Array.isArray(value?.data)) {
+    return value.data;
+  }
+
+  if (Array.isArray(value?.data?.goals)) {
+    return value.data.goals;
+  }
+
+  return [];
 };
 
-/* =========================================================
-   PERCENTAGE FORMATTER
-========================================================= */
+const getStatus = (goal) =>
+  String(goal?.status ?? "")
+    .trim()
+    .toLowerCase();
 
-const formatPercentage = (value) => {
-  const number = toFiniteNumber(value);
+const getGoalTarget = (goal) =>
+  toFiniteNumber(
+    goal?.targetAmount ??
+      goal?.target ??
+      goal?.amount
+  );
 
-  return `${Math.max(
-    0,
-    Math.min(100, number)
-  ).toFixed(0)}%`;
-};
+const getGoalSaved = (goal) =>
+  toFiniteNumber(
+    goal?.currentAmount ??
+      goal?.savedAmount ??
+      goal?.amountSaved ??
+      goal?.progressAmount
+  );
 
 /* =========================================================
    STAT CARD
 ========================================================= */
 
-const StatCard = ({
-  icon: Icon,
-  label,
-  value,
-  description,
-  loading = false,
-}) => {
-  return (
-    <article
-      className="
-        min-w-0
-        p-4
-        bg-white
-        border border-slate-100 rounded-2xl
-        shadow-sm
-      "
-    >
+const StatCard = memo(
+  ({
+    icon: Icon,
+    label,
+    value,
+    description,
+    loading = false,
+  }) => {
+    return (
+      <article className={STAT_CARD_CLASS}>
+        <div
+          className="
+            flex items-start
+            gap-3
+          "
+        >
+          <div
+            aria-hidden="true"
+            className="
+              flex justify-center items-center
+              w-10 h-10
+              text-slate-600
+              bg-slate-50
+              rounded-xl
+              shrink-0
+            "
+          >
+            {Icon && <Icon size={19} strokeWidth={2} />}
+          </div>
+
+          <div
+            className="
+              flex-1
+              min-w-0
+            "
+          >
+            <p
+              className="
+                font-medium text-slate-400 text-xs truncate
+              "
+            >
+              {label}
+            </p>
+
+            {loading ? (
+              <div
+                aria-hidden="true"
+                className="
+                  w-24 h-6
+                  mt-2
+                  bg-slate-100
+                  rounded-md
+                  animate-pulse
+                "
+                /
+              >
+            ) : (
+              <p
+                className="
+                  mt-1
+                  font-bold text-slate-900 text-lg truncate tracking-tight
+                "
+              >
+                {value}
+              </p>
+            )}
+
+            {!loading && description && (
+              <p
+                className="
+                  mt-1
+                  text-slate-400 text-xs truncate
+                "
+              >
+                {description}
+              </p>
+            )}
+          </div>
+        </div>
+      </article>
+    );
+  }
+);
+
+StatCard.displayName = "StatCard";
+
+/* =========================================================
+   ERROR STATE
+========================================================= */
+
+const StatsError = memo(
+  ({
+    message,
+    loading,
+    onRetry,
+  }) => {
+    return (
       <div
+        role="alert"
         className="
           flex items-start
+          mb-4 p-4
+          bg-red-50
+          border border-red-100 rounded-2xl
           gap-3
         "
       >
-        <div
+        <AlertCircle
+          size={18}
           className="
-            flex justify-center items-center
-            w-10 h-10
-            text-slate-600
-            bg-slate-50
-            rounded-xl
+            mt-0.5
+            text-red-600
             shrink-0
           "
           aria-hidden="true"
+        /
         >
-          <Icon size={19} />
-        </div>
 
         <div
           className="
@@ -184,50 +271,99 @@ const StatCard = ({
         >
           <p
             className="
-              font-medium text-slate-400 text-xs truncate
+              font-semibold text-red-800 text-sm
             "
           >
-            {label}
+            Goal statistics unavailable
           </p>
 
-          {loading ? (
-            <div
-              className="
-                w-24 h-6
-                mt-2
-                bg-slate-100
-                rounded-md
-                animate-pulse
-              "
-              aria-hidden="true"
-            /
-            >
-          ) : (
-            <p
-              className="
-                mt-1
-                font-bold text-slate-900 text-lg truncate tracking-tight
-              "
-            >
-              {value}
-            </p>
-          )}
+          <p
+            className="
+              mt-1
+              text-red-700 text-sm
+            "
+          >
+            {message}
+          </p>
 
-          {description && !loading && (
-            <p
+          {typeof onRetry === "function" && (
+            <button
+              type="button"
+              onClick={onRetry}
+              disabled={loading}
               className="
-                mt-1
-                text-slate-400 text-xs truncate
+                inline-flex items-center
+                mt-2
+                font-semibold text-red-800 text-xs underline underline-offset-2
+                disabled:opacity-50
+                disabled:cursor-not-allowed
+                gap-2
               "
             >
-              {description}
-            </p>
+              <RefreshCw
+                size={13}
+                className={loading ? "animate-spin" : ""}
+                aria-hidden="true"
+              />
+
+              Try again
+            </button>
           )}
         </div>
       </div>
-    </article>
+    );
+  }
+);
+
+StatsError.displayName = "StatsError";
+
+/* =========================================================
+   EMPTY STATE
+========================================================= */
+
+const StatsEmptyState = memo(() => {
+  return (
+    <div
+      className="
+        mt-4 p-6
+        text-center
+        bg-slate-50
+        border border-slate-200 border-dashed rounded-2xl
+      "
+    >
+      <Target
+        size={24}
+        className="
+          mx-auto
+          text-slate-400
+        "
+        aria-hidden="true"
+      /
+      >
+
+      <p
+        className="
+          mt-3
+          font-semibold text-slate-700 text-sm
+        "
+      >
+        No savings goals yet
+      </p>
+
+      <p
+        className="
+          max-w-sm
+          mx-auto mt-1
+          text-slate-500 text-xs leading-5
+        "
+      >
+        Create a savings goal to start tracking your progress.
+      </p>
+    </div>
   );
-};
+});
+
+StatsEmptyState.displayName = "StatsEmptyState";
 
 /* =========================================================
    MAIN COMPONENT
@@ -235,224 +371,195 @@ const StatCard = ({
 
 const SavingsGoalStats = ({
   className = "",
-  currency = "NGN",
+  currency = DEFAULT_CURRENCY,
   compact = false,
 }) => {
-  /* =======================================================
-     HOOK
-  ======================================================= */
+  const savingsGoals = useSavingsGoals();
 
   const {
-    goals,
+    goals: hookGoals,
     goalStats,
     stats,
-    loading,
-    error,
-
+    loading: hookLoading,
+    error: hookError,
     refreshGoals,
     fetchGoals,
-    getGoalStats,
-  } = useSavingsGoals();
+  } = savingsGoals || {};
 
   /* =======================================================
-     NORMALIZED DATA
+     NORMALIZATION
   ======================================================= */
 
-  const normalizedStats = useMemo(
-    () =>
-      normalizeStats(
-        goalStats ?? stats
-      ),
-    [
-      goalStats,
-      stats,
-    ]
+  const normalizedCurrency = useMemo(
+    () => normalizeCurrency(currency),
+    [currency]
+  );
+
+  const goals = useMemo(
+    () => normalizeGoals(hookGoals),
+    [hookGoals]
+  );
+
+  const serverStats = useMemo(
+    () => normalizeStats(goalStats ?? stats),
+    [goalStats, stats]
   );
 
   /* =======================================================
-     FALLBACK COLLECTION
-  *
-  * We use the goal collection only when the hook does not
-  * expose dedicated statistics.
-  *
-  * Financial values are read from already-normalized goal
-  * fields rather than recalculated from transactions.
-  ======================================================= */
-
-  const normalizedGoals = useMemo(() => {
-    if (Array.isArray(goals)) {
-      return goals;
-    }
-
-    if (Array.isArray(goals?.data)) {
-      return goals.data;
-    }
-
-    if (Array.isArray(goals?.goals)) {
-      return goals.goals;
-    }
-
-    return [];
-  }, [goals]);
-
-  /* =======================================================
-     DERIVED DISPLAY STATS
+     DERIVED STATISTICS
+     
+     IMPORTANT:
+     Server-provided statistics always win.
+     Collection-derived values are fallback-only.
   ======================================================= */
 
   const displayStats = useMemo(() => {
-    const totalGoals = toFiniteNumber(
-      normalizedStats.totalGoals ??
-      normalizedStats.total ??
-      normalizedStats.count
-    );
+    const hasServerTotal =
+      serverStats.totalGoals !== undefined ||
+      serverStats.total !== undefined ||
+      serverStats.count !== undefined;
 
-    const activeGoals = toFiniteNumber(
-      normalizedStats.activeGoals ??
-      normalizedStats.active
-    );
+    const hasServerActive =
+      serverStats.activeGoals !== undefined ||
+      serverStats.active !== undefined;
 
-    const completedGoals = toFiniteNumber(
-      normalizedStats.completedGoals ??
-      normalizedStats.completed
-    );
+    const hasServerCompleted =
+      serverStats.completedGoals !== undefined ||
+      serverStats.completed !== undefined;
 
-    const targetAmount = toFiniteNumber(
-      normalizedStats.totalTargetAmount ??
-      normalizedStats.targetAmount ??
-      normalizedStats.totalTarget
-    );
+    const hasServerTarget =
+      serverStats.totalTargetAmount !== undefined ||
+      serverStats.targetAmount !== undefined ||
+      serverStats.totalTarget !== undefined;
 
-    const savedAmount = toFiniteNumber(
-      normalizedStats.totalSavedAmount ??
-      normalizedStats.savedAmount ??
-      normalizedStats.totalSaved
-    );
+    const hasServerSaved =
+      serverStats.totalSavedAmount !== undefined ||
+      serverStats.savedAmount !== undefined ||
+      serverStats.totalSaved !== undefined;
 
-    const explicitProgress = toFiniteNumber(
-      normalizedStats.progressPercentage ??
-      normalizedStats.averageProgress
-    );
+    const hasServerProgress =
+      serverStats.progressPercentage !== undefined ||
+      serverStats.averageProgress !== undefined;
+
+    let fallbackTarget = 0;
+    let fallbackSaved = 0;
+    let fallbackActive = 0;
+    let fallbackCompleted = 0;
+
+    for (const goal of goals) {
+      const status = getStatus(goal);
+
+      if (status === "active") {
+        fallbackActive += 1;
+      }
+
+      if (status === "completed") {
+        fallbackCompleted += 1;
+      }
+
+      fallbackTarget += getGoalTarget(goal);
+      fallbackSaved += getGoalSaved(goal);
+    }
+
+    const targetAmount = hasServerTarget
+      ? toFiniteNumber(
+          serverStats.totalTargetAmount ??
+            serverStats.targetAmount ??
+            serverStats.totalTarget
+        )
+      : fallbackTarget;
+
+    const savedAmount = hasServerSaved
+      ? toFiniteNumber(
+          serverStats.totalSavedAmount ??
+            serverStats.savedAmount ??
+            serverStats.totalSaved
+        )
+      : fallbackSaved;
 
     const calculatedProgress =
       targetAmount > 0
         ? (savedAmount / targetAmount) * 100
         : 0;
 
+    const progressPercentage = hasServerProgress
+      ? clampPercentage(
+          serverStats.progressPercentage ??
+            serverStats.averageProgress
+        )
+      : clampPercentage(calculatedProgress);
+
     return {
-      totalGoals:
-        totalGoals ||
-        normalizedGoals.length,
+      totalGoals: hasServerTotal
+        ? toFiniteNumber(
+            serverStats.totalGoals ??
+              serverStats.total ??
+              serverStats.count
+          )
+        : goals.length,
 
-      activeGoals:
-        activeGoals ||
-        normalizedGoals.filter(
-          (goal) =>
-            String(
-              goal?.status ?? ""
-            ).toLowerCase() === "active"
-        ).length,
+      activeGoals: hasServerActive
+        ? toFiniteNumber(
+            serverStats.activeGoals ??
+              serverStats.active
+          )
+        : fallbackActive,
 
-      completedGoals:
-        completedGoals ||
-        normalizedGoals.filter(
-          (goal) =>
-            String(
-              goal?.status ?? ""
-            ).toLowerCase() === "completed"
-        ).length,
+      completedGoals: hasServerCompleted
+        ? toFiniteNumber(
+            serverStats.completedGoals ??
+              serverStats.completed
+          )
+        : fallbackCompleted,
 
       targetAmount,
-
       savedAmount,
-
-      progressPercentage:
-        explicitProgress ||
-        calculatedProgress,
+      progressPercentage,
     };
-  }, [
-    normalizedStats,
-    normalizedGoals,
-  ]);
+  }, [serverStats, goals]);
+
+  /* =======================================================
+     STATE
+  ======================================================= */
+
+  const loading = Boolean(hookLoading);
+
+  const errorMessage = useMemo(
+    () => getErrorMessage(hookError),
+    [hookError]
+  );
+
+  const hasGoals =
+    displayStats.totalGoals > 0 ||
+    goals.length > 0;
+
+  const hasFinancialData =
+    displayStats.targetAmount > 0 ||
+    displayStats.savedAmount > 0;
+
+  const hasStats =
+    hasGoals || hasFinancialData;
 
   /* =======================================================
      REFRESH
+     
+     ONE refresh path only.
+     This deliberately avoids calling getGoalStats()
+     separately and avoids creating a second request chain.
   ======================================================= */
 
-  const handleRefresh = useCallback(
-    async () => {
-      if (
-        typeof refreshGoals ===
-        "function"
-      ) {
-        return refreshGoals();
-      }
+  const handleRefresh = useCallback(async () => {
+    const refresh =
+      typeof refreshGoals === "function"
+        ? refreshGoals
+        : fetchGoals;
 
-      if (
-        typeof fetchGoals ===
-        "function"
-      ) {
-        return fetchGoals();
-      }
-
+    if (typeof refresh !== "function") {
       return undefined;
-    },
-    [
-      refreshGoals,
-      fetchGoals,
-    ]
-  );
-
-  /* =======================================================
-     OPTIONAL DEDICATED STATS REFRESH
-  *
-  * If useSavingsGoals exposes getGoalStats, callers can
-  * explicitly refresh statistics without creating a second
-  * service abstraction.
-  ======================================================= */
-
-  const handleStatsRefresh =
-    useCallback(async () => {
-      if (
-        typeof getGoalStats ===
-        "function"
-      ) {
-        return getGoalStats();
-      }
-
-      return handleRefresh();
-    }, [
-      getGoalStats,
-      handleRefresh,
-    ]);
-
-  /* =======================================================
-     ERROR NORMALIZATION
-  ======================================================= */
-
-  const errorMessage = useMemo(() => {
-    if (!error) {
-      return null;
     }
 
-    if (typeof error === "string") {
-      return error;
-    }
-
-    return (
-      error?.message ||
-      error?.response?.data?.message ||
-      "Unable to load savings goal statistics."
-    );
-  }, [error]);
-
-  /* =======================================================
-     EMPTY STATE
-  ======================================================= */
-
-  const hasStats =
-    displayStats.totalGoals > 0 ||
-    displayStats.targetAmount > 0 ||
-    displayStats.savedAmount > 0;
+    return refresh();
+  }, [refreshGoals, fetchGoals]);
 
   /* =======================================================
      RENDER
@@ -463,9 +570,7 @@ const SavingsGoalStats = ({
       className={`w-full ${className}`}
       aria-labelledby="savings-goal-stats-title"
     >
-      {/* =================================================
-          HEADER
-      ================================================= */}
+      {/* HEADER */}
 
       <header
         className="
@@ -500,8 +605,8 @@ const SavingsGoalStats = ({
 
         <button
           type="button"
-          onClick={handleStatsRefresh}
-          disabled={loading}
+          onClick={handleRefresh}
+          disabled={loading || typeof handleRefresh !== "function"}
           className="
             inline-flex justify-center items-center
             w-fit h-9
@@ -517,298 +622,240 @@ const SavingsGoalStats = ({
         >
           <RefreshCw
             size={14}
-            className={
-              loading
-                ? "animate-spin"
-                : ""
-            }
+            className={loading ? "animate-spin" : ""}
+            aria-hidden="true"
           />
 
           <span>
-            Refresh
+            {loading ? "Refreshing" : "Refresh"}
           </span>
         </button>
       </header>
 
-      {/* =================================================
-          ERROR
-      ================================================= */}
+      {/* ERROR */}
 
       {errorMessage && (
-        <div
-          role="alert"
-          className="
-            flex items-start
-            mb-4 p-4
-            bg-red-50
-            border border-red-100 rounded-2xl
-            gap-3
-          "
-        >
-          <AlertCircle
-            size={18}
-            className="
-              mt-0.5
-              text-red-600
-              shrink-0
-            "
-            /
-          >
-
-          <div
-            className="
-              flex-1
-              min-w-0
-            "
-          >
-            <p
-              className="
-                font-semibold text-red-800 text-sm
-              "
-            >
-              Goal statistics unavailable
-            </p>
-
-            <p
-              className="
-                mt-1
-                text-red-700 text-sm
-              "
-            >
-              {errorMessage}
-            </p>
-
-            <button
-              type="button"
-              onClick={handleStatsRefresh}
-              className="
-                mt-2
-                font-semibold text-red-800 text-xs underline underline-offset-2
-              "
-            >
-              Try again
-            </button>
-          </div>
-        </div>
+        <StatsError
+          message={errorMessage}
+          loading={loading}
+          onRetry={handleRefresh}
+        />
       )}
 
-      {/* =================================================
-          STATS GRID
-      ================================================= */}
+      {/* INITIAL LOADING */}
 
-      <div
-        className={`
-          grid
-          grid-cols-2
-          gap-3
-          ${
-            compact
-              ? ""
-              : "md:grid-cols-3 lg:grid-cols-5"
-          }
-        `}
-      >
-        <StatCard
-          icon={Target}
-          label="Total goals"
-          value={displayStats.totalGoals}
-          description="All savings goals"
-          loading={loading}
-        />
-
-        <StatCard
-          icon={TrendingUp}
-          label="Active goals"
-          value={displayStats.activeGoals}
-          description="Currently in progress"
-          loading={loading}
-        />
-
-        <StatCard
-          icon={CheckCircle2}
-          label="Completed"
-          value={displayStats.completedGoals}
-          description="Successfully reached"
-          loading={loading}
-        />
-
-        {!compact && (
-          <>
+      {loading && !hasStats ? (
+        <div
+          className="
+            grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5
+            gap-3
+          "
+          aria-busy="true"
+          aria-label="Loading savings goal statistics"
+        >
+          {[
+            "total",
+            "active",
+            "completed",
+            "saved",
+            "progress",
+          ].map((key) => (
             <StatCard
-              icon={Wallet}
-              label="Saved"
-              value={formatCurrency(
-                displayStats.savedAmount,
-                currency
-              )}
-              description="Total saved"
-              loading={loading}
+              key={key}
+              icon={Target}
+              label="Loading"
+              value=""
+              loading
             />
+          ))}
+        </div>
+      ) : (
+        <>
+          {/* STATS */}
 
-            <StatCard
-              icon={CircleDollarSign}
-              label="Progress"
-              value={formatPercentage(
-                displayStats.progressPercentage
-              )}
-              description="Overall goal progress"
-              loading={loading}
-            />
-          </>
-        )}
-      </div>
-
-      {/* =================================================
-          PROGRESS BAR
-      ================================================= */}
-
-      {!compact &&
-        !loading &&
-        hasStats && (
           <div
-            className="
-              mt-4 p-4
-              bg-white
-              border border-slate-100 rounded-2xl
-            "
+            className={`
+              grid
+              grid-cols-2
+              gap-3
+              ${
+                compact
+                  ? ""
+                  : "md:grid-cols-3 lg:grid-cols-5"
+              }
+            `}
           >
+            <StatCard
+              icon={Target}
+              label="Total goals"
+              value={displayStats.totalGoals}
+              description="All savings goals"
+            />
+
+            <StatCard
+              icon={TrendingUp}
+              label="Active goals"
+              value={displayStats.activeGoals}
+              description="Currently in progress"
+            />
+
+            <StatCard
+              icon={CheckCircle2}
+              label="Completed"
+              value={displayStats.completedGoals}
+              description="Successfully reached"
+            />
+
+            {!compact && (
+              <>
+                <StatCard
+                  icon={Wallet}
+                  label="Saved"
+                  value={formatCurrency(
+                    displayStats.savedAmount,
+                    normalizedCurrency
+                  )}
+                  description="Total saved"
+                />
+
+                <StatCard
+                  icon={CircleDollarSign}
+                  label="Progress"
+                  value={formatPercentage(
+                    displayStats.progressPercentage
+                  )}
+                  description="Overall goal progress"
+                />
+              </>
+            )}
+          </div>
+
+          {/* OVERALL PROGRESS */}
+
+          {!compact && hasStats && (
             <div
               className="
-                flex justify-between items-center
-                gap-3
+                mt-4 p-4
+                bg-white
+                border border-slate-100 rounded-2xl
               "
-            >
-              <span
-                className="
-                  font-medium text-slate-500 text-xs
-                "
-              >
-                Overall savings progress
-              </span>
-
-              <span
-                className="
-                  font-semibold text-slate-900 text-xs
-                "
-              >
-                {formatPercentage(
-                  displayStats.progressPercentage
-                )}
-              </span>
-            </div>
-
-            <div
-              className="
-                overflow-hidden
-                h-2
-                mt-2
-                bg-slate-100
-                rounded-full
-              "
-              role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={Math.max(
-                0,
-                Math.min(
-                  100,
-                  displayStats.progressPercentage
-                )
-              )}
-              aria-label="Overall savings progress"
             >
               <div
                 className="
-                  h-full
-                  bg-slate-900
-                  rounded-full
-                  transition-all duration-500
+                  flex justify-between items-center
+                  gap-3
                 "
-                style={{
-                  width: `${Math.max(
-                    0,
-                    Math.min(
-                      100,
-                      displayStats.progressPercentage
-                    )
-                  )}%`,
-                }}
-              /
               >
-            </div>
+                <div>
+                  <p
+                    className="
+                      font-medium text-slate-500 text-xs
+                    "
+                  >
+                    Overall savings progress
+                  </p>
 
-            <div
-              className="
-                flex justify-between
-                mt-2
-                text-slate-400 text-xs
-                gap-3
-              "
-            >
-              <span>
-                {formatCurrency(
-                  displayStats.savedAmount,
-                  currency
+                  <p
+                    className="
+                      mt-1
+                      font-semibold text-slate-900 text-sm
+                    "
+                  >
+                    {formatCurrency(
+                      displayStats.savedAmount,
+                      normalizedCurrency
+                    )}
+                    {" / "}
+                    {formatCurrency(
+                      displayStats.targetAmount,
+                      normalizedCurrency
+                    )}
+                  </p>
+                </div>
+
+                <span
+                  className="
+                    font-semibold text-slate-900 text-xs
+                  "
+                >
+                  {formatPercentage(
+                    displayStats.progressPercentage
+                  )}
+                </span>
+              </div>
+
+              <div
+                className="
+                  overflow-hidden
+                  h-2
+                  mt-3
+                  bg-slate-100
+                  rounded-full
+                "
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={
+                  displayStats.progressPercentage
+                }
+                aria-valuetext={formatPercentage(
+                  displayStats.progressPercentage
                 )}
-              </span>
-
-              <span>
-                {formatCurrency(
-                  displayStats.targetAmount,
-                  currency
-                )}
-              </span>
+                aria-label="Overall savings progress"
+              >
+                <div
+                  className="
+                    h-full
+                    bg-slate-900
+                    rounded-full
+                    transition-[width] duration-500 ease-out
+                  "
+                  style={{
+                    width: `${displayStats.progressPercentage}%`,
+                  }}
+                /
+                >
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-      {/* =================================================
-          EMPTY INFORMATION
-      ================================================= */}
+          {/* EMPTY */}
 
-      {!loading &&
-        !errorMessage &&
-        !hasStats && (
-          <div
+          {!loading &&
+            !errorMessage &&
+            !hasStats && (
+              <StatsEmptyState />
+            )}
+        </>
+      )}
+
+      {/* BACKGROUND REFRESH */}
+
+      {loading && hasStats && (
+        <div
+          className="
+            flex justify-center items-center
+            mt-3
+            text-slate-400 text-xs
+            gap-2
+          "
+          role="status"
+          aria-live="polite"
+        >
+          <RefreshCw
+            size={12}
             className="
-              mt-4 p-6
-              text-center
-              bg-slate-50
-              border border-slate-200 border-dashed rounded-2xl
+              animate-spin
             "
+            aria-hidden="true"
+          /
           >
-            <Target
-              size={24}
-              className="
-                mx-auto
-                text-slate-400
-              "
-              /
-            >
 
-            <p
-              className="
-                mt-3
-                font-semibold text-slate-700 text-sm
-              "
-            >
-              No savings activity yet
-            </p>
-
-            <p
-              className="
-                max-w-sm
-                mx-auto mt-1
-                text-slate-500 text-xs leading-5
-              "
-            >
-              Create a savings goal to start
-              tracking your progress.
-            </p>
-          </div>
-        )}
+          Updating goal statistics…
+        </div>
+      )}
     </section>
   );
 };
 
-export default SavingsGoalStats;
+export default memo(SavingsGoalStats);

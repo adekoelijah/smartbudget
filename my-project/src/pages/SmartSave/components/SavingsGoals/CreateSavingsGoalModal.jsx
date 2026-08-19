@@ -1,4 +1,3 @@
-
 import {
   AlertCircle,
   CalendarDays,
@@ -13,6 +12,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -28,10 +28,12 @@ import {
   DEFAULT_CURRENCY,
 } from "../../../../config/smartSaveConfig";
 
-
 /* =========================================================
-   DEFAULT FORM
+   CONSTANTS
 ========================================================= */
+
+const MAX_DESCRIPTION_LENGTH = 500;
+const MAX_CURRENCY_LENGTH = 3;
 
 const DEFAULT_FORM = Object.freeze({
   name: "",
@@ -41,17 +43,43 @@ const DEFAULT_FORM = Object.freeze({
   description: "",
 });
 
-
-
 const EMPTY_ERRORS = Object.freeze({});
+
+const DEFAULT_ERROR_MESSAGE =
+  "Unable to save the savings goal. Please try again.";
+
 /* =========================================================
    SAFE VALUE HELPERS
 ========================================================= */
+
+const isObject = (value) =>
+  value !== null &&
+  typeof value === "object" &&
+  !Array.isArray(value);
 
 const normalizeString = (value) =>
   typeof value === "string"
     ? value.trim()
     : "";
+
+const normalizeCurrency = (
+  value,
+  fallback = DEFAULT_CURRENCY
+) => {
+  const normalized = normalizeString(value)
+    .toUpperCase()
+    .replace(/[^A-Z]/g, "")
+    .slice(0, MAX_CURRENCY_LENGTH);
+
+  return (
+    normalized ||
+    normalizeString(fallback)
+      .toUpperCase()
+      .replace(/[^A-Z]/g, "")
+      .slice(0, MAX_CURRENCY_LENGTH) ||
+    DEFAULT_CURRENCY
+  );
+};
 
 const normalizeAmount = (value) => {
   if (
@@ -69,25 +97,73 @@ const normalizeAmount = (value) => {
     : "";
 };
 
+const normalizeDate = (value) => {
+  if (!value) {
+    return "";
+  }
+
+  const stringValue = String(value);
+
+  const match =
+    stringValue.match(
+      /^(\d{4}-\d{2}-\d{2})/
+    );
+
+  return match
+    ? match[1]
+    : "";
+};
 
 /* =========================================================
-   INITIAL FORM BUILDER
+   ERROR NORMALIZATION
+========================================================= */
+
+const getErrorMessage = (error) => {
+  if (!error) {
+    return DEFAULT_ERROR_MESSAGE;
+  }
+
+  if (typeof error === "string") {
+    return (
+      error.trim() ||
+      DEFAULT_ERROR_MESSAGE
+    );
+  }
+
+  const message =
+    error?.response?.data?.message ??
+    error?.response?.data?.error ??
+    error?.data?.message ??
+    error?.data?.error ??
+    error?.message ??
+    error?.error;
+
+  if (
+    typeof message === "string" &&
+    message.trim()
+  ) {
+    return message.trim();
+  }
+
+  return DEFAULT_ERROR_MESSAGE;
+};
+
+/* =========================================================
+   INITIAL FORM
 ========================================================= */
 
 const buildInitialForm = (
   initialValues,
   currency
 ) => {
-  const source =
-    initialValues &&
-    typeof initialValues === "object"
-      ? initialValues
-      : {};
+  const source = isObject(initialValues)
+    ? initialValues
+    : {};
 
   return {
     name: normalizeString(
-      source.name ||
-        source.title ||
+      source.name ??
+        source.title ??
         ""
     ),
 
@@ -96,30 +172,28 @@ const buildInitialForm = (
       source.amount ??
       "",
 
-    currency:
-      normalizeString(
-        source.currency ||
-          currency ||
-          DEFAULT_CURRENCY
-      ).toUpperCase(),
+    currency: normalizeCurrency(
+      source.currency ??
+        currency ??
+        DEFAULT_CURRENCY,
+      currency || DEFAULT_CURRENCY
+    ),
 
-    targetDate:
+    targetDate: normalizeDate(
       source.targetDate
-        ? String(
-            source.targetDate
-          ).slice(0, 10)
-        : "",
+    ),
 
-    description:
-      normalizeString(
-        source.description
-      ),
+    description: normalizeString(
+      source.description
+    ).slice(
+      0,
+      MAX_DESCRIPTION_LENGTH
+    ),
   };
 };
 
-
 /* =========================================================
-   INITIAL SOURCE KEY
+   SOURCE KEY
 ========================================================= */
 
 const getSourceKey = (
@@ -131,16 +205,81 @@ const getSourceKey = (
     return "closed";
   }
 
+  const sourceId =
+    initialValues?.id ??
+    initialValues?._id ??
+    initialValues?.goalId ??
+    "new";
+
   return [
     "open",
-    initialValues?.id ??
-      initialValues?._id ??
-      initialValues?.goalId ??
-      "new",
-    currency || DEFAULT_CURRENCY,
+    String(sourceId),
+    normalizeCurrency(
+      currency,
+      DEFAULT_CURRENCY
+    ),
   ].join(":");
 };
 
+/* =========================================================
+   VALIDATION NORMALIZER
+========================================================= */
+
+const normalizeValidationResult = (
+  result
+) => {
+  if (result === true) {
+    return {
+      valid: true,
+      errors: EMPTY_ERRORS,
+    };
+  }
+
+  if (!isObject(result)) {
+    return {
+      valid: true,
+      errors: EMPTY_ERRORS,
+    };
+  }
+
+  if (
+    isObject(result.errors)
+  ) {
+    const errors = result.errors;
+
+    return {
+      valid:
+        result.valid !== false &&
+        Object.keys(errors).length === 0,
+      errors,
+    };
+  }
+
+  if (result.valid === false) {
+    return {
+      valid: false,
+      errors: {
+        form:
+          result.message ||
+          "Please review the goal details.",
+      },
+    };
+  }
+
+  if (
+    result.valid === true
+  ) {
+    return {
+      valid: true,
+      errors: EMPTY_ERRORS,
+    };
+  }
+
+  return {
+    valid: true,
+    errors: EMPTY_ERRORS,
+  };
+};
 
 /* =========================================================
    COMPONENT
@@ -166,7 +305,7 @@ const CreateSavingsGoalModal = ({
   className = "",
 }) => {
   /* =======================================================
-     DERIVED INITIAL STATE
+     SOURCE
   ======================================================= */
 
   const sourceKey = useMemo(
@@ -195,13 +334,8 @@ const CreateSavingsGoalModal = ({
     ]
   );
 
-
   /* =======================================================
-     DRAFT FORM
-     
-     IMPORTANT:
-     We do NOT synchronize this state
-     inside useEffect.
+     DRAFT STATE
   ======================================================= */
 
   const [
@@ -213,29 +347,19 @@ const CreateSavingsGoalModal = ({
       initialValues,
       currency
     ),
-
     values: buildInitialForm(
       initialValues,
       currency
     ),
   }));
 
-
-  /* =======================================================
-     DERIVED FORM
-     
-     If the source changes, we immediately use
-     the new initial values without calling setState.
-  ======================================================= */
-
   const form =
     draftState.sourceKey === sourceKey
       ? draftState.values
       : initialForm;
 
-
   /* =======================================================
-     ERROR STATE
+     VALIDATION ERRORS
   ======================================================= */
 
   const [
@@ -247,14 +371,13 @@ const CreateSavingsGoalModal = ({
       initialValues,
       currency
     ),
-
-    values: {},
+    values: EMPTY_ERRORS,
   }));
 
   const errors =
-  errorState.sourceKey === sourceKey
-    ? errorState.values
-    : EMPTY_ERRORS;
+    errorState.sourceKey === sourceKey
+      ? errorState.values
+      : EMPTY_ERRORS;
 
   /* =======================================================
      SUBMISSION STATE
@@ -269,7 +392,6 @@ const CreateSavingsGoalModal = ({
       initialValues,
       currency
     ),
-
     value: false,
   }));
 
@@ -278,9 +400,8 @@ const CreateSavingsGoalModal = ({
       ? submittedState.value
       : false;
 
-
   /* =======================================================
-     SUBMIT ERROR STATE
+     SUBMIT ERROR
   ======================================================= */
 
   const [
@@ -292,7 +413,6 @@ const CreateSavingsGoalModal = ({
       initialValues,
       currency
     ),
-
     value: "",
   }));
 
@@ -301,6 +421,30 @@ const CreateSavingsGoalModal = ({
       ? submitErrorState.value
       : "";
 
+  /* =======================================================
+     REFS
+  ======================================================= */
+
+  const mountedRef =
+    useRef(true);
+
+  const submissionIdRef =
+    useRef(0);
+
+  const nameInputRef =
+    useRef(null);
+
+  /* =======================================================
+     MOUNT TRACKING
+  ======================================================= */
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   /* =======================================================
      FIELD UPDATE
@@ -308,37 +452,58 @@ const CreateSavingsGoalModal = ({
 
   const updateField = useCallback(
     (field, value) => {
-      setDraftState({
-        sourceKey,
-        values: {
-          ...form,
-          [field]: value,
-        },
-      });
+      setDraftState(
+        (previous) => ({
+          sourceKey,
+          values: {
+            ...(previous.sourceKey ===
+            sourceKey
+              ? previous.values
+              : form),
 
-      setErrorState((previous) => ({
-        sourceKey,
-        values:
-          previous.sourceKey === sourceKey
-            ? (() => {
-                if (!previous.values[field]) {
-                  return previous.values;
-                }
+            [field]: value,
+          },
+        })
+      );
 
-                const next = {
-                  ...previous.values,
-                };
+      setErrorState(
+        (previous) => {
+          if (
+            previous.sourceKey !==
+              sourceKey ||
+            !previous.values?.[field]
+          ) {
+            return {
+              sourceKey,
+              values:
+                previous.sourceKey ===
+                sourceKey
+                  ? previous.values
+                  : EMPTY_ERRORS,
+            };
+          }
 
-                delete next[field];
+          const nextErrors = {
+            ...previous.values,
+          };
 
-                return next;
-              })()
-            : {},
-      }));
+          delete nextErrors[field];
+
+          return {
+            sourceKey,
+            values: nextErrors,
+          };
+        }
+      );
 
       setSubmitErrorState({
         sourceKey,
         value: "",
+      });
+
+      setSubmittedState({
+        sourceKey,
+        value: false,
       });
     },
     [
@@ -347,321 +512,8 @@ const CreateSavingsGoalModal = ({
     ]
   );
 
-
   /* =======================================================
-     FORM VALIDATION
-  ======================================================= */
-
-  const validateForm = useCallback(
-    (values) => {
-      try {
-        const result =
-          validateSavingsGoal(values);
-
-        if (result === true) {
-          return {
-            valid: true,
-            errors: {},
-          };
-        }
-
-        if (
-          result &&
-          typeof result === "object"
-        ) {
-          if (
-            result.valid === true &&
-            !result.errors
-          ) {
-            return {
-              valid: true,
-              errors: {},
-            };
-          }
-
-          if (
-            result.errors &&
-            typeof result.errors ===
-              "object"
-          ) {
-            return {
-              valid:
-                result.valid !== false &&
-                Object.keys(
-                  result.errors
-                ).length === 0,
-
-              errors: result.errors,
-            };
-          }
-
-          if (
-            result.valid === false
-          ) {
-            return {
-              valid: false,
-              errors: {
-                form:
-                  result.message ||
-                  "Please review the goal details.",
-              },
-            };
-          }
-        }
-
-        return {
-          valid: true,
-          errors: {},
-        };
-      } catch (error) {
-        return {
-          valid: false,
-          errors: {
-            form:
-              error?.message ||
-              "Unable to validate the savings goal.",
-          },
-        };
-      }
-    },
-    []
-  );
-
-
-  /* =======================================================
-     NORMALIZED PAYLOAD
-  ======================================================= */
-
-  const normalizedPayload = useMemo(
-    () => ({
-      name: normalizeString(
-        form.name
-      ),
-
-      targetAmount:
-        normalizeAmount(
-          form.targetAmount
-        ),
-
-      currency:
-        normalizeString(
-          form.currency
-        ).toUpperCase(),
-
-      targetDate:
-        form.targetDate
-          ? form.targetDate
-          : null,
-
-      description:
-        normalizeString(
-          form.description
-        ) || undefined,
-    }),
-    [form]
-  );
-
-
-  /* =======================================================
-     SUBMIT
-  ======================================================= */
-
-  const handleSubmit = useCallback(
-    async (event) => {
-      event.preventDefault();
-
-      if (loading) {
-        return;
-      }
-
-      setSubmittedState({
-        sourceKey,
-        value: true,
-      });
-
-      setSubmitErrorState({
-        sourceKey,
-        value: "",
-      });
-
-      const validation =
-        validateForm(
-          normalizedPayload
-        );
-
-      if (!validation.valid) {
-        setErrorState({
-          sourceKey,
-          values:
-            validation.errors || {},
-        });
-
-        return;
-      }
-
-      setErrorState({
-        sourceKey,
-        values: {},
-      });
-
-      if (
-        typeof onSubmit !==
-        "function"
-      ) {
-        setSubmitErrorState({
-          sourceKey,
-          value:
-            "Goal creation is not connected to a submission handler.",
-        });
-
-        return;
-      }
-
-      try {
-        await onSubmit(
-          normalizedPayload
-        );
-      } catch (error) {
-        setSubmitErrorState({
-          sourceKey,
-          value:
-            error?.message ||
-            "Unable to create the savings goal. Please try again.",
-        });
-      }
-    },
-    [
-      loading,
-      sourceKey,
-      validateForm,
-      normalizedPayload,
-      onSubmit,
-    ]
-  );
-
-
-  /* =======================================================
-     CLOSE
-  ======================================================= */
-
-  const handleClose = useCallback(() => {
-    if (loading) {
-      return;
-    }
-
-    setDraftState({
-      sourceKey: "closed",
-      values: DEFAULT_FORM,
-    });
-
-    setErrorState({
-      sourceKey: "closed",
-      values: {},
-    });
-
-    setSubmittedState({
-      sourceKey: "closed",
-      value: false,
-    });
-
-    setSubmitErrorState({
-      sourceKey: "closed",
-      value: "",
-    });
-
-    onClose?.();
-  }, [
-    loading,
-    onClose,
-  ]);
-
-
-  /* =======================================================
-     BACKDROP CLICK
-     
-     Declared BEFORE JSX.
-  ======================================================= */
-
-  const handleBackdropMouseDown =
-    useCallback(
-      (event) => {
-        if (
-          event.target ===
-          event.currentTarget
-        ) {
-          handleClose();
-        }
-      },
-      [handleClose]
-    );
-
-
-  /* =======================================================
-     MODAL MOUSE DOWN
-  ======================================================= */
-
-  const handleModalMouseDown =
-    useCallback((event) => {
-      event.stopPropagation();
-    }, []);
-
-
-  /* =======================================================
-     ESCAPE KEY
-  ======================================================= */
-
-  useEffect(() => {
-    if (!open) {
-      return undefined;
-    }
-
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape") {
-        handleClose();
-      }
-    };
-
-    document.addEventListener(
-      "keydown",
-      handleKeyDown
-    );
-
-    return () => {
-      document.removeEventListener(
-        "keydown",
-        handleKeyDown
-      );
-    };
-  }, [
-    open,
-    handleClose,
-  ]);
-
-
-  /* =======================================================
-     BODY SCROLL LOCK
-  ======================================================= */
-
-  useEffect(() => {
-    if (!open) {
-      return undefined;
-    }
-
-    const previousOverflow =
-      document.body.style.overflow;
-
-    document.body.style.overflow =
-      "hidden";
-
-    return () => {
-      document.body.style.overflow =
-        previousOverflow;
-    };
-  }, [open]);
-
-
-  /* =======================================================
-     ERROR HELPER
+     FIELD ERROR
   ======================================================= */
 
   const getFieldError = useCallback(
@@ -684,13 +536,343 @@ const CreateSavingsGoalModal = ({
     [errors]
   );
 
+  /* =======================================================
+     NORMALIZED PAYLOAD
+  ======================================================= */
+
+  const normalizedPayload =
+    useMemo(
+      () => ({
+        name: normalizeString(
+          form.name
+        ),
+
+        targetAmount:
+          normalizeAmount(
+            form.targetAmount
+          ),
+
+        currency: normalizeCurrency(
+          form.currency,
+          currency
+        ),
+
+        targetDate:
+          normalizeDate(
+            form.targetDate
+          ) || null,
+
+        description:
+          normalizeString(
+            form.description
+          ) || undefined,
+      }),
+      [
+        form,
+        currency,
+      ]
+    );
 
   /* =======================================================
-     DERIVED VALUES
+     VALIDATION
+  ======================================================= */
+
+  const validateForm = useCallback(
+    (values) => {
+      try {
+        return normalizeValidationResult(
+          validateSavingsGoal(values)
+        );
+      } catch (error) {
+        return {
+          valid: false,
+          errors: {
+            form:
+              getErrorMessage(
+                error
+              ),
+          },
+        };
+      }
+    },
+    []
+  );
+
+  /* =======================================================
+     SUBMIT
+  ======================================================= */
+
+  const handleSubmit = useCallback(
+    async (event) => {
+      event.preventDefault();
+
+      if (
+        loading ||
+        !open
+      ) {
+        return;
+      }
+
+      const validation =
+        validateForm(
+          normalizedPayload
+        );
+
+      setSubmittedState({
+        sourceKey,
+        value: true,
+      });
+
+      setSubmitErrorState({
+        sourceKey,
+        value: "",
+      });
+
+      if (!validation.valid) {
+        setErrorState({
+          sourceKey,
+          values:
+            validation.errors ||
+            EMPTY_ERRORS,
+        });
+
+        return;
+      }
+
+      setErrorState({
+        sourceKey,
+        values: EMPTY_ERRORS,
+      });
+
+      if (
+        typeof onSubmit !==
+        "function"
+      ) {
+        setSubmitErrorState({
+          sourceKey,
+          value:
+            "Goal submission is not configured.",
+        });
+
+        return;
+      }
+
+      const submissionId =
+        ++submissionIdRef.current;
+
+      try {
+        const result =
+          await onSubmit(
+            normalizedPayload
+          );
+
+        /*
+         * Treat explicit false as a failed submission.
+         * This lets a parent deliberately prevent completion
+         * without throwing.
+         */
+        if (
+          result === false
+        ) {
+          throw new Error(
+            DEFAULT_ERROR_MESSAGE
+          );
+        }
+
+        /*
+         * Ignore late async results if the component has
+         * unmounted or another submission has started.
+         */
+        if (
+          !mountedRef.current ||
+          submissionId !==
+            submissionIdRef.current
+        ) {
+          return;
+        }
+      } catch (error) {
+        if (
+          !mountedRef.current ||
+          submissionId !==
+            submissionIdRef.current
+        ) {
+          return;
+        }
+
+        setSubmitErrorState({
+          sourceKey,
+          value:
+            getErrorMessage(
+              error
+            ),
+        });
+      }
+    },
+    [
+      loading,
+      open,
+      validateForm,
+      normalizedPayload,
+      onSubmit,
+      sourceKey,
+    ]
+  );
+
+  /* =======================================================
+     CLOSE
+  ======================================================= */
+
+  const handleClose = useCallback(() => {
+    if (loading) {
+      return;
+    }
+
+    ++submissionIdRef.current;
+
+    setDraftState({
+      sourceKey: "closed",
+      values: DEFAULT_FORM,
+    });
+
+    setErrorState({
+      sourceKey: "closed",
+      values: EMPTY_ERRORS,
+    });
+
+    setSubmittedState({
+      sourceKey: "closed",
+      value: false,
+    });
+
+    setSubmitErrorState({
+      sourceKey: "closed",
+      value: "",
+    });
+
+    onClose?.();
+  }, [
+    loading,
+    onClose,
+  ]);
+
+  /* =======================================================
+     BACKDROP
+  ======================================================= */
+
+  const handleBackdropMouseDown =
+    useCallback(
+      (event) => {
+        if (
+          event.target ===
+          event.currentTarget
+        ) {
+          handleClose();
+        }
+      },
+      [handleClose]
+    );
+
+  /* =======================================================
+     MODAL MOUSE DOWN
+  ======================================================= */
+
+  const handleModalMouseDown =
+    useCallback(
+      (event) => {
+        event.stopPropagation();
+      },
+      []
+    );
+
+  /* =======================================================
+     ESCAPE
+  ======================================================= */
+
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+
+    const handleKeyDown =
+      (event) => {
+        if (
+          event.key ===
+          "Escape"
+        ) {
+          event.preventDefault();
+          handleClose();
+        }
+      };
+
+    document.addEventListener(
+      "keydown",
+      handleKeyDown
+    );
+
+    return () => {
+      document.removeEventListener(
+        "keydown",
+        handleKeyDown
+      );
+    };
+  }, [
+    open,
+    handleClose,
+  ]);
+
+  /* =======================================================
+     BODY SCROLL LOCK
+  ======================================================= */
+
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+
+    const body =
+      document.body;
+
+    const previousOverflow =
+      body.style.overflow;
+
+    body.style.overflow =
+      "hidden";
+
+    return () => {
+      body.style.overflow =
+        previousOverflow;
+    };
+  }, [open]);
+
+  /* =======================================================
+     INITIAL FOCUS
+  ======================================================= */
+
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+
+    const timer =
+      window.setTimeout(() => {
+        nameInputRef.current?.focus();
+      }, 0);
+
+    return () => {
+      window.clearTimeout(
+        timer
+      );
+    };
+  }, [open, sourceKey]);
+
+  /* =======================================================
+     DERIVED DISPLAY VALUES
   ======================================================= */
 
   const targetAmountNumber =
-    Number(form.targetAmount);
+    Number(
+      form.targetAmount
+    );
 
   const formattedTargetAmount =
     Number.isFinite(
@@ -703,15 +885,58 @@ const CreateSavingsGoalModal = ({
         )
       : "";
 
+  /*
+   * Use local calendar date instead of UTC-based
+   * toISOString(), avoiding timezone edge cases.
+   */
+  const today = useMemo(() => {
+    const date =
+      new Date();
 
-  const today = useMemo(
-    () =>
-      new Date()
-        .toISOString()
-        .slice(0, 10),
-    []
-  );
+    const year =
+      date.getFullYear();
 
+    const month =
+      String(
+        date.getMonth() + 1
+      ).padStart(2, "0");
+
+    const day =
+      String(
+        date.getDate()
+      ).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+  }, []);
+
+  const nameError =
+    getFieldError("name");
+
+  const targetAmountError =
+    getFieldError(
+      "targetAmount"
+    );
+
+  const targetDateError =
+    getFieldError(
+      "targetDate"
+    );
+
+  const currencyError =
+    getFieldError(
+      "currency"
+    );
+
+  const descriptionError =
+    getFieldError(
+      "description"
+    );
+
+  const formError =
+    getFieldError("form");
+
+  const isBusy =
+    Boolean(loading);
 
   /* =======================================================
      RENDER
@@ -721,11 +946,10 @@ const CreateSavingsGoalModal = ({
     return null;
   }
 
-
   return (
     <div
       className="
-        z-[100] fixed inset-0 flex justify-center items-center
+        fixed inset-0 z-[100] flex items-center justify-center
         p-4 sm:p-6
       "
       role="presentation"
@@ -745,13 +969,14 @@ const CreateSavingsGoalModal = ({
       /
       >
 
-
       {/* Modal */}
 
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-savings-goal-title"
+        aria-describedby="create-savings-goal-description"
+        aria-busy={isBusy}
         className={`
           relative z-10
           w-full max-w-lg
@@ -767,11 +992,13 @@ const CreateSavingsGoalModal = ({
           handleModalMouseDown
         }
       >
-        {/* Header */}
+        {/* =================================================
+            HEADER
+        ================================================= */}
 
         <div
           className="
-            flex justify-between items-start
+            flex items-start justify-between
             px-5 sm:px-6 py-4
             border-slate-200 border-b
             gap-4
@@ -786,13 +1013,14 @@ const CreateSavingsGoalModal = ({
           >
             <div
               className="
-                flex justify-center items-center
+                flex items-center justify-center
                 w-10 h-10
                 text-blue-600
                 bg-blue-50
                 rounded-xl
                 shrink-0
               "
+              aria-hidden="true"
             >
               <Target
                 size={20}
@@ -815,6 +1043,7 @@ const CreateSavingsGoalModal = ({
               </h2>
 
               <p
+                id="create-savings-goal-description"
                 className="
                   mt-1
                   text-slate-500 text-sm leading-5
@@ -830,25 +1059,29 @@ const CreateSavingsGoalModal = ({
           <button
             type="button"
             onClick={handleClose}
-            disabled={loading}
-            aria-label="Close"
+            disabled={isBusy}
+            aria-label="Close savings goal dialog"
             className="
-              flex justify-center items-center
+              flex items-center justify-center
               w-9 h-9
               text-slate-500 hover:text-slate-700
               hover:bg-slate-100
-              rounded-lg
-              disabled:opacity-50 transition
+              rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400/40
+              disabled:opacity-50
               disabled:cursor-not-allowed
               shrink-0
             "
           >
-            <X size={18} />
+            <X
+              size={18}
+              aria-hidden="true"
+            />
           </button>
         </div>
 
-
-        {/* Form */}
+        {/* =================================================
+            FORM
+        ================================================= */}
 
         <form
           onSubmit={handleSubmit}
@@ -859,7 +1092,7 @@ const CreateSavingsGoalModal = ({
         >
           {/* General error */}
 
-          {(errors.form ||
+          {(formError ||
             submitError) && (
             <div
               role="alert"
@@ -878,18 +1111,20 @@ const CreateSavingsGoalModal = ({
                   mt-0.5
                   shrink-0
                 "
-                /
+                aria-hidden="true"
+              /
               >
 
               <span>
                 {submitError ||
-                  errors.form}
+                  formError}
               </span>
             </div>
           )}
 
-
-          {/* Goal name */}
+          {/* =================================================
+              GOAL NAME
+          ================================================= */}
 
           <div>
             <label
@@ -904,6 +1139,7 @@ const CreateSavingsGoalModal = ({
             </label>
 
             <input
+              ref={nameInputRef}
               id="saving-goal-name"
               type="text"
               value={form.name}
@@ -915,19 +1151,36 @@ const CreateSavingsGoalModal = ({
               }
               placeholder="e.g. Emergency fund"
               autoComplete="off"
-              disabled={loading}
-              aria-invalid={Boolean(
-                getFieldError("name")
-              )}
+              disabled={isBusy}
+              maxLength={100}
+              aria-invalid={
+                Boolean(nameError)
+              }
               aria-describedby={
-                getFieldError("name")
+                nameError
                   ? "saving-goal-name-error"
                   : undefined
               }
-              className="bg-white disabled:bg-slate-50 px-4 py-3 border border-slate-300 focus:border-blue-500 rounded-xl outline-none focus:ring-4 focus:ring-blue-500/10 w-full text-slate-900 placeholder:text-slate-400 text-sm transition disabled:cursor-not-allowed"
+              className="
+                w-full
+                px-4 py-3
+                bg-white
+                border border-slate-300
+                rounded-xl
+                text-slate-900
+                text-sm
+                placeholder:text-slate-400
+                outline-none
+                focus:border-blue-500
+                focus:ring-4
+                focus:ring-blue-500/10
+                disabled:bg-slate-50
+                disabled:cursor-not-allowed
+                transition
+              "
             />
 
-            {getFieldError("name") && (
+            {nameError && (
               <p
                 id="saving-goal-name-error"
                 className="
@@ -935,13 +1188,14 @@ const CreateSavingsGoalModal = ({
                   text-red-600 text-xs
                 "
               >
-                {getFieldError("name")}
+                {nameError}
               </p>
             )}
           </div>
 
-
-          {/* Amount + currency */}
+          {/* =================================================
+              AMOUNT + CURRENCY
+          ================================================= */}
 
           <div
             className="
@@ -949,6 +1203,8 @@ const CreateSavingsGoalModal = ({
               gap-4
             "
           >
+            {/* Amount */}
+
             <div>
               <label
                 htmlFor="saving-goal-target"
@@ -969,12 +1225,13 @@ const CreateSavingsGoalModal = ({
                 <Wallet
                   size={17}
                   className="
-                    top-1/2 left-3 absolute
+                    absolute top-1/2 left-3
                     text-slate-400
                     pointer-events-none
                     -translate-y-1/2
                   "
-                  /
+                  aria-hidden="true"
+                /
                 >
 
                 <input
@@ -993,40 +1250,60 @@ const CreateSavingsGoalModal = ({
                     )
                   }
                   placeholder="0.00"
-                  disabled={loading}
-                  aria-invalid={Boolean(
-                    getFieldError(
-                      "targetAmount"
+                  disabled={isBusy}
+                  aria-invalid={
+                    Boolean(
+                      targetAmountError
                     )
-                  )}
-                  className="bg-white disabled:bg-slate-50 py-3 pr-4 pl-10 border border-slate-300 focus:border-blue-500 rounded-xl outline-none focus:ring-4 focus:ring-blue-500/10 w-full text-slate-900 placeholder:text-slate-400 text-sm transition disabled:cursor-not-allowed"
+                  }
+                  aria-describedby={
+                    targetAmountError
+                      ? "saving-goal-target-error"
+                      : formattedTargetAmount
+                        ? "saving-goal-target-preview"
+                        : undefined
+                  }
+                  className="
+                    w-full
+                    py-3 pr-4 pl-10
+                    bg-white
+                    border border-slate-300
+                    rounded-xl
+                    text-slate-900
+                    text-sm
+                    placeholder:text-slate-400
+                    outline-none
+                    focus:border-blue-500
+                    focus:ring-4
+                    focus:ring-blue-500/10
+                    disabled:bg-slate-50
+                    disabled:cursor-not-allowed
+                    transition
+                  "
                 />
               </div>
 
-              {getFieldError(
-                "targetAmount"
-              ) && (
+              {targetAmountError && (
                 <p
+                  id="saving-goal-target-error"
                   className="
                     mt-1.5
                     text-red-600 text-xs
                   "
                 >
-                  {getFieldError(
-                    "targetAmount"
-                  )}
+                  {targetAmountError}
                 </p>
               )}
 
               {formattedTargetAmount && (
                 <p
+                  id="saving-goal-target-preview"
                   className="
                     mt-1.5
                     text-slate-500 text-xs
                   "
                 >
                   Target:{" "}
-
                   <span
                     className="
                       font-medium
@@ -1040,6 +1317,7 @@ const CreateSavingsGoalModal = ({
               )}
             </div>
 
+            {/* Currency */}
 
             <div>
               <label
@@ -1062,18 +1340,68 @@ const CreateSavingsGoalModal = ({
                     "currency",
                     event.target.value
                       .toUpperCase()
-                      .slice(0, 3)
+                      .replace(
+                        /[^A-Z]/g,
+                        ""
+                      )
+                      .slice(
+                        0,
+                        MAX_CURRENCY_LENGTH
+                      )
                   )
                 }
-                maxLength={3}
-                disabled={loading}
-                className="bg-white disabled:bg-slate-50 px-4 py-3 border border-slate-300 focus:border-blue-500 rounded-xl outline-none focus:ring-4 focus:ring-blue-500/10 w-full font-medium text-slate-900 text-sm uppercase transition disabled:cursor-not-allowed"
+                maxLength={
+                  MAX_CURRENCY_LENGTH
+                }
+                autoComplete="off"
+                disabled={isBusy}
+                aria-invalid={
+                  Boolean(
+                    currencyError
+                  )
+                }
+                aria-describedby={
+                  currencyError
+                    ? "saving-goal-currency-error"
+                    : undefined
+                }
+                className="
+                  w-full
+                  px-4 py-3
+                  bg-white
+                  border border-slate-300
+                  rounded-xl
+                  text-slate-900
+                  text-sm
+                  font-medium
+                  uppercase
+                  outline-none
+                  focus:border-blue-500
+                  focus:ring-4
+                  focus:ring-blue-500/10
+                  disabled:bg-slate-50
+                  disabled:cursor-not-allowed
+                  transition
+                "
               />
+
+              {currencyError && (
+                <p
+                  id="saving-goal-currency-error"
+                  className="
+                    mt-1.5
+                    text-red-600 text-xs
+                  "
+                >
+                  {currencyError}
+                </p>
+              )}
             </div>
           </div>
 
-
-          {/* Target date */}
+          {/* =================================================
+              TARGET DATE
+          ================================================= */}
 
           <div>
             <label
@@ -1104,48 +1432,74 @@ const CreateSavingsGoalModal = ({
               <CalendarDays
                 size={17}
                 className="
-                  top-1/2 left-3 absolute
+                  absolute top-1/2 left-3
                   text-slate-400
                   pointer-events-none
                   -translate-y-1/2
                 "
-                /
+                aria-hidden="true"
+              /
               >
 
               <input
                 id="saving-goal-date"
                 type="date"
-                value={form.targetDate}
+                value={
+                  form.targetDate
+                }
                 onChange={(event) =>
                   updateField(
                     "targetDate",
                     event.target.value
                   )
                 }
-                disabled={loading}
+                disabled={isBusy}
                 min={today}
-                className="bg-white disabled:bg-slate-50 px-4 py-3 pl-10 border border-slate-300 focus:border-blue-500 rounded-xl outline-none focus:ring-4 focus:ring-blue-500/10 w-full text-slate-900 text-sm transition disabled:cursor-not-allowed"
+                aria-invalid={
+                  Boolean(
+                    targetDateError
+                  )
+                }
+                aria-describedby={
+                  targetDateError
+                    ? "saving-goal-date-error"
+                    : undefined
+                }
+                className="
+                  w-full
+                  py-3 pr-4 pl-10
+                  bg-white
+                  border border-slate-300
+                  rounded-xl
+                  text-slate-900
+                  text-sm
+                  outline-none
+                  focus:border-blue-500
+                  focus:ring-4
+                  focus:ring-blue-500/10
+                  disabled:bg-slate-50
+                  disabled:cursor-not-allowed
+                  transition
+                "
               />
             </div>
 
-            {getFieldError(
-              "targetDate"
-            ) && (
+            {targetDateError && (
               <p
+                id="saving-goal-date-error"
                 className="
                   mt-1.5
                   text-red-600 text-xs
                 "
               >
-                {getFieldError(
-                  "targetDate"
-                )}
+                {targetDateError}
               </p>
             )}
           </div>
 
-
-          {/* Description */}
+          {/* =================================================
+              DESCRIPTION
+          ================================================= */}
 
           <div>
             <label
@@ -1170,59 +1524,114 @@ const CreateSavingsGoalModal = ({
 
             <textarea
               id="saving-goal-description"
-              value={form.description}
+              value={
+                form.description
+              }
               onChange={(event) =>
                 updateField(
                   "description",
-                  event.target.value
+                  event.target.value.slice(
+                    0,
+                    MAX_DESCRIPTION_LENGTH
+                  )
                 )
               }
               rows={3}
-              maxLength={500}
+              maxLength={
+                MAX_DESCRIPTION_LENGTH
+              }
               placeholder="What are you saving this money for?"
-              disabled={loading}
-              className="bg-white disabled:bg-slate-50 px-4 py-3 border border-slate-300 focus:border-blue-500 rounded-xl outline-none focus:ring-4 focus:ring-blue-500/10 w-full text-slate-900 placeholder:text-slate-400 text-sm leading-5 transition resize-none disabled:cursor-not-allowed"
+              disabled={isBusy}
+              aria-invalid={
+                Boolean(
+                  descriptionError
+                )
+              }
+              aria-describedby={
+                descriptionError
+                  ? "saving-goal-description-error"
+                  : undefined
+              }
+              className="
+                w-full
+                px-4 py-3
+                bg-white
+                border border-slate-300
+                rounded-xl
+                text-slate-900
+                text-sm
+                leading-5
+                placeholder:text-slate-400
+                outline-none
+                focus:border-blue-500
+                focus:ring-4
+                focus:ring-blue-500/10
+                disabled:bg-slate-50
+                disabled:cursor-not-allowed
+                transition
+                resize-none
+              "
             />
 
             <div
               className="
-                flex justify-end
+                flex justify-between
                 mt-1
               "
             >
+              {descriptionError ? (
+                <p
+                  id="saving-goal-description-error"
+                  className="
+                    text-red-600 text-xs
+                  "
+                >
+                  {descriptionError}
+                </p>
+              ) : (
+                <span />
+              )}
+
               <span
                 className="
                   text-slate-400 text-xs
                 "
+                aria-label={`${form.description.length} of ${MAX_DESCRIPTION_LENGTH} characters`}
               >
                 {
                   form.description.length
                 }
-                /500
+                /
+                {
+                  MAX_DESCRIPTION_LENGTH
+                }
               </span>
             </div>
           </div>
 
-
-          {/* Confirmation indicator */}
+          {/* =================================================
+              VALIDATION SUCCESS
+          ================================================= */}
 
           {submitted &&
-            Object.keys(errors)
-              .length === 0 &&
+            Object.keys(errors).length ===
+              0 &&
             !submitError &&
-            !loading && (
+            !isBusy && (
               <div
                 className="
                   flex items-center
                   px-4 py-3
                   text-emerald-700 text-sm
                   bg-emerald-50
-                  rounded-xl
+                  border border-emerald-100 rounded-xl
                   gap-2
                 "
+                role="status"
               >
                 <CheckCircle2
                   size={17}
+                  aria-hidden="true"
                 />
 
                 <span>
@@ -1231,8 +1640,9 @@ const CreateSavingsGoalModal = ({
               </div>
             )}
 
-
-          {/* Actions */}
+          {/* =================================================
+              ACTIONS
+          ================================================= */}
 
           <div
             className="
@@ -1245,12 +1655,13 @@ const CreateSavingsGoalModal = ({
             <button
               type="button"
               onClick={handleClose}
-              disabled={loading}
+              disabled={isBusy}
               className="
                 px-5 py-3
                 font-medium text-slate-700 text-sm
                 bg-white hover:bg-slate-50
-                border border-slate-300 rounded-xl
+                border border-slate-300 rounded-xl focus:outline-none
+                focus:ring-2 focus:ring-slate-400/30
                 disabled:opacity-50 transition
                 disabled:cursor-not-allowed
               "
@@ -1260,9 +1671,9 @@ const CreateSavingsGoalModal = ({
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={isBusy}
               className="
-                inline-flex justify-center items-center
+                inline-flex items-center justify-center
                 px-5 py-3
                 font-semibold text-white text-sm
                 bg-blue-600 hover:bg-blue-700
@@ -1273,25 +1684,31 @@ const CreateSavingsGoalModal = ({
                 gap-2
               "
             >
-              {loading ? (
+              {isBusy ? (
                 <>
                   <Loader2
                     size={17}
                     className="
                       animate-spin
                     "
-                    /
+                    aria-hidden="true"
+                  /
                   >
 
-                  Creating...
+                  <span>
+                    Creating...
+                  </span>
                 </>
               ) : (
                 <>
                   <Target
                     size={17}
+                    aria-hidden="true"
                   />
 
-                  {submitLabel}
+                  <span>
+                    {submitLabel}
+                  </span>
                 </>
               )}
             </button>
@@ -1301,6 +1718,5 @@ const CreateSavingsGoalModal = ({
     </div>
   );
 };
-
 
 export default CreateSavingsGoalModal;

@@ -1,10 +1,12 @@
+import {
+  useId,
+  useMemo,
+} from "react";
 
-import { useMemo } from "react";
 import {
   AlertTriangle,
   CalendarDays,
   Info,
-  Loader2,
   RefreshCw,
   Target,
   TrendingUp,
@@ -25,7 +27,6 @@ import useSavingsForecast from "../../../../hooks/useSavingsForecast";
 
 import {
   formatCurrency,
-  // formatDate,
 } from "../../../../utils/smartSave/savingsFormatters";
 
 import {
@@ -33,8 +34,29 @@ import {
 } from "../../../../utils/smartSave/savingsNormalizers";
 
 /* =========================================================
+   CONSTANTS
+========================================================= */
+
+const DEFAULT_CURRENCY = "NGN";
+const DEFAULT_LOCALE = "en-NG";
+
+const DEFAULT_HEIGHT = 280;
+const MIN_HEIGHT = 180;
+const MAX_HEIGHT = 600;
+
+const DEFAULT_TITLE = "Savings Projection";
+
+const DEFAULT_DESCRIPTION =
+  "Projected savings growth toward your target.";
+
+/* =========================================================
    SAFE HELPERS
 ========================================================= */
+
+const isObject = (value) =>
+  value !== null &&
+  typeof value === "object" &&
+  !Array.isArray(value);
 
 const firstDefined = (...values) =>
   values.find(
@@ -44,7 +66,10 @@ const firstDefined = (...values) =>
       value !== ""
   );
 
-const toNumber = (value, fallback = 0) => {
+const toNumber = (
+  value,
+  fallback = 0
+) => {
   const number = Number(value);
 
   return Number.isFinite(number)
@@ -52,59 +77,162 @@ const toNumber = (value, fallback = 0) => {
     : fallback;
 };
 
-const clamp = (value, min = 0, max = 100) =>
+const clamp = (
+  value,
+  min = 0,
+  max = 100
+) =>
   Math.min(
     max,
-    Math.max(min, toNumber(value))
+    Math.max(
+      min,
+      toNumber(value)
+    )
   );
+
+const normalizeString = (
+  value,
+  fallback = ""
+) =>
+  typeof value === "string" &&
+  value.trim()
+    ? value.trim()
+    : fallback;
+
+const normalizeCurrency = (
+  value
+) =>
+  normalizeString(
+    value,
+    DEFAULT_CURRENCY
+  ).toUpperCase();
+
+const normalizeLocale = (
+  value
+) =>
+  normalizeString(
+    value,
+    DEFAULT_LOCALE
+  );
+
+/* =========================================================
+   ERROR MESSAGE
+========================================================= */
+
+const normalizeErrorMessage = (
+  error
+) => {
+  if (!error) {
+    return "Something went wrong while preparing the savings projection.";
+  }
+
+  if (typeof error === "string") {
+    return (
+      error.trim() ||
+      "Something went wrong while preparing the savings projection."
+    );
+  }
+
+  if (error instanceof Error) {
+    return (
+      error.message?.trim() ||
+      "Something went wrong while preparing the savings projection."
+    );
+  }
+
+  if (isObject(error)) {
+    const message =
+      error?.response?.data?.message ||
+      error?.response?.data?.error ||
+      error?.data?.message ||
+      error?.data?.error ||
+      error?.message ||
+      error?.error;
+
+    if (
+      typeof message === "string" &&
+      message.trim()
+    ) {
+      return message.trim();
+    }
+  }
+
+  return "Something went wrong while preparing the savings projection.";
+};
 
 /* =========================================================
    DATE HELPERS
 ========================================================= */
 
-const parseDate = (value) => {
-  if (!value) return null;
+const parseDate = (
+  value
+) => {
+  if (!value) {
+    return null;
+  }
 
-  const date = new Date(value);
+  const date =
+    value instanceof Date
+      ? new Date(value.getTime())
+      : new Date(value);
 
-  return Number.isNaN(date.getTime())
+  return Number.isNaN(
+    date.getTime()
+  )
     ? null
     : date;
 };
 
-const formatChartDate = (value) => {
+const getTimestamp = (
+  value,
+  fallback = Number.MAX_SAFE_INTEGER
+) => {
+  const date = parseDate(value);
+
+  return date
+    ? date.getTime()
+    : fallback;
+};
+
+const formatChartDate = (
+  value,
+  locale = DEFAULT_LOCALE
+) => {
   const date = parseDate(value);
 
   if (!date) {
     return "—";
   }
 
-  return new Intl.DateTimeFormat(
-    undefined,
-    {
-      month: "short",
-      day: "numeric",
-    }
-  ).format(date);
-};
-
-const getTimestamp = (value) => {
-  const date = parseDate(value);
-
-  return date
-    ? date.getTime()
-    : Number.MAX_SAFE_INTEGER;
+  try {
+    return new Intl.DateTimeFormat(
+      locale,
+      {
+        month: "short",
+        day: "numeric",
+      }
+    ).format(date);
+  } catch {
+    return new Intl.DateTimeFormat(
+      DEFAULT_LOCALE,
+      {
+        month: "short",
+        day: "numeric",
+      }
+    ).format(date);
+  }
 };
 
 /* =========================================================
-   FORECAST POINT NORMALIZER
+   PROJECTION POINT
 ========================================================= */
 
 const normalizeProjectionPoint = (
   point,
-  index
+  index,
+  locale
 ) => {
-  if (!point) {
+  if (!isObject(point)) {
     return null;
   }
 
@@ -117,39 +245,56 @@ const normalizeProjectionPoint = (
     point.at
   );
 
-  const projectedAmount = toNumber(
-    firstDefined(
-      point.projectedAmount,
-      point.amount,
-      point.balance,
-      point.projectedBalance,
-      point.value,
-      point.total
+  const projectedAmount = Math.max(
+    0,
+    toNumber(
+      firstDefined(
+        point.projectedAmount,
+        point.amount,
+        point.balance,
+        point.projectedBalance,
+        point.value,
+        point.total
+      )
     )
   );
 
-  const targetAmount = toNumber(
-    firstDefined(
-      point.targetAmount,
-      point.target,
-      point.goalAmount
+  const targetAmount = Math.max(
+    0,
+    toNumber(
+      firstDefined(
+        point.targetAmount,
+        point.target,
+        point.goalAmount
+      )
     )
+  );
+
+  const timestamp =
+    getTimestamp(date);
+
+  const rawId = firstDefined(
+    point.id,
+    point._id,
+    point.key
   );
 
   return {
     id:
-      point.id ||
-      point._id ||
-      `${date || "point"}-${index}`,
+      rawId !== undefined
+        ? String(rawId)
+        : `${timestamp}-${index}`,
 
-    date,
+    date: date || null,
 
-    timestamp: getTimestamp(date),
+    timestamp,
 
-    label:
-      date
-        ? formatChartDate(date)
-        : `Period ${index + 1}`,
+    label: date
+      ? formatChartDate(
+          date,
+          locale
+        )
+      : `Period ${index + 1}`,
 
     projectedAmount,
 
@@ -158,13 +303,14 @@ const normalizeProjectionPoint = (
 };
 
 /* =========================================================
-   EXTRACT PROJECTION SERIES
+   PROJECTION SERIES
 ========================================================= */
 
 const extractProjectionSeries = (
-  forecast
+  forecast,
+  locale
 ) => {
-  if (!forecast) {
+  if (!isObject(forecast)) {
     return [];
   }
 
@@ -182,12 +328,55 @@ const extractProjectionSeries = (
   }
 
   return source
-    .map(normalizeProjectionPoint)
+    .map(
+      (point, index) =>
+        normalizeProjectionPoint(
+          point,
+          index,
+          locale
+        )
+    )
     .filter(Boolean)
     .sort(
       (a, b) =>
-        a.timestamp - b.timestamp
+        a.timestamp -
+        b.timestamp
     );
+};
+
+/* =========================================================
+   FORMAT CURRENCY
+========================================================= */
+
+const safeFormatCurrency = (
+  value,
+  currency,
+  locale
+) => {
+  const amount = toNumber(value);
+
+  try {
+    return formatCurrency(
+      amount,
+      currency,
+      locale
+    );
+  } catch {
+    try {
+      return new Intl.NumberFormat(
+        locale,
+        {
+          style: "currency",
+          currency,
+          maximumFractionDigits: 0,
+        }
+      ).format(amount);
+    } catch {
+      return `${currency} ${amount.toLocaleString(
+        locale
+      )}`;
+    }
+  }
 };
 
 /* =========================================================
@@ -198,24 +387,26 @@ const ProjectionTooltip = ({
   active,
   payload,
   label,
+  currency,
+  locale,
 }) => {
   if (
     !active ||
-    !payload ||
-    !payload.length
+    !Array.isArray(payload) ||
+    payload.length === 0
   ) {
     return null;
   }
 
   const projected = payload.find(
     (item) =>
-      item.dataKey ===
+      item?.dataKey ===
       "projectedAmount"
   );
 
   const target = payload.find(
     (item) =>
-      item.dataKey ===
+      item?.dataKey ===
       "targetAmount"
   );
 
@@ -235,7 +426,7 @@ const ProjectionTooltip = ({
           font-semibold text-slate-900 text-xs
         "
       >
-        {label}
+        {label || "Projection"}
       </p>
 
       {projected ? (
@@ -259,8 +450,10 @@ const ProjectionTooltip = ({
               font-semibold text-slate-900
             "
           >
-            {formatCurrency(
-              projected.value
+            {safeFormatCurrency(
+              projected.value,
+              currency,
+              locale
             )}
           </span>
         </div>
@@ -288,8 +481,10 @@ const ProjectionTooltip = ({
               font-semibold text-slate-700
             "
           >
-            {formatCurrency(
-              target.value
+            {safeFormatCurrency(
+              target.value,
+              currency,
+              locale
             )}
           </span>
         </div>
@@ -299,11 +494,16 @@ const ProjectionTooltip = ({
 };
 
 /* =========================================================
-   SKELETON
+   LOADING
 ========================================================= */
 
-const ChartSkeleton = () => (
+const ChartSkeleton = ({
+  height,
+}) => (
   <div
+    role="status"
+    aria-label="Loading savings projection"
+    aria-busy="true"
     className="
       animate-pulse
     "
@@ -320,21 +520,34 @@ const ChartSkeleton = () => (
 
     <div
       className="
-        h-[260px]
+        w-full
         bg-slate-100
         rounded-xl
       "
-      /
+      style={{
+        height,
+      }}
+    /
     >
+
+    <span
+      className="
+        sr-only
+      "
+    >
+      Loading savings projection.
+      Please wait.
+    </span>
   </div>
 );
 
 /* =========================================================
-   EMPTY STATE
+   EMPTY
 ========================================================= */
 
 const EmptyProjection = () => (
   <div
+    role="status"
     className="
       flex flex-col justify-center items-center
       min-h-[260px]
@@ -353,6 +566,7 @@ const EmptyProjection = () => (
         rounded-full
         shadow-sm
       "
+      aria-hidden="true"
     >
       <TrendingUp
         size={20}
@@ -378,15 +592,15 @@ const EmptyProjection = () => (
         text-slate-500 text-xs leading-5
       "
     >
-      A projection chart will appear when your
-      SmartSave forecast contains enough timeline
-      data.
+      A projection chart will appear when
+      your SmartSave forecast contains
+      enough timeline data.
     </p>
   </div>
 );
 
 /* =========================================================
-   ERROR STATE
+   ERROR
 ========================================================= */
 
 const ProjectionError = ({
@@ -394,6 +608,8 @@ const ProjectionError = ({
   onRetry,
 }) => (
   <div
+    role="alert"
+    aria-live="assertive"
     className="
       flex justify-center items-center
       min-h-[260px]
@@ -408,14 +624,24 @@ const ProjectionError = ({
         text-center
       "
     >
-      <AlertTriangle
-        size={22}
+      <div
         className="
+          flex justify-center items-center
+          w-10 h-10
           mx-auto
-          text-red-600
+          bg-red-100
+          rounded-full
         "
-        /
+        aria-hidden="true"
       >
+        <AlertTriangle
+          size={20}
+          className="
+            text-red-600
+          "
+          /
+        >
+      </div>
 
       <h4
         className="
@@ -432,18 +658,16 @@ const ProjectionError = ({
           text-red-700 text-xs leading-5
         "
       >
-        {typeof error === "string"
-          ? error
-          : error?.message ||
-            "Something went wrong while preparing the savings projection."}
+        {normalizeErrorMessage(error)}
       </p>
 
-      {onRetry ? (
+      {typeof onRetry === "function" ? (
         <button
           type="button"
           onClick={onRetry}
           className="
-            inline-flex items-center
+            inline-flex justify-center items-center
+            min-h-9
             mt-4 px-3 py-2
             font-semibold text-red-700 text-xs
             bg-white hover:bg-red-100
@@ -453,7 +677,11 @@ const ProjectionError = ({
             gap-2
           "
         >
-          <RefreshCw size={14} />
+          <RefreshCw
+            size={14}
+            aria-hidden="true"
+          />
+
           Try again
         </button>
       ) : null}
@@ -468,33 +696,75 @@ const ProjectionError = ({
 const SavingsProjectionChart = ({
   goalId,
   planId,
-  forecast: suppliedForecast,
-  title = "Savings Projection",
-  description = "Projected savings growth toward your target.",
-  height = 280,
+
+  forecast: suppliedForecast = null,
+
+  title = DEFAULT_TITLE,
+
+  description =
+    DEFAULT_DESCRIPTION,
+
+  height = DEFAULT_HEIGHT,
+
   showTarget = true,
+
   showRefresh = true,
+
+  currency = DEFAULT_CURRENCY,
+
+  locale = DEFAULT_LOCALE,
+
   className = "",
 }) => {
-  /*
-   * No direct API calls are made here.
-   *
-   * The hook remains the integration point with
-   * SmartSave's service layer.
-   */
+  /* =======================================================
+     SAFE PROPS
+  ======================================================= */
+
+  const chartHeight = Math.min(
+    MAX_HEIGHT,
+    Math.max(
+      MIN_HEIGHT,
+      toNumber(
+        height,
+        DEFAULT_HEIGHT
+      )
+    )
+  );
+
+  const resolvedCurrency =
+    normalizeCurrency(currency);
+
+  const resolvedLocale =
+    normalizeLocale(locale);
+
+  /* =======================================================
+     UNIQUE CHART ID
+  ======================================================= */
+
+  const generatedId = useId();
+
+  const gradientId =
+    `smart-save-projection-${generatedId
+      .replace(/:/g, "")}`;
+
+  /* =======================================================
+     FORECAST HOOK
+  ======================================================= */
+
   const forecastState =
     useSavingsForecast({
       goalId,
       planId,
-      enabled: !suppliedForecast,
+      enabled:
+        suppliedForecast == null,
     }) || {};
 
   const {
-    forecast: hookForecast,
-    data,
+    forecast: hookForecast = null,
+    data = null,
     loading = false,
     isLoading = false,
-    error,
+    error = null,
     refetch,
     refresh,
   } = forecastState;
@@ -503,101 +773,148 @@ const SavingsProjectionChart = ({
      FORECAST SOURCE
   ======================================================= */
 
-  const rawForecast = useMemo(
-    () =>
-      firstDefined(
+  const rawForecast =
+    useMemo(
+      () =>
+        firstDefined(
+          suppliedForecast,
+          hookForecast,
+          data?.forecast,
+          data
+        ),
+      [
         suppliedForecast,
         hookForecast,
-        data?.forecast,
-        data
-      ),
-    [
-      suppliedForecast,
-      hookForecast,
-      data,
-    ]
-  );
-
-  /* =======================================================
-     NORMALIZE FORECAST
-  ======================================================= */
-
-  const forecast = useMemo(() => {
-    if (!rawForecast) {
-      return null;
-    }
-
-    return normalizeForecast(
-      rawForecast
+        data,
+      ]
     );
-  }, [rawForecast]);
 
   /* =======================================================
-     PROJECTION DATA
+     NORMALIZED FORECAST
   ======================================================= */
 
-  const projectionData = useMemo(
-    () =>
-      extractProjectionSeries(
-        forecast
-      ),
-    [forecast]
-  );
+  const forecast =
+    useMemo(() => {
+      if (!rawForecast) {
+        return null;
+      }
+
+      try {
+        return normalizeForecast(
+          rawForecast
+        );
+      } catch {
+        return null;
+      }
+    }, [rawForecast]);
 
   /* =======================================================
-     TARGET
+     PROJECTION SERIES
   ======================================================= */
 
-  const targetAmount = useMemo(
-    () =>
-      toNumber(
-        firstDefined(
-          forecast?.targetAmount,
-          forecast?.goalAmount,
-          forecast?.target,
-          projectionData.find(
-            (item) =>
-              item.targetAmount > 0
-          )?.targetAmount
+  const projectionData =
+    useMemo(
+      () =>
+        extractProjectionSeries(
+          forecast,
+          resolvedLocale
+        ),
+      [
+        forecast,
+        resolvedLocale,
+      ]
+    );
+
+  /* =======================================================
+     TARGET AMOUNT
+  ======================================================= */
+
+  const targetAmount =
+    useMemo(() => {
+      const projectionTarget =
+        projectionData.find(
+          (item) =>
+            item.targetAmount > 0
+        )?.targetAmount;
+
+      return Math.max(
+        0,
+        toNumber(
+          firstDefined(
+            forecast?.targetAmount,
+            forecast?.goalAmount,
+            forecast?.target,
+            projectionTarget
+          )
         )
-      ),
-    [
+      );
+    }, [
       forecast,
       projectionData,
-    ]
-  );
+    ]);
 
   /* =======================================================
      CURRENT AMOUNT
   ======================================================= */
 
-  const currentAmount = toNumber(
-  firstDefined(
-    forecast?.currentAmount,
-    forecast?.currentSaved,
-    forecast?.amountSaved,
-    forecast?.progress?.current,
-    projectionData[0]?.projectedAmount
-  )
-);
+  const currentAmount =
+    useMemo(
+      () =>
+        Math.max(
+          0,
+          toNumber(
+            firstDefined(
+              forecast?.currentAmount,
+              forecast?.currentSaved,
+              forecast?.amountSaved,
+              forecast?.progress?.current,
+              projectionData[0]
+                ?.projectedAmount
+            )
+          )
+        ),
+      [
+        forecast,
+        projectionData,
+      ]
+    );
 
   /* =======================================================
-     PROJECTED FINAL AMOUNT
+     FINAL PROJECTED AMOUNT
   ======================================================= */
 
   const projectedFinalAmount =
-    useMemo(
-      () =>
+    useMemo(() => {
+      if (
+        projectionData.length === 0
+      ) {
+        return Math.max(
+          0,
+          toNumber(
+            firstDefined(
+              forecast?.projectedAmount,
+              forecast?.projectedBalance,
+              forecast?.forecastAmount
+            )
+          )
+        );
+      }
+
+      return Math.max(
+        0,
         toNumber(
           projectionData[
             projectionData.length - 1
           ]?.projectedAmount
-        ),
-      [projectionData]
-    );
+        )
+      );
+    }, [
+      forecast,
+      projectionData,
+    ]);
 
   /* =======================================================
-     PROGRESS
+     PROJECTED PROGRESS
   ======================================================= */
 
   const projectedProgress =
@@ -607,9 +924,10 @@ const SavingsProjectionChart = ({
       }
 
       return clamp(
-        (projectedFinalAmount /
-          targetAmount) *
-          100
+        (
+          projectedFinalAmount /
+          targetAmount
+        ) * 100
       );
     }, [
       projectedFinalAmount,
@@ -617,7 +935,48 @@ const SavingsProjectionChart = ({
     ]);
 
   /* =======================================================
-     REFRESH
+     CHART DATA
+  ======================================================= */
+
+  const chartData =
+    useMemo(
+      () =>
+        projectionData.map(
+          (point) => ({
+            ...point,
+
+            projectedAmount:
+              Math.max(
+                0,
+                toNumber(
+                  point.projectedAmount
+                )
+              ),
+
+            targetAmount:
+              point.targetAmount > 0
+                ? point.targetAmount
+                : targetAmount > 0
+                  ? targetAmount
+                  : null,
+          })
+        ),
+      [
+        projectionData,
+        targetAmount,
+      ]
+    );
+
+  /* =======================================================
+     LOADING
+  ======================================================= */
+
+  const busy =
+    Boolean(loading) ||
+    Boolean(isLoading);
+
+  /* =======================================================
+     RETRY
   ======================================================= */
 
   const retry =
@@ -627,62 +986,57 @@ const SavingsProjectionChart = ({
         ? refresh
         : undefined;
 
-  const busy =
-    Boolean(loading) ||
-    Boolean(isLoading);
-
-  /* =======================================================
-     CHART DATA
-  ======================================================= */
-
-  const chartData = useMemo(
-    () =>
-      projectionData.map(
-        (point) => ({
-          ...point,
-
-          projectedAmount:
-            Math.max(
-              0,
-              point.projectedAmount
-            ),
-
-          targetAmount:
-            point.targetAmount > 0
-              ? point.targetAmount
-              : targetAmount,
-        })
-      ),
-    [
-      projectionData,
-      targetAmount,
-    ]
-  );
-
   /* =======================================================
      SUMMARY
   ======================================================= */
 
-  const summaryText = useMemo(() => {
-    if (
-      targetAmount <= 0 ||
-      projectedFinalAmount <= 0
-    ) {
-      return null;
-    }
+  const summaryText =
+    useMemo(() => {
+      if (
+        targetAmount <= 0 ||
+        projectedFinalAmount <= 0
+      ) {
+        return null;
+      }
 
-    if (
-      projectedFinalAmount >=
-      targetAmount
-    ) {
-      return "Your current savings trajectory is projected to reach the target.";
-    }
+      if (
+        projectedFinalAmount >=
+        targetAmount
+      ) {
+        return "Your current savings trajectory is projected to reach the target.";
+      }
 
-    return "Your current trajectory is below the target. Increasing contributions may improve the projected outcome.";
-  }, [
-    targetAmount,
-    projectedFinalAmount,
-  ]);
+      return "Your current trajectory is below the target. Increasing contributions may improve the projected outcome.";
+    }, [
+      targetAmount,
+      projectedFinalAmount,
+    ]);
+
+  /* =======================================================
+     ACCESSIBILITY SUMMARY
+  ======================================================= */
+
+  const chartDescription =
+    useMemo(() => {
+      if (
+        targetAmount <= 0
+      ) {
+        return "Savings projection chart.";
+      }
+
+      return `Savings projection showing ${Math.round(
+        projectedProgress
+      )}% projected progress toward a target of ${safeFormatCurrency(
+        targetAmount,
+        resolvedCurrency,
+        resolvedLocale
+      )}.`;
+    }, [
+      targetAmount,
+      projectedProgress,
+      resolvedCurrency,
+      resolvedLocale,
+    ]);
 
   /* =======================================================
      RENDER
@@ -692,18 +1046,17 @@ const SavingsProjectionChart = ({
     <section
       className={`
         rounded-2xl
-        border
-        border-slate-200
+        border border-slate-200
         bg-white
         p-5
         shadow-sm
         ${className}
       `}
-      aria-labelledby="savings-projection-title"
+      aria-labelledby={`${gradientId}-title`}
     >
-      {/* ===================================================
+      {/* =================================================
           HEADER
-      =================================================== */}
+      ================================================= */}
 
       <div
         className="
@@ -727,6 +1080,7 @@ const SavingsProjectionChart = ({
               rounded-xl
               shrink-0
             "
+            aria-hidden="true"
           >
             <TrendingUp
               size={18}
@@ -743,12 +1097,15 @@ const SavingsProjectionChart = ({
             "
           >
             <h3
-              id="savings-projection-title"
+              id={`${gradientId}-title`}
               className="
                 font-bold text-slate-900 text-sm
               "
             >
-              {title}
+              {normalizeString(
+                title,
+                DEFAULT_TITLE
+              )}
             </h3>
 
             <p
@@ -757,12 +1114,16 @@ const SavingsProjectionChart = ({
                 text-slate-500 text-xs
               "
             >
-              {description}
+              {normalizeString(
+                description,
+                DEFAULT_DESCRIPTION
+              )}
             </p>
           </div>
         </div>
 
-        {showRefresh && retry ? (
+        {showRefresh &&
+        typeof retry === "function" ? (
           <button
             type="button"
             onClick={retry}
@@ -786,24 +1147,27 @@ const SavingsProjectionChart = ({
               className={
                 busy
                   ? "animate-spin"
-                  : ""
+                  : undefined
               }
+              aria-hidden="true"
             />
           </button>
         ) : null}
       </div>
 
-      {/* ===================================================
+      {/* =================================================
           LOADING
-      =================================================== */}
+      ================================================= */}
 
       {busy && !forecast ? (
-        <ChartSkeleton />
+        <ChartSkeleton
+          height={chartHeight}
+        />
       ) : null}
 
-      {/* ===================================================
+      {/* =================================================
           ERROR
-      =================================================== */}
+      ================================================= */}
 
       {!busy && error ? (
         <ProjectionError
@@ -812,30 +1176,38 @@ const SavingsProjectionChart = ({
         />
       ) : null}
 
-      {/* ===================================================
+      {/* =================================================
           EMPTY
-      =================================================== */}
+      ================================================= */}
 
       {!busy &&
       !error &&
-      projectionData.length === 0 ? (
+      chartData.length === 0 ? (
         <EmptyProjection />
       ) : null}
 
-      {/* ===================================================
+      {/* =================================================
           CHART
-      =================================================== */}
+      ================================================= */}
 
       {!busy &&
       !error &&
       chartData.length > 0 ? (
         <div>
+          <p
+            className="
+              sr-only
+            "
+          >
+            {chartDescription}
+          </p>
+
           <div
             className="
-              w-full min-w-0 h-72
+              w-full min-w-0
             "
             style={{
-              height,
+              height: chartHeight,
             }}
           >
             <ResponsiveContainer
@@ -853,7 +1225,7 @@ const SavingsProjectionChart = ({
               >
                 <defs>
                   <linearGradient
-                    id="smartSaveProjectionGradient"
+                    id={gradientId}
                     x1="0"
                     y1="0"
                     x2="0"
@@ -893,20 +1265,26 @@ const SavingsProjectionChart = ({
                   }}
                   tickLine={false}
                   axisLine={false}
-                  width={62}
+                  width={68}
                   tickFormatter={(value) =>
-                    formatCurrency(
+                    safeFormatCurrency(
                       value,
-                      {
-                        compact: true,
-                      }
+                      resolvedCurrency,
+                      resolvedLocale
                     )
                   }
                 />
 
                 <Tooltip
                   content={
-                    <ProjectionTooltip />
+                    <ProjectionTooltip
+                      currency={
+                        resolvedCurrency
+                      }
+                      locale={
+                        resolvedLocale
+                      }
+                    />
                   }
                 />
 
@@ -918,7 +1296,8 @@ const SavingsProjectionChart = ({
                     strokeOpacity={0.6}
                     label={{
                       value: "Target",
-                      position: "insideTopRight",
+                      position:
+                        "insideTopRight",
                       fontSize: 10,
                     }}
                   />
@@ -929,7 +1308,7 @@ const SavingsProjectionChart = ({
                   dataKey="projectedAmount"
                   name="Projected"
                   strokeWidth={2.5}
-                  fill="url(#smartSaveProjectionGradient)"
+                  fill={`url(#${gradientId})`}
                   fillOpacity={1}
                   dot={false}
                   activeDot={{
@@ -952,6 +1331,7 @@ const SavingsProjectionChart = ({
               text-xs
               gap-x-5 gap-y-2
             "
+            aria-hidden="true"
           >
             <div
               className="
@@ -1030,7 +1410,10 @@ const SavingsProjectionChart = ({
                   gap-2
                 "
               >
-                <TrendingUp size={14} />
+                <TrendingUp
+                  size={14}
+                  aria-hidden="true"
+                />
 
                 <span
                   className="
@@ -1046,8 +1429,10 @@ const SavingsProjectionChart = ({
                   font-bold text-slate-900 text-sm
                 "
               >
-                {formatCurrency(
-                  currentAmount
+                {safeFormatCurrency(
+                  currentAmount,
+                  resolvedCurrency,
+                  resolvedLocale
                 )}
               </p>
             </div>
@@ -1067,7 +1452,10 @@ const SavingsProjectionChart = ({
                   gap-2
                 "
               >
-                <Target size={14} />
+                <Target
+                  size={14}
+                  aria-hidden="true"
+                />
 
                 <span
                   className="
@@ -1084,8 +1472,10 @@ const SavingsProjectionChart = ({
                 "
               >
                 {targetAmount > 0
-                  ? formatCurrency(
-                      targetAmount
+                  ? safeFormatCurrency(
+                      targetAmount,
+                      resolvedCurrency,
+                      resolvedLocale
                     )
                   : "—"}
               </p>
@@ -1098,53 +1488,61 @@ const SavingsProjectionChart = ({
                 border border-slate-200 rounded-xl
               "
             >
-  <div
-    className="
-      flex items-center
-      mb-1
-      text-slate-500
-      gap-2
-    "
-  >
-    <CalendarDays size={14} />
+              <div
+                className="
+                  flex items-center
+                  mb-1
+                  text-slate-500
+                  gap-2
+                "
+              >
+                <CalendarDays
+                  size={14}
+                  aria-hidden="true"
+                />
 
-    <span
-      className="
-        font-medium text-[11px]
-      "
-    >
-      Projected
-    </span>
-  </div>
+                <span
+                  className="
+                    font-medium text-[11px]
+                  "
+                >
+                  Projected
+                </span>
+              </div>
 
-  <p
-    className="
-      font-bold text-slate-900 text-sm
-    "
-  >
-    {projectedFinalAmount > 0
-      ? formatCurrency(
-          projectedFinalAmount
-        )
-      : "—"}
-  </p>
+              <p
+                className="
+                  font-bold text-slate-900 text-sm
+                "
+              >
+                {projectedFinalAmount > 0
+                  ? safeFormatCurrency(
+                      projectedFinalAmount,
+                      resolvedCurrency,
+                      resolvedLocale
+                    )
+                  : "—"}
+              </p>
 
-  {targetAmount > 0 &&
-  projectedFinalAmount > 0 ? (
-    <p
-      className="
-        mt-1
-        font-medium text-[11px] text-slate-500
-      "
-    >
-      {Math.round(projectedProgress)}% of target
-    </p>
-  ) : null}
-</div>
+              {targetAmount > 0 &&
+              projectedFinalAmount > 0 ? (
+                <p
+                  className="
+                    mt-1
+                    font-medium text-[11px] text-slate-500
+                  "
+                >
+                  {Math.round(
+                    projectedProgress
+                  )}
+                  % of target
+                </p>
+              ) : null}
+            </div>
           </div>
 
           {/* =================================================
-              PROJECTION RESULT
+              PROJECTION INSIGHT
           ================================================= */}
 
           {summaryText ? (
@@ -1164,7 +1562,8 @@ const SavingsProjectionChart = ({
                   text-slate-500
                   shrink-0
                 "
-                /
+                aria-hidden="true"
+              /
               >
 
               <div>
@@ -1189,7 +1588,7 @@ const SavingsProjectionChart = ({
           ) : null}
 
           {/* =================================================
-              FOOTNOTE
+              DISCLAIMER
           ================================================= */}
 
           <p
@@ -1198,9 +1597,10 @@ const SavingsProjectionChart = ({
               text-[11px] text-slate-400 leading-5
             "
           >
-            Projections are estimates based on the
-            available SmartSave savings data and may
-            change as contributions and schedules change.
+            Projections are estimates based on
+            available SmartSave savings data and
+            may change as contributions and
+            schedules change.
           </p>
         </div>
       ) : null}

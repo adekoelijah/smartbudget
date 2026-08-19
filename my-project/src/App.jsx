@@ -10,6 +10,7 @@ import {
 
 import AppLayout from "./layouts/AppLayout";
 import ProtectedRoute from "./routes/ProtectedRoute";
+import SmartSaveLayout from "./pages/SmartSave/SmartSaveLayout.jsx";
 
 /* =========================================================
    PUBLIC PAGES
@@ -331,120 +332,95 @@ const App = () => {
             />
 
             {/* =============================================
-                SMARTSAVE
-                Canonical route:
-                /app/smart-save
-            ============================================= */}
+    SMARTSAVE
+    Canonical route:
+    /app/smart-save
+============================================= */}
 
-            <Route
-              path="smart-save"
-            >
+<Route
+  path="smart-save"
+  element={<SmartSaveLayout />}
+>
+  {/* -----------------------------------------
+      SmartSave Overview
 
-              {/* -----------------------------------------
-                  SmartSave Overview
+      /app/smart-save
+  ----------------------------------------- */}
+  <Route
+    index
+    element={<SmartSaveOverviewPage />}
+  />
 
-                  /app/smart-save
-              ----------------------------------------- */}
+  {/* -----------------------------------------
+      Savings Goals
 
-              <Route
-                index
-                element={
-                  <SmartSaveOverviewPage />
-                }
-              />
+      /app/smart-save/goals
+  ----------------------------------------- */}
+  <Route
+    path="goals"
+    element={<SavingsGoalsPage />}
+  />
 
-              {/* -----------------------------------------
-                  Savings Goals
+  {/* -----------------------------------------
+      Savings Activity
 
-                  /app/smart-save/goals
-              ----------------------------------------- */}
+      /app/smart-save/activity
+  ----------------------------------------- */}
+  <Route
+    path="activity"
+    element={<SavingsActivityPage />}
+  />
 
-              <Route
-                path="goals"
-                element={
-                  <SavingsGoalsPage />
-                }
-              />
+  {/* -----------------------------------------
+      Savings Strategies
 
-              {/* -----------------------------------------
-                  Savings Activity
+      /app/smart-save/strategies
+  ----------------------------------------- */}
+  <Route
+    path="strategies"
+    element={<SavingsStrategiesPage />}
+  />
 
-                  /app/smart-save/activity
-              ----------------------------------------- */}
+  {/* -----------------------------------------
+      Savings Challenges
 
-              <Route
-                path="activity"
-                element={
-                  <SavingsActivityPage />
-                }
-              />
+      /app/smart-save/challenges
+  ----------------------------------------- */}
+  <Route
+    path="challenges"
+    element={<SavingsChallengesPage />}
+  />
 
-              {/* -----------------------------------------
-                  Savings Strategies
+  {/* -----------------------------------------
+      Savings Forecast
 
-                  /app/smart-save/strategies
-              ----------------------------------------- */}
+      /app/smart-save/forecast
+  ----------------------------------------- */}
+  <Route
+    path="forecast"
+    element={<SavingsForecastPage />}
+  />
 
-              <Route
-                path="strategies"
-                element={
-                  <SavingsStrategiesPage />
-                }
-              />
+  {/* -----------------------------------------
+      Savings Insights
 
-              {/* -----------------------------------------
-                  Savings Challenges
+      /app/smart-save/insights
+  ----------------------------------------- */}
+  <Route
+    path="insights"
+    element={<SavingsInsightsPage />}
+  />
 
-                  /app/smart-save/challenges
-              ----------------------------------------- */}
+  {/* -----------------------------------------
+      Emergency Fund
 
-              <Route
-                path="challenges"
-                element={
-                  <SavingsChallengesPage />
-                }
-              />
-
-              {/* -----------------------------------------
-                  Savings Forecast
-
-                  /app/smart-save/forecast
-              ----------------------------------------- */}
-
-              <Route
-                path="forecast"
-                element={
-                  <SavingsForecastPage />
-                }
-              />
-
-              {/* -----------------------------------------
-                  Savings Insights
-
-                  /app/smart-save/insights
-              ----------------------------------------- */}
-
-              <Route
-                path="insights"
-                element={
-                  <SavingsInsightsPage />
-                }
-              />
-
-              {/* -----------------------------------------
-                  Emergency Fund
-
-                  /app/smart-save/emergency-fund
-              ----------------------------------------- */}
-
-              <Route
-                path="emergency-fund"
-                element={
-                  <EmergencyFundPage />
-                }
-              />
-
-            </Route>
+      /app/smart-save/emergency-fund
+  ----------------------------------------- */}
+  <Route
+    path="emergency-fund"
+    element={<EmergencyFundPage />}
+  />
+</Route>
 
             {/* =============================================
                 BUDGETS

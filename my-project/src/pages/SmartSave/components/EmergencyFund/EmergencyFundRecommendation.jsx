@@ -1,4 +1,3 @@
-
 import {
   AlertTriangle,
   ArrowRight,
@@ -9,18 +8,30 @@ import {
   TrendingUp,
 } from "lucide-react";
 
+import { useId } from "react";
+
+import {
+  formatCurrency,
+} from "../../../../utils/smartSave/emergencyFundFormatters";
+
+/* =========================================================
+   CONSTANTS
+========================================================= */
+
+const DEFAULT_CURRENCY = "NGN";
+const DEFAULT_RECOMMENDED_MONTHS = 6;
+const DEFAULT_PRIORITY = "normal";
+
 /* =========================================================
    SAFE HELPERS
 ========================================================= */
 
-const toNumber = (value, fallback = 0) => {
-  const number = Number(value);
-
-  return Number.isFinite(number)
-    ? number
-    : fallback;
-};
-
+/**
+ * Returns the first meaningful value.
+ *
+ * Empty strings are treated as missing.
+ * Zero is intentionally preserved.
+ */
 const firstDefined = (...values) =>
   values.find(
     (value) =>
@@ -29,58 +40,70 @@ const firstDefined = (...values) =>
       value !== ""
   );
 
-const formatCurrency = (
+/**
+ * Safely converts a value to a finite number.
+ */
+const toNumber = (
   value,
-  currency = "NGN"
+  fallback = 0
 ) => {
-  const amount = toNumber(value);
+  const number = Number(value);
 
-  try {
-    return new Intl.NumberFormat("en-NG", {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  } catch {
-    return `${currency} ${amount.toLocaleString()}`;
-  }
+  return Number.isFinite(number)
+    ? number
+    : fallback;
 };
 
-/* =========================================================
-   PRIORITY NORMALIZER
-========================================================= */
+/**
+ * Converts a financial value to a safe
+ * non-negative number.
+ */
+const normalizeNonNegativeNumber = (
+  value,
+  fallback = 0
+) =>
+  Math.max(
+    0,
+    toNumber(value, fallback)
+  );
 
+/**
+ * Normalizes supported priority values.
+ */
 const normalizePriority = (value) => {
   const priority = String(value || "")
     .trim()
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
 
   if (
-    priority.includes("critical") ||
-    priority.includes("urgent")
+    priority === "critical" ||
+    priority === "urgent" ||
+    priority === "emergency"
   ) {
     return "critical";
   }
 
   if (
-    priority.includes("high") ||
-    priority.includes("danger")
+    priority === "high" ||
+    priority === "danger"
   ) {
     return "high";
   }
 
   if (
-    priority.includes("medium") ||
-    priority.includes("moderate")
+    priority === "medium" ||
+    priority === "moderate" ||
+    priority === "recommended"
   ) {
     return "medium";
   }
 
-  if (priority.includes("low")) {
+  if (priority === "low") {
     return "low";
   }
 
-  return "normal";
+  return DEFAULT_PRIORITY;
 };
 
 /* =========================================================
@@ -91,8 +114,10 @@ const PRIORITY_CONFIG = {
   critical: {
     label: "Priority action",
     icon: AlertTriangle,
+
     className:
       "border-red-200 bg-red-50 text-red-700",
+
     iconClassName:
       "bg-red-100 text-red-700",
   },
@@ -100,8 +125,10 @@ const PRIORITY_CONFIG = {
   high: {
     label: "High priority",
     icon: AlertTriangle,
+
     className:
       "border-amber-200 bg-amber-50 text-amber-700",
+
     iconClassName:
       "bg-amber-100 text-amber-700",
   },
@@ -109,8 +136,10 @@ const PRIORITY_CONFIG = {
   medium: {
     label: "Recommended",
     icon: TrendingUp,
+
     className:
       "border-blue-200 bg-blue-50 text-blue-700",
+
     iconClassName:
       "bg-blue-100 text-blue-700",
   },
@@ -118,8 +147,10 @@ const PRIORITY_CONFIG = {
   normal: {
     label: "Suggested action",
     icon: Lightbulb,
+
     className:
       "border-slate-200 bg-slate-50 text-slate-700",
+
     iconClassName:
       "bg-slate-100 text-slate-700",
   },
@@ -127,8 +158,10 @@ const PRIORITY_CONFIG = {
   low: {
     label: "Optional improvement",
     icon: CheckCircle2,
+
     className:
       "border-emerald-200 bg-emerald-50 text-emerald-700",
+
     iconClassName:
       "bg-emerald-100 text-emerald-700",
   },
@@ -138,6 +171,12 @@ const PRIORITY_CONFIG = {
    DEFAULT RECOMMENDATION
 ========================================================= */
 
+/**
+ * Generates a UI fallback only when the backend does not
+ * provide a recommendation.
+ *
+ * This is presentation logic, not financial business logic.
+ */
 const buildDefaultRecommendation = ({
   currentAmount,
   targetAmount,
@@ -145,34 +184,53 @@ const buildDefaultRecommendation = ({
   monthsCovered,
   recommendedMonths,
 }) => {
-  const current = toNumber(currentAmount);
-
-  const target = toNumber(targetAmount);
-
-  const remaining = Math.max(
-    0,
-    toNumber(
-      remainingAmount,
-      target - current
-    )
+  const current = normalizeNonNegativeNumber(
+    currentAmount
   );
 
-  const months = toNumber(monthsCovered);
+  const target = normalizeNonNegativeNumber(
+    targetAmount
+  );
+
+  const calculatedRemaining = Math.max(
+    target - current,
+    0
+  );
+
+  const remaining =
+    remainingAmount !== undefined &&
+    remainingAmount !== null
+      ? normalizeNonNegativeNumber(
+          remainingAmount
+        )
+      : calculatedRemaining;
+
+  const months =
+    monthsCovered !== undefined &&
+    monthsCovered !== null
+      ? normalizeNonNegativeNumber(
+          monthsCovered
+        )
+      : null;
 
   const recommended = Math.max(
     1,
-    toNumber(recommendedMonths, 6)
+    normalizeNonNegativeNumber(
+      recommendedMonths,
+      DEFAULT_RECOMMENDED_MONTHS
+    )
   );
 
-  if (
-    remaining <= 0 ||
-    months >= recommended
-  ) {
+  /*
+   * Target already reached.
+   */
+  if (remaining <= 0) {
     return {
-      title: "Maintain your emergency fund",
+      title:
+        "Maintain your emergency fund",
 
       message:
-        "Your emergency fund is within the recommended coverage range. Focus on maintaining this buffer and replenish it after any withdrawal.",
+        "Your emergency fund has reached its current target. Maintain this buffer and replenish it after any withdrawal.",
 
       action:
         "Keep contributing consistently",
@@ -181,9 +239,35 @@ const buildDefaultRecommendation = ({
     };
   }
 
+  /*
+   * Coverage is unknown.
+   *
+   * Do not pretend that zero months means zero
+   * coverage when the backend simply did not
+   * provide the calculation.
+   */
+  if (months === null) {
+    return {
+      title:
+        "Continue building your emergency fund",
+
+      message:
+        "Keep making consistent contributions toward your emergency-fund target. SmartSave will refine this recommendation as more coverage information becomes available.",
+
+      action:
+        "Continue your savings plan",
+
+      priority: "normal",
+    };
+  }
+
+  /*
+   * Very limited coverage.
+   */
   if (months <= 1) {
     return {
-      title: "Build your emergency buffer",
+      title:
+        "Build your emergency buffer",
 
       message:
         "Your current emergency savings provide limited protection against unexpected expenses. Prioritize building a basic cash reserve before increasing discretionary savings goals.",
@@ -195,6 +279,9 @@ const buildDefaultRecommendation = ({
     };
   }
 
+  /*
+   * Below recommended coverage.
+   */
   if (months < recommended) {
     return {
       title:
@@ -212,6 +299,9 @@ const buildDefaultRecommendation = ({
     };
   }
 
+  /*
+   * Good coverage but target is not reached.
+   */
   return {
     title:
       "Strengthen your financial safety net",
@@ -247,7 +337,7 @@ const RecommendationAction = ({
         min-h-9
         px-3.5 py-2
         font-semibold text-white text-xs
-        bg-slate-900 hover:bg-slate-800
+        bg-slate-900 hover:bg-slate-800 active:bg-slate-950
         rounded-lg focus:outline-none
         focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
         transition
@@ -265,6 +355,40 @@ const RecommendationAction = ({
 };
 
 /* =========================================================
+   FINANCIAL METRIC
+========================================================= */
+
+const FinancialMetric = ({
+  label,
+  value,
+}) => (
+  <div
+    className="
+      p-3
+      bg-slate-50
+      border border-slate-200 rounded-xl
+    "
+  >
+    <p
+      className="
+        text-[11px] text-slate-500
+      "
+    >
+      {label}
+    </p>
+
+    <p
+      className="
+        mt-1
+        font-semibold text-slate-900 text-sm
+      "
+    >
+      {value}
+    </p>
+  </div>
+);
+
+/* =========================================================
    MAIN COMPONENT
 ========================================================= */
 
@@ -275,13 +399,14 @@ const EmergencyFundRecommendation = ({
 
   targetAmount = 0,
 
-  remainingAmount = 0,
+  remainingAmount,
 
-  monthsCovered = 0,
+  monthsCovered = null,
 
-  recommendedMonths = 6,
+  recommendedMonths =
+    DEFAULT_RECOMMENDED_MONTHS,
 
-  currency = "NGN",
+  currency = DEFAULT_CURRENCY,
 
   title =
     "Emergency fund recommendation",
@@ -296,7 +421,34 @@ const EmergencyFundRecommendation = ({
   className = "",
 }) => {
   /* =======================================================
-     DEFAULT RECOMMENDATION
+     ACCESSIBILITY
+  ======================================================= */
+
+  const componentId = useId();
+
+  const titleId =
+    `emergency-fund-recommendation-title-${componentId}`;
+
+  /* =======================================================
+     NORMALIZE INPUT DATA
+     
+     IMPORTANT:
+     This is intentionally NOT wrapped in useMemo.
+     
+     These calculations are cheap, deterministic and
+     synchronous. useMemo would add dependency-management
+     complexity without meaningful performance benefit.
+  ======================================================= */
+
+  const resolvedRecommendation =
+    recommendation &&
+    typeof recommendation === "object" &&
+    !Array.isArray(recommendation)
+      ? recommendation
+      : null;
+
+  /* =======================================================
+     FALLBACK RECOMMENDATION
   ======================================================= */
 
   const fallback =
@@ -309,46 +461,40 @@ const EmergencyFundRecommendation = ({
     });
 
   /* =======================================================
-     RESOLVE RECOMMENDATION
+     RECOMMENDATION CONTENT
   ======================================================= */
-
-  const resolved =
-    recommendation &&
-    typeof recommendation === "object"
-      ? recommendation
-      : {};
 
   const recommendationTitle =
     firstDefined(
-      resolved.title,
-      resolved.heading,
-      resolved.name,
+      resolvedRecommendation?.title,
+      resolvedRecommendation?.heading,
+      resolvedRecommendation?.name,
       fallback.title
     );
 
   const message =
     firstDefined(
-      resolved.message,
-      resolved.description,
-      resolved.explanation,
-      resolved.reason,
+      resolvedRecommendation?.message,
+      resolvedRecommendation?.description,
+      resolvedRecommendation?.explanation,
+      resolvedRecommendation?.reason,
       fallback.message
     );
 
   const action =
     firstDefined(
-      resolved.action,
-      resolved.actionLabel,
-      resolved.recommendedAction,
+      resolvedRecommendation?.action,
+      resolvedRecommendation?.actionLabel,
+      resolvedRecommendation?.recommendedAction,
       actionLabel,
       fallback.action
     );
 
   const priority = normalizePriority(
     firstDefined(
-      resolved.priority,
-      resolved.urgency,
-      resolved.severity,
+      resolvedRecommendation?.priority,
+      resolvedRecommendation?.urgency,
+      resolvedRecommendation?.severity,
       fallback.priority
     )
   );
@@ -357,17 +503,17 @@ const EmergencyFundRecommendation = ({
      FINANCIAL VALUES
   ======================================================= */
 
-  const current = toNumber(
+  const current = normalizeNonNegativeNumber(
     firstDefined(
-      resolved.currentAmount,
+      resolvedRecommendation?.currentAmount,
       currentAmount,
       0
     )
   );
 
-  const target = toNumber(
+  const target = normalizeNonNegativeNumber(
     firstDefined(
-      resolved.targetAmount,
+      resolvedRecommendation?.targetAmount,
       targetAmount,
       0
     )
@@ -378,17 +524,18 @@ const EmergencyFundRecommendation = ({
     0
   );
 
-  const remaining = Math.max(
-    0,
-    toNumber(
-      firstDefined(
-        resolved.remainingAmount,
-        remainingAmount,
-        calculatedRemaining
-      ),
-      calculatedRemaining
-    )
-  );
+  const resolvedRemaining =
+    firstDefined(
+      resolvedRecommendation?.remainingAmount,
+      remainingAmount
+    );
+
+  const remaining =
+    resolvedRemaining !== undefined
+      ? normalizeNonNegativeNumber(
+          resolvedRemaining
+        )
+      : calculatedRemaining;
 
   /* =======================================================
      PRIORITY CONFIG
@@ -396,17 +543,18 @@ const EmergencyFundRecommendation = ({
 
   const config =
     PRIORITY_CONFIG[priority] ||
-    PRIORITY_CONFIG.normal;
+    PRIORITY_CONFIG[DEFAULT_PRIORITY];
 
   const PriorityIcon = config.icon;
 
   /* =======================================================
-     ACTION BUTTON LABEL
+     ACTION BUTTON
   ======================================================= */
 
   const buttonLabel =
     firstDefined(
-      resolved.buttonLabel,
+      resolvedRecommendation?.buttonLabel,
+      resolvedRecommendation?.ctaLabel,
       actionLabel,
       "Take action"
     );
@@ -417,7 +565,7 @@ const EmergencyFundRecommendation = ({
 
   return (
     <section
-      aria-labelledby="emergency-fund-recommendation-title"
+      aria-labelledby={titleId}
       className={`
         rounded-2xl
         border
@@ -464,7 +612,7 @@ const EmergencyFundRecommendation = ({
           "
         >
           <h3
-            id="emergency-fund-recommendation-title"
+            id={titleId}
             className="
               font-bold text-slate-900 text-sm
             "
@@ -501,6 +649,8 @@ const EmergencyFundRecommendation = ({
           text-xs
           ${config.className}
         `}
+        role="status"
+        aria-label={`Recommendation priority: ${config.label}`}
       >
         <PriorityIcon
           size={14}
@@ -618,97 +768,33 @@ const EmergencyFundRecommendation = ({
           gap-3
         "
       >
-        {/* CURRENT FUND */}
+        <FinancialMetric
+          label="Current fund"
+          value={formatCurrency(
+            current,
+            currency
+          )}
+        />
 
-        <div
-          className="
-            p-3
-            bg-slate-50
-            border border-slate-200 rounded-xl
-          "
-        >
-          <p
-            className="
-              text-[11px] text-slate-500
-            "
-          >
-            Current fund
-          </p>
+        <FinancialMetric
+          label="Target"
+          value={formatCurrency(
+            target,
+            currency
+          )}
+        />
 
-          <p
-            className="
-              mt-1
-              font-semibold text-slate-900 text-sm
-            "
-          >
-            {formatCurrency(
-              current,
-              currency
-            )}
-          </p>
-        </div>
-
-        {/* TARGET */}
-
-        <div
-          className="
-            p-3
-            bg-slate-50
-            border border-slate-200 rounded-xl
-          "
-        >
-          <p
-            className="
-              text-[11px] text-slate-500
-            "
-          >
-            Target
-          </p>
-
-          <p
-            className="
-              mt-1
-              font-semibold text-slate-900 text-sm
-            "
-          >
-            {formatCurrency(
-              target,
-              currency
-            )}
-          </p>
-        </div>
-
-        {/* REMAINING */}
-
-        <div
-          className="
-            p-3
-            bg-slate-50
-            border border-slate-200 rounded-xl
-          "
-        >
-          <p
-            className="
-              text-[11px] text-slate-500
-            "
-          >
-            Remaining
-          </p>
-
-          <p
-            className="
-              mt-1
-              font-semibold text-slate-900 text-sm
-            "
-          >
-            {remaining > 0
+        <FinancialMetric
+          label="Remaining"
+          value={
+            remaining > 0
               ? formatCurrency(
                   remaining,
                   currency
                 )
-              : "Target reached"}
-          </p>
-        </div>
+              : "Target reached"
+          }
+        />
       </div>
 
       {/* ===================================================
@@ -741,11 +827,11 @@ const EmergencyFundRecommendation = ({
           "
         >
           Recommendations are based on the
-          emergency-fund data currently
-          available in SmartBudget. Your ideal
-          reserve may vary depending on income
-          stability, essential expenses,
-          dependants, and financial obligations.
+          emergency-fund data currently available
+          in SmartBudget. Your ideal reserve may
+          vary depending on income stability,
+          essential expenses, dependants, and
+          financial obligations.
         </p>
       </div>
     </section>

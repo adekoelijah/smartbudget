@@ -15,7 +15,10 @@ import {
 import {
   memo,
   useCallback,
+  useEffect,
+  useId,
   useMemo,
+  useRef,
 } from "react";
 
 import useEmergencyFund from "../../../../hooks/useEmergencyFund";
@@ -39,6 +42,49 @@ const DEFAULT_RECOMMENDED_MONTHS = 6;
 const DEFAULT_DESCRIPTION =
   "Build a financial safety buffer that helps protect your essentials when unexpected expenses arise.";
 
+const EMPTY_ARRAY = Object.freeze([]);
+
+const EMPTY_OBJECT = Object.freeze({});
+
+const EMPTY_FUND = Object.freeze({
+  currentAmount: 0,
+  monthlyExpenses: 0,
+  targetAmount: 0,
+  targetMonths: DEFAULT_RECOMMENDED_MONTHS,
+  recommendedMonths: DEFAULT_RECOMMENDED_MONTHS,
+  monthsCovered: 0,
+  remainingAmount: 0,
+  progressPercentage: 0,
+  recommendedContribution: 0,
+  contributionFrequency: "monthly",
+  status: "building",
+  recommendation: null,
+  insights: EMPTY_ARRAY,
+  projection: null,
+  currency: DEFAULT_CURRENCY,
+});
+
+/* =========================================================
+   STATIC CONTENT
+========================================================= */
+
+const EMPTY_STATE_FEATURES = [
+  {
+    icon: ShieldCheck,
+    title: "Protect",
+    text: "Prepare for unexpected costs.",
+  },
+  {
+    icon: Target,
+    title: "Plan",
+    text: "Set a realistic safety target.",
+  },
+  {
+    icon: TrendingUp,
+    title: "Build",
+    text: "Grow your buffer consistently.",
+  },
+];
 
 /* =========================================================
    SAFE HELPERS
@@ -82,6 +128,31 @@ const clamp = (
   );
 
 /* =========================================================
+   STABLE CALLBACK
+========================================================= */
+
+/**
+ * Keeps callback identity stable while always calling
+ * the latest callback implementation.
+ *
+ * This is particularly important for callbacks returned
+ * from data hooks such as refresh/refetch.
+ */
+const useStableCallback = (callback) => {
+  const callbackRef = useRef(callback);
+
+  useEffect(() => {
+    callbackRef.current = callback;
+  }, [callback]);
+
+  return useCallback(
+    (...args) =>
+      callbackRef.current?.(...args),
+    []
+  );
+};
+
+/* =========================================================
    CURRENCY
 ========================================================= */
 
@@ -91,19 +162,20 @@ const formatCurrency = (
 ) => {
   const amount = toNumber(value);
 
+  const resolvedCurrency =
+    currency || DEFAULT_CURRENCY;
+
   try {
     return new Intl.NumberFormat(
       "en-NG",
       {
         style: "currency",
-        currency:
-          currency ||
-          DEFAULT_CURRENCY,
+        currency: resolvedCurrency,
         maximumFractionDigits: 2,
       }
     ).format(amount);
   } catch {
-    return `${currency || DEFAULT_CURRENCY} ${amount.toLocaleString(
+    return `${resolvedCurrency} ${amount.toLocaleString(
       "en-NG"
     )}`;
   }
@@ -115,7 +187,7 @@ const formatCurrency = (
 
 const resolveData = (value) => {
   if (!isObject(value)) {
-    return {};
+    return EMPTY_OBJECT;
   }
 
   if (isObject(value.data)) {
@@ -164,7 +236,7 @@ const resolveArray = (...values) => {
     }
   }
 
-  return [];
+  return EMPTY_ARRAY;
 };
 
 /* =========================================================
@@ -259,6 +331,12 @@ const normalizeEmergencyFund = ({
       : monthlyExpenses *
         resolvedMonths;
 
+  const calculatedMonthsCovered =
+    monthlyExpenses > 0
+      ? currentAmount /
+        monthlyExpenses
+      : 0;
+
   const monthsCovered = Math.max(
     0,
     toNumber(
@@ -266,13 +344,17 @@ const normalizeEmergencyFund = ({
         raw.monthsCovered,
         raw.coverageMonths,
         raw.monthsOfCoverage,
-        monthlyExpenses > 0
-          ? currentAmount /
-            monthlyExpenses
-          : 0
+        calculatedMonthsCovered
       )
     )
   );
+
+  const calculatedRemaining =
+    Math.max(
+      0,
+      targetAmount -
+        currentAmount
+    );
 
   const remainingAmount = Math.max(
     0,
@@ -280,9 +362,9 @@ const normalizeEmergencyFund = ({
       firstDefined(
         raw.remainingAmount,
         raw.amountRemaining,
-        targetAmount -
-          currentAmount
-      )
+        calculatedRemaining
+      ),
+      calculatedRemaining
     )
   );
 
@@ -350,14 +432,13 @@ const normalizeEmergencyFund = ({
 
     targetAmount,
 
-    targetMonths:
-      Math.max(
-        resolvedMonths,
-        toNumber(
-          raw.targetMonths,
-          resolvedMonths
-        )
-      ),
+    targetMonths: Math.max(
+      resolvedMonths,
+      toNumber(
+        raw.targetMonths,
+        resolvedMonths
+      )
+    ),
 
     recommendedMonths:
       resolvedMonths,
@@ -452,7 +533,7 @@ const getFundStatus = ({
 };
 
 /* =========================================================
-   SUMMARY CARD
+   SUMMARY METRIC
 ========================================================= */
 
 const SummaryMetric = memo(
@@ -505,7 +586,7 @@ const SummaryMetric = memo(
         {value}
       </p>
 
-      {helper && (
+      {helper ? (
         <p
           className="
             mt-1
@@ -514,7 +595,7 @@ const SummaryMetric = memo(
         >
           {helper}
         </p>
-      )}
+      ) : null}
     </div>
   )
 );
@@ -531,232 +612,218 @@ const EmptyFundState = memo(
     onCreateFund,
     onRefresh,
     refreshing,
-  }) => {
-    return (
-      <section
+  }) => (
+    <section
+      className="
+        overflow-hidden
+        mt-6 sm:mt-8
+        bg-white
+        border border-slate-200 rounded-3xl
+        shadow-sm
+      "
+    >
+      <div
         className="
-          overflow-hidden
-          mt-6 sm:mt-8
-          bg-white
-          border border-slate-200 rounded-3xl
-          shadow-sm
+          relative
+          p-6 sm:p-10
         "
       >
         <div
           className="
-            relative
-            p-6 sm:p-10
+            absolute
+            w-48 h-48
+            bg-slate-100
+            rounded-full
+            opacity-70 blur-3xl
+            pointer-events-none
+            -top-20 -right-20
+          "
+          aria-hidden="true"
+        /
+        >
+
+        <div
+          className="
+            relative flex flex-col items-center
+            max-w-2xl
+            mx-auto
+            text-center
           "
         >
           <div
             className="
-              absolute
-              w-48 h-48
-              bg-slate-100
-              rounded-full
-              opacity-70 blur-3xl
-              pointer-events-none
-              -top-20 -right-20
+              flex justify-center items-center
+              w-16 h-16
+              bg-slate-950
+              rounded-2xl
+              shadow-lg
             "
-            /
+            aria-hidden="true"
           >
+            <ShieldCheck
+              size={28}
+              className="
+                text-white
+              "
+              /
+            >
+          </div>
+
+          <span
+            className="
+              inline-flex items-center
+              mt-5 px-3 py-1.5
+              font-semibold text-[11px] text-slate-600
+              bg-slate-100
+              border border-slate-200 rounded-full
+            "
+          >
+            SmartSave protection
+          </span>
+
+          <h2
+            className="
+              mt-4
+              font-bold text-slate-950 text-xl sm:text-2xl tracking-tight
+            "
+          >
+            Build your financial safety net
+          </h2>
+
+          <p
+            className="
+              max-w-xl
+              mt-3
+              text-slate-500 text-sm leading-6
+            "
+          >
+            An emergency fund gives you a dedicated
+            financial buffer for unexpected expenses
+            without disrupting your everyday budget.
+          </p>
 
           <div
             className="
-              relative flex flex-col items-center
-              max-w-2xl
-              mx-auto
-              text-center
+              grid grid-cols-1 sm:grid-cols-3
+              w-full
+              mt-7
+              gap-3
             "
           >
-            <div
-              className="
-                flex justify-center items-center
-                w-16 h-16
-                bg-slate-950
-                rounded-2xl
-                shadow-lg
-              "
-            >
-              <ShieldCheck
-                size={28}
-                className="
-                  text-white
-                "
-                aria-hidden="true"
-              /
-              >
-            </div>
-
-            <span
-              className="
-                inline-flex items-center
-                mt-5 px-3 py-1.5
-                font-semibold text-[11px] text-slate-600
-                bg-slate-100
-                border border-slate-200 rounded-full
-              "
-            >
-              SmartSave protection
-            </span>
-
-            <h2
-              className="
-                mt-4
-                font-bold text-slate-950 text-xl sm:text-2xl tracking-tight
-              "
-            >
-              Build your financial safety net
-            </h2>
-
-            <p
-              className="
-                max-w-xl
-                mt-3
-                text-slate-500 text-sm leading-6
-              "
-            >
-              An emergency fund gives you a dedicated
-              financial buffer for unexpected expenses
-              without disrupting your everyday budget.
-            </p>
-
-            <div
-              className="
-                grid grid-cols-1 sm:grid-cols-3
-                w-full
-                mt-7
-                gap-3
-              "
-            >
-              {[
-                {
-                  icon: ShieldCheck,
-                  title: "Protect",
-                  text: "Prepare for unexpected costs.",
-                },
-                {
-                  icon: Target,
-                  title: "Plan",
-                  text: "Set a realistic safety target.",
-                },
-                {
-                  icon: TrendingUp,
-                  title: "Build",
-                  text: "Grow your buffer consistently.",
-                },
-              ].map(
-                ({
-                  icon: Icon,
-                  title,
-                  text,
-                }) => (
-                  <div
-                    key={title}
+            {EMPTY_STATE_FEATURES.map(
+              ({
+                icon: Icon,
+                title,
+                text,
+              }) => (
+                <div
+                  key={title}
+                  className="
+                    p-4
+                    text-left
+                    bg-slate-50
+                    border border-slate-200 rounded-2xl
+                  "
+                >
+                  <Icon
+                    size={17}
                     className="
-                      p-4
-                      text-left
-                      bg-slate-50
-                      border border-slate-200 rounded-2xl
+                      text-slate-700
+                    "
+                    aria-hidden="true"
+                  /
+                  >
+
+                  <p
+                    className="
+                      mt-3
+                      font-semibold text-slate-900 text-sm
                     "
                   >
-                    <Icon
-                      size={17}
-                      className="
-                        text-slate-700
-                      "
-                      /
-                    >
+                    {title}
+                  </p>
 
-                    <p
-                      className="
-                        mt-3
-                        font-semibold text-slate-900 text-sm
-                      "
-                    >
-                      {title}
-                    </p>
+                  <p
+                    className="
+                      mt-1
+                      text-slate-500 text-xs leading-5
+                    "
+                  >
+                    {text}
+                  </p>
+                </div>
+              )
+            )}
+          </div>
 
-                    <p
-                      className="
-                        mt-1
-                        text-slate-500 text-xs leading-5
-                      "
-                    >
-                      {text}
-                    </p>
-                  </div>
-                )
-              )}
-            </div>
+          <div
+            className="
+              flex flex-col sm:flex-row justify-center
+              w-full
+              mt-7
+              gap-3
+            "
+          >
+            {onCreateFund ? (
+              <button
+                type="button"
+                onClick={onCreateFund}
+                className="
+                  inline-flex justify-center items-center
+                  min-h-11
+                  px-5
+                  font-semibold text-white text-sm
+                  bg-slate-950 hover:bg-slate-800
+                  rounded-xl focus:outline-none
+                  focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
+                  shadow-sm transition
+                  gap-2
+                "
+              >
+                Create emergency fund
 
-            <div
-              className="
-                flex flex-col sm:flex-row justify-center
-                w-full
-                mt-7
-                gap-3
-              "
-            >
-              {typeof onCreateFund ===
-                "function" && (
-                <button
-                  type="button"
-                  onClick={onCreateFund}
-                  className="
-                    inline-flex justify-center items-center
-                    min-h-11
-                    px-5
-                    font-semibold text-white text-sm
-                    bg-slate-950 hover:bg-slate-800
-                    rounded-xl focus:outline-none
-                    focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
-                    shadow-sm transition
-                    gap-2
-                  "
-                >
-                  Create emergency fund
-                  <ArrowRight
-                    size={15}
-                  />
-                </button>
-              )}
+                <ArrowRight
+                  size={15}
+                  aria-hidden="true"
+                />
+              </button>
+            ) : null}
 
-              {typeof onRefresh ===
-                "function" && (
-                <button
-                  type="button"
-                  onClick={onRefresh}
-                  disabled={refreshing}
-                  className="
-                    inline-flex justify-center items-center
-                    min-h-11
-                    px-5
-                    font-semibold text-slate-700 text-sm
-                    bg-white hover:bg-slate-50
-                    border border-slate-200 rounded-xl
-                    disabled:opacity-50 transition
-                    gap-2
-                  "
-                >
-                  <RefreshCw
-                    size={15}
-                    className={
-                      refreshing
-                        ? "animate-spin"
-                        : ""
-                    }
-                  />
+            {onRefresh ? (
+              <button
+                type="button"
+                onClick={onRefresh}
+                disabled={refreshing}
+                className="
+                  inline-flex justify-center items-center
+                  min-h-11
+                  px-5
+                  font-semibold text-slate-700 text-sm
+                  bg-white hover:bg-slate-50
+                  border border-slate-200 rounded-xl
+                  disabled:opacity-50 transition
+                  disabled:cursor-not-allowed
+                  gap-2
+                "
+              >
+                <RefreshCw
+                  size={15}
+                  className={
+                    refreshing
+                      ? "animate-spin"
+                      : ""
+                  }
+                  aria-hidden="true"
+                />
 
-                  Refresh
-                </button>
-              )}
-            </div>
+                Refresh
+              </button>
+            ) : null}
           </div>
         </div>
-      </section>
-    );
-  }
+      </div>
+    </section>
+  )
 );
 
 EmptyFundState.displayName =
@@ -809,20 +876,18 @@ const LoadingState = memo(() => (
           gap-4
         "
       >
-        {[1, 2, 3].map(
-          (item) => (
-            <div
-              key={item}
-              className="
-                h-32
-                bg-white
-                border border-slate-200 rounded-3xl
-                animate-pulse
-              "
-              /
-            >
-          )
-        )}
+        {[1, 2, 3].map((item) => (
+          <div
+            key={item}
+            className="
+              h-32
+              bg-white
+              border border-slate-200 rounded-3xl
+              animate-pulse
+            "
+            /
+          >
+        ))}
       </div>
 
       <div
@@ -883,6 +948,7 @@ const ErrorState = memo(
               bg-red-50
               rounded-2xl
             "
+            aria-hidden="true"
           >
             <AlertCircle
               size={22}
@@ -923,6 +989,7 @@ const ErrorState = memo(
               bg-slate-950 hover:bg-slate-800
               rounded-xl
               disabled:opacity-50 transition
+              disabled:cursor-not-allowed
               gap-2
             "
           >
@@ -933,6 +1000,7 @@ const ErrorState = memo(
                   ? "animate-spin"
                   : ""
               }
+              aria-hidden="true"
             />
 
             {refreshing
@@ -985,16 +1053,54 @@ const EmergencyFundPage = ({
   className = "",
 }) => {
   /* =======================================================
+     ACCESSIBLE IDS
+  ======================================================= */
+
+  const pageId = useId();
+
+  const titleId =
+    `${pageId}-emergency-fund-title`;
+
+  /* =======================================================
+     SOURCE CONTROL
+  ======================================================= */
+
+  const hasSuppliedFund =
+    isObject(
+      suppliedEmergencyFund
+    );
+
+  /**
+   * IMPORTANT:
+   *
+   * Do not pass an inline object to useEmergencyFund.
+   * The query object itself is memoized.
+   *
+   * This protects hooks that use their options object
+   * as an effect dependency.
+   */
+  const emergencyFundOptions =
+    useMemo(
+      () => ({
+        goalId,
+        planId,
+        enabled: !hasSuppliedFund,
+      }),
+      [
+        goalId,
+        planId,
+        hasSuppliedFund,
+      ]
+    );
+
+  /* =======================================================
      DATA
   ======================================================= */
 
   const emergencyFundState =
-    useEmergencyFund({
-      goalId,
-      planId,
-      enabled:
-        !suppliedEmergencyFund,
-    }) || {};
+    useEmergencyFund(
+      emergencyFundOptions
+    ) || EMPTY_OBJECT;
 
   const {
     emergencyFund:
@@ -1015,6 +1121,32 @@ const EmergencyFundPage = ({
   } = emergencyFundState;
 
   /* =======================================================
+     STABLE HOOK ACTIONS
+  ======================================================= */
+
+  const stableRefresh =
+    useStableCallback(refresh);
+
+  const stableRefetch =
+    useStableCallback(refetch);
+
+  const stableOnRefresh =
+    useStableCallback(onRefresh);
+
+  const stableOnCreateFund =
+    useStableCallback(
+      onCreateFund
+    );
+
+  const stableOnContribute =
+    useStableCallback(
+      onContribute
+    );
+
+  const stableOnAction =
+    useStableCallback(onAction);
+
+  /* =======================================================
      SOURCE
   ======================================================= */
 
@@ -1032,6 +1164,10 @@ const EmergencyFundPage = ({
       data,
     ]
   );
+
+  /* =======================================================
+     DATA EXISTENCE
+  ======================================================= */
 
   const hasData = useMemo(() => {
     if (!isObject(sourceData)) {
@@ -1052,14 +1188,19 @@ const EmergencyFundPage = ({
   ======================================================= */
 
   const fund = useMemo(
-    () =>
-      normalizeEmergencyFund({
+    () => {
+      if (!hasData) {
+        return EMPTY_FUND;
+      }
+
+      return normalizeEmergencyFund({
         source: sourceData,
-        fallbackCurrency:
-          currency,
+        fallbackCurrency: currency,
         recommendedMonths,
-      }),
+      });
+    },
     [
+      hasData,
       sourceData,
       currency,
       recommendedMonths,
@@ -1067,12 +1208,13 @@ const EmergencyFundPage = ({
   );
 
   /* =======================================================
-     UI STATE
+     DERIVED STATE
   ======================================================= */
 
   const initialLoading =
     Boolean(
-      loading || isLoading
+      loading ||
+      isLoading
     );
 
   const backgroundRefreshing =
@@ -1081,68 +1223,83 @@ const EmergencyFundPage = ({
       isRefreshing
     );
 
-  const errorMessage = useMemo(
-    () =>
-      getErrorMessage(error),
-    [error]
-  );
+  const errorMessage =
+    useMemo(
+      () =>
+        getErrorMessage(error),
+      [error]
+    );
 
-  const fundStatus = useMemo(
-    () =>
-      getFundStatus({
-        progressPercentage:
-          fund.progressPercentage,
-        monthsCovered:
-          fund.monthsCovered,
-        recommendedMonths:
-          fund.recommendedMonths,
-      }),
-    [
-      fund.progressPercentage,
-      fund.monthsCovered,
-      fund.recommendedMonths,
-    ]
-  );
+  const fundStatus =
+    useMemo(
+      () =>
+        getFundStatus({
+          progressPercentage:
+            fund.progressPercentage,
+          monthsCovered:
+            fund.monthsCovered,
+          recommendedMonths:
+            fund.recommendedMonths,
+        }),
+      [
+        fund.progressPercentage,
+        fund.monthsCovered,
+        fund.recommendedMonths,
+      ]
+    );
 
   /* =======================================================
-     REFRESH
+     STABLE REFRESH
   ======================================================= */
 
-  const refreshFund = useCallback(
-    async () => {
-      let result;
+  /**
+   * Deliberately has NO dependencies.
+   *
+   * It reads the latest refresh/refetch/onRefresh through
+   * stable callback wrappers.
+   *
+   * Therefore children can safely receive refreshFund
+   * without their effects being retriggered because the
+   * hook recreated its refresh function.
+   */
+  const refreshFund =
+    useCallback(
+      async () => {
+        let result;
 
-      if (
-        typeof refresh ===
-        "function"
-      ) {
-        result =
-          await refresh();
-      } else if (
-        typeof refetch ===
-        "function"
-      ) {
-        result =
-          await refetch();
-      } else {
-        return undefined;
-      }
+        if (
+          typeof stableRefresh ===
+          "function"
+        ) {
+          result =
+            await stableRefresh();
+        } else if (
+          typeof stableRefetch ===
+          "function"
+        ) {
+          result =
+            await stableRefetch();
+        } else {
+          return undefined;
+        }
 
-      if (
-        typeof onRefresh ===
-        "function"
-      ) {
-        await onRefresh(result);
-      }
+        if (
+          typeof stableOnRefresh ===
+          "function"
+        ) {
+          await stableOnRefresh(
+            result
+          );
+        }
 
-      return result;
-    },
-    [
-      refresh,
-      refetch,
-      onRefresh,
-    ]
-  );
+        return result;
+      },
+      [
+        stableRefresh,
+        stableRefetch,
+        stableOnRefresh,
+      ]
+    );
 
   const handleRetry =
     useCallback(() => {
@@ -1150,50 +1307,68 @@ const EmergencyFundPage = ({
     }, [refreshFund]);
 
   /* =======================================================
-     ACTIONS
+     STABLE ACTIONS
   ======================================================= */
 
   const handleCreateFund =
     useCallback(() => {
-      if (
-        typeof onCreateFund ===
-        "function"
-      ) {
-        onCreateFund();
-      }
-    }, [onCreateFund]);
+      stableOnCreateFund?.();
+    }, [stableOnCreateFund]);
+
+  /**
+   * Do not depend on the entire fund object here.
+   *
+   * The callback only needs the current normalized fund,
+   * but depending on the object means the callback changes
+   * whenever normalization produces a new object.
+   *
+   * We keep the latest fund in a ref instead.
+   */
+  const fundRef = useRef(fund);
+
+  useEffect(() => {
+    fundRef.current = fund;
+  }, [fund]);
 
   const handleContribute =
     useCallback(() => {
-      if (
-        typeof onContribute ===
-        "function"
-      ) {
-        onContribute(fund);
-      }
-    }, [
-      onContribute,
-      fund,
-    ]);
+      stableOnContribute?.(
+        fundRef.current
+      );
+    }, [stableOnContribute]);
 
   const handleAction =
     useCallback(
       (...args) => {
-        if (
-          typeof onAction ===
-          "function"
-        ) {
-          onAction(
-            fund,
-            ...args
-          );
-        }
+        stableOnAction?.(
+          fundRef.current,
+          ...args
+        );
       },
-      [
-        onAction,
-        fund,
-      ]
+      [stableOnAction]
     );
+
+  /* =======================================================
+     CAPABILITY FLAGS
+  ======================================================= */
+
+  const canRefresh =
+    typeof refresh ===
+      "function" ||
+    typeof refetch ===
+      "function";
+
+  const canCreateFund =
+    typeof onCreateFund ===
+    "function";
+
+  const canContribute =
+    typeof onContribute ===
+    "function";
+
+  const canAction =
+    typeof onAction ===
+    "function";
 
   /* =======================================================
      INITIAL LOADING
@@ -1237,7 +1412,7 @@ const EmergencyFundPage = ({
         bg-slate-50
         ${className}
       `}
-      aria-labelledby="emergency-fund-title"
+      aria-labelledby={titleId}
     >
       <div
         className="
@@ -1271,6 +1446,7 @@ const EmergencyFundPage = ({
                 shadow-sm
                 shrink-0
               "
+              aria-hidden="true"
             >
               <ShieldCheck
                 size={21}
@@ -1311,13 +1487,17 @@ const EmergencyFundPage = ({
                     gap-1
                   "
                 >
-                  <ShieldCheck size={10} />
+                  <ShieldCheck
+                    size={10}
+                    aria-hidden="true"
+                  />
+
                   Financial protection
                 </span>
               </div>
 
               <h1
-                id="emergency-fund-title"
+                id={titleId}
                 className="
                   mt-1
                   font-bold text-slate-950 text-xl sm:text-2xl tracking-tight
@@ -1344,12 +1524,7 @@ const EmergencyFundPage = ({
               onClick={handleRetry}
               disabled={
                 backgroundRefreshing ||
-                (
-                  typeof refresh !==
-                    "function" &&
-                  typeof refetch !==
-                    "function"
-                )
+                !canRefresh
               }
               className="
                 inline-flex justify-center items-center
@@ -1370,6 +1545,7 @@ const EmergencyFundPage = ({
                     ? "animate-spin"
                     : ""
                 }
+                aria-hidden="true"
               />
 
               {backgroundRefreshing
@@ -1403,7 +1579,8 @@ const EmergencyFundPage = ({
                 className="
                   animate-spin
                 "
-                /
+                aria-hidden="true"
+              /
               >
 
               Updating your emergency
@@ -1440,7 +1617,8 @@ const EmergencyFundPage = ({
                     text-amber-600
                     shrink-0
                   "
-                  /
+                  aria-hidden="true"
+                /
                 >
 
                 <div>
@@ -1468,7 +1646,8 @@ const EmergencyFundPage = ({
                 type="button"
                 onClick={handleRetry}
                 disabled={
-                  backgroundRefreshing
+                  backgroundRefreshing ||
+                  !canRefresh
                 }
                 className="
                   inline-flex justify-center items-center
@@ -1478,6 +1657,7 @@ const EmergencyFundPage = ({
                   bg-white
                   border border-amber-200 rounded-lg
                   disabled:opacity-50
+                  disabled:cursor-not-allowed
                   gap-2
                 "
               >
@@ -1488,6 +1668,7 @@ const EmergencyFundPage = ({
                       ? "animate-spin"
                       : ""
                   }
+                  aria-hidden="true"
                 />
 
                 Retry
@@ -1503,16 +1684,12 @@ const EmergencyFundPage = ({
           !initialLoading && (
             <EmptyFundState
               onCreateFund={
-                typeof onCreateFund ===
-                "function"
+                canCreateFund
                   ? handleCreateFund
                   : undefined
               }
               onRefresh={
-                typeof refresh ===
-                  "function" ||
-                typeof refetch ===
-                  "function"
+                canRefresh
                   ? handleRetry
                   : undefined
               }
@@ -1540,7 +1717,7 @@ const EmergencyFundPage = ({
                 rounded-3xl
                 shadow-lg
               "
-              aria-labelledby="emergency-fund-position"
+              aria-labelledby={`${pageId}-position`}
             >
               <div
                 className="
@@ -1552,7 +1729,8 @@ const EmergencyFundPage = ({
                   pointer-events-none
                   -top-24 -right-24
                 "
-                /
+                aria-hidden="true"
+              /
               >
 
               <div
@@ -1565,7 +1743,8 @@ const EmergencyFundPage = ({
                   pointer-events-none
                   -bottom-32 -left-20
                 "
-                /
+                aria-hidden="true"
+              /
               >
 
               <div
@@ -1586,7 +1765,8 @@ const EmergencyFundPage = ({
                       className="
                         text-slate-300
                       "
-                      /
+                      aria-hidden="true"
+                    /
                     >
 
                     <span
@@ -1750,13 +1930,10 @@ const EmergencyFundPage = ({
                   currency={
                     fund.currency
                   }
-                  status={
-                    fund.status
-                  }
+                  status={fund.status}
                   loading={initialLoading}
                   onContribute={
-                    typeof onContribute ===
-                    "function"
+                    canContribute
                       ? handleContribute
                       : undefined
                   }
@@ -1835,8 +2012,7 @@ const EmergencyFundPage = ({
                     fund.currency
                   }
                   onAction={
-                    typeof onAction ===
-                    "function"
+                    canAction
                       ? handleAction
                       : undefined
                   }
@@ -1863,12 +2039,8 @@ const EmergencyFundPage = ({
                   currency={
                     fund.currency
                   }
-                  loading={
-                    initialLoading
-                  }
-                  onRefresh={
-                    refreshFund
-                  }
+                  loading={initialLoading}
+                  onRefresh={refreshFund}
                 />
               </section>
             )}
@@ -1901,14 +2073,12 @@ const EmergencyFundPage = ({
                     fund.currency
                   }
                   onCreateFund={
-                    typeof onCreateFund ===
-                    "function"
+                    canCreateFund
                       ? handleCreateFund
                       : undefined
                   }
                   onContribute={
-                    typeof onContribute ===
-                    "function"
+                    canContribute
                       ? handleContribute
                       : undefined
                   }
@@ -1942,7 +2112,8 @@ const EmergencyFundPage = ({
                     text-slate-500
                     shrink-0
                   "
-                  /
+                  aria-hidden="true"
+                /
                 >
 
                 <p>
@@ -1967,6 +2138,9 @@ const EmergencyFundPage = ({
     </main>
   );
 };
+
+EmergencyFundPage.displayName =
+  "EmergencyFundPage";
 
 export default memo(
   EmergencyFundPage

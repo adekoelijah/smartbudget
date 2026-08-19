@@ -9,6 +9,7 @@ import {
 
 import {
   useCallback,
+  useMemo,
   useState,
 } from "react";
 
@@ -26,10 +27,74 @@ import {
 } from "../../../../utils/smartSave/emergencyFundFormatters";
 
 /* =========================================================
+   CONSTANTS
+========================================================= */
+
+const FIELD_IDS = Object.freeze({
+  monthlyExpenses: "emergency-fund-monthly-expenses",
+  currentFund: "emergency-fund-current-fund",
+  monthlyIncome: "emergency-fund-monthly-income",
+  monthlyContribution:
+    "emergency-fund-monthly-contribution",
+  targetMonths: "emergency-fund-target-months",
+});
+
+const DEFAULT_TARGET_MONTHS =
+  Number(
+    EMERGENCY_FUND_DEFAULTS.targetMonths
+  ) || 3;
+
+const MIN_TARGET_MONTHS =
+  Number(
+    EMERGENCY_FUND_DEFAULTS.minimumTargetMonths
+  ) || 1;
+
+const MAX_TARGET_MONTHS =
+  Number(
+    EMERGENCY_FUND_DEFAULTS.maximumTargetMonths
+  ) || 12;
+
+const normalizeInitialNumber = (
+  value,
+  fallback = ""
+) => {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return fallback;
+  }
+
+  const numericValue = Number(value);
+
+  return Number.isFinite(numericValue)
+    ? String(numericValue)
+    : fallback;
+};
+
+const clampTargetMonths = (value) => {
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue)) {
+    return DEFAULT_TARGET_MONTHS;
+  }
+
+  return Math.min(
+    Math.max(
+      Math.trunc(numericValue),
+      MIN_TARGET_MONTHS
+    ),
+    MAX_TARGET_MONTHS
+  );
+};
+
+/* =========================================================
    FIELD
 ========================================================= */
 
 const Field = ({
+  id,
   label,
   description,
   value,
@@ -37,44 +102,69 @@ const Field = ({
   min = 0,
   step = "0.01",
   required = false,
-}) => (
-  <div>
-    <label
-      className="
-        block
-      "
-    >
-      <span
+  disabled = false,
+  error = null,
+}) => {
+  const descriptionId = description
+    ? `${id}-description`
+    : undefined;
+
+  const errorId = error
+    ? `${id}-error`
+    : undefined;
+
+  const describedBy = [
+    descriptionId,
+    errorId,
+  ]
+    .filter(Boolean)
+    .join(" ") || undefined;
+
+  return (
+    <div>
+      <label
+        htmlFor={id}
         className="
-          font-medium text-slate-800 text-sm
+          block
         "
       >
-        {label}
-        {required ? (
-          <span
-            className="
-              ml-1
-              text-red-500
-            "
-          >
-            *
-          </span>
-        ) : null}
-      </span>
-
-      {description ? (
         <span
           className="
-            block
-            mt-1
-            text-slate-500 text-xs leading-5
+            font-medium text-slate-800 text-sm
           "
         >
-          {description}
+          {label}
+
+          {required ? (
+            <span
+              className="
+                ml-1
+                text-red-500
+              "
+              aria-hidden="true"
+            >
+              *
+            </span>
+          ) : null}
         </span>
-      ) : null}
+
+        {description ? (
+          <span
+            id={descriptionId}
+            className="
+              block
+              mt-1
+              text-slate-500 text-xs leading-5
+            "
+          >
+            {description}
+          </span>
+        ) : null}
+      </label>
 
       <input
+        id={id}
+        name={id}
         type="number"
         min={min}
         step={step}
@@ -82,11 +172,30 @@ const Field = ({
         onChange={(event) =>
           onChange(event.target.value)
         }
-        className="bg-white mt-2 px-3.5 border border-slate-200 focus:border-slate-400 rounded-xl outline-none focus:ring-2 focus:ring-slate-200 w-full min-h-11 text-slate-900 text-sm transition"
+        disabled={disabled}
+        required={required}
+        inputMode="decimal"
+        autoComplete="off"
+        aria-invalid={Boolean(error)}
+        aria-describedby={describedBy}
+        className="bg-white disabled:bg-slate-50 mt-2 px-3.5 border border-slate-200 focus:border-slate-400 rounded-xl outline-none focus:ring-2 focus:ring-slate-200 w-full min-h-11 text-slate-900 disabled:text-slate-400 text-sm transition"
       />
-    </label>
-  </div>
-);
+
+      {error ? (
+        <p
+          id={errorId}
+          className="
+            mt-1.5
+            text-red-600 text-xs
+          "
+          role="alert"
+        >
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+};
 
 /* =========================================================
    RESULT METRIC
@@ -112,7 +221,10 @@ const ResultMetric = ({
         gap-2
       "
     >
-      <Icon size={16} />
+      <Icon
+        size={16}
+        aria-hidden="true"
+      />
 
       <span
         className="
@@ -154,43 +266,66 @@ const EmergencyFundCalculator = ({
   onCalculated,
   className = "",
 }) => {
+  /* =======================================================
+     INITIAL FORM STATE
+  ======================================================= */
+
   const [
     monthlyExpenses,
     setMonthlyExpenses,
-  ] = useState(
-    initialValues.monthlyEssentialExpenses ||
-      ""
+  ] = useState(() =>
+    normalizeInitialNumber(
+      initialValues.monthlyEssentialExpenses
+    )
   );
 
   const [
     currentFund,
     setCurrentFund,
-  ] = useState(
-    initialValues.currentFund || ""
+  ] = useState(() =>
+    normalizeInitialNumber(
+      initialValues.currentFund
+    )
   );
 
   const [
     targetMonths,
     setTargetMonths,
-  ] = useState(
-    initialValues.targetMonths ||
-      EMERGENCY_FUND_DEFAULTS.targetMonths
+  ] = useState(() =>
+    String(
+      clampTargetMonths(
+        initialValues.targetMonths ??
+          DEFAULT_TARGET_MONTHS
+      )
+    )
   );
 
   const [
     monthlyIncome,
     setMonthlyIncome,
-  ] = useState(
-    initialValues.monthlyIncome || ""
+  ] = useState(() =>
+    normalizeInitialNumber(
+      initialValues.monthlyIncome
+    )
   );
 
   const [
     monthlyContribution,
     setMonthlyContribution,
-  ] = useState(
-    initialValues.monthlyContribution ||
-      ""
+  ] = useState(() =>
+    normalizeInitialNumber(
+      initialValues.monthlyContribution
+    )
   );
+
+  const [
+    validationError,
+    setValidationError,
+  ] = useState(null);
+
+  /* =======================================================
+     CALCULATOR HOOK
+  ======================================================= */
 
   const {
     result,
@@ -200,10 +335,125 @@ const EmergencyFundCalculator = ({
   } =
     useEmergencyFundCalculator();
 
+  /* =======================================================
+     TARGET OPTIONS
+  ======================================================= */
+
+  const targetMonthOptions =
+    useMemo(() => {
+      const count =
+        MAX_TARGET_MONTHS -
+        MIN_TARGET_MONTHS +
+        1;
+
+      return Array.from(
+        { length: Math.max(count, 0) },
+        (_, index) =>
+          MIN_TARGET_MONTHS + index
+      );
+    }, []);
+
+  /* =======================================================
+     FORM VALIDATION
+  ======================================================= */
+
+  const validateForm =
+    useCallback(() => {
+      const expenses =
+        Number(monthlyExpenses);
+
+      const current =
+        Number(currentFund || 0);
+
+      const income =
+        Number(monthlyIncome || 0);
+
+      const contribution =
+        Number(
+          monthlyContribution || 0
+        );
+
+      const months =
+        Number(targetMonths);
+
+      if (
+        !monthlyExpenses ||
+        !Number.isFinite(expenses) ||
+        expenses <= 0
+      ) {
+        return "Enter a valid monthly essential expense amount.";
+      }
+
+      if (
+        !Number.isFinite(current) ||
+        current < 0
+      ) {
+        return "Current emergency fund cannot be negative.";
+      }
+
+      if (
+        !Number.isFinite(income) ||
+        income < 0
+      ) {
+        return "Monthly income cannot be negative.";
+      }
+
+      if (
+        !Number.isFinite(contribution) ||
+        contribution < 0
+      ) {
+        return "Monthly emergency contribution cannot be negative.";
+      }
+
+      if (
+        !Number.isFinite(months) ||
+        months < MIN_TARGET_MONTHS ||
+        months > MAX_TARGET_MONTHS
+      ) {
+        return `Choose an emergency-fund target between ${MIN_TARGET_MONTHS} and ${MAX_TARGET_MONTHS} months.`;
+      }
+
+      if (
+        income > 0 &&
+        contribution > income
+      ) {
+        return "Monthly emergency contribution cannot be greater than monthly income.";
+      }
+
+      return null;
+    }, [
+      monthlyExpenses,
+      currentFund,
+      monthlyIncome,
+      monthlyContribution,
+      targetMonths,
+    ]);
+
+  /* =======================================================
+     SUBMIT
+  ======================================================= */
+
   const handleSubmit =
     useCallback(
       async (event) => {
         event.preventDefault();
+
+        if (loading) {
+          return;
+        }
+
+        const validationMessage =
+          validateForm();
+
+        if (validationMessage) {
+          setValidationError(
+            validationMessage
+          );
+
+          return;
+        }
+
+        setValidationError(null);
 
         const payload = {
           monthlyEssentialExpenses:
@@ -213,7 +463,9 @@ const EmergencyFundCalculator = ({
             Number(currentFund || 0),
 
           targetMonths:
-            Number(targetMonths),
+            clampTargetMonths(
+              targetMonths
+            ),
 
           monthlyIncome:
             Number(monthlyIncome || 0),
@@ -224,21 +476,28 @@ const EmergencyFundCalculator = ({
             ),
         };
 
-        const calculated =
-          await calculate(
-            payload
-          );
+        try {
+          const calculated =
+            await calculate(payload);
 
-        if (
-          typeof onCalculated ===
-          "function"
-        ) {
-          onCalculated(
+          if (
+            typeof onCalculated ===
+              "function" &&
             calculated
-          );
+          ) {
+            onCalculated(calculated);
+          }
+        } catch {
+          /*
+           * The calculator hook owns the calculation
+           * error state. We deliberately do not duplicate
+           * that error here.
+           */
         }
       },
       [
+        loading,
+        validateForm,
         monthlyExpenses,
         currentFund,
         targetMonths,
@@ -249,12 +508,47 @@ const EmergencyFundCalculator = ({
       ]
     );
 
+  /* =======================================================
+     DERIVED RESULT STATE
+  ======================================================= */
+
   const healthConfig =
     result
-      ? EMERGENCY_FUND_HEALTH_CONFIG[
+      ? EMERGENCY_FUND_HEALTH_CONFIG?.[
           result.health
-        ]
+        ] ?? null
       : null;
+
+  const progressPercentage =
+    result
+      ? Math.min(
+          Math.max(
+            Number(
+              result.progressPercentage
+            ) || 0,
+            0
+          ),
+          100
+        )
+      : 0;
+
+  const currentFundAmount =
+    Number(result?.currentFund) || 0;
+
+  const targetAmount =
+    Number(result?.targetAmount) || 0;
+
+  const remainingAmount =
+    Number(result?.remainingAmount) || 0;
+
+  const recommendedContribution =
+    Number(
+      result?.recommendedContribution
+    ) || 0;
+
+  /* =======================================================
+     RENDER
+  ======================================================= */
 
   return (
     <section
@@ -266,8 +560,12 @@ const EmergencyFundCalculator = ({
         shadow-sm
         ${className}
       `}
+      aria-labelledby="emergency-fund-calculator-title"
+      aria-busy={loading}
     >
-      {/* HEADER */}
+      {/* ===================================================
+          HEADER
+      =================================================== */}
 
       <header
         className="
@@ -283,6 +581,7 @@ const EmergencyFundCalculator = ({
             rounded-xl
             shrink-0
           "
+          aria-hidden="true"
         >
           <ShieldCheck
             size={20}
@@ -295,6 +594,7 @@ const EmergencyFundCalculator = ({
 
         <div>
           <h2
+            id="emergency-fund-calculator-title"
             className="
               font-bold text-slate-900 text-base
             "
@@ -308,16 +608,20 @@ const EmergencyFundCalculator = ({
               text-slate-500 text-sm leading-5
             "
           >
-            Estimate how much you need for a financial
-            safety buffer and how quickly you can build it.
+            Estimate how much you need for a
+            financial safety buffer and how
+            quickly you can build it.
           </p>
         </div>
       </header>
 
-      {/* FORM */}
+      {/* ===================================================
+          FORM
+      =================================================== */}
 
       <form
         onSubmit={handleSubmit}
+        noValidate
         className="
           space-y-5 mt-6
         "
@@ -329,39 +633,62 @@ const EmergencyFundCalculator = ({
           "
         >
           <Field
+            id={FIELD_IDS.monthlyExpenses}
             label="Monthly essential expenses"
             description="Housing, food, utilities, transportation and other essential costs."
             value={monthlyExpenses}
-            onChange={setMonthlyExpenses}
+            onChange={(value) => {
+              setMonthlyExpenses(value);
+
+              if (validationError) {
+                setValidationError(null);
+              }
+            }}
             required
+            disabled={loading}
+            error={
+              validationError &&
+              !monthlyExpenses
+                ? validationError
+                : null
+            }
           />
 
           <Field
+            id={FIELD_IDS.currentFund}
             label="Current emergency fund"
             description="How much you currently have reserved for emergencies."
             value={currentFund}
             onChange={setCurrentFund}
+            disabled={loading}
           />
 
           <Field
+            id={FIELD_IDS.monthlyIncome}
             label="Monthly income"
             description="Used to estimate your emergency-fund savings rate."
             value={monthlyIncome}
             onChange={setMonthlyIncome}
+            disabled={loading}
           />
 
           <Field
+            id={FIELD_IDS.monthlyContribution}
             label="Monthly emergency contribution"
             description="How much you plan to contribute each month."
             value={monthlyContribution}
             onChange={setMonthlyContribution}
+            disabled={loading}
           />
         </div>
 
-        {/* TARGET MONTHS */}
+        {/* =================================================
+            TARGET MONTHS
+        ================================================= */}
 
         <div>
           <label
+            htmlFor={FIELD_IDS.targetMonths}
             className="
               block
             "
@@ -375,45 +702,101 @@ const EmergencyFundCalculator = ({
             </span>
 
             <span
+              id={`${FIELD_IDS.targetMonths}-description`}
               className="
                 block
                 mt-1
                 text-slate-500 text-xs
               "
             >
-              Most people use 3–6 months of essential expenses.
+              Most people use 3–6 months of
+              essential expenses.
             </span>
 
             <select
+              id={FIELD_IDS.targetMonths}
+              name={FIELD_IDS.targetMonths}
               value={targetMonths}
               onChange={(event) =>
                 setTargetMonths(
-                  event.target.value
+                  String(
+                    clampTargetMonths(
+                      event.target.value
+                    )
+                  )
                 )
               }
-              className="bg-white mt-2 px-3.5 border border-slate-200 focus:border-slate-400 rounded-xl outline-none focus:ring-2 focus:ring-slate-200 w-full min-h-11 text-slate-900 text-sm"
+              disabled={loading}
+              aria-describedby={`${FIELD_IDS.targetMonths}-description`}
+              className="bg-white disabled:bg-slate-50 mt-2 px-3.5 border border-slate-200 focus:border-slate-400 rounded-xl outline-none focus:ring-2 focus:ring-slate-200 w-full min-h-11 text-slate-900 disabled:text-slate-400 text-sm"
             >
-              {Array.from(
-                {
-                  length:
-                    EMERGENCY_FUND_DEFAULTS.maximumTargetMonths -
-                    EMERGENCY_FUND_DEFAULTS.minimumTargetMonths +
-                    1,
-                },
-                (_, index) =>
-                  EMERGENCY_FUND_DEFAULTS.minimumTargetMonths +
-                  index
-              ).map((months) => (
-                <option
-                  key={months}
-                  value={months}
-                >
-                  {months} months
-                </option>
-              ))}
+              {targetMonthOptions.map(
+                (months) => (
+                  <option
+                    key={months}
+                    value={months}
+                  >
+                    {months}{" "}
+                    {months === 1
+                      ? "month"
+                      : "months"}
+                  </option>
+                )
+              )}
             </select>
           </label>
         </div>
+
+        {/* =================================================
+            VALIDATION ERROR
+        ================================================= */}
+
+        {validationError ? (
+          <div
+            className="
+              flex items-start
+              p-4
+              bg-amber-50
+              border border-amber-200 rounded-xl
+              gap-3
+            "
+            role="alert"
+          >
+            <AlertTriangle
+              size={18}
+              className="
+                mt-0.5
+                text-amber-600
+                shrink-0
+              "
+              aria-hidden="true"
+            /
+            >
+
+            <div>
+              <p
+                className="
+                  font-semibold text-amber-800 text-sm
+                "
+              >
+                Check your information
+              </p>
+
+              <p
+                className="
+                  mt-1
+                  text-amber-700 text-xs leading-5
+                "
+              >
+                {validationError}
+              </p>
+            </div>
+          </div>
+        ) : null}
+
+        {/* =================================================
+            CALCULATION ERROR
+        ================================================= */}
 
         {error ? (
           <div
@@ -433,7 +816,8 @@ const EmergencyFundCalculator = ({
                 text-red-600
                 shrink-0
               "
-              /
+              aria-hidden="true"
+            /
             >
 
             <div>
@@ -457,12 +841,17 @@ const EmergencyFundCalculator = ({
           </div>
         ) : null}
 
+        {/* =================================================
+            SUBMIT
+        ================================================= */}
+
         <button
           type="submit"
           disabled={
             loading ||
             !monthlyExpenses
           }
+          aria-busy={loading}
           className="
             inline-flex justify-center items-center
             w-full min-h-11
@@ -475,7 +864,10 @@ const EmergencyFundCalculator = ({
             gap-2
           "
         >
-          <Calculator size={17} />
+          <Calculator
+            size={17}
+            aria-hidden="true"
+          />
 
           {loading
             ? "Calculating..."
@@ -483,7 +875,9 @@ const EmergencyFundCalculator = ({
         </button>
       </form>
 
-      {/* RESULTS */}
+      {/* ===================================================
+          RESULTS
+      =================================================== */}
 
       {result ? (
         <div
@@ -491,8 +885,11 @@ const EmergencyFundCalculator = ({
             mt-7 pt-6
             border-slate-200 border-t
           "
+          aria-live="polite"
         >
-          {/* HEALTH */}
+          {/* ===============================================
+              HEALTH
+          =============================================== */}
 
           <div
             className="
@@ -508,6 +905,7 @@ const EmergencyFundCalculator = ({
                 rounded-xl
                 shrink-0
               "
+              aria-hidden="true"
             >
               {result.isComplete ? (
                 <CheckCircle2
@@ -531,7 +929,7 @@ const EmergencyFundCalculator = ({
             <div>
               <div
                 className="
-                  flex items-center
+                  flex flex-wrap items-center
                   gap-2
                 "
               >
@@ -552,22 +950,27 @@ const EmergencyFundCalculator = ({
                   "
                 >
                   {healthConfig?.label ||
-                    result.healthLabel}
+                    result.healthLabel ||
+                    "Not assessed"}
                 </span>
               </div>
 
-              <p
-                className="
-                  mt-1
-                  text-slate-500 text-xs leading-5
-                "
-              >
-                {result.healthMessage}
-              </p>
+              {result.healthMessage ? (
+                <p
+                  className="
+                    mt-1
+                    text-slate-500 text-xs leading-5
+                  "
+                >
+                  {result.healthMessage}
+                </p>
+              ) : null}
             </div>
           </div>
 
-          {/* PROGRESS */}
+          {/* ===============================================
+              PROGRESS
+          =============================================== */}
 
           <div
             className="
@@ -594,7 +997,7 @@ const EmergencyFundCalculator = ({
                 "
               >
                 {formatPercentage(
-                  result.progressPercentage
+                  progressPercentage
                 )}
               </span>
             </div>
@@ -606,6 +1009,13 @@ const EmergencyFundCalculator = ({
                 bg-slate-100
                 rounded-full
               "
+              role="progressbar"
+              aria-valuenow={
+                progressPercentage
+              }
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label="Emergency fund progress"
             >
               <div
                 className="
@@ -615,10 +1025,7 @@ const EmergencyFundCalculator = ({
                   transition-all duration-500
                 "
                 style={{
-                  width: `${Math.min(
-                    result.progressPercentage,
-                    100
-                  )}%`,
+                  width: `${progressPercentage}%`,
                 }}
               /
               >
@@ -637,7 +1044,7 @@ const EmergencyFundCalculator = ({
                 "
               >
                 {formatEmergencyCurrency(
-                  result.currentFund,
+                  currentFundAmount,
                   result.currency
                 )}
               </span>
@@ -648,14 +1055,16 @@ const EmergencyFundCalculator = ({
                 "
               >
                 {formatEmergencyCurrency(
-                  result.targetAmount,
+                  targetAmount,
                   result.currency
                 )}
               </span>
             </div>
           </div>
 
-          {/* METRICS */}
+          {/* ===============================================
+              METRICS
+          =============================================== */}
 
           <div
             className="
@@ -668,7 +1077,7 @@ const EmergencyFundCalculator = ({
               icon={Target}
               label="Recommended target"
               value={formatEmergencyCurrency(
-                result.targetAmount,
+                targetAmount,
                 result.currency
               )}
               description={`${result.targetMonths} months of essential expenses`}
@@ -687,7 +1096,7 @@ const EmergencyFundCalculator = ({
               icon={TrendingUp}
               label="Recommended contribution"
               value={formatEmergencyCurrency(
-                result.recommendedContribution,
+                recommendedContribution,
                 result.currency
               )}
               description="Suggested monthly contribution"
@@ -697,14 +1106,16 @@ const EmergencyFundCalculator = ({
               icon={Calculator}
               label="Remaining"
               value={formatEmergencyCurrency(
-                result.remainingAmount,
+                remainingAmount,
                 result.currency
               )}
               description="Amount needed to reach target"
             />
           </div>
 
-          {/* RECOMMENDATION */}
+          {/* ===============================================
+              RECOMMENDATION
+          =============================================== */}
 
           <div
             className="
@@ -722,7 +1133,8 @@ const EmergencyFundCalculator = ({
                 text-slate-600
                 shrink-0
               "
-              /
+              aria-hidden="true"
+            /
             >
 
             <div>
@@ -743,7 +1155,7 @@ const EmergencyFundCalculator = ({
                 {result.isComplete
                   ? "Your emergency fund has reached the recommended target. You can now redirect additional savings toward your other financial goals."
                   : `Consider allocating approximately ${formatEmergencyCurrency(
-                      result.recommendedContribution,
+                      recommendedContribution,
                       result.currency
                     )} per month toward your emergency fund until you reach your ${result.targetMonths}-month target.`}
               </p>

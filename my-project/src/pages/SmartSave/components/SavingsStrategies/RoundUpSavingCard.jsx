@@ -1,4 +1,3 @@
-
 import {
   ArrowRight,
   CalendarClock,
@@ -6,12 +5,11 @@ import {
   CirclePause,
   Clock3,
   Coins,
-  Play,
+  Percent,
   PiggyBank,
+  Play,
   ReceiptText,
   Target,
-  TrendingUp,
-  Wallet,
 } from "lucide-react";
 
 /* =========================================================
@@ -43,17 +41,17 @@ import {
 
 const DEFAULT_CURRENCY = "NGN";
 
-const DEFAULT_STATUS =
-  SAVINGS_PLAN_STATUS?.DRAFT ??
-  "draft";
+const DEFAULT_STATUS = String(
+  SAVINGS_PLAN_STATUS?.DRAFT ?? "draft"
+).toLowerCase();
 
-const DEFAULT_FREQUENCY =
-  SAVINGS_FREQUENCIES?.MONTHLY ??
-  "monthly";
+const DEFAULT_FREQUENCY = String(
+  SAVINGS_FREQUENCIES?.MONTHLY ?? "monthly"
+).toLowerCase();
 
-const DEFAULT_STRATEGY =
-  SAVINGS_STRATEGIES?.ROUND_UP ??
-  "round_up";
+const DEFAULT_STRATEGY = String(
+  SAVINGS_STRATEGIES?.ROUND_UP ?? "round_up"
+).toLowerCase();
 
 /* =========================================================
    STATUS CONFIGURATION
@@ -125,42 +123,121 @@ const ROUND_UP_MODE_LABELS = {
 };
 
 /* =========================================================
+   STRATEGY TYPE ALIASES
+========================================================= */
+
+const ROUND_UP_STRATEGY_TYPES = new Set([
+  DEFAULT_STRATEGY,
+  "round_up",
+  "round-up",
+  "roundup",
+  "round_up_saving",
+  "round_up_savings",
+]);
+
+/* =========================================================
    SAFE VALUE HELPERS
 ========================================================= */
 
+/**
+ * Returns the first non-empty string.
+ */
 const getText = (...values) => {
-  const value = values.find(
-    (item) =>
-      typeof item === "string" &&
-      item.trim().length > 0
-  );
+  for (const value of values) {
+    if (
+      typeof value === "string" &&
+      value.trim().length > 0
+    ) {
+      return value.trim();
+    }
+  }
 
-  return value?.trim() || "";
+  return "";
 };
 
+/**
+ * Safely resolves a strategy identifier.
+ */
 const getId = (strategy) => {
-  const id =
-    strategy?._id ??
-    strategy?.id ??
-    strategy?.planId ??
-    strategy?.strategyId;
+  if (!strategy || typeof strategy !== "object") {
+    return null;
+  }
 
-  return id ? String(id) : null;
+  const id =
+    strategy._id ??
+    strategy.id ??
+    strategy.planId ??
+    strategy.strategyId;
+
+  if (
+    id === null ||
+    id === undefined ||
+    id === ""
+  ) {
+    return null;
+  }
+
+  return String(id);
 };
 
+/**
+ * Safely converts numeric values.
+ *
+ * Unlike Number(value), this intentionally rejects
+ * booleans and arbitrary objects.
+ */
 const getNumber = (...values) => {
-  const value = values.find(
-    (item) =>
-      item !== null &&
-      item !== undefined &&
-      item !== ""
+  for (const value of values) {
+    if (
+      typeof value === "number" &&
+      Number.isFinite(value)
+    ) {
+      return value;
+    }
+
+    if (
+      typeof value === "string" &&
+      value.trim() !== ""
+    ) {
+      const number = Number(value);
+
+      if (Number.isFinite(number)) {
+        return number;
+      }
+    }
+  }
+
+  return 0;
+};
+
+/**
+ * Percentage values are always constrained to 0–100.
+ */
+const getPercentage = (...values) => {
+  const value = getNumber(...values);
+
+  return Math.min(
+    100,
+    Math.max(0, value)
   );
+};
 
-  const number = Number(value);
+/**
+ * Financial amounts displayed by this card cannot
+ * be negative.
+ */
+const getNonNegativeNumber = (...values) => {
+  return Math.max(0, getNumber(...values));
+};
 
-  return Number.isFinite(number)
-    ? number
-    : 0;
+/**
+ * Safely converts a value into a non-negative integer.
+ */
+const getInteger = (...values) => {
+  return Math.max(
+    0,
+    Math.floor(getNumber(...values))
+  );
 };
 
 /* =========================================================
@@ -173,9 +250,13 @@ const normalizeStatus = (strategy) => {
     strategy?.state
   ).toLowerCase();
 
-  return STATUS_CONFIG[status]
-    ? status
-    : DEFAULT_STATUS;
+  if (STATUS_CONFIG[status]) {
+    return status;
+  }
+
+  return STATUS_CONFIG[DEFAULT_STATUS]
+    ? DEFAULT_STATUS
+    : "draft";
 };
 
 const normalizeFrequency = (strategy) => {
@@ -184,9 +265,13 @@ const normalizeFrequency = (strategy) => {
     strategy?.schedule?.frequency
   ).toLowerCase();
 
-  return FREQUENCY_LABELS[frequency]
-    ? frequency
-    : DEFAULT_FREQUENCY;
+  if (FREQUENCY_LABELS[frequency]) {
+    return frequency;
+  }
+
+  return FREQUENCY_LABELS[DEFAULT_FREQUENCY]
+    ? DEFAULT_FREQUENCY
+    : "monthly";
 };
 
 const normalizeStrategyType = (strategy) => {
@@ -199,7 +284,7 @@ const normalizeStrategyType = (strategy) => {
 };
 
 /* =========================================================
-   ROUND-UP STRATEGY DETECTION
+   STRATEGY TYPE GUARD
 ========================================================= */
 
 const isRoundUpStrategy = (strategy) => {
@@ -207,18 +292,18 @@ const isRoundUpStrategy = (strategy) => {
     normalizeStrategyType(strategy);
 
   /*
-   * Accept the aliases that can reasonably represent
-   * the same frontend strategy without changing the
-   * backend contract.
+   * Important:
+   *
+   * We deliberately DO NOT treat a missing type as
+   * round-up. A missing type is ambiguous and should
+   * not cause this component to render the wrong
+   * strategy.
    */
-  return (
-    !type ||
-    type === DEFAULT_STRATEGY ||
-    type === "round_up" ||
-    type === "round-up" ||
-    type === "roundup" ||
-    type === "round_up_saving"
-  );
+  if (!type) {
+    return false;
+  }
+
+  return ROUND_UP_STRATEGY_TYPES.has(type);
 };
 
 /* =========================================================
@@ -237,17 +322,12 @@ const getProgress = (
 
   if (
     explicitProgress !== null &&
-    explicitProgress !== undefined
+    explicitProgress !== undefined &&
+    explicitProgress !== ""
   ) {
-    const percentage =
-      Number(explicitProgress);
-
-    if (Number.isFinite(percentage)) {
-      return Math.min(
-        100,
-        Math.max(0, percentage)
-      );
-    }
+    return getPercentage(
+      explicitProgress
+    );
   }
 
   if (targetAmount <= 0) {
@@ -255,13 +335,12 @@ const getProgress = (
   }
 
   try {
-    const calculated =
-      Number(
-        calculateProgressPercentage(
-          currentAmount,
-          targetAmount
-        )
-      );
+    const calculated = Number(
+      calculateProgressPercentage(
+        currentAmount,
+        targetAmount
+      )
+    );
 
     if (Number.isFinite(calculated)) {
       return Math.min(
@@ -270,21 +349,42 @@ const getProgress = (
       );
     }
   } catch {
-    // Deterministic fallback below.
+    // Fall through to deterministic calculation.
   }
+
+  const fallback =
+    (currentAmount / targetAmount) * 100;
 
   return Math.min(
     100,
-    Math.max(
-      0,
-      (currentAmount / targetAmount) * 100
-    )
+    Math.max(0, fallback)
   );
 };
 
 /* =========================================================
-   SAFE DATE FORMATTER
+   SAFE FORMATTERS
 ========================================================= */
+
+const safeFormatCurrency = (
+  amount,
+  currency
+) => {
+  try {
+    const formatted = formatCurrency(
+      amount,
+      currency
+    );
+
+    return (
+      typeof formatted === "string" &&
+      formatted.trim()
+    )
+      ? formatted
+      : `${currency} ${amount.toLocaleString()}`;
+  } catch {
+    return `${currency} ${amount.toLocaleString()}`;
+  }
+};
 
 const safeFormatDate = (value) => {
   if (!value) {
@@ -292,19 +392,25 @@ const safeFormatDate = (value) => {
   }
 
   try {
-    const formatted =
-      formatDate(value);
+    const formatted = formatDate(value);
 
-    return formatted || null;
-  } catch {
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-      return null;
+    if (
+      typeof formatted === "string" &&
+      formatted.trim()
+    ) {
+      return formatted;
     }
-
-    return date.toLocaleDateString();
+  } catch {
+    // Use native fallback.
   }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date.toLocaleDateString();
 };
 
 /* =========================================================
@@ -331,7 +437,8 @@ const RoundUpSavingCard = ({
 
   if (
     !strategy ||
-    typeof strategy !== "object"
+    typeof strategy !== "object" ||
+    Array.isArray(strategy)
   ) {
     return null;
   }
@@ -348,8 +455,7 @@ const RoundUpSavingCard = ({
      IDENTIFICATION
   ======================================================= */
 
-  const strategyId =
-    getId(strategy);
+  const strategyId = getId(strategy);
 
   /* =======================================================
      BASIC INFORMATION
@@ -392,15 +498,16 @@ const RoundUpSavingCard = ({
     getText(
       strategy.currency,
       strategy.targetCurrency,
-      strategy.savingAccount?.currency
-    ) || DEFAULT_CURRENCY;
+      strategy.savingAccount?.currency,
+      strategy.savingsAccount?.currency
+    ).toUpperCase() || DEFAULT_CURRENCY;
 
   /* =======================================================
      FINANCIAL VALUES
   ======================================================= */
 
   const currentAmount =
-    getNumber(
+    getNonNegativeNumber(
       strategy.currentAmount,
       strategy.savedAmount,
       strategy.progress?.current,
@@ -408,15 +515,19 @@ const RoundUpSavingCard = ({
     );
 
   const targetAmount =
-    getNumber(
+    getNonNegativeNumber(
       strategy.targetAmount,
       strategy.target,
       strategy.goalAmount,
       strategy.progress?.target
     );
 
+  /* =======================================================
+     ROUND-UP ACTIVITY
+  ======================================================= */
+
   const totalRoundUpAmount =
-    getNumber(
+    getNonNegativeNumber(
       strategy.totalRoundUpAmount,
       strategy.totalRoundUps,
       strategy.roundUpAmount,
@@ -425,14 +536,14 @@ const RoundUpSavingCard = ({
     );
 
   const averageRoundUp =
-    getNumber(
+    getNonNegativeNumber(
       strategy.averageRoundUp,
       strategy.averageRoundUpAmount,
       strategy.metrics?.averageRoundUp
     );
 
   const transactionCount =
-    getNumber(
+    getInteger(
       strategy.transactionCount,
       strategy.roundUpTransactionCount,
       strategy.metrics?.transactionCount,
@@ -444,7 +555,7 @@ const RoundUpSavingCard = ({
   ======================================================= */
 
   const roundUpIncrement =
-    getNumber(
+    getNonNegativeNumber(
       strategy.roundUpTo,
       strategy.roundUpIncrement,
       strategy.roundingAmount,
@@ -466,7 +577,7 @@ const RoundUpSavingCard = ({
     ROUND_UP_MODE_LABELS[roundUpMode] ??
     (
       roundUpIncrement > 0
-        ? `Nearest ${formatCurrency(
+        ? `Nearest ${safeFormatCurrency(
             roundUpIncrement,
             currency
           )}`
@@ -484,19 +595,22 @@ const RoundUpSavingCard = ({
       targetAmount
     );
 
+  const roundedProgress =
+    Math.round(progress);
+
   /* =======================================================
      FORMATTED VALUES
   ======================================================= */
 
   const formattedCurrentAmount =
-    formatCurrency(
+    safeFormatCurrency(
       currentAmount,
       currency
     );
 
   const formattedTargetAmount =
     targetAmount > 0
-      ? formatCurrency(
+      ? safeFormatCurrency(
           targetAmount,
           currency
         )
@@ -504,7 +618,7 @@ const RoundUpSavingCard = ({
 
   const formattedTotalRoundUp =
     totalRoundUpAmount > 0
-      ? formatCurrency(
+      ? safeFormatCurrency(
           totalRoundUpAmount,
           currency
         )
@@ -512,7 +626,7 @@ const RoundUpSavingCard = ({
 
   const formattedAverageRoundUp =
     averageRoundUp > 0
-      ? formatCurrency(
+      ? safeFormatCurrency(
           averageRoundUp,
           currency
         )
@@ -544,28 +658,25 @@ const RoundUpSavingCard = ({
      LIFECYCLE PERMISSIONS
   ======================================================= */
 
-  const canActivate =
-    status === "draft";
-
-  const canPause =
-    status === "active";
-
-  const canResume =
-    status === "paused";
+  const hasValidId =
+    Boolean(strategyId);
 
   const hasView =
     typeof onView === "function";
 
   const hasActivate =
-    canActivate &&
+    hasValidId &&
+    status === "draft" &&
     typeof onActivate === "function";
 
   const hasPause =
-    canPause &&
+    hasValidId &&
+    status === "active" &&
     typeof onPause === "function";
 
   const hasResume =
-    canResume &&
+    hasValidId &&
+    status === "paused" &&
     typeof onResume === "function";
 
   /* =======================================================
@@ -577,10 +688,7 @@ const RoundUpSavingCard = ({
       return;
     }
 
-    onView(
-      strategy,
-      strategyId
-    );
+    onView(strategy, strategyId);
   };
 
   const handleActivate = () => {
@@ -588,10 +696,7 @@ const RoundUpSavingCard = ({
       return;
     }
 
-    onActivate(
-      strategy,
-      strategyId
-    );
+    onActivate(strategy, strategyId);
   };
 
   const handlePause = () => {
@@ -599,10 +704,7 @@ const RoundUpSavingCard = ({
       return;
     }
 
-    onPause(
-      strategy,
-      strategyId
-    );
+    onPause(strategy, strategyId);
   };
 
   const handleResume = () => {
@@ -610,10 +712,7 @@ const RoundUpSavingCard = ({
       return;
     }
 
-    onResume(
-      strategy,
-      strategyId
-    );
+    onResume(strategy, strategyId);
   };
 
   /* =======================================================
@@ -637,33 +736,21 @@ const RoundUpSavingCard = ({
         ${compact ? "p-4" : "p-5"}
         ${className}
       `}
+      data-strategy-id={strategyId ?? undefined}
+      data-strategy-type="round_up"
     >
       {/* ===================================================
           HEADER
       =================================================== */}
 
       <header
-        className="
-          flex justify-between items-start
-          gap-4
-        "
+        className="flex justify-between items-start gap-4"
       >
         <div
-          className="
-            flex items-start
-            min-w-0
-            gap-3
-          "
+          className="flex items-start gap-3 min-w-0"
         >
           <div
-            className="
-              flex justify-center items-center
-              w-11 h-11
-              text-slate-700
-              bg-slate-100
-              rounded-xl
-              shrink-0
-            "
+            className="flex justify-center items-center bg-slate-100 rounded-xl w-11 h-11 text-slate-700 shrink-0"
             aria-hidden="true"
           >
             <Coins
@@ -673,39 +760,21 @@ const RoundUpSavingCard = ({
           </div>
 
           <div
-            className="
-              min-w-0
-            "
+            className="min-w-0"
           >
             <h3
-              className="
-                font-semibold text-slate-900 text-sm line-clamp-2 leading-5
-              "
+              className="font-semibold text-slate-900 text-sm line-clamp-2 leading-5"
             >
               {title}
             </h3>
 
             <div
-              className="
-                flex flex-wrap items-center
-                mt-2
-                gap-1.5
-              "
+              className="flex flex-wrap items-center gap-1.5 mt-2"
             >
               <span
-                className="
-                  inline-flex items-center
-                  px-2 py-0.5
-                  font-semibold text-[10px] text-slate-700
-                  bg-slate-100
-                  rounded-full
-                  gap-1
-                "
+                className="inline-flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded-full font-semibold text-[10px] text-slate-700"
               >
-                <Coins
-                  size={10}
-                />
-
+                <Coins size={10} />
                 Round-up
               </span>
 
@@ -716,8 +785,7 @@ const RoundUpSavingCard = ({
                   gap-1
                   rounded-full
                   border
-                  px-2
-                  py-0.5
+                  px-2 py-0.5
                   text-[10px]
                   font-semibold
                   ${statusConfig.badge}
@@ -726,6 +794,7 @@ const RoundUpSavingCard = ({
                 <StatusIcon
                   size={11}
                   strokeWidth={2}
+                  aria-hidden="true"
                 />
 
                 {statusConfig.label}
@@ -738,18 +807,12 @@ const RoundUpSavingCard = ({
           <button
             type="button"
             onClick={handleView}
-            className="
-              p-2
-              text-slate-400 hover:text-slate-700
-              hover:bg-slate-100
-              rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-300
-              transition
-              shrink-0
-            "
+            className="hover:bg-slate-100 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-300 text-slate-400 hover:text-slate-700 transition shrink-0"
             aria-label={`View ${title}`}
           >
             <ArrowRight
               size={17}
+              aria-hidden="true"
             />
           </button>
         )}
@@ -761,10 +824,7 @@ const RoundUpSavingCard = ({
 
       {description && (
         <p
-          className="
-            mt-4
-            text-slate-600 text-sm leading-6
-          "
+          className="mt-4 text-slate-600 text-sm leading-6"
         >
           {description}
         </p>
@@ -775,60 +835,34 @@ const RoundUpSavingCard = ({
       =================================================== */}
 
       <section
-        className="
-          mt-5 p-4
-          bg-slate-50
-          border border-slate-200 rounded-xl
-        "
+        className="bg-slate-50 mt-5 p-4 border border-slate-200 rounded-xl"
         aria-label="Round-up savings configuration"
       >
         <div
-          className="
-            flex justify-between items-center
-            gap-4
-          "
+          className="flex justify-between items-center gap-4"
         >
           <div
-            className="
-              flex items-center
-              min-w-0
-              gap-3
-            "
+            className="flex items-center gap-3 min-w-0"
           >
             <div
-              className="
-                flex justify-center items-center
-                w-10 h-10
-                text-slate-700
-                bg-white
-                rounded-lg
-                shadow-sm
-                shrink-0
-              "
+              className="flex justify-center items-center bg-white shadow-sm rounded-lg w-10 h-10 text-slate-700 shrink-0"
+              aria-hidden="true"
             >
-              <ReceiptText
-                size={18}
-              />
+              <ReceiptText size={18} />
             </div>
 
             <div
-              className="
-                min-w-0
-              "
+              className="min-w-0"
             >
               <p
-                className="
-                  font-medium text-slate-500 text-xs
-                "
+                className="font-medium text-slate-500 text-xs"
               >
                 Round-up rule
               </p>
 
               <p
-                className="
-                  mt-1
-                  font-bold text-slate-900 text-sm truncate
-                "
+                className="mt-1 font-bold text-slate-900 text-sm truncate"
+                title={roundUpModeLabel}
               >
                 {roundUpModeLabel}
               </p>
@@ -836,24 +870,16 @@ const RoundUpSavingCard = ({
           </div>
 
           <div
-            className="
-              text-right
-              shrink-0
-            "
+            className="text-right shrink-0"
           >
             <p
-              className="
-                font-medium text-[11px] text-slate-500
-              "
+              className="font-medium text-[11px] text-slate-500"
             >
               Frequency
             </p>
 
             <p
-              className="
-                mt-1
-                font-semibold text-slate-800 text-xs
-              "
+              className="mt-1 font-semibold text-slate-800 text-xs"
             >
               {frequencyLabel}
             </p>
@@ -861,20 +887,13 @@ const RoundUpSavingCard = ({
         </div>
 
         <div
-          className="
-            flex items-start
-            mt-4
-            text-slate-500 text-xs leading-5
-            gap-2
-          "
+          className="flex items-start gap-2 mt-4 text-slate-500 text-xs leading-5"
         >
           <PiggyBank
             size={14}
-            className="
-              mt-0.5
-              shrink-0
-            "
-            /
+            className="mt-0.5 shrink-0"
+            aria-hidden="true"
+          /
           >
 
           <p>
@@ -893,34 +912,22 @@ const RoundUpSavingCard = ({
         formattedAverageRoundUp ||
         transactionCount > 0) && (
         <section
-          className="
-            grid grid-cols-1 sm:grid-cols-3
-            mt-4
-            gap-3
-          "
+          className="gap-3 grid grid-cols-1 sm:grid-cols-3 mt-4"
           aria-label="Round-up activity"
         >
           {formattedTotalRoundUp && (
             <div
-              className="
-                p-3
-                bg-white
-                border border-slate-200 rounded-xl
-              "
+              className="bg-white p-3 border border-slate-200 rounded-xl"
             >
               <p
-                className="
-                  font-medium text-[11px] text-slate-500
-                "
+                className="font-medium text-[11px] text-slate-500"
               >
                 Total round-ups
               </p>
 
               <p
-                className="
-                  mt-1
-                  font-bold text-slate-900 text-sm truncate
-                "
+                className="mt-1 font-bold text-slate-900 text-sm truncate"
+                title={formattedTotalRoundUp}
               >
                 {formattedTotalRoundUp}
               </p>
@@ -929,25 +936,17 @@ const RoundUpSavingCard = ({
 
           {formattedAverageRoundUp && (
             <div
-              className="
-                p-3
-                bg-white
-                border border-slate-200 rounded-xl
-              "
+              className="bg-white p-3 border border-slate-200 rounded-xl"
             >
               <p
-                className="
-                  font-medium text-[11px] text-slate-500
-                "
+                className="font-medium text-[11px] text-slate-500"
               >
                 Average round-up
               </p>
 
               <p
-                className="
-                  mt-1
-                  font-bold text-slate-900 text-sm truncate
-                "
+                className="mt-1 font-bold text-slate-900 text-sm truncate"
+                title={formattedAverageRoundUp}
               >
                 {formattedAverageRoundUp}
               </p>
@@ -956,25 +955,16 @@ const RoundUpSavingCard = ({
 
           {transactionCount > 0 && (
             <div
-              className="
-                p-3
-                bg-white
-                border border-slate-200 rounded-xl
-              "
+              className="bg-white p-3 border border-slate-200 rounded-xl"
             >
               <p
-                className="
-                  font-medium text-[11px] text-slate-500
-                "
+                className="font-medium text-[11px] text-slate-500"
               >
                 Transactions
               </p>
 
               <p
-                className="
-                  mt-1
-                  font-bold text-slate-900 text-sm
-                "
+                className="mt-1 font-bold text-slate-900 text-sm"
               >
                 {transactionCount.toLocaleString()}
               </p>
@@ -988,88 +978,63 @@ const RoundUpSavingCard = ({
       =================================================== */}
 
       <section
-        className="
-          grid grid-cols-2
-          mt-4
-          gap-3
-        "
+        className="gap-3 grid grid-cols-2 mt-4"
         aria-label="Savings summary"
       >
         <div
-          className="
-            p-3
-            bg-white
-            border border-slate-200 rounded-xl
-          "
+          className="bg-white p-3 border border-slate-200 rounded-xl"
         >
           <div
-            className="
-              flex items-center
-              gap-1.5
-            "
+            className="flex items-center gap-1.5"
           >
             <PiggyBank
               size={12}
-              className="
-                text-slate-400
-              "
-              /
+              className="text-slate-400"
+              aria-hidden="true"
+            /
             >
 
             <p
-              className="
-                font-medium text-[11px] text-slate-500
-              "
+              className="font-medium text-[11px] text-slate-500"
             >
               Saved
             </p>
           </div>
 
           <p
-            className="
-              mt-1
-              font-bold text-slate-900 text-sm truncate
-            "
+            className="mt-1 font-bold text-slate-900 text-sm truncate"
+            title={formattedCurrentAmount}
           >
             {formattedCurrentAmount}
           </p>
         </div>
 
         <div
-          className="
-            p-3
-            bg-white
-            border border-slate-200 rounded-xl
-          "
+          className="bg-white p-3 border border-slate-200 rounded-xl"
         >
           <div
-            className="
-              flex items-center
-              gap-1.5
-            "
+            className="flex items-center gap-1.5"
           >
             <Target
               size={12}
-              className="
-                text-slate-400
-              "
-              /
+              className="text-slate-400"
+              aria-hidden="true"
+            /
             >
 
             <p
-              className="
-                font-medium text-[11px] text-slate-500
-              "
+              className="font-medium text-[11px] text-slate-500"
             >
               Target
             </p>
           </div>
 
           <p
-            className="
-              mt-1
-              font-bold text-slate-900 text-sm truncate
-            "
+            className="mt-1 font-bold text-slate-900 text-sm truncate"
+            title={
+              formattedTargetAmount ??
+              "No target"
+            }
           >
             {formattedTargetAmount ??
               "No target"}
@@ -1084,57 +1049,35 @@ const RoundUpSavingCard = ({
       {showProgress &&
         targetAmount > 0 && (
           <section
-            className="
-              mt-5
-            "
+            className="mt-5"
             aria-label="Saving progress"
           >
             <div
-              className="
-                flex justify-between items-center
-                gap-3
-              "
+              className="flex justify-between items-center gap-3"
             >
               <span
-                className="
-                  font-medium text-slate-600 text-xs
-                "
+                className="font-medium text-slate-600 text-xs"
               >
                 Goal progress
               </span>
 
               <span
-                className="
-                  font-bold text-slate-900 text-xs
-                "
+                className="font-bold text-slate-900 text-xs"
               >
-                {Math.round(progress)}%
+                {roundedProgress}%
               </span>
             </div>
 
             <div
-              className="
-                overflow-hidden
-                h-2
-                mt-2
-                bg-slate-100
-                rounded-full
-              "
+              className="bg-slate-100 mt-2 rounded-full h-2 overflow-hidden"
               role="progressbar"
               aria-valuemin={0}
               aria-valuemax={100}
-              aria-valuenow={Math.round(
-                progress
-              )}
+              aria-valuenow={roundedProgress}
               aria-label={`${title} progress`}
             >
               <div
-                className="
-                  h-full
-                  bg-slate-900
-                  rounded-full
-                  transition-all duration-500
-                "
+                className="bg-slate-900 rounded-full h-full transition-all duration-500"
                 style={{
                   width: `${progress}%`,
                 }}
@@ -1149,47 +1092,30 @@ const RoundUpSavingCard = ({
       =================================================== */}
 
       <div
-        className="
-          flex flex-wrap
-          mt-5 pt-4
-          border-slate-100 border-t
-          gap-3
-        "
+        className="flex flex-wrap gap-3 mt-5 pt-4 border-slate-100 border-t"
       >
         <div
-          className="
-            inline-flex items-center
-            text-slate-600 text-xs
-            gap-2
-          "
+          className="inline-flex items-center gap-2 text-slate-600 text-xs"
         >
           <CalendarClock
             size={14}
-            className="
-              text-slate-400
-            "
-            /
+            className="text-slate-400"
+            aria-hidden="true"
+          /
           >
 
-          <span>
-            {frequencyLabel}
-          </span>
+          <span>{frequencyLabel}</span>
         </div>
 
         {nextExecution && (
           <div
-            className="
-              inline-flex items-center
-              text-slate-600 text-xs
-              gap-2
-            "
+            className="inline-flex items-center gap-2 text-slate-600 text-xs"
           >
             <Clock3
               size={14}
-              className="
-                text-slate-400
-              "
-              /
+              className="text-slate-400"
+              aria-hidden="true"
+            /
             >
 
             <span>
@@ -1209,38 +1135,21 @@ const RoundUpSavingCard = ({
           hasResume ||
           hasView) && (
           <footer
-            className="
-              flex flex-col sm:flex-row sm:justify-between sm:items-center
-              mt-5 pt-4
-              border-slate-100 border-t
-              gap-2
-            "
+            className="flex sm:flex-row flex-col sm:justify-between sm:items-center gap-2 mt-5 pt-4 border-slate-100 border-t"
           >
             <div
-              className="
-                flex flex-wrap
-                gap-2
-              "
+              className="flex flex-wrap gap-2"
             >
               {hasActivate && (
                 <button
                   type="button"
                   onClick={handleActivate}
-                  className="
-                    inline-flex justify-center items-center
-                    min-h-9
-                    px-3.5 py-2
-                    font-semibold text-white text-sm
-                    bg-slate-900 hover:bg-slate-800
-                    rounded-lg focus:outline-none
-                    focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
-                    transition
-                    gap-2
-                  "
+                  className="inline-flex justify-center items-center gap-2 bg-slate-900 hover:bg-slate-800 px-3.5 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 min-h-9 font-semibold text-white text-sm transition"
                 >
                   <Play
                     size={14}
                     fill="currentColor"
+                    aria-hidden="true"
                   />
 
                   Activate
@@ -1251,20 +1160,11 @@ const RoundUpSavingCard = ({
                 <button
                   type="button"
                   onClick={handlePause}
-                  className="
-                    inline-flex justify-center items-center
-                    min-h-9
-                    px-3.5 py-2
-                    font-semibold text-slate-700 text-sm
-                    bg-white hover:bg-slate-50
-                    border border-slate-200 rounded-lg focus:outline-none
-                    focus:ring-2 focus:ring-slate-300
-                    transition
-                    gap-2
-                  "
+                  className="inline-flex justify-center items-center gap-2 bg-white hover:bg-slate-50 px-3.5 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2 min-h-9 font-semibold text-slate-700 text-sm transition"
                 >
                   <CirclePause
                     size={14}
+                    aria-hidden="true"
                   />
 
                   Pause
@@ -1275,21 +1175,12 @@ const RoundUpSavingCard = ({
                 <button
                   type="button"
                   onClick={handleResume}
-                  className="
-                    inline-flex justify-center items-center
-                    min-h-9
-                    px-3.5 py-2
-                    font-semibold text-white text-sm
-                    bg-slate-900 hover:bg-slate-800
-                    rounded-lg focus:outline-none
-                    focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
-                    transition
-                    gap-2
-                  "
+                  className="inline-flex justify-center items-center gap-2 bg-slate-900 hover:bg-slate-800 px-3.5 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 min-h-9 font-semibold text-white text-sm transition"
                 >
                   <Play
                     size={14}
                     fill="currentColor"
+                    aria-hidden="true"
                   />
 
                   Resume
@@ -1301,22 +1192,13 @@ const RoundUpSavingCard = ({
               <button
                 type="button"
                 onClick={handleView}
-                className="
-                  inline-flex justify-center items-center
-                  min-h-9
-                  px-3.5 py-2
-                  font-semibold text-slate-700 text-sm
-                  bg-white hover:bg-slate-50
-                  border border-slate-200 rounded-lg focus:outline-none
-                  focus:ring-2 focus:ring-slate-300
-                  transition
-                  gap-2
-                "
+                className="inline-flex justify-center items-center gap-2 bg-white hover:bg-slate-50 px-3.5 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2 min-h-9 font-semibold text-slate-700 text-sm transition"
               >
                 View strategy
 
                 <ArrowRight
                   size={14}
+                  aria-hidden="true"
                 />
               </button>
             )}

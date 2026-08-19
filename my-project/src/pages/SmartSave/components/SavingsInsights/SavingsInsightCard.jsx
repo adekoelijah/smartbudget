@@ -38,16 +38,27 @@ import {
 } from "../../../../config/smartSaveConfig";
 
 /* =========================================================
-   DEFAULTS
+   CONSTANTS
 ========================================================= */
 
-const DEFAULT_CURRENCY = SMART_SAVE_CURRENCY || "NGN";
+const DEFAULT_CURRENCY =
+  SMART_SAVE_CURRENCY || "NGN";
+
+const DEFAULT_INSIGHT_TYPE = "information";
+const DEFAULT_PRIORITY = "medium";
+
+const DEFAULT_TITLE = "Savings insight";
+
+const DEFAULT_DESCRIPTION =
+  "We found something that may help improve your savings.";
+
+const DEFAULT_ACTION_LABEL = "View details";
 
 /* =========================================================
-   ICON CONFIG
+   ICON CONFIGURATION
 ========================================================= */
 
-const TYPE_ICON_MAP = {
+const TYPE_ICON_MAP = Object.freeze({
   opportunity: TrendingUp,
   recommendation: Lightbulb,
   warning: AlertTriangle,
@@ -57,9 +68,9 @@ const TYPE_ICON_MAP = {
   progress: ArrowUpRight,
   saving: Sparkles,
   information: Info,
-};
+});
 
-const PRIORITY_CONFIG = {
+const PRIORITY_CONFIG = Object.freeze({
   critical: {
     label: "Critical",
     icon: XCircle,
@@ -79,110 +90,226 @@ const PRIORITY_CONFIG = {
     label: "Tip",
     icon: Info,
   },
-};
+});
 
 /* =========================================================
-   HELPERS
+   SAFE HELPERS
 ========================================================= */
 
-const safeString = (value, fallback = "") => {
-  if (typeof value !== "string") return fallback;
+const safeString = (
+  value,
+  fallback = ""
+) => {
+  if (
+    typeof value !== "string"
+  ) {
+    return fallback;
+  }
 
   const trimmed = value.trim();
 
   return trimmed || fallback;
 };
 
+const toFiniteNumber = (
+  value,
+  fallback = null
+) => {
+  const number = Number(value);
+
+  return Number.isFinite(number)
+    ? number
+    : fallback;
+};
+
+const normalizeType = (value) => {
+  const normalized = safeString(
+    value
+  ).toLowerCase();
+
+  if (
+    Object.prototype.hasOwnProperty.call(
+      TYPE_ICON_MAP,
+      normalized
+    )
+  ) {
+    return normalized;
+  }
+
+  return DEFAULT_INSIGHT_TYPE;
+};
+
+const normalizePriority = (value) => {
+  const normalized = safeString(
+    value
+  ).toLowerCase();
+
+  if (
+    Object.prototype.hasOwnProperty.call(
+      PRIORITY_CONFIG,
+      normalized
+    )
+  ) {
+    return normalized;
+  }
+
+  return DEFAULT_PRIORITY;
+};
+
+/* =========================================================
+   INSIGHT DATA HELPERS
+========================================================= */
+
 const getInsightTitle = (insight) =>
   safeString(
-    insight?.title ||
-      insight?.headline ||
+    insight?.title ??
+      insight?.headline ??
       insight?.name,
-    "Savings insight"
+    DEFAULT_TITLE
   );
 
-const getInsightDescription = (insight) =>
+const getInsightDescription = (
+  insight
+) =>
   safeString(
-    insight?.description ||
-      insight?.message ||
-      insight?.summary ||
+    insight?.description ??
+      insight?.message ??
+      insight?.summary ??
       insight?.recommendation,
-    "We found something that may help improve your savings."
+    DEFAULT_DESCRIPTION
   );
 
-const getInsightType = (insight) => {
-  const type = String(
-    insight?.type ||
-      insight?.category ||
-      insight?.insightType ||
-      ""
-  ).toLowerCase();
+const getInsightType = (insight) =>
+  normalizeType(
+    insight?.type ??
+      insight?.category ??
+      insight?.insightType
+  );
 
-  return type || "information";
-};
+const getInsightPriority = (
+  insight
+) =>
+  normalizePriority(
+    insight?.priority ??
+      insight?.severity
+  );
 
-const getInsightPriority = (insight) => {
-  const priority = String(
-    insight?.priority ||
-      insight?.severity ||
-      ""
-  ).toLowerCase();
-
-  return priority || "medium";
-};
-
-const getInsightIcon = (type) =>
-  TYPE_ICON_MAP[type] || Lightbulb;
-
-const getPriorityConfig = (priority) =>
-  PRIORITY_CONFIG[priority] || PRIORITY_CONFIG.medium;
-
-const getAmount = (insight) => {
-  const amount =
+const getInsightAmount = (
+  insight
+) =>
+  toFiniteNumber(
     insight?.amount ??
-    insight?.potentialSavings ??
-    insight?.recommendedAmount;
+      insight?.potentialSavings ??
+      insight?.recommendedAmount
+  );
 
-  return Number.isFinite(Number(amount))
-    ? Number(amount)
-    : null;
-};
-
-const getPercentage = (insight) => {
-  const percentage =
+const getInsightPercentage = (
+  insight
+) =>
+  toFiniteNumber(
     insight?.percentage ??
-    insight?.changePercentage ??
-    insight?.improvementPercentage;
+      insight?.changePercentage ??
+      insight?.improvementPercentage
+  );
 
-  return Number.isFinite(Number(percentage))
-    ? Number(percentage)
-    : null;
-};
-
-const getDirection = (insight) => {
-  const direction = String(
-    insight?.direction ||
-      insight?.trend ||
-      ""
+const getInsightDirection = (
+  insight
+) => {
+  const direction = safeString(
+    insight?.direction ??
+      insight?.trend
   ).toLowerCase();
 
-  if (["up", "increase", "positive"].includes(direction)) {
+  if (
+    direction === "up" ||
+    direction === "increase" ||
+    direction === "positive"
+  ) {
     return "up";
   }
 
-  if (["down", "decrease", "negative"].includes(direction)) {
+  if (
+    direction === "down" ||
+    direction === "decrease" ||
+    direction === "negative"
+  ) {
     return "down";
   }
 
   return null;
 };
 
-const getInsightDate = (insight) =>
-  insight?.createdAt ||
-  insight?.updatedAt ||
-  insight?.date ||
-  insight?.generatedAt ||
+const getInsightDate = (
+  insight
+) =>
+  insight?.createdAt ??
+  insight?.updatedAt ??
+  insight?.date ??
+  insight?.generatedAt ??
   null;
+
+const getActionLabel = (
+  insight
+) =>
+  safeString(
+    insight?.actionLabel ??
+      insight?.ctaLabel ??
+      insight?.action?.label,
+    DEFAULT_ACTION_LABEL
+  );
+
+/* =========================================================
+   ICON COMPONENTS
+========================================================= */
+
+/**
+ * Resolves the insight icon outside the main card's
+ * presentation tree.
+ *
+ * This prevents dynamic component resolution from being
+ * embedded directly in SavingsInsightCard's render JSX.
+ */
+const SavingsInsightIcon = ({
+  type,
+  size = 21,
+  strokeWidth = 2,
+}) => {
+  const Icon =
+    TYPE_ICON_MAP[type] ??
+    TYPE_ICON_MAP[DEFAULT_INSIGHT_TYPE];
+
+  return (
+    <Icon
+      size={size}
+      strokeWidth={strokeWidth}
+      aria-hidden="true"
+    />
+  );
+};
+
+/**
+ * Resolves the priority icon independently from the
+ * main insight icon.
+ */
+const SavingsInsightPriorityIcon = ({
+  priority,
+  size = 12,
+  strokeWidth = 2,
+}) => {
+  const config =
+    PRIORITY_CONFIG[priority] ??
+    PRIORITY_CONFIG[DEFAULT_PRIORITY];
+
+  const Icon = config.icon;
+
+  return (
+    <Icon
+      size={size}
+      strokeWidth={strokeWidth}
+      aria-hidden="true"
+    />
+  );
+};
 
 /* =========================================================
    COMPONENT
@@ -190,96 +317,162 @@ const getInsightDate = (insight) =>
 
 const SavingsInsightCard = ({
   insight: rawInsight,
+
   onAction,
   onDismiss,
   onView,
+
   compact = false,
   showDate = true,
   showPriority = true,
   showAction = true,
+
   className = "",
 }) => {
-  /*
-   * Normalization happens at the UI boundary.
-   *
-   * The component remains resilient if the service/API
-   * returns a slightly different response shape.
-   */
-  const insight = normalizeSavingsInsight(rawInsight);
+  /* =======================================================
+     NORMALIZE INSIGHT
+  ======================================================= */
 
+  const insight =
+    normalizeSavingsInsight(
+      rawInsight
+    );
+
+  /*
+   * Invalid insight records should never break the
+   * surrounding SmartSave page.
+   */
   if (!insight) {
     return null;
   }
 
-  const type = getInsightType(insight);
-  const priority = getInsightPriority(insight);
+  /* =======================================================
+     NORMALIZED PRESENTATION DATA
+  ======================================================= */
 
-  const Icon = getInsightIcon(type);
-  const priorityConfig = getPriorityConfig(priority);
-  const PriorityIcon = priorityConfig.icon;
+  const type =
+    getInsightType(insight);
 
-  const title = getInsightTitle(insight);
-  const description = getInsightDescription(insight);
+  const priority =
+    getInsightPriority(insight);
 
-  const amount = getAmount(insight);
-  const percentage = getPercentage(insight);
-  const direction = getDirection(insight);
+  const priorityConfig =
+    PRIORITY_CONFIG[priority] ??
+    PRIORITY_CONFIG[DEFAULT_PRIORITY];
 
-  const date = getInsightDate(insight);
+  const title =
+    getInsightTitle(insight);
 
-  const healthStatus = insight?.healthStatus
-    ? getSavingsHealthStatus(insight.healthStatus)
-    : null;
+  const description =
+    getInsightDescription(insight);
 
-  const actionLabel = safeString(
-    insight?.actionLabel ||
-      insight?.ctaLabel ||
-      insight?.action?.label,
-    "View details"
-  );
+  const amount =
+    getInsightAmount(insight);
 
-  const handleAction = () => {
-    if (typeof onAction === "function") {
-      onAction(insight);
-      return;
-    }
+  const percentage =
+    getInsightPercentage(insight);
 
-    if (typeof onView === "function") {
-      onView(insight);
-    }
-  };
+  const direction =
+    getInsightDirection(insight);
 
-  const handleDismiss = () => {
-    if (typeof onDismiss === "function") {
-      onDismiss(insight);
-    }
-  };
+  const date =
+    getInsightDate(insight);
 
-  const hasAction =
-    showAction &&
-    (
-      typeof onAction === "function" ||
-      typeof onView === "function"
-    );
+  const actionLabel =
+    getActionLabel(insight);
+
+  /* =======================================================
+     HEALTH STATUS
+  ======================================================= */
+
+  const healthStatus =
+    insight?.healthStatus
+      ? getSavingsHealthStatus(
+          insight.healthStatus
+        )
+      : null;
+
+  /* =======================================================
+     FORMATTING
+  ======================================================= */
+
+  const currency = safeString(
+    insight?.currency,
+    DEFAULT_CURRENCY
+  ).toUpperCase();
 
   const formattedAmount =
     amount !== null
-      ? formatCurrency(amount, {
-          currency:
-            insight?.currency ||
-            DEFAULT_CURRENCY,
-        })
+      ? formatCurrency(
+          amount,
+          {
+            currency,
+          }
+        )
       : null;
 
   const formattedPercentage =
     percentage !== null
-      ? formatPercentage(percentage)
+      ? formatPercentage(
+          percentage
+        )
       : null;
 
   const formattedDate =
     showDate && date
       ? formatDate(date)
       : null;
+
+  /* =======================================================
+     ACTION AVAILABILITY
+  ======================================================= */
+
+  const hasAction =
+    showAction &&
+    (
+      typeof onAction ===
+        "function" ||
+      typeof onView ===
+        "function"
+    );
+
+  const hasDismiss =
+    typeof onDismiss ===
+    "function";
+
+  /* =======================================================
+     HANDLERS
+  ======================================================= */
+
+  const handleAction = () => {
+    if (
+      typeof onAction ===
+      "function"
+    ) {
+      onAction(insight);
+      return;
+    }
+
+    if (
+      typeof onView ===
+      "function"
+    ) {
+      onView(insight);
+    }
+  };
+
+  const handleDismiss = () => {
+    if (
+      typeof onDismiss ===
+      "function"
+    ) {
+      onDismiss(insight);
+    }
+  };
+
+  /* =======================================================
+     RENDER
+  ======================================================= */
 
   return (
     <article
@@ -299,6 +492,7 @@ const SavingsInsightCard = ({
         ${compact ? "p-4" : "p-5"}
         ${className}
       `}
+      aria-label={title}
     >
       {/* =================================================
           ACCENT
@@ -321,7 +515,7 @@ const SavingsInsightCard = ({
         "
       >
         {/* =================================================
-            ICON
+            INSIGHT ICON
         ================================================= */}
 
         <div
@@ -335,7 +529,11 @@ const SavingsInsightCard = ({
           "
           aria-hidden="true"
         >
-          Icon size={21} strokeWidth={2} 
+          <SavingsInsightIcon
+            type={type}
+            size={21}
+            strokeWidth={2}
+          />
         </div>
 
         {/* =================================================
@@ -348,7 +546,9 @@ const SavingsInsightCard = ({
             min-w-0
           "
         >
-          {/* Header */}
+          {/* =================================================
+              HEADER
+          ================================================= */}
 
           <div
             className="
@@ -382,7 +582,9 @@ const SavingsInsightCard = ({
               )}
             </div>
 
-            {/* Priority */}
+            {/* =================================================
+                PRIORITY
+            ================================================= */}
 
             {showPriority && (
               <span
@@ -395,9 +597,8 @@ const SavingsInsightCard = ({
                   gap-1.5 shrink-0
                 "
               >
-                <PriorityIcon
-                  size={12}
-                  strokeWidth={2}
+                <SavingsInsightPriorityIcon
+                  priority={priority}
                 />
 
                 {priorityConfig.label}
@@ -405,15 +606,18 @@ const SavingsInsightCard = ({
             )}
           </div>
 
-          {/* Description */}
+          {/* =================================================
+              DESCRIPTION
+          ================================================= */}
 
           <p
             className={`
               leading-6
               text-slate-600
-              ${compact
-                ? "mt-2 text-xs"
-                : "mt-3 text-sm"
+              ${
+                compact
+                  ? "mt-2 text-xs"
+                  : "mt-3 text-sm"
               }
             `}
           >
@@ -434,6 +638,8 @@ const SavingsInsightCard = ({
                 gap-2
               "
             >
+              {/* AMOUNT */}
+
               {formattedAmount && (
                 <div
                   className="
@@ -442,12 +648,13 @@ const SavingsInsightCard = ({
                     font-semibold text-slate-800 text-xs
                     bg-slate-50
                     rounded-lg
-                    gap-1.5
                   "
                 >
-                  <span>{formattedAmount}</span>
+                  {formattedAmount}
                 </div>
               )}
+
+              {/* PERCENTAGE */}
 
               {formattedPercentage && (
                 <div
@@ -457,20 +664,28 @@ const SavingsInsightCard = ({
                     font-semibold text-slate-800 text-xs
                     bg-slate-50
                     rounded-lg
-                    gap-1.5
+                    gap-1
                   "
                 >
                   {direction === "up" && (
-                    <ArrowUpRight size={13} />
+                    <ArrowUpRight
+                      size={13}
+                      aria-hidden="true"
+                    />
                   )}
 
                   {direction === "down" && (
-                    <ArrowDownRight size={13} />
+                    <ArrowDownRight
+                      size={13}
+                      aria-hidden="true"
+                    />
                   )}
 
                   {formattedPercentage}
                 </div>
               )}
+
+              {/* HEALTH */}
 
               {healthStatus && (
                 <div
@@ -482,9 +697,12 @@ const SavingsInsightCard = ({
                     rounded-lg
                   "
                 >
-                  {healthStatus.label ||
-                    healthStatus.status ||
-                    insight.healthStatus}
+                  {safeString(
+                    healthStatus.label ??
+                      healthStatus.status ??
+                      insight.healthStatus,
+                    "Status available"
+                  )}
                 </div>
               )}
             </div>
@@ -494,7 +712,9 @@ const SavingsInsightCard = ({
               GOAL CONTEXT
           ================================================= */}
 
-          {insight?.goalName && (
+          {safeString(
+            insight?.goalName
+          ) && (
             <div
               className="
                 flex items-center
@@ -503,12 +723,18 @@ const SavingsInsightCard = ({
                 gap-2
               "
             >
-              <Target size={14} />
+              <Target
+                size={14}
+                aria-hidden="true"
+              />
 
               <span
                 className="
                   truncate
                 "
+                title={
+                  insight.goalName
+                }
               >
                 {insight.goalName}
               </span>
@@ -520,7 +746,7 @@ const SavingsInsightCard = ({
           ================================================= */}
 
           {(hasAction ||
-            typeof onDismiss === "function") && (
+            hasDismiss) && (
             <div
               className="
                 flex justify-between items-center
@@ -531,7 +757,9 @@ const SavingsInsightCard = ({
               {hasAction ? (
                 <button
                   type="button"
-                  onClick={handleAction}
+                  onClick={
+                    handleAction
+                  }
                   className="
                     inline-flex items-center
                     px-3.5 py-2
@@ -545,22 +773,29 @@ const SavingsInsightCard = ({
                 >
                   {actionLabel}
 
-                  <ArrowRight size={14} />
+                  <ArrowRight
+                    size={14}
+                    aria-hidden="true"
+                  />
                 </button>
               ) : (
-                <span />
+                <span
+                  aria-hidden="true"
+                />
               )}
 
-              {typeof onDismiss === "function" && (
+              {hasDismiss && (
                 <button
                   type="button"
-                  onClick={handleDismiss}
+                  onClick={
+                    handleDismiss
+                  }
                   className="
                     px-2 py-1.5
                     font-medium text-slate-500 hover:text-slate-700 text-xs
                     hover:bg-slate-100
                     rounded-lg focus:outline-none
-                    focus:ring-2 focus:ring-slate-300
+                    focus:ring-2 focus:ring-slate-300 focus:ring-offset-1
                     transition
                   "
                   aria-label={`Dismiss ${title}`}

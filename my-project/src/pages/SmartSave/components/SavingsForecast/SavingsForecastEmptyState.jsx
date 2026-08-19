@@ -1,3 +1,7 @@
+import {
+  createElement,
+  memo,
+} from "react";
 
 import {
   ArrowRight,
@@ -6,7 +10,7 @@ import {
 } from "lucide-react";
 
 /* =========================================================
-   DEFAULT CONTENT
+   CONSTANTS
 ========================================================= */
 
 const DEFAULT_TITLE =
@@ -18,6 +22,53 @@ const DEFAULT_MESSAGE =
 const DEFAULT_ACTION_LABEL =
   "Start saving";
 
+const DEFAULT_ARIA_LABEL =
+  "Savings forecast status";
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+const resolveText = (
+  value,
+  fallback
+) => {
+  if (
+    typeof value !== "string"
+  ) {
+    return fallback;
+  }
+
+  const trimmed =
+    value.trim();
+
+  return trimmed || fallback;
+};
+
+const resolveOptionalText = (
+  value
+) => {
+  if (
+    typeof value !== "string"
+  ) {
+    return "";
+  }
+
+  return value.trim();
+};
+
+const resolveClassName = (
+  value
+) => {
+  if (
+    typeof value !== "string"
+  ) {
+    return "";
+  }
+
+  return value.trim();
+};
+
 /* =========================================================
    COMPONENT
 ========================================================= */
@@ -26,71 +77,100 @@ const SavingsForecastEmptyState = ({
   title = DEFAULT_TITLE,
   message = DEFAULT_MESSAGE,
 
-  onAction = null,
+  onAction,
   actionLabel = DEFAULT_ACTION_LABEL,
 
-  onSecondaryAction = null,
+  onSecondaryAction,
   secondaryActionLabel = "",
 
-  icon: Icon = CalendarDays,
-
+  icon,
   className = "",
 }) => {
   /* =======================================================
-     SAFE CONTENT
+     CONTENT
   ======================================================= */
 
   const safeTitle =
-    typeof title === "string" &&
-    title.trim()
-      ? title.trim()
-      : DEFAULT_TITLE;
+    resolveText(
+      title,
+      DEFAULT_TITLE
+    );
 
   const safeMessage =
-    typeof message === "string" &&
-    message.trim()
-      ? message.trim()
-      : DEFAULT_MESSAGE;
+    resolveText(
+      message,
+      DEFAULT_MESSAGE
+    );
 
   const safeActionLabel =
-    typeof actionLabel === "string" &&
-    actionLabel.trim()
-      ? actionLabel.trim()
-      : DEFAULT_ACTION_LABEL;
+    resolveText(
+      actionLabel,
+      DEFAULT_ACTION_LABEL
+    );
 
   const safeSecondaryActionLabel =
-    typeof secondaryActionLabel === "string"
-      ? secondaryActionLabel.trim()
-      : "";
+    resolveOptionalText(
+      secondaryActionLabel
+    );
 
   /* =======================================================
-     ACTION AVAILABILITY
+     ACTIONS
   ======================================================= */
 
   const hasPrimaryAction =
-    typeof onAction === "function";
+    typeof onAction ===
+    "function";
 
   const hasSecondaryAction =
-    typeof onSecondaryAction === "function" &&
-    Boolean(safeSecondaryActionLabel);
+    typeof onSecondaryAction ===
+      "function" &&
+    Boolean(
+      safeSecondaryActionLabel
+    );
 
   /* =======================================================
-     ICON SAFETY
+     ICON
   ======================================================= */
 
-  const SafeIcon =
-    typeof Icon === "function"
-      ? Icon
+  const IconComponent =
+    typeof icon === "function"
+      ? icon
       : CalendarDays;
 
   /* =======================================================
-     CLASS SAFETY
+     CLASS NAME
   ======================================================= */
 
   const safeClassName =
-    typeof className === "string"
-      ? className.trim()
-      : "";
+    resolveClassName(
+      className
+    );
+
+  const containerClassName = [
+    "flex flex-col items-center justify-center",
+    "px-5 py-8 sm:px-6 sm:py-10",
+    "text-center",
+    "bg-white",
+    "border border-slate-200",
+    "rounded-2xl",
+    safeClassName,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  /* =======================================================
+     ICON ELEMENT
+  ======================================================= */
+
+  const iconElement =
+    createElement(
+      IconComponent,
+      {
+        size: 22,
+        strokeWidth: 2,
+        "aria-hidden": true,
+      }
+    );
 
   /* =======================================================
      RENDER
@@ -98,20 +178,14 @@ const SavingsForecastEmptyState = ({
 
   return (
     <section
-      className={[
-        "flex flex-col items-center justify-center",
-        "px-5 py-8 sm:px-6 sm:py-10",
-        "text-center",
-        "bg-white",
-        "border border-slate-200",
-        "rounded-2xl",
-        safeClassName,
-      ]
-        .filter(Boolean)
-        .join(" ")}
+      className={
+        containerClassName
+      }
       role="status"
       aria-live="polite"
-      aria-label="Savings forecast status"
+      aria-label={
+        DEFAULT_ARIA_LABEL
+      }
     >
       {/* =================================================
           ICON
@@ -125,14 +199,11 @@ const SavingsForecastEmptyState = ({
           text-blue-600
           bg-blue-50
           border border-blue-100 rounded-2xl
+          shrink-0
         "
         aria-hidden="true"
       >
-        <SafeIcon
-          size={22}
-          strokeWidth={2}
-          aria-hidden="true"
-        />
+        {iconElement}
       </div>
 
       {/* =================================================
@@ -141,7 +212,7 @@ const SavingsForecastEmptyState = ({
 
       <div
         className="
-          max-w-md
+          min-w-0 max-w-md
         "
       >
         <h3
@@ -166,7 +237,8 @@ const SavingsForecastEmptyState = ({
           ACTIONS
       ================================================= */}
 
-      {(hasPrimaryAction || hasSecondaryAction) && (
+      {(hasPrimaryAction ||
+        hasSecondaryAction) && (
         <div
           className="
             flex flex-col sm:flex-row justify-center items-center
@@ -175,6 +247,10 @@ const SavingsForecastEmptyState = ({
             gap-2.5
           "
         >
+          {/* =============================================
+              PRIMARY ACTION
+          ============================================= */}
+
           {hasPrimaryAction && (
             <button
               type="button"
@@ -189,7 +265,9 @@ const SavingsForecastEmptyState = ({
                 shadow-sm transition-colors
                 gap-2 focus-visible:ring-4 focus-visible:ring-blue-500/20
               "
-              aria-label={safeActionLabel}
+              aria-label={
+                safeActionLabel
+              }
             >
               <Target
                 size={16}
@@ -209,10 +287,16 @@ const SavingsForecastEmptyState = ({
             </button>
           )}
 
+          {/* =============================================
+              SECONDARY ACTION
+          ============================================= */}
+
           {hasSecondaryAction && (
             <button
               type="button"
-              onClick={onSecondaryAction}
+              onClick={
+                onSecondaryAction
+              }
               className="
                 inline-flex justify-center items-center
                 w-full sm:w-auto min-h-10
@@ -233,4 +317,9 @@ const SavingsForecastEmptyState = ({
   );
 };
 
-export default SavingsForecastEmptyState;
+SavingsForecastEmptyState.displayName =
+  "SavingsForecastEmptyState";
+
+export default memo(
+  SavingsForecastEmptyState
+);

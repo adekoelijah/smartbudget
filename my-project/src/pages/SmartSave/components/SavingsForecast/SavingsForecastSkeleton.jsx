@@ -1,22 +1,106 @@
-
 import { memo } from "react";
+
+/* =========================================================
+   CONSTANTS
+========================================================= */
+
+const DEFAULT_CLASS_NAME = "";
+
+const cn = (...classes) =>
+  classes
+    .filter(
+      (value) =>
+        typeof value === "string" &&
+        value.trim().length > 0
+    )
+    .join(" ");
 
 /* =========================================================
    SKELETON BLOCK
 ========================================================= */
 
-const SkeletonBlock = ({
-  className = "",
+const SkeletonBlock = memo(
+  ({
+    className = "",
+  }) => (
+    <div
+      aria-hidden="true"
+      className={cn(
+        "bg-slate-200 rounded-lg animate-pulse",
+        className
+      )}
+    />
+  )
+);
+
+SkeletonBlock.displayName =
+  "SavingsForecastSkeletonBlock";
+
+/* =========================================================
+   SUMMARY ITEM
+========================================================= */
+
+const SummarySkeleton = ({
+  labelWidth,
+  valueWidth,
 }) => (
   <div
+    className="
+      p-4
+      bg-slate-50
+      border border-slate-100 rounded-xl
+    "
     aria-hidden="true"
-    className={`
-      animate-pulse
-      bg-slate-200
-      rounded-lg
-      ${className}
-    `}
-  />
+  >
+    <SkeletonBlock
+      className={`h-3 ${labelWidth}`}
+    />
+
+    <SkeletonBlock
+      className={`
+        h-6
+        mt-3
+        ${valueWidth}
+      `}
+    />
+  </div>
+);
+
+/* =========================================================
+   DETAIL ITEM
+========================================================= */
+
+const DetailSkeleton = ({
+  labelWidth,
+  valueWidth,
+}) => (
+  <div
+    className="
+      p-4
+      border border-slate-200 rounded-xl
+    "
+    aria-hidden="true"
+  >
+    <SkeletonBlock
+      className={`h-3 ${labelWidth}`}
+    />
+
+    <SkeletonBlock
+      className={`
+        h-5
+        mt-3
+        ${valueWidth}
+      `}
+    />
+
+    <SkeletonBlock
+      className="
+        w-full max-w-[220px] h-3
+        mt-2
+      "
+      /
+    >
+  </div>
 );
 
 /* =========================================================
@@ -24,22 +108,23 @@ const SkeletonBlock = ({
 ========================================================= */
 
 const SavingsForecastSkeleton = ({
-  className = "",
+  className = DEFAULT_CLASS_NAME,
 }) => {
+  const safeClassName =
+    typeof className === "string"
+      ? className.trim()
+      : "";
+
   return (
-    <div
-      className={`
-        w-full
-        p-5 sm:p-6
-        bg-white
-        border border-slate-200
-        rounded-2xl
-        shadow-sm
-        ${className}
-      `}
+    <section
+      className={cn(
+        `bg-white shadow-sm p-5 sm:p-6 border border-slate-200 rounded-2xl w-full`,
+        safeClassName
+      )}
       role="status"
-      aria-label="Loading savings forecast"
+      aria-live="polite"
       aria-busy="true"
+      aria-label="Loading savings forecast"
     >
       {/* =================================================
           HEADER
@@ -50,6 +135,7 @@ const SavingsForecastSkeleton = ({
           flex justify-between items-start
           gap-4
         "
+        aria-hidden="true"
       >
         <div
           className="
@@ -94,78 +180,24 @@ const SavingsForecastSkeleton = ({
           gap-3
         "
       >
-        <div
-          className="
-            p-4
-            bg-slate-50
-            border border-slate-100 rounded-xl
-          "
-        >
-          <SkeletonBlock
-            className="
-              w-24 h-3
-            "
-            /
-          >
+        <SummarySkeleton
+          labelWidth="w-24"
+          valueWidth="w-32"
+        />
 
-          <SkeletonBlock
-            className="
-              w-32 h-6
-              mt-3
-            "
-            /
-          >
-        </div>
+        <SummarySkeleton
+          labelWidth="w-28"
+          valueWidth="w-28"
+        />
 
-        <div
-          className="
-            p-4
-            bg-slate-50
-            border border-slate-100 rounded-xl
-          "
-        >
-          <SkeletonBlock
-            className="
-              w-28 h-3
-            "
-            /
-          >
-
-          <SkeletonBlock
-            className="
-              w-28 h-6
-              mt-3
-            "
-            /
-          >
-        </div>
-
-        <div
-          className="
-            p-4
-            bg-slate-50
-            border border-slate-100 rounded-xl
-          "
-        >
-          <SkeletonBlock
-            className="
-              w-24 h-3
-            "
-            /
-          >
-
-          <SkeletonBlock
-            className="
-              w-36 h-6
-              mt-3
-            "
-            /
-          >
-        </div>
+        <SummarySkeleton
+          labelWidth="w-24"
+          valueWidth="w-36"
+        />
       </div>
 
       {/* =================================================
-          PROGRESS AREA
+          PROGRESS
       ================================================= */}
 
       <div
@@ -173,6 +205,7 @@ const SavingsForecastSkeleton = ({
           mt-6 p-4 sm:p-5
           border border-slate-200 rounded-xl
         "
+        aria-hidden="true"
       >
         <div
           className="
@@ -238,69 +271,19 @@ const SavingsForecastSkeleton = ({
           gap-4
         "
       >
-        <div
-          className="
-            p-4
-            border border-slate-200 rounded-xl
-          "
-        >
-          <SkeletonBlock
-            className="
-              w-28 h-3
-            "
-            /
-          >
+        <DetailSkeleton
+          labelWidth="w-28"
+          valueWidth="w-36"
+        />
 
-          <SkeletonBlock
-            className="
-              w-36 h-5
-              mt-3
-            "
-            /
-          >
-
-          <SkeletonBlock
-            className="
-              w-full max-w-[220px] h-3
-              mt-2
-            "
-            /
-          >
-        </div>
-
-        <div
-          className="
-            p-4
-            border border-slate-200 rounded-xl
-          "
-        >
-          <SkeletonBlock
-            className="
-              w-32 h-3
-            "
-            /
-          >
-
-          <SkeletonBlock
-            className="
-              w-28 h-5
-              mt-3
-            "
-            /
-          >
-
-          <SkeletonBlock
-            className="
-              w-full max-w-[220px] h-3
-              mt-2
-            "
-            /
-          >
-        </div>
+        <DetailSkeleton
+          labelWidth="w-32"
+          valueWidth="w-28"
+        />
       </div>
 
       {/* =================================================
-          FOOTER / INSIGHT
+          INSIGHT
       ================================================= */}
 
       <div
@@ -311,6 +294,7 @@ const SavingsForecastSkeleton = ({
           border border-slate-100 rounded-xl
           gap-3
         "
+        aria-hidden="true"
       >
         <SkeletonBlock
           className="
@@ -324,6 +308,7 @@ const SavingsForecastSkeleton = ({
         <div
           className="
             flex-1
+            min-w-0
           "
         >
           <SkeletonBlock
@@ -362,13 +347,12 @@ const SavingsForecastSkeleton = ({
       >
         Loading savings forecast. Please wait.
       </span>
-    </div>
+    </section>
   );
 };
 
-/* =========================================================
-   EXPORT
-========================================================= */
+SavingsForecastSkeleton.displayName =
+  "SavingsForecastSkeleton";
 
 export default memo(
   SavingsForecastSkeleton

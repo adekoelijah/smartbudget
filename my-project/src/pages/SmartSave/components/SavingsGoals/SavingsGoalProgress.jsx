@@ -1,6 +1,10 @@
+import {
+  CheckCircle2,
+  Target,
+  TrendingUp,
+} from "lucide-react";
 
-import { useMemo } from "react";
-import { CheckCircle2, Target, TrendingUp } from "lucide-react";
+import { memo } from "react";
 
 import {
   calculateSavingsProgress,
@@ -12,69 +16,187 @@ import {
   formatPercentage,
 } from "../../../../utils/smartSave/savingsFormatters";
 
-/**
- * =========================================================
- * SAVINGS GOAL PROGRESS
- * =========================================================
- *
- * Presentation component for displaying the financial
- * progress of a SmartSave savings goal.
- *
- * Architecture:
- *
- * smartSaveService
- *       ↓
- * useSavingsGoals
- *       ↓
- * parent goal component
- *       ↓
- * SavingsGoalProgress
- *
- * This component intentionally does NOT:
- * - fetch goals
- * - call APIs
- * - mutate goal state
- * - create contributions
- * - perform navigation
- * - contain backend business logic
- *
- * Financial calculations are delegated to SmartSave
- * utilities where possible.
- * =========================================================
- */
-
 /* =========================================================
-   INTERNAL HELPERS
+   CONSTANTS
 ========================================================= */
 
-const toFiniteNumber = (value, fallback = 0) => {
+const DEFAULT_CURRENCY = "NGN";
+
+const DEFAULT_SIZE = "default";
+
+const SIZE_CONFIG = Object.freeze({
+  compact: Object.freeze({
+    trackClassName: "h-2",
+    iconSize: 14,
+    textClassName: "text-xs",
+    percentageClassName: "text-sm",
+  }),
+
+  default: Object.freeze({
+    trackClassName: "h-2.5",
+    iconSize: 16,
+    textClassName: "text-sm",
+    percentageClassName: "text-sm",
+  }),
+
+  large: Object.freeze({
+    trackClassName: "h-3",
+    iconSize: 18,
+    textClassName: "text-sm",
+    percentageClassName: "text-base",
+  }),
+});
+
+/* =========================================================
+   SAFE HELPERS
+========================================================= */
+
+/**
+ * Convert a value into a finite number.
+ *
+ * Financial UI must never render NaN or Infinity.
+ */
+const toFiniteNumber = (
+  value,
+  fallback = 0
+) => {
   const number = Number(value);
 
-  return Number.isFinite(number) ? number : fallback;
+  return Number.isFinite(number)
+    ? number
+    : fallback;
 };
 
-const normalizeCurrency = (currency) => {
-  if (typeof currency !== "string") {
-    return "NGN";
+/**
+ * Normalize currency for presentation.
+ */
+const normalizeCurrency = (
+  currency
+) => {
+  if (
+    typeof currency !== "string"
+  ) {
+    return DEFAULT_CURRENCY;
   }
 
-  const normalized = currency.trim().toUpperCase();
+  const normalized =
+    currency.trim().toUpperCase();
 
-  return normalized || "NGN";
+  return normalized ||
+    DEFAULT_CURRENCY;
 };
 
-const getProgressValue = ({
+/**
+ * Calculate local progress fallback.
+ *
+ * This is only used when the service/API did not
+ * provide a valid progress snapshot.
+ */
+const calculateFallbackProgress = ({
   currentAmount,
   targetAmount,
 }) => {
-  const current = toFiniteNumber(currentAmount);
-  const target = toFiniteNumber(targetAmount);
-
-  if (target <= 0) {
+  if (targetAmount <= 0) {
     return 0;
   }
 
-  return clampPercentage((current / target) * 100);
+  try {
+    const calculated =
+      calculateSavingsProgress({
+        currentAmount,
+        targetAmount,
+      });
+
+    const numeric =
+      Number(calculated);
+
+    if (
+      Number.isFinite(numeric)
+    ) {
+      return clampPercentage(
+        numeric
+      );
+    }
+  } catch {
+    /*
+     * Fall through to the deterministic
+     * arithmetic fallback below.
+     */
+  }
+
+  return clampPercentage(
+    (currentAmount /
+      targetAmount) *
+      100
+  );
+};
+
+/**
+ * Resolve progress.
+ *
+ * Contract:
+ *
+ * 1. Valid service/API progress wins.
+ * 2. Otherwise calculate from amounts.
+ */
+const resolveProgress = ({
+  progress,
+  currentAmount,
+  targetAmount,
+}) => {
+  const suppliedProgress =
+    Number(progress);
+
+  if (
+    Number.isFinite(
+      suppliedProgress
+    ) &&
+    suppliedProgress >= 0
+  ) {
+    return clampPercentage(
+      suppliedProgress
+    );
+  }
+
+  return calculateFallbackProgress({
+    currentAmount,
+    targetAmount,
+  });
+};
+
+/**
+ * Safely format currency.
+ */
+const formatSavingsAmount = (
+  amount,
+  currency
+) => {
+  try {
+    return formatCurrency(
+      amount,
+      currency
+    );
+  } catch {
+    return `${currency} ${amount.toLocaleString()}`;
+  }
+};
+
+/**
+ * Safely format percentage.
+ */
+const formatSavingsPercentage = (
+  percentage
+) => {
+  try {
+    return formatPercentage(
+      percentage,
+      {
+        maximumFractionDigits: 1,
+      }
+    );
+  } catch {
+    return `${percentage.toFixed(1)}%`;
+  }
 };
 
 /* =========================================================
@@ -84,191 +206,140 @@ const getProgressValue = ({
 const SavingsGoalProgress = ({
   currentAmount = 0,
   targetAmount = 0,
-  currency = "NGN",
+  currency = DEFAULT_CURRENCY,
 
   /**
-   * Optional explicit progress supplied by the service/API.
+   * Optional service/backend progress snapshot.
    *
-   * If supplied, it is treated as the authoritative
-   * progress snapshot rather than unnecessarily
-   * recalculating it.
+   * When valid, this value is authoritative.
    */
   progress,
 
   /**
-   * Optional completed state.
+   * Explicit completion state supplied by the
+   * parent/service.
    */
   isCompleted = false,
 
-  /**
-   * Optional display configuration.
-   */
   showAmounts = true,
   showPercentage = true,
   showRemaining = true,
   showStatus = true,
 
-  size = "default",
+  size = DEFAULT_SIZE,
+
   className = "",
 }) => {
-  const normalizedCurrency = useMemo(
-    () => normalizeCurrency(currency),
-    [currency]
-  );
+  /* =======================================================
+     NORMALIZED VALUES
+  ======================================================= */
 
-  const normalizedCurrentAmount = useMemo(
-    () => toFiniteNumber(currentAmount),
-    [currentAmount]
-  );
+  const normalizedCurrency =
+    normalizeCurrency(currency);
 
-  const normalizedTargetAmount = useMemo(
-    () => toFiniteNumber(targetAmount),
-    [targetAmount]
-  );
-
-  const calculatedProgress = useMemo(() => {
-    /**
-     * Prefer the backend/service-provided progress snapshot
-     * when it is valid.
-     */
-    const suppliedProgress = Number(progress);
-
-    if (
-      Number.isFinite(suppliedProgress) &&
-      suppliedProgress >= 0
-    ) {
-      return clampPercentage(suppliedProgress);
-    }
-
-    /**
-     * Fall back to the canonical SmartSave calculation.
-     */
-    try {
-      const calculated = calculateSavingsProgress({
-        currentAmount: normalizedCurrentAmount,
-        targetAmount: normalizedTargetAmount,
-      });
-
-      const normalized = Number(calculated);
-
-      if (Number.isFinite(normalized)) {
-        return clampPercentage(normalized);
-      }
-    } catch {
-      // Safe local fallback.
-    }
-
-    return getProgressValue({
-      currentAmount: normalizedCurrentAmount,
-      targetAmount: normalizedTargetAmount,
-    });
-  }, [
-    progress,
-    normalizedCurrentAmount,
-    normalizedTargetAmount,
-  ]);
-
-  const remainingAmount = useMemo(
-    () =>
-      Math.max(
-        normalizedTargetAmount - normalizedCurrentAmount,
-        0
-      ),
-    [
-      normalizedCurrentAmount,
-      normalizedTargetAmount,
-    ]
-  );
-
-  const isTargetReached =
-    isCompleted ||
-    (
-      normalizedTargetAmount > 0 &&
-      normalizedCurrentAmount >= normalizedTargetAmount
+  const normalizedCurrentAmount =
+    Math.max(
+      0,
+      toFiniteNumber(
+        currentAmount
+      )
     );
 
-  const displayProgress = isTargetReached
-    ? 100
-    : calculatedProgress;
+  const normalizedTargetAmount =
+    Math.max(
+      0,
+      toFiniteNumber(
+        targetAmount
+      )
+    );
 
-  const progressLabel = useMemo(
-    () =>
-      formatPercentage(displayProgress, {
-        maximumFractionDigits: 1,
-      }),
-    [displayProgress]
-  );
+  /* =======================================================
+     PROGRESS
+  ======================================================= */
 
-  const currentLabel = useMemo(
-    () =>
-      formatCurrency(
+  const calculatedProgress =
+    resolveProgress({
+      progress,
+      currentAmount:
         normalizedCurrentAmount,
-        normalizedCurrency
-      ),
-    [
-      normalizedCurrentAmount,
-      normalizedCurrency,
-    ]
-  );
-
-  const targetLabel = useMemo(
-    () =>
-      formatCurrency(
+      targetAmount:
         normalizedTargetAmount,
-        normalizedCurrency
-      ),
-    [
+    });
+
+  const targetReached =
+    Boolean(isCompleted) ||
+    (
+      normalizedTargetAmount > 0 &&
+      normalizedCurrentAmount >=
+        normalizedTargetAmount
+    );
+
+  const displayProgress =
+    targetReached
+      ? 100
+      : calculatedProgress;
+
+  /* =======================================================
+     REMAINING
+  ======================================================= */
+
+  const remainingAmount =
+    Math.max(
+      0,
+      normalizedTargetAmount -
+        normalizedCurrentAmount
+    );
+
+  /* =======================================================
+     FORMATTED VALUES
+  ======================================================= */
+
+  const progressLabel =
+    formatSavingsPercentage(
+      displayProgress
+    );
+
+  const currentLabel =
+    formatSavingsAmount(
+      normalizedCurrentAmount,
+      normalizedCurrency
+    );
+
+  const targetLabel =
+    formatSavingsAmount(
       normalizedTargetAmount,
-      normalizedCurrency,
-    ]
-  );
+      normalizedCurrency
+    );
 
-  const remainingLabel = useMemo(
-    () =>
-      formatCurrency(
-        remainingAmount,
-        normalizedCurrency
-      ),
-    [
+  const remainingLabel =
+    formatSavingsAmount(
       remainingAmount,
-      normalizedCurrency,
-    ]
-  );
+      normalizedCurrency
+    );
 
-  const sizeConfig = {
-    compact: {
-      track: "h-2",
-      icon: 14,
-      text: "text-xs",
-      percentage: "text-sm",
-    },
-
-    default: {
-      track: "h-2.5",
-      icon: 16,
-      text: "text-sm",
-      percentage: "text-sm",
-    },
-
-    large: {
-      track: "h-3",
-      icon: 18,
-      text: "text-sm",
-      percentage: "text-base",
-    },
-  };
+  /* =======================================================
+     DISPLAY CONFIG
+  ======================================================= */
 
   const config =
-    sizeConfig[size] || sizeConfig.default;
+    SIZE_CONFIG[size] ||
+    SIZE_CONFIG.default;
+
+  /* =======================================================
+     RENDER
+  ======================================================= */
 
   return (
     <section
       aria-label="Savings goal progress"
-      className={`w-full ${className}`}
+      className={`
+        w-full
+        ${className}
+      `}
     >
-      {/* ===================================================
+      {/* =================================================
           HEADER
-      =================================================== */}
+      ================================================= */}
 
       <div
         className="
@@ -295,14 +366,14 @@ const SavingsGoalProgress = ({
               shrink-0
             "
           >
-            {isTargetReached ? (
+            {targetReached ? (
               <CheckCircle2
-                size={config.icon}
+                size={config.iconSize}
                 strokeWidth={2}
               />
             ) : (
               <Target
-                size={config.icon}
+                size={config.iconSize}
                 strokeWidth={2}
               />
             )}
@@ -310,12 +381,13 @@ const SavingsGoalProgress = ({
 
           <span
             className={`
-              ${config.text}
+              ${config.textClassName}
+              min-w-0
               font-medium
               text-slate-700
             `}
           >
-            {isTargetReached
+            {targetReached
               ? "Goal reached"
               : "Goal progress"}
           </span>
@@ -324,11 +396,11 @@ const SavingsGoalProgress = ({
         {showPercentage && (
           <span
             className={`
-              ${config.percentage}
+              ${config.percentageClassName}
               shrink-0
               font-semibold
-              text-slate-900
               tabular-nums
+              text-slate-900
             `}
           >
             {progressLabel}
@@ -336,26 +408,28 @@ const SavingsGoalProgress = ({
         )}
       </div>
 
-      {/* ===================================================
+      {/* =================================================
           PROGRESS BAR
-      =================================================== */}
+      ================================================= */}
 
       <div
+        role="progressbar"
+        aria-label="Savings goal completion"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={displayProgress}
+        aria-valuetext={progressLabel}
         className={`
           relative
           w-full
           overflow-hidden
           rounded-full
           bg-slate-100
-          ${config.track}
+          ${config.trackClassName}
         `}
-        role="progressbar"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={displayProgress}
-        aria-valuetext={progressLabel}
       >
         <div
+          aria-hidden="true"
           className="
             h-full
             bg-blue-600
@@ -369,9 +443,9 @@ const SavingsGoalProgress = ({
         >
       </div>
 
-      {/* ===================================================
+      {/* =================================================
           AMOUNT DETAILS
-      =================================================== */}
+      ================================================= */}
 
       {showAmounts && (
         <div
@@ -396,6 +470,7 @@ const SavingsGoalProgress = ({
 
             <p
               className="
+                mt-0.5
                 font-semibold text-slate-900 text-sm truncate
               "
             >
@@ -405,6 +480,7 @@ const SavingsGoalProgress = ({
 
           <div
             className="
+              min-w-0
               text-right
             "
           >
@@ -418,7 +494,8 @@ const SavingsGoalProgress = ({
 
             <p
               className="
-                font-semibold text-slate-900 text-sm
+                mt-0.5
+                font-semibold text-slate-900 text-sm truncate
               "
             >
               {targetLabel}
@@ -427,86 +504,96 @@ const SavingsGoalProgress = ({
         </div>
       )}
 
-      {/* ===================================================
+      {/* =================================================
           REMAINING AMOUNT
-      =================================================== */}
+      ================================================= */}
 
-      {showRemaining && !isTargetReached && (
-        <div
-          className="
-            flex items-center
-            mt-3 px-3 py-2.5
-            bg-slate-50
-            border border-slate-100 rounded-xl
-            gap-2
-          "
-        >
-          <TrendingUp
-            size={15}
+      {showRemaining &&
+        !targetReached && (
+          <div
             className="
-              text-slate-500
-              shrink-0
+              flex items-center
+              mt-3 px-3 py-2.5
+              bg-slate-50
+              border border-slate-100 rounded-xl
+              gap-2
             "
-            aria-hidden="true"
-          /
           >
-
-          <p
-            className={`
-              ${config.text}
-              text-slate-600
-            `}
-          >
-            <span
+            <TrendingUp
+              size={15}
               className="
-                font-medium
+                text-slate-500
+                shrink-0
               "
+              aria-hidden="true"
+            /
             >
-              {remainingLabel}
-            </span>{" "}
-            remaining to reach your goal
-          </p>
-        </div>
-      )}
 
-      {/* ===================================================
+            <p
+              className={`
+                ${config.textClassName}
+                text-slate-600
+              `}
+            >
+              <span
+                className="
+                  font-medium
+                "
+              >
+                {remainingLabel}
+              </span>{" "}
+              remaining to reach your
+              goal
+            </p>
+          </div>
+        )}
+
+      {/* =================================================
           COMPLETION MESSAGE
-      =================================================== */}
+      ================================================= */}
 
-      {showStatus && isTargetReached && (
-        <div
-          role="status"
-          className="
-            flex items-center
-            mt-3 px-3 py-2.5
-            bg-emerald-50
-            border border-emerald-100 rounded-xl
-            gap-2
-          "
-        >
-          <CheckCircle2
-            size={16}
+      {showStatus &&
+        targetReached && (
+          <div
+            role="status"
             className="
-              text-emerald-600
-              shrink-0
+              flex items-center
+              mt-3 px-3 py-2.5
+              bg-emerald-50
+              border border-emerald-100 rounded-xl
+              gap-2
             "
-            aria-hidden="true"
-          /
           >
+            <CheckCircle2
+              size={16}
+              className="
+                text-emerald-600
+                shrink-0
+              "
+              aria-hidden="true"
+            /
+            >
 
-          <p
-            className={`
-              ${config.text}
-              font-medium
-              text-emerald-700
-            `}
-          >
-            You've reached your savings target.
-          </p>
-        </div>
-      )}
+            <p
+              className={`
+                ${config.textClassName}
+                font-medium
+                text-emerald-700
+              `}
+            >
+              You've reached your
+              savings target.
+            </p>
+          </div>
+        )}
     </section>
   );
 };
 
-export default SavingsGoalProgress;
+/* =========================================================
+   MEMOIZATION
+========================================================= */
+
+export default memo(
+  SavingsGoalProgress
+);

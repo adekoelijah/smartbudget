@@ -10,7 +10,19 @@ import {
   WalletCards,
 } from "lucide-react";
 
-import { memo, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+
+import {
+  DEFAULT_CURRENCY,
+} from "../../../../constants/smartSaveConstants";
 
 import {
   formatSavingsCurrency,
@@ -21,7 +33,6 @@ import {
    CONSTANTS
 ========================================================= */
 
-const DEFAULT_CURRENCY = "NGN";
 const DEFAULT_GOAL_NAME = "Savings Goal";
 const DEFAULT_STATUS = "active";
 
@@ -74,43 +85,65 @@ const STATUS_CONFIG = {
 };
 
 /* =========================================================
-   HELPERS
+   SAFE HELPERS
 ========================================================= */
 
-/**
- * Resolve the canonical goal ID.
- *
- * The page should normally provide `id`/`_id`,
- * but these fallbacks make the card defensive.
- */
-const getGoalId = (goal) =>
-  goal?._id ||
-  goal?.id ||
-  goal?.goalId ||
-  null;
+const getGoalId = (goal) => {
+  if (!goal || typeof goal !== "object") {
+    return null;
+  }
 
-/**
- * Resolve display name.
- */
-const getGoalName = (goal) =>
-  goal?.name ||
-  goal?.title ||
-  DEFAULT_GOAL_NAME;
+  return (
+    goal._id ||
+    goal.id ||
+    goal.goalId ||
+    null
+  );
+};
 
-/**
- * Resolve currency.
- */
-const getGoalCurrency = (goal) =>
-  goal?.currency ||
-  DEFAULT_CURRENCY;
+const getGoalName = (goal) => {
+  if (!goal || typeof goal !== "object") {
+    return DEFAULT_GOAL_NAME;
+  }
 
-/**
- * Safely resolve a numeric value.
- */
+  const value =
+    goal.name ||
+    goal.title ||
+    DEFAULT_GOAL_NAME;
+
+  return typeof value === "string" &&
+    value.trim()
+    ? value.trim()
+    : DEFAULT_GOAL_NAME;
+};
+
+const getGoalCurrency = (goal) => {
+  if (!goal || typeof goal !== "object") {
+    return DEFAULT_CURRENCY;
+  }
+
+  const currency =
+    goal.currency ||
+    DEFAULT_CURRENCY;
+
+  return typeof currency === "string" &&
+    currency.trim()
+    ? currency.trim().toUpperCase()
+    : DEFAULT_CURRENCY;
+};
+
 const getSafeNumber = (
   value,
   fallback = 0
 ) => {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return fallback;
+  }
+
   const number = Number(value);
 
   return Number.isFinite(number)
@@ -118,11 +151,9 @@ const getSafeNumber = (
     : fallback;
 };
 
-/**
- * Keep progress within the UI-safe range.
- */
-const normalizeProgress = (value) => {
-  const progress = getSafeNumber(value);
+const clampProgress = (value) => {
+  const progress =
+    getSafeNumber(value);
 
   return Math.min(
     100,
@@ -130,53 +161,90 @@ const normalizeProgress = (value) => {
   );
 };
 
-/**
- * Resolve status.
- */
-const getGoalStatus = (goal) =>
-  String(
+const getGoalStatus = (goal) => {
+  const status = String(
     goal?.status ||
       DEFAULT_STATUS
-  ).toLowerCase();
+  )
+    .trim()
+    .toLowerCase();
 
-/**
- * Resolve target date.
- */
+  return status || DEFAULT_STATUS;
+};
+
 const getGoalTargetDate = (goal) =>
   goal?.targetDate ||
   goal?.deadline ||
   goal?.endDate ||
   null;
 
-/**
- * Safely format a savings date.
- */
-const formatTargetDate = (date) => {
-  if (!date) {
-    return null;
+const calculateProgress = (
+  goal,
+  currentAmount,
+  targetAmount
+) => {
+  const explicitProgress =
+    goal?.progress ??
+    goal?.progressPercentage ??
+    goal?.percentage;
+
+  if (
+    explicitProgress !==
+      null &&
+    explicitProgress !==
+      undefined &&
+    explicitProgress !== ""
+  ) {
+    return clampProgress(
+      explicitProgress
+    );
   }
 
-  try {
-    return formatSavingsDate(date);
-  } catch {
-    return null;
+  if (
+    targetAmount <= 0
+  ) {
+    return 0;
   }
+
+  return clampProgress(
+    (currentAmount /
+      targetAmount) *
+      100
+  );
 };
 
-/**
- * Safely format currency.
- */
 const formatAmount = (
   amount,
   currency
 ) => {
+  const safeAmount =
+    getSafeNumber(amount);
+
   try {
     return formatSavingsCurrency(
-      amount,
+      safeAmount,
       currency
     );
   } catch {
-    return `${currency} ${amount.toLocaleString()}`;
+    try {
+      return `${currency} ${safeAmount.toLocaleString()}`;
+    } catch {
+      return `${currency} 0`;
+    }
+  }
+};
+
+const formatTargetDate = (
+  value
+) => {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    return formatSavingsDate(value);
+  } catch {
+    return null;
   }
 };
 
@@ -185,7 +253,7 @@ const formatAmount = (
 ========================================================= */
 
 const SavingsGoalCard = ({
-  goal,
+  goal = null,
 
   onClick,
   onEdit,
@@ -200,180 +268,311 @@ const SavingsGoalCard = ({
   const [menuOpen, setMenuOpen] =
     useState(false);
 
-  /* =======================================================
-     EMPTY SAFETY
-  ======================================================= */
+  const menuRef = useRef(null);
 
-  if (!goal) {
-    return null;
-  }
+  const menuId = useId();
 
   /* =======================================================
-     CANONICAL DISPLAY VALUES
-     
-     IMPORTANT:
-     These values are expected to have already been
-     normalized/calculated by SavingsGoalsPage.
+     DERIVED VALUES
   ======================================================= */
 
-  const goalId =
-    getGoalId(goal);
+  const display = useMemo(() => {
+    if (!goal) {
+      return null;
+    }
 
-  const name =
-    getGoalName(goal);
+    const goalId =
+      getGoalId(goal);
 
-  const description =
-    goal.description || "";
+    const name =
+      getGoalName(goal);
 
-  const currency =
-    getGoalCurrency(goal);
+    const currency =
+      getGoalCurrency(goal);
 
-  const currentAmount =
-    getSafeNumber(
-      goal.currentAmount ??
-        goal.savedAmount ??
-        goal.amountSaved
-    );
+    const currentAmount =
+      getSafeNumber(
+        goal.currentAmount ??
+          goal.savedAmount ??
+          goal.amountSaved
+      );
 
-  const targetAmount =
-    getSafeNumber(
-      goal.targetAmount ??
-        goal.target
-    );
+    const targetAmount =
+      getSafeNumber(
+        goal.targetAmount ??
+          goal.target
+      );
 
-  const remainingAmount =
-    getSafeNumber(
-      goal.remainingAmount ??
+    const remainingAmount =
+      getSafeNumber(
+        goal.remainingAmount,
         Math.max(
           0,
           targetAmount -
             currentAmount
         )
-    );
+      );
 
-  const progress =
-    normalizeProgress(
-      goal.progress ??
-        goal.progressPercentage ??
-        goal.percentage
-    );
+    const progress =
+      calculateProgress(
+        goal,
+        currentAmount,
+        targetAmount
+      );
 
-  const status =
-    getGoalStatus(goal);
+    const status =
+      getGoalStatus(goal);
 
-  const targetDate =
-    getGoalTargetDate(goal);
+    const targetDate =
+      getGoalTargetDate(goal);
 
-  const healthLabel =
-    goal.healthLabel ||
-    goal.health?.label ||
-    goal.health?.status ||
-    goal.health?.name ||
-    "";
+    const healthLabel =
+      typeof goal.healthLabel ===
+        "string"
+        ? goal.healthLabel
+        : typeof goal.health?.label ===
+            "string"
+          ? goal.health.label
+          : typeof goal.health?.status ===
+              "string"
+            ? goal.health.status
+            : typeof goal.health?.name ===
+                "string"
+              ? goal.health.name
+              : "";
+
+    const isCompleted =
+      status === "completed" ||
+      progress >= 100;
+
+    const statusConfig =
+      STATUS_CONFIG[status] ||
+      STATUS_CONFIG.active;
+
+    return {
+      goalId,
+      name,
+      description:
+        typeof goal.description ===
+        "string"
+          ? goal.description.trim()
+          : "",
+
+      currency,
+
+      currentAmount,
+      targetAmount,
+      remainingAmount,
+
+      progress,
+      roundedProgress:
+        Math.round(progress),
+
+      status,
+      statusConfig,
+
+      isCompleted,
+
+      targetDate,
+      formattedTargetDate:
+        formatTargetDate(
+          targetDate
+        ),
+
+      healthLabel,
+
+      formattedCurrentAmount:
+        formatAmount(
+          currentAmount,
+          currency
+        ),
+
+      formattedTargetAmount:
+        formatAmount(
+          targetAmount,
+          currency
+        ),
+
+      formattedRemainingAmount:
+        formatAmount(
+          remainingAmount,
+          currency
+        ),
+    };
+  }, [goal]);
 
   /* =======================================================
-     STATUS
+     MENU LIFECYCLE
   ======================================================= */
 
-  const statusConfig =
-    STATUS_CONFIG[status] ||
-    STATUS_CONFIG.active;
+  useEffect(() => {
+    if (!menuOpen) {
+      return undefined;
+    }
+
+    const handlePointerDown = (
+      event
+    ) => {
+      if (
+        !menuRef.current ||
+        menuRef.current.contains(
+          event.target
+        )
+      ) {
+        return;
+      }
+
+      setMenuOpen(false);
+    };
+
+    const handleKeyDown = (
+      event
+    ) => {
+      if (
+        event.key === "Escape"
+      ) {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener(
+      "mousedown",
+      handlePointerDown
+    );
+
+    document.addEventListener(
+      "keydown",
+      handleKeyDown
+    );
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        handlePointerDown
+      );
+
+      document.removeEventListener(
+        "keydown",
+        handleKeyDown
+      );
+    };
+  }, [menuOpen]);
+
+  /* =======================================================
+     HANDLERS
+  ======================================================= */
+
+  const closeMenu = useCallback(() => {
+    setMenuOpen(false);
+  }, []);
+
+  const handleCardClick =
+    useCallback(() => {
+      if (!goal) {
+        return;
+      }
+
+      onClick?.(goal);
+    }, [goal, onClick]);
+
+  const handleViewDetails =
+    useCallback(
+      (event) => {
+        event?.stopPropagation();
+
+        closeMenu();
+
+        if (!goal) {
+          return;
+        }
+
+        if (
+          typeof onViewDetails ===
+          "function"
+        ) {
+          onViewDetails(goal);
+          return;
+        }
+
+        onClick?.(goal);
+      },
+      [
+        closeMenu,
+        goal,
+        onClick,
+        onViewDetails,
+      ]
+    );
+
+  const handleEdit =
+    useCallback(
+      (event) => {
+        event?.stopPropagation();
+
+        closeMenu();
+
+        if (!goal) {
+          return;
+        }
+
+        onEdit?.(goal);
+      },
+      [closeMenu, goal, onEdit]
+    );
+
+  const handleDelete =
+    useCallback(
+      (event) => {
+        event?.stopPropagation();
+
+        closeMenu();
+
+        if (!goal) {
+          return;
+        }
+
+        onDelete?.(goal);
+      },
+      [closeMenu, goal, onDelete]
+    );
+
+  const handleMenuToggle =
+    useCallback(
+      (event) => {
+        event?.stopPropagation();
+
+        setMenuOpen(
+          (current) => !current
+        );
+      },
+      []
+    );
+
+  /* =======================================================
+     RENDER GUARD
+  ======================================================= */
+
+  if (!display) {
+    return null;
+  }
+
+  const {
+    goalId,
+    name,
+    description,
+    statusConfig,
+    isCompleted,
+    healthLabel,
+    formattedCurrentAmount,
+    formattedTargetAmount,
+    formattedRemainingAmount,
+    formattedTargetDate,
+    roundedProgress,
+    progress,
+  } = display;
 
   const StatusIcon =
     statusConfig.icon;
-
-  /* =======================================================
-     COMPLETION
-  ======================================================= */
-
-  const isCompleted =
-    status === "completed" ||
-    progress >= 100;
-
-  /* =======================================================
-     FORMATTING
-  ======================================================= */
-
-  const formattedCurrentAmount =
-    formatAmount(
-      currentAmount,
-      currency
-    );
-
-  const formattedTargetAmount =
-    formatAmount(
-      targetAmount,
-      currency
-    );
-
-  const formattedRemainingAmount =
-    formatAmount(
-      remainingAmount,
-      currency
-    );
-
-  const formattedTargetDate =
-    formatTargetDate(targetDate);
-
-  const roundedProgress =
-    Math.round(progress);
-
-  /* =======================================================
-     ACTIONS
-  ======================================================= */
-
-  const closeMenu = () => {
-    setMenuOpen(false);
-  };
-
-  const handleCardClick = () => {
-    onClick?.(goal);
-  };
-
-  const handleViewDetails = (
-    event
-  ) => {
-    event.stopPropagation();
-
-    closeMenu();
-
-    if (onViewDetails) {
-      onViewDetails(goal);
-      return;
-    }
-
-    onClick?.(goal);
-  };
-
-  const handleEdit = (
-    event
-  ) => {
-    event.stopPropagation();
-
-    closeMenu();
-
-    onEdit?.(goal);
-  };
-
-  const handleDelete = (
-    event
-  ) => {
-    event.stopPropagation();
-
-    closeMenu();
-
-    onDelete?.(goal);
-  };
-
-  const handleMenuToggle = (
-    event
-  ) => {
-    event.stopPropagation();
-
-    setMenuOpen(
-      (current) => !current
-    );
-  };
 
   /* =======================================================
      RENDER
@@ -385,46 +584,43 @@ const SavingsGoalCard = ({
         goalId || undefined
       }
       className={`
-        group
-        relative
+        group relative
         overflow-visible
         rounded-2xl
-        border
-        border-slate-200
+        border border-slate-200
         bg-white
         shadow-sm
-        transition-all
-        duration-200
+        transition-all duration-200
         hover:-translate-y-0.5
         hover:shadow-md
         ${className}
       `}
     >
-      {/* ===================================================
+      {/* =================================================
           HEADER
-      =================================================== */}
+      ================================================= */}
 
       <div
         className="
-          flex justify-between items-start
+          flex items-start justify-between
           p-5
           gap-3
         "
       >
         <button
           type="button"
-          onClick={handleCardClick}
+          onClick={
+            handleCardClick
+          }
           className="
             flex flex-1 items-start
             min-w-0
             text-left
-            outline-none
-            gap-3
+            outline-none rounded-xl
+            gap-3 focus-visible:ring-2 focus-visible:ring-blue-500/30
           "
           aria-label={`View ${name}`}
         >
-          {/* Goal icon */}
-
           <div
             className="
               flex justify-center items-center
@@ -434,23 +630,20 @@ const SavingsGoalCard = ({
               rounded-xl
               shrink-0
             "
+            aria-hidden="true"
           >
             {isCompleted ? (
               <CheckCircle2
                 size={21}
                 strokeWidth={2}
-                aria-hidden="true"
               />
             ) : (
               <Target
                 size={21}
                 strokeWidth={2}
-                aria-hidden="true"
               />
             )}
           </div>
-
-          {/* Goal information */}
 
           <div
             className="
@@ -470,7 +663,7 @@ const SavingsGoalCard = ({
                 <p
                   className="
                     mt-1
-                    text-slate-500 text-sm line-clamp-2 leading-5
+                    text-slate-500 text-sm leading-5 line-clamp-2
                   "
                 >
                   {description}
@@ -485,6 +678,7 @@ const SavingsGoalCard = ({
 
         {showMenu && (
           <div
+            ref={menuRef}
             className="
               relative
               shrink-0
@@ -500,14 +694,19 @@ const SavingsGoalCard = ({
                 menuOpen
               }
               aria-haspopup="menu"
+              aria-controls={
+                menuOpen
+                  ? menuId
+                  : undefined
+              }
               className="
                 flex justify-center items-center
                 w-9 h-9
                 text-slate-500 hover:text-slate-700
                 hover:bg-slate-100
                 rounded-lg focus:outline-none
-                focus:ring-2 focus:ring-blue-500/20
                 transition
+                focus-visible:ring-2 focus-visible:ring-blue-500/30
               "
             >
               <MoreHorizontal
@@ -518,9 +717,11 @@ const SavingsGoalCard = ({
 
             {menuOpen && (
               <div
+                id={menuId}
                 role="menu"
+                aria-label={`Actions for ${name}`}
                 className="
-                  top-10 right-0 z-30 absolute overflow-hidden
+                  absolute top-10 right-0 z-30 overflow-hidden
                   w-44
                   py-1
                   bg-white
@@ -528,8 +729,6 @@ const SavingsGoalCard = ({
                   shadow-xl
                 "
               >
-                {/* View */}
-
                 <button
                   type="button"
                   role="menuitem"
@@ -554,9 +753,8 @@ const SavingsGoalCard = ({
                   View details
                 </button>
 
-                {/* Edit */}
-
-                {onEdit && (
+                {typeof onEdit ===
+                  "function" && (
                   <button
                     type="button"
                     role="menuitem"
@@ -582,9 +780,8 @@ const SavingsGoalCard = ({
                   </button>
                 )}
 
-                {/* Delete */}
-
-                {onDelete && (
+                {typeof onDelete ===
+                  "function" && (
                   <button
                     type="button"
                     role="menuitem"
@@ -610,9 +807,9 @@ const SavingsGoalCard = ({
         )}
       </div>
 
-      {/* ===================================================
+      {/* =================================================
           STATUS
-      =================================================== */}
+      ================================================= */}
 
       <div
         className="
@@ -621,15 +818,12 @@ const SavingsGoalCard = ({
       >
         <span
           className={`
-            inline-flex
-            items-center
+            inline-flex items-center
             gap-1.5
             rounded-full
             border
-            px-2.5
-            py-1
-            text-xs
-            font-medium
+            px-2.5 py-1
+            text-xs font-medium
             ${statusConfig.className}
           `}
         >
@@ -646,7 +840,7 @@ const SavingsGoalCard = ({
             className="
               inline-flex items-center
               ml-2 px-2.5 py-1
-              font-medium text-slate-600 text-xs
+              text-slate-600 text-xs font-medium
               bg-slate-100
               rounded-full
             "
@@ -656,9 +850,9 @@ const SavingsGoalCard = ({
         )}
       </div>
 
-      {/* ===================================================
+      {/* =================================================
           AMOUNTS
-      =================================================== */}
+      ================================================= */}
 
       <div
         className="
@@ -667,12 +861,10 @@ const SavingsGoalCard = ({
       >
         <div
           className="
-            flex justify-between items-end
+            flex items-end justify-between
             gap-4
           "
         >
-          {/* Saved */}
-
           <div
             className="
               min-w-0
@@ -695,8 +887,6 @@ const SavingsGoalCard = ({
               {formattedCurrentAmount}
             </p>
           </div>
-
-          {/* Target */}
 
           <div
             className="
@@ -724,9 +914,9 @@ const SavingsGoalCard = ({
         </div>
       </div>
 
-      {/* ===================================================
+      {/* =================================================
           PROGRESS
-      =================================================== */}
+      ================================================= */}
 
       <div
         className="
@@ -735,7 +925,7 @@ const SavingsGoalCard = ({
       >
         <div
           className="
-            flex justify-between items-center
+            flex items-center justify-between
             mb-2
             gap-3
           "
@@ -787,9 +977,9 @@ const SavingsGoalCard = ({
         </div>
       </div>
 
-      {/* ===================================================
+      {/* =================================================
           META
-      =================================================== */}
+      ================================================= */}
 
       {!compact && (
         <div
@@ -799,8 +989,6 @@ const SavingsGoalCard = ({
             gap-3
           "
         >
-          {/* Remaining */}
-
           <div
             className="
               min-w-0
@@ -833,8 +1021,6 @@ const SavingsGoalCard = ({
               {formattedRemainingAmount}
             </p>
           </div>
-
-          {/* Target date */}
 
           <div
             className="
@@ -872,20 +1058,18 @@ const SavingsGoalCard = ({
         </div>
       )}
 
-      {/* ===================================================
+      {/* =================================================
           FOOTER
-      =================================================== */}
+      ================================================= */}
 
       <div
         className="
-          flex justify-between items-center
+          flex items-center justify-between
           mt-5 px-5 py-4
-          border-slate-100 border-t
+          border-t border-slate-100
           gap-3
         "
       >
-        {/* Progress summary */}
-
         <div
           className="
             flex items-center
@@ -914,8 +1098,6 @@ const SavingsGoalCard = ({
           </span>
         </div>
 
-        {/* Details */}
-
         <button
           type="button"
           onClick={
@@ -926,9 +1108,9 @@ const SavingsGoalCard = ({
             px-2.5 py-2
             font-medium text-blue-600 text-sm
             hover:bg-blue-50
-            rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20
+            rounded-lg focus:outline-none
             transition
-            gap-1.5 shrink-0
+            shrink-0 focus-visible:ring-2 focus-visible:ring-blue-500/30 gap-1.5
           "
         >
           View details
@@ -943,19 +1125,6 @@ const SavingsGoalCard = ({
   );
 };
 
-/* =========================================================
-   MEMOIZATION
-========================================================= */
-
-/**
- * The card is presentation-only.
- *
- * React.memo prevents a card from rendering again when
- * its goal reference and callback props have not changed.
- *
- * This is useful when SavingsGoalsPage renders a large
- * collection of goals.
- */
 export default memo(
   SavingsGoalCard
 );

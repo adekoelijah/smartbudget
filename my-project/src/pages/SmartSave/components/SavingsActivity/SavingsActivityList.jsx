@@ -1,127 +1,250 @@
-// SavingsActivityList.jsx
-
-import { memo, useMemo } from "react";
+import {
+  memo,
+  useMemo,
+} from "react";
+import PropTypes from "prop-types";
 
 import SavingsActivityItem from "./SavingsActivityItem";
 import SavingsActivityEmptyState from "./SavingsActivityEmptyState";
+
+/* =========================================================
+   CONSTANTS
+========================================================= */
+
+const DEFAULT_SKELETON_COUNT = 5;
+
+const DEFAULT_ARIA_LABEL =
+  "Savings activity";
 
 /* =========================================================
    INTERNAL HELPERS
 ========================================================= */
 
 /**
- * Safely extract an array from the activity hook result.
+ * Safely extracts an activity array from supported
+ * collection shapes.
  *
- * The hook/service layer should normally already return an
- * array, but this defensive boundary prevents malformed API
- * responses from breaking the component tree.
+ * The preferred contract is already an array.
+ * These fallbacks provide a defensive presentation boundary
+ * for legacy/wrapped responses.
  */
-const normalizeActivityCollection = (value) => {
-  if (Array.isArray(value)) return value;
-
-  if (Array.isArray(value?.data)) {
-    return value.data;
+const normalizeActivityCollection = (
+  value
+) => {
+  if (Array.isArray(value)) {
+    return value;
   }
 
-  if (Array.isArray(value?.items)) {
-    return value.items;
-  }
+  if (
+    value &&
+    typeof value === "object"
+  ) {
+    if (Array.isArray(value.data)) {
+      return value.data;
+    }
 
-  if (Array.isArray(value?.results)) {
-    return value.results;
+    if (Array.isArray(value.items)) {
+      return value.items;
+    }
+
+    if (Array.isArray(value.results)) {
+      return value.results;
+    }
   }
 
   return [];
 };
 
 /**
- * Resolve a stable React key without assuming one specific
- * backend identifier.
+ * Resolves a stable React key.
  *
- * Normalized activity should preferably expose `id`.
+ * Backend-provided identifiers are preferred.
+ * Index is deliberately retained only as a final defensive
+ * fallback because stable backend IDs should be available
+ * for normalized SmartSave activity.
  */
-const getActivityKey = (activity, index) => {
-  if (activity?.id) return String(activity.id);
+const getActivityKey = (
+  activity,
+  index
+) => {
+  if (
+    activity?.id !== undefined &&
+    activity?.id !== null
+  ) {
+    return String(activity.id);
+  }
 
-  if (activity?._id) return String(activity._id);
+  if (
+    activity?._id !== undefined &&
+    activity?._id !== null
+  ) {
+    return String(activity._id);
+  }
 
-  if (activity?.activityId) {
+  if (
+    activity?.activityId !== undefined &&
+    activity?.activityId !== null
+  ) {
     return String(activity.activityId);
   }
 
-  if (activity?.executionId) {
-    return `execution-${activity.executionId}`;
+  if (
+    activity?.executionId !== undefined &&
+    activity?.executionId !== null
+  ) {
+    return `execution-${String(
+      activity.executionId
+    )}`;
   }
 
-  if (activity?.contributionId) {
-    return `contribution-${activity.contributionId}`;
+  if (
+    activity?.contributionId !== undefined &&
+    activity?.contributionId !== null
+  ) {
+    return `contribution-${String(
+      activity.contributionId
+    )}`;
   }
 
-  if (activity?.transactionId) {
-    return `transaction-${activity.transactionId}`;
+  if (
+    activity?.transactionId !== undefined &&
+    activity?.transactionId !== null
+  ) {
+    return `transaction-${String(
+      activity.transactionId
+    )}`;
   }
 
-  /*
-   * Index is intentionally only the final fallback.
-   * The normalizer should provide a stable identifier.
-   */
   return `activity-${index}`;
 };
 
+/**
+ * Safely extracts an error message for presentation.
+ */
+const getErrorMessage = (error) => {
+  if (typeof error === "string") {
+    const message = error.trim();
+
+    if (message) {
+      return message;
+    }
+  }
+
+  if (
+    error &&
+    typeof error === "object"
+  ) {
+    const message =
+      typeof error.message === "string"
+        ? error.message.trim()
+        : "";
+
+    if (message) {
+      return message;
+    }
+  }
+
+  return "Something went wrong while loading your savings activity.";
+};
+
 /* =========================================================
-   COMPONENT
+   SKELETON
 ========================================================= */
 
-const SavingsActivityList = ({
-  activities,
-  loading = false,
-  error = null,
+const ActivitySkeletonItem = memo(
+  function ActivitySkeletonItem() {
+    return (
+      <div
+        className="
+          flex items-center
+          p-4
+          bg-white
+          border border-slate-200 rounded-2xl
+          animate-pulse
+          gap-4
+        "
+        aria-hidden="true"
+      >
+        {/* Icon */}
+        <div
+          className="
+            w-11 h-11
+            bg-slate-200
+            rounded-full
+            shrink-0
+          "
+          /
+        >
 
-  /*
-   * Optional UI controls.
-   *
-   * These remain presentation-level callbacks. The list
-   * itself does not know how mutations/API calls work.
-   */
-  onActivityClick,
-  onRetry,
+        {/* Main content */}
+        <div
+          className="
+            flex-1
+            min-w-0
+            space-y-2
+          "
+        >
+          <div
+            className="
+              w-2/5 h-3.5
+              bg-slate-200
+              rounded
+            "
+            /
+          >
 
-  /*
-   * Optional layout customization.
-   */
-  className = "",
-  itemClassName = "",
+          <div
+            className="
+              w-3/5 h-3
+              bg-slate-200
+              rounded
+            "
+            /
+          >
+        </div>
 
-  /*
-   * Empty-state customization.
-   */
-  emptyTitle,
-  emptyDescription,
-  emptyAction,
-  emptyActionLabel,
+        {/* Amount */}
+        <div
+          className="
+            w-20 h-4
+            bg-slate-200
+            rounded
+            shrink-0
+          "
+          /
+        >
+      </div>
+    );
+  }
+);
 
-  /*
-   * Accessibility.
-   */
-  ariaLabel = "Savings activity",
-}) => {
-  /* =======================================================
-     NORMALIZE INPUT
-  ======================================================= */
+ActivitySkeletonItem.displayName =
+  "ActivitySkeletonItem";
 
-  const normalizedActivities = useMemo(
-    () => normalizeActivityCollection(activities),
-    [activities]
-  );
+/* =========================================================
+   LOADING STATE
+========================================================= */
 
-  /* =======================================================
-     LOADING STATE
-  ======================================================= */
+const SavingsActivitySkeleton = memo(
+  function SavingsActivitySkeleton({
+    ariaLabel,
+    count = DEFAULT_SKELETON_COUNT,
+    className = "",
+  }) {
+    const safeCount =
+      Number.isInteger(count) &&
+      count > 0
+        ? count
+        : DEFAULT_SKELETON_COUNT;
 
-  if (loading && normalizedActivities.length === 0) {
     return (
       <section
-        className={`w-full ${className}`}
+        className={[
+          "w-full",
+          className,
+        ]
+          .filter(Boolean)
+          .join(" ")}
         aria-label={ariaLabel}
         aria-busy="true"
       >
@@ -130,63 +253,12 @@ const SavingsActivityList = ({
             space-y-3
           "
         >
-          {Array.from({ length: 5 }).map((_, index) => (
-            <div
+          {Array.from({
+            length: safeCount,
+          }).map((_, index) => (
+            <ActivitySkeletonItem
               key={`activity-skeleton-${index}`}
-              className="
-                flex items-center
-                p-4
-                bg-white
-                border border-slate-200 rounded-2xl
-                animate-pulse
-                gap-4
-              "
-              aria-hidden="true"
-            >
-              <div
-                className="
-                  w-11 h-11
-                  bg-slate-200
-                  rounded-full
-                  shrink-0
-                "
-                /
-              >
-
-              <div
-                className="
-                  flex-1
-                  min-w-0
-                  space-y-2
-                "
-              >
-                <div
-                  className="
-                    w-2/5 h-3.5
-                    bg-slate-200
-                    rounded
-                  "
-                  /
-                >
-                <div
-                  className="
-                    w-3/5 h-3
-                    bg-slate-200
-                    rounded
-                  "
-                  /
-                >
-              </div>
-
-              <div
-                className="
-                  w-20 h-4
-                  bg-slate-200
-                  rounded
-                "
-                /
-              >
-            </div>
+            />
           ))}
         </div>
 
@@ -194,24 +266,45 @@ const SavingsActivityList = ({
           className="
             sr-only
           "
+          role="status"
+          aria-live="polite"
         >
           Loading savings activity.
         </span>
       </section>
     );
   }
+);
 
-  /* =======================================================
-     ERROR STATE
-  ======================================================= */
+SavingsActivitySkeleton.displayName =
+  "SavingsActivitySkeleton";
 
-  if (
-    error &&
-    normalizedActivities.length === 0
-  ) {
+/* =========================================================
+   ERROR STATE
+========================================================= */
+
+const SavingsActivityErrorState = memo(
+  function SavingsActivityErrorState({
+    error,
+    onRetry,
+    ariaLabel,
+    className = "",
+    disabled = false,
+  }) {
+    const errorMessage =
+      getErrorMessage(error);
+
+    const canRetry =
+      typeof onRetry === "function";
+
     return (
       <section
-        className={`w-full ${className}`}
+        className={[
+          "w-full",
+          className,
+        ]
+          .filter(Boolean)
+          .join(" ")}
         aria-label={ariaLabel}
       >
         <div
@@ -229,7 +322,11 @@ const SavingsActivityList = ({
               gap-3
             "
           >
-            <div>
+            <div
+              className="
+                min-w-0
+              "
+            >
               <p
                 className="
                   font-semibold
@@ -241,28 +338,28 @@ const SavingsActivityList = ({
               <p
                 className="
                   mt-1
-                  text-red-600
+                  text-red-600 break-words
                 "
               >
-                {typeof error === "string"
-                  ? error
-                  : error?.message ||
-                    "Something went wrong while loading your savings activity."}
+                {errorMessage}
               </p>
             </div>
 
-            {typeof onRetry === "function" && (
+            {canRetry && (
               <button
                 type="button"
                 onClick={onRetry}
+                disabled={disabled}
                 className="
                   inline-flex justify-center items-center
+                  min-h-10
                   px-4 py-2
                   font-semibold text-red-700 text-sm
-                  bg-white hover:bg-red-100
+                  bg-white hover:bg-red-50
                   border border-red-300 rounded-xl focus:outline-none
-                  focus:ring-2 focus:ring-red-500 focus:ring-offset-2
-                  transition
+                  disabled:opacity-50 transition
+                  disabled:cursor-not-allowed
+                  focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2
                   shrink-0
                 "
               >
@@ -274,18 +371,138 @@ const SavingsActivityList = ({
       </section>
     );
   }
+);
+
+SavingsActivityErrorState.displayName =
+  "SavingsActivityErrorState";
+
+/* =========================================================
+   COMPONENT
+========================================================= */
+
+/**
+ * SavingsActivityList
+ *
+ * Presentational collection component for SmartSave activity.
+ *
+ * Responsibilities:
+ * - Normalize supported collection wrappers.
+ * - Render loading state.
+ * - Render initial error state.
+ * - Render empty state.
+ * - Render activity items.
+ * - Surface user interactions to the parent.
+ *
+ * Non-responsibilities:
+ * - No API requests.
+ * - No mutations.
+ * - No pagination logic.
+ * - No financial calculations.
+ * - No business-rule decisions.
+ *
+ * Data ownership remains:
+ *
+ * smartSaveService
+ *        ↓
+ * useSavingsActivity
+ *        ↓
+ * SavingsActivityPage
+ *        ↓
+ * SavingsActivityList
+ *        ↓
+ * SavingsActivityItem
+ */
+const SavingsActivityList = ({
+  activities,
+  loading = false,
+  error = null,
+
+  onActivityClick,
+  onRetry,
+
+  onCreateSaving,
+  onClearFilters,
+  onRefresh,
+
+  filtered = false,
+  refreshing = false,
+  disabled = false,
+
+  className = "",
+  itemClassName = "",
+
+  ariaLabel = DEFAULT_ARIA_LABEL,
+}) => {
+  /* =======================================================
+     NORMALIZE INPUT
+  ======================================================= */
+
+  const normalizedActivities =
+    useMemo(
+      () =>
+        normalizeActivityCollection(
+          activities
+        ),
+      [activities]
+    );
+
+  const hasActivities =
+    normalizedActivities.length > 0;
+
+  const hasError =
+    Boolean(error);
+
+  const initialLoading =
+    Boolean(loading) &&
+    !hasActivities;
+
+  const initialError =
+    hasError &&
+    !hasActivities &&
+    !initialLoading;
+
+  /* =======================================================
+     INITIAL LOADING
+  ======================================================= */
+
+  if (initialLoading) {
+    return (
+      <SavingsActivitySkeleton
+        ariaLabel={ariaLabel}
+        className={className}
+      />
+    );
+  }
+
+  /* =======================================================
+     INITIAL ERROR
+  ======================================================= */
+
+  if (initialError) {
+    return (
+      <SavingsActivityErrorState
+        error={error}
+        onRetry={onRetry}
+        ariaLabel={ariaLabel}
+        className={className}
+        disabled={disabled}
+      />
+    );
+  }
 
   /* =======================================================
      EMPTY STATE
   ======================================================= */
 
-  if (normalizedActivities.length === 0) {
+  if (!hasActivities) {
     return (
       <SavingsActivityEmptyState
-        title={emptyTitle}
-        description={emptyDescription}
-        action={emptyAction}
-        actionLabel={emptyActionLabel}
+        filtered={filtered}
+        onCreateSaving={onCreateSaving}
+        onClearFilters={onClearFilters}
+        onRefresh={onRefresh}
+        refreshing={refreshing}
+        disabled={disabled}
       />
     );
   }
@@ -296,7 +513,12 @@ const SavingsActivityList = ({
 
   return (
     <section
-      className={`w-full ${className}`}
+      className={[
+        "w-full",
+        className,
+      ]
+        .filter(Boolean)
+        .join(" ")}
       aria-label={ariaLabel}
       aria-busy={loading}
     >
@@ -318,12 +540,18 @@ const SavingsActivityList = ({
             >
               <SavingsActivityItem
                 activity={activity}
-                onClick={onActivityClick}
+                onClick={
+                  onActivityClick
+                }
               />
             </div>
           )
         )}
       </div>
+
+      {/* =================================================
+          BACKGROUND REFRESH
+      ================================================= */}
 
       {loading && (
         <div
@@ -342,7 +570,209 @@ const SavingsActivityList = ({
 };
 
 /* =========================================================
-   MEMOIZATION
+   PROP TYPES
 ========================================================= */
 
-export default memo(SavingsActivityList);
+const activityShape =
+  PropTypes.shape({
+    id: PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.number,
+    ]),
+
+    _id: PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.number,
+    ]),
+
+    activityId:
+      PropTypes.oneOfType([
+        PropTypes.string,
+        PropTypes.number,
+      ]),
+
+    executionId:
+      PropTypes.oneOfType([
+        PropTypes.string,
+        PropTypes.number,
+      ]),
+
+    contributionId:
+      PropTypes.oneOfType([
+        PropTypes.string,
+        PropTypes.number,
+      ]),
+
+    transactionId:
+      PropTypes.oneOfType([
+        PropTypes.string,
+        PropTypes.number,
+      ]),
+
+    reference:
+      PropTypes.oneOfType([
+        PropTypes.string,
+        PropTypes.number,
+      ]),
+
+    type: PropTypes.string,
+    activityType: PropTypes.string,
+    eventType: PropTypes.string,
+    category: PropTypes.string,
+
+    title: PropTypes.string,
+    name: PropTypes.string,
+    description: PropTypes.string,
+    message: PropTypes.string,
+    note: PropTypes.string,
+
+    amount: PropTypes.oneOfType([
+      PropTypes.number,
+      PropTypes.string,
+      PropTypes.shape({
+        value: PropTypes.oneOfType([
+          PropTypes.number,
+          PropTypes.string,
+        ]),
+        currency: PropTypes.string,
+      }),
+    ]),
+
+    currency: PropTypes.string,
+    status: PropTypes.string,
+
+    date: PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.number,
+      PropTypes.instanceOf(Date),
+    ]),
+
+    createdAt: PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.number,
+      PropTypes.instanceOf(Date),
+    ]),
+
+    occurredAt: PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.number,
+      PropTypes.instanceOf(Date),
+    ]),
+
+    executedAt: PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.number,
+      PropTypes.instanceOf(Date),
+    ]),
+
+    updatedAt: PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.number,
+      PropTypes.instanceOf(Date),
+    ]),
+
+    goalName: PropTypes.string,
+
+    savingGoal: PropTypes.shape({
+      name: PropTypes.string,
+    }),
+
+    goal: PropTypes.shape({
+      name: PropTypes.string,
+    }),
+  });
+
+SavingsActivityList.propTypes = {
+  activities: PropTypes.oneOfType([
+    PropTypes.arrayOf(
+      activityShape
+    ),
+    PropTypes.shape({
+      data: PropTypes.arrayOf(
+        activityShape
+      ),
+      items: PropTypes.arrayOf(
+        activityShape
+      ),
+      results: PropTypes.arrayOf(
+        activityShape
+      ),
+    }),
+  ]),
+
+  loading: PropTypes.bool,
+
+  error: PropTypes.oneOfType([
+    PropTypes.string,
+    PropTypes.shape({
+      message: PropTypes.string,
+    }),
+  ]),
+
+  onActivityClick:
+    PropTypes.func,
+
+  onRetry: PropTypes.func,
+
+  onCreateSaving:
+    PropTypes.func,
+
+  onClearFilters:
+    PropTypes.func,
+
+  onRefresh:
+    PropTypes.func,
+
+  filtered: PropTypes.bool,
+
+  refreshing: PropTypes.bool,
+
+  disabled: PropTypes.bool,
+
+  className: PropTypes.string,
+
+  itemClassName:
+    PropTypes.string,
+
+  ariaLabel:
+    PropTypes.string,
+};
+
+SavingsActivityList.defaultProps = {
+  activities: [],
+  loading: false,
+  error: null,
+
+  onActivityClick:
+    undefined,
+
+  onRetry:
+    undefined,
+
+  onCreateSaving:
+    undefined,
+
+  onClearFilters:
+    undefined,
+
+  onRefresh:
+    undefined,
+
+  filtered: false,
+  refreshing: false,
+  disabled: false,
+
+  className: "",
+  itemClassName: "",
+
+  ariaLabel:
+    DEFAULT_ARIA_LABEL,
+};
+
+/* =========================================================
+   EXPORT
+========================================================= */
+
+export default memo(
+  SavingsActivityList
+);

@@ -1,4 +1,3 @@
-
 import {
   AlertTriangle,
   Loader2,
@@ -7,6 +6,7 @@ import {
 } from "lucide-react";
 
 import {
+  memo,
   useCallback,
   useEffect,
   useId,
@@ -28,66 +28,81 @@ const DEFAULT_CONFIRM_LABEL =
 const DEFAULT_CANCEL_LABEL =
   "Cancel";
 
+const DEFAULT_DELETE_ERROR =
+  "Unable to complete this action. Please try again.";
+
+const FALLBACK_GOAL_NAME =
+  "this savings goal";
+
 /* =========================================================
    SAFE HELPERS
 ========================================================= */
 
+const isObject = (value) =>
+  value !== null &&
+  typeof value === "object" &&
+  !Array.isArray(value);
+
+const normalizeString = (value) =>
+  typeof value === "string"
+    ? value.trim()
+    : "";
+
+/* =========================================================
+   GOAL NAME
+========================================================= */
+
 const getGoalName = (goal) => {
-  if (!goal || typeof goal !== "object") {
-    return "this savings goal";
+  if (!isObject(goal)) {
+    return FALLBACK_GOAL_NAME;
   }
 
-  const name =
-    goal.name ||
-    goal.title ||
-    goal.goalName;
+  const name = normalizeString(
+    goal.name ??
+      goal.title ??
+      goal.goalName
+  );
 
-  if (
-    typeof name === "string" &&
-    name.trim()
-  ) {
-    return `"${name.trim()}"`;
-  }
-
-  return "this savings goal";
+  return name
+    ? `"${name}"`
+    : FALLBACK_GOAL_NAME;
 };
+
+/* =========================================================
+   ERROR NORMALIZATION
+========================================================= */
 
 const getErrorMessage = (error) => {
   if (!error) {
     return "";
   }
 
-  if (
-    typeof error === "string" &&
-    error.trim()
-  ) {
-    return error.trim();
+  if (typeof error === "string") {
+    return (
+      normalizeString(error) ||
+      DEFAULT_DELETE_ERROR
+    );
   }
 
-  if (
-    typeof error?.message === "string" &&
-    error.message.trim()
-  ) {
-    return error.message.trim();
-  }
+  const candidates = [
+    error?.response?.data?.message,
+    error?.response?.data?.error,
+    error?.data?.message,
+    error?.data?.error,
+    error?.message,
+    error?.error,
+  ];
 
-  if (
-    typeof error?.response?.data?.message ===
-      "string" &&
-    error.response.data.message.trim()
-  ) {
-    return error.response.data.message.trim();
-  }
+  const message = candidates.find(
+    (value) =>
+      typeof value === "string" &&
+      normalizeString(value)
+  );
 
-  if (
-    typeof error?.response?.data?.error ===
-      "string" &&
-    error.response.data.error.trim()
-  ) {
-    return error.response.data.error.trim();
-  }
-
-  return "Unable to complete this action. Please try again.";
+  return (
+    normalizeString(message) ||
+    DEFAULT_DELETE_ERROR
+  );
 };
 
 /* =========================================================
@@ -121,72 +136,117 @@ const DeleteSavingsGoalModal = ({
 
   className = "",
 }) => {
+  /* =======================================================
+     ACCESSIBILITY IDS
+  ======================================================= */
+
   const titleId = useId();
 
   const descriptionId = useId();
 
-  const cancelButtonRef = useRef(null);
+  /* =======================================================
+     REFS
+  ======================================================= */
 
-  const confirmButtonRef = useRef(null);
+  const cancelButtonRef =
+    useRef(null);
+
+  const dialogRef =
+    useRef(null);
+
+  const previousActiveElementRef =
+    useRef(null);
+
+  /*
+   * This ref is ONLY used inside event/effect logic.
+   *
+   * It is intentionally NOT read during render.
+   */
+  const confirmInFlightRef =
+    useRef(false);
 
   /* =======================================================
      DERIVED VALUES
   ======================================================= */
 
-  const goalName = getGoalName(goal);
+  const goalName =
+    getGoalName(goal);
 
   const normalizedError =
     getErrorMessage(error);
+
+  const hasConfirmHandler =
+    typeof onConfirm === "function";
 
   /* =======================================================
      CLOSE
   ======================================================= */
 
-  const handleClose = useCallback(() => {
-    if (loading) {
-      return;
-    }
-
-    if (typeof onClose === "function") {
-      onClose();
-    }
-  }, [
-    loading,
-    onClose,
-  ]);
-
-  /* =======================================================
-     CONFIRM
-  ======================================================= */
-
-  const handleConfirm = useCallback(
-    async (event) => {
-      event?.preventDefault();
-
+  const handleClose =
+    useCallback(() => {
       if (loading) {
         return;
       }
 
       if (
-        typeof onConfirm !== "function"
+        typeof onClose ===
+        "function"
       ) {
-        return;
+        onClose();
       }
-
-      try {
-        await onConfirm(goal);
-      } catch {
-        /*
-         * Parent owns server error state.
-         */
-      }
-    },
-    [
-      goal,
+    }, [
       loading,
-      onConfirm,
-    ]
-  );
+      onClose,
+    ]);
+
+  /* =======================================================
+     CONFIRM
+  ======================================================= */
+
+  const handleConfirm =
+    useCallback(
+      async (event) => {
+        event?.preventDefault();
+
+        /*
+         * `loading` is the parent's source of truth.
+         *
+         * `confirmInFlightRef` additionally protects against
+         * two synchronous clicks before the parent re-renders
+         * with loading=true.
+         */
+        if (
+          loading ||
+          confirmInFlightRef.current
+        ) {
+          return;
+        }
+
+        if (!hasConfirmHandler) {
+          return;
+        }
+
+        confirmInFlightRef.current =
+          true;
+
+        try {
+          await onConfirm(goal);
+        } catch {
+          /*
+           * Parent owns the server error state.
+           */
+        } finally {
+          confirmInFlightRef.current =
+            false;
+        }
+      },
+      [
+        goal,
+        hasConfirmHandler,
+        loading,
+        onConfirm,
+      ]
+    );
 
   /* =======================================================
      BACKDROP
@@ -215,6 +275,15 @@ const DeleteSavingsGoalModal = ({
     );
 
   /* =======================================================
+     DIALOG MOUSE DOWN
+  ======================================================= */
+
+  const handleDialogMouseDown =
+    useCallback((event) => {
+      event.stopPropagation();
+    }, []);
+
+  /* =======================================================
      ESCAPE KEY
   ======================================================= */
 
@@ -227,13 +296,20 @@ const DeleteSavingsGoalModal = ({
     }
 
     const handleKeyDown = (event) => {
-      if (event.key !== "Escape") {
+      if (
+        event.key !== "Escape"
+      ) {
         return;
       }
 
-      if (loading) {
+      if (
+        loading ||
+        confirmInFlightRef.current
+      ) {
         return;
       }
+
+      event.preventDefault();
 
       handleClose();
     };
@@ -286,24 +362,56 @@ const DeleteSavingsGoalModal = ({
       return undefined;
     }
 
+    previousActiveElementRef.current =
+      document.activeElement;
+
     const frameId =
       window.requestAnimationFrame(() => {
         if (
           cancelButtonRef.current
         ) {
           cancelButtonRef.current.focus();
+          return;
         }
+
+        dialogRef.current?.focus();
       });
 
     return () => {
       window.cancelAnimationFrame(
         frameId
       );
+
+      const previousElement =
+        previousActiveElementRef.current;
+
+      if (
+        previousElement &&
+        typeof previousElement.focus ===
+          "function"
+      ) {
+        window.requestAnimationFrame(
+          () => {
+            previousElement.focus();
+          }
+        );
+      }
     };
   }, [open]);
 
   /* =======================================================
-     DO NOT RENDER WHEN CLOSED
+     RESET REQUEST GUARD
+  ======================================================= */
+
+  useEffect(() => {
+    if (!open) {
+      confirmInFlightRef.current =
+        false;
+    }
+  }, [open]);
+
+  /* =======================================================
+     CLOSED
   ======================================================= */
 
   if (!open) {
@@ -325,9 +433,7 @@ const DeleteSavingsGoalModal = ({
         handleBackdropMouseDown
       }
     >
-      {/* =================================================
-          BACKDROP
-      ================================================= */}
+      {/* Backdrop */}
 
       <div
         className="
@@ -339,15 +445,16 @@ const DeleteSavingsGoalModal = ({
       /
       >
 
-      {/* =================================================
-          DIALOG
-      ================================================= */}
+      {/* Dialog */}
 
       <section
+        ref={dialogRef}
         role="alertdialog"
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
+        aria-busy={loading}
+        tabIndex={-1}
         className={`
           relative z-10
           w-full max-w-md
@@ -356,15 +463,14 @@ const DeleteSavingsGoalModal = ({
           border border-slate-200
           bg-white
           shadow-2xl
+          outline-none
           ${className}
         `}
-        onMouseDown={(event) => {
-          event.stopPropagation();
-        }}
+        onMouseDown={
+          handleDialogMouseDown
+        }
       >
-        {/* ===============================================
-            HEADER
-        =============================================== */}
+        {/* Header */}
 
         <div
           className="
@@ -376,6 +482,7 @@ const DeleteSavingsGoalModal = ({
           <div
             className="
               flex items-start
+              min-w-0
               gap-3
             "
           >
@@ -438,13 +545,14 @@ const DeleteSavingsGoalModal = ({
               shrink-0
             "
           >
-            <X size={18} />
+            <X
+              size={18}
+              aria-hidden="true"
+            />
           </button>
         </div>
 
-        {/* ===============================================
-            CONTENT
-        =============================================== */}
+        {/* Content */}
 
         <div
           className="
@@ -486,13 +594,12 @@ const DeleteSavingsGoalModal = ({
             </p>
           </div>
 
-          {/* =============================================
-              SERVER ERROR
-          ============================================= */}
+          {/* Server error */}
 
-          {normalizedError && (
+          {normalizedError ? (
             <div
               role="alert"
+              aria-live="assertive"
               className="
                 flex items-start
                 mt-4 px-4 py-3
@@ -508,7 +615,8 @@ const DeleteSavingsGoalModal = ({
                   text-red-600
                   shrink-0
                 "
-                /
+                aria-hidden="true"
+              /
               >
 
               <p
@@ -519,11 +627,9 @@ const DeleteSavingsGoalModal = ({
                 {normalizedError}
               </p>
             </div>
-          )}
+          ) : null}
 
-          {/* =============================================
-              FINANCIAL SAFETY NOTICE
-          ============================================= */}
+          {/* Financial safety notice */}
 
           <div
             className="
@@ -540,7 +646,8 @@ const DeleteSavingsGoalModal = ({
                 text-amber-500
                 shrink-0
               "
-              /
+              aria-hidden="true"
+            /
             >
 
             <p>
@@ -551,9 +658,7 @@ const DeleteSavingsGoalModal = ({
           </div>
         </div>
 
-        {/* ===============================================
-            ACTIONS
-        =============================================== */}
+        {/* Actions */}
 
         <div
           className="
@@ -585,12 +690,15 @@ const DeleteSavingsGoalModal = ({
           </button>
 
           <button
-            ref={confirmButtonRef}
             type="button"
             onClick={handleConfirm}
             disabled={
               loading ||
-              typeof onConfirm !== "function"
+              !hasConfirmHandler
+            }
+            aria-disabled={
+              loading ||
+              !hasConfirmHandler
             }
             className="
               inline-flex justify-center items-center
@@ -611,16 +719,24 @@ const DeleteSavingsGoalModal = ({
                   className="
                     animate-spin
                   "
-                  /
+                  aria-hidden="true"
+                /
                 >
 
-                Deleting...
+                <span>
+                  Deleting...
+                </span>
               </>
             ) : (
               <>
-                <Trash2 size={17} />
+                <Trash2
+                  size={17}
+                  aria-hidden="true"
+                />
 
-                {confirmLabel}
+                <span>
+                  {confirmLabel}
+                </span>
               </>
             )}
           </button>
@@ -630,4 +746,17 @@ const DeleteSavingsGoalModal = ({
   );
 };
 
-export default DeleteSavingsGoalModal;
+/* =========================================================
+   DISPLAY NAME
+========================================================= */
+
+DeleteSavingsGoalModal.displayName =
+  "DeleteSavingsGoalModal";
+
+/* =========================================================
+   EXPORT
+========================================================= */
+
+export default memo(
+  DeleteSavingsGoalModal
+);

@@ -10,18 +10,13 @@ import {
   Zap,
 } from "lucide-react";
 
-import {
-  Link,
-  useNavigate,
-} from "react-router-dom";
+import { Link } from "react-router-dom";
 
 import useSmartSave from "../../hooks/useSmartSave";
 
-import SmartSaveHeader from "../SmartSave/components/SmartSaveHeader";
 
 import SavingsHealthScore from "../SmartSave/components/SavingsHealthScore";
 import SafeToSaveCard from "../SmartSave/components/SafeToSaveCard";
-
 
 import SavingsEmptyState from "../SmartSave/components/shared/SavingsEmptyState";
 import SavingsSkeleton from "../SmartSave/components/shared/SavingsSkeleton";
@@ -32,11 +27,10 @@ import {
 } from "../../constants/smartSaveConstants";
 
 /* =========================================================
-   CONSTANTS
+   ROUTES
 ========================================================= */
 
-
-const SMART_SAVE_ROUTES = {
+const SMART_SAVE_ROUTES = Object.freeze({
   OVERVIEW: "/app/smart-save",
   GOALS: "/app/smart-save/goals",
   ACTIVITY: "/app/smart-save/activity",
@@ -45,9 +39,13 @@ const SMART_SAVE_ROUTES = {
   INSIGHTS: "/app/smart-save/insights",
   STRATEGIES: "/app/smart-save/strategies",
   EMERGENCY_FUND: "/app/smart-save/emergency-fund",
-};
+});
 
-const QUICK_ACCESS_ITEMS = [
+/* =========================================================
+   QUICK ACCESS
+========================================================= */
+
+const QUICK_ACCESS_ITEMS = Object.freeze([
   {
     label: "Savings goals",
     description: "Track what you're building toward.",
@@ -84,10 +82,15 @@ const QUICK_ACCESS_ITEMS = [
     path: SMART_SAVE_ROUTES.STRATEGIES,
     icon: Zap,
   },
-];
+]);
 
 /* =========================================================
-   SAFE DATA HELPERS
+   NORMALIZATION HELPERS
+   ---------------------------------------------------------
+   These functions are intentionally pure.
+
+   The page never modifies server data and never mirrors
+   server data into local React state.
 ========================================================= */
 
 const isObject = (value) =>
@@ -100,15 +103,19 @@ const toArray = (value) => {
     return value;
   }
 
-  if (Array.isArray(value?.data)) {
+  if (!isObject(value)) {
+    return [];
+  }
+
+  if (Array.isArray(value.data)) {
     return value.data;
   }
 
-  if (Array.isArray(value?.items)) {
+  if (Array.isArray(value.items)) {
     return value.items;
   }
 
-  if (Array.isArray(value?.results)) {
+  if (Array.isArray(value.results)) {
     return value.results;
   }
 
@@ -184,7 +191,7 @@ const resolveEmergencyFund = (data) =>
   null;
 
 /* =========================================================
-   ID / LABEL HELPERS
+   GENERAL DATA HELPERS
 ========================================================= */
 
 const getItemId = (item) =>
@@ -195,47 +202,50 @@ const getItemId = (item) =>
   item?.strategyId ??
   null;
 
-const getGoalProgress = (goal) => {
-  const explicitProgress =
-    Number(
-      goal?.progressPercentage ??
-        goal?.progress ??
-        goal?.percentage ??
-        NaN
-    );
+const getGoalName = (goal) =>
+  goal?.name ??
+  goal?.title ??
+  goal?.goalName ??
+  "Savings goal";
 
-  if (
-    Number.isFinite(
-      explicitProgress
-    )
-  ) {
+const getGoalProgress = (goal) => {
+  const explicitProgress = Number(
+    goal?.progressPercentage ??
+      goal?.progress ??
+      goal?.percentage
+  );
+
+  if (Number.isFinite(explicitProgress)) {
     return Math.min(
       100,
-      Math.max(
-        0,
-        explicitProgress
-      )
+      Math.max(0, explicitProgress)
     );
   }
 
-  const currentAmount =
-    Number(
-      goal?.currentAmount ??
-        goal?.savedAmount ??
-        goal?.amountSaved ??
-        0
-    );
+  const currentAmount = Number(
+    goal?.currentAmount ??
+      goal?.savedAmount ??
+      goal?.amountSaved ??
+      0
+  );
 
-  const targetAmount =
-    Number(
-      goal?.targetAmount ??
-        goal?.target ??
-        goal?.amount ??
-        0
-    );
+  const targetAmount = Number(
+    goal?.targetAmount ??
+      goal?.target ??
+      goal?.amount ??
+      0
+  );
 
   if (
+    !Number.isFinite(targetAmount) ||
     targetAmount <= 0
+  ) {
+    return 0;
+  }
+
+  if (
+    !Number.isFinite(currentAmount) ||
+    currentAmount <= 0
   ) {
     return 0;
   }
@@ -244,27 +254,27 @@ const getGoalProgress = (goal) => {
     100,
     Math.max(
       0,
-      (currentAmount /
-        targetAmount) *
-        100
+      (currentAmount / targetAmount) * 100
     )
   );
 };
 
-const getGoalName = (goal) =>
-  goal?.name ??
-  goal?.title ??
-  goal?.goalName ??
-  "Savings goal";
-
-const getActivityDescription = (
-  activity
-) =>
+const getActivityDescription = (activity) =>
   activity?.description ??
   activity?.title ??
   activity?.name ??
   activity?.type ??
   "Savings activity";
+
+const getInsightTitle = (insight) =>
+  insight?.title ??
+  insight?.headline ??
+  "New savings insight available";
+
+const getInsightDescription = (insight) =>
+  insight?.description ??
+  insight?.message ??
+  "Review your latest SmartSave insights to understand your savings position.";
 
 /* =========================================================
    SUMMARY CARD
@@ -364,6 +374,7 @@ const SummaryCard = ({
         rounded-2xl focus:outline-none
         focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2
       "
+      aria-label={`${label}: ${value}`}
     >
       {content}
     </Link>
@@ -374,43 +385,18 @@ const SummaryCard = ({
    GOAL PROGRESS CARD
 ========================================================= */
 
-const GoalProgressCard = ({
-  goal,
-  onOpen,
-}) => {
-  const progress =
-    getGoalProgress(
-      goal
-    );
-
-  const goalName =
-    getGoalName(
-      goal
-    );
-
-  const goalId =
-    getItemId(
-      goal
-    );
-
-  const handleOpen = () => {
-    if (
-      typeof onOpen !==
-      "function"
-    ) {
-      return;
-    }
-
-    onOpen(
-      goalId
-    );
-  };
+const GoalProgressCard = ({ goal }) => {
+  const progress = getGoalProgress(goal);
+  const goalName = getGoalName(goal);
 
   return (
-    <button
-      type="button"
-      onClick={handleOpen}
+    <Link
+      to={SMART_SAVE_ROUTES.GOALS}
+      state={{
+        goalId: getItemId(goal),
+      }}
       className="
+        block
         w-full
         p-4
         text-left
@@ -420,6 +406,7 @@ const GoalProgressCard = ({
         shadow-sm transition
         focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2
       "
+      aria-label={`Open ${goalName}`}
     >
       <div
         className="
@@ -468,14 +455,18 @@ const GoalProgressCard = ({
           bg-slate-100
           rounded-full
         "
-        aria-hidden="true"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(progress)}
+        aria-label={`${goalName} progress`}
       >
         <div
           className="
             h-full
             bg-slate-900
             rounded-full
-            transition-all
+            transition-[width] duration-300
           "
           style={{
             width: `${progress}%`,
@@ -483,7 +474,7 @@ const GoalProgressCard = ({
         /
         >
       </div>
-    </button>
+    </Link>
   );
 };
 
@@ -491,13 +482,10 @@ const GoalProgressCard = ({
    ACTIVITY PREVIEW
 ========================================================= */
 
-const ActivityPreview = ({
-  activity,
-}) => {
-  if (
-    activity.length ===
-    0
-  ) {
+const ActivityPreview = ({ activity }) => {
+  const visibleActivity = activity.slice(0, 4);
+
+  if (visibleActivity.length === 0) {
     return (
       <div
         className="
@@ -516,14 +504,14 @@ const ActivityPreview = ({
             bg-slate-100
             rounded-xl
           "
+          aria-hidden="true"
         >
           <Activity
             size={18}
             className="
               text-slate-700
             "
-            aria-hidden="true"
-          /
+            /
           >
         </div>
 
@@ -594,7 +582,8 @@ const ActivityPreview = ({
             className="
               inline-flex items-center
               font-semibold text-slate-700 hover:text-slate-900 text-xs
-              gap-1
+              focus:outline-none rounded
+              gap-1 focus-visible:ring-2 focus-visible:ring-slate-400
             "
           >
             View all
@@ -607,164 +596,40 @@ const ActivityPreview = ({
       </div>
 
       <div>
-        {activity
-          .slice(0, 4)
-          .map(
-            (
-              item,
-              index
-            ) => {
-              const itemId =
-                getItemId(
-                  item
-                );
+        {visibleActivity.map((item, index) => {
+          const itemId = getItemId(item);
 
-              const key =
-                itemId
-                  ? `activity-${String(
-                      itemId
-                    )}`
-                  : `activity-${index}`;
-
-              return (
-                <div
-                  key={key}
-                  className="
-                    flex items-center
-                    px-5 py-4
-                    border-slate-100 border-b last:border-b-0
-                    gap-3
-                  "
-                >
-                  <div
-                    className="
-                      flex justify-center items-center
-                      w-9 h-9
-                      bg-slate-100
-                      rounded-lg
-                      shrink-0
-                    "
-                  >
-                    <WalletCards
-                      size={16}
-                      className="
-                        text-slate-700
-                      "
-                      aria-hidden="true"
-                    /
-                    >
-                  </div>
-
-                  <div
-                    className="
-                      flex-1
-                      min-w-0
-                    "
-                  >
-                    <p
-                      className="
-                        font-medium text-slate-800 text-xs truncate
-                      "
-                    >
-                      {getActivityDescription(
-                        item
-                      )}
-                    </p>
-
-                    <p
-                      className="
-                        mt-0.5
-                        text-[11px] text-slate-400
-                      "
-                    >
-                      Savings activity
-                    </p>
-                  </div>
-                </div>
-              );
-            }
-          )}
-      </div>
-    </div>
-  );
-};
-
-/* =========================================================
-   QUICK ACCESS
-========================================================= */
-
-const QuickAccess = () => (
-  <section
-    aria-labelledby="smart-save-quick-access"
-  >
-    <div
-      className="
-        flex justify-between items-end
-        mb-4
-        gap-4
-      "
-    >
-      <div>
-        <p
-          className="
-            font-semibold text-slate-500 text-xs uppercase tracking-wide
-          "
-        >
-          Workspace
-        </p>
-
-        <h2
-          id="smart-save-quick-access"
-          className="
-            mt-1
-            font-bold text-slate-900 text-lg tracking-tight
-          "
-        >
-          Explore SmartSave
-        </h2>
-      </div>
-    </div>
-
-    <div
-      className="
-        grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3
-        gap-3
-      "
-    >
-      {QUICK_ACCESS_ITEMS.map(
-        (item) => {
-          const Icon =
-            item.icon;
+          const key = itemId
+            ? `activity-${String(itemId)}`
+            : `activity-${index}`;
 
           return (
-            <Link
-              key={item.path}
-              to={item.path}
+            <div
+              key={key}
               className="
                 flex items-center
-                p-4
-                bg-white
-                border border-slate-200 hover:border-slate-300 rounded-xl
-                focus:outline-none
-                shadow-sm transition
-                group gap-3
-                focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2
+                px-5 py-4
+                border-slate-100 border-b last:border-b-0
+                gap-3
               "
             >
               <div
                 className="
                   flex justify-center items-center
-                  w-10 h-10
-                  text-slate-700
+                  w-9 h-9
                   bg-slate-100
-                  rounded-xl
+                  rounded-lg
                   shrink-0
                 "
+                aria-hidden="true"
               >
-                <Icon
-                  size={17}
-                  aria-hidden="true"
-                />
+                <WalletCards
+                  size={16}
+                  className="
+                    text-slate-700
+                  "
+                  /
+                >
               </div>
 
               <div
@@ -775,931 +640,263 @@ const QuickAccess = () => (
               >
                 <p
                   className="
-                    font-semibold text-slate-800 text-sm
+                    font-medium text-slate-800 text-xs truncate
                   "
                 >
-                  {item.label}
+                  {getActivityDescription(item)}
                 </p>
 
                 <p
                   className="
                     mt-0.5
-                    text-slate-500 text-xs leading-5
+                    text-[11px] text-slate-400
                   "
                 >
-                  {item.description}
+                  Savings activity
                 </p>
               </div>
-
-              <ArrowRight
-                size={15}
-                className="
-                  text-slate-400
-                  transition
-                  group-hover:text-slate-700 shrink-0
-                "
-                aria-hidden="true"
-              /
-              >
-            </Link>
+            </div>
           );
-        }
+        })}
+      </div>
+    </div>
+  );
+};
+
+/* =========================================================
+   QUICK ACCESS
+========================================================= */
+
+const QuickAccess = () => (
+  <section aria-labelledby="smart-save-quick-access">
+    <div
+      className="
+        mb-4
+      "
+    >
+      <p
+        className="
+          font-semibold text-slate-500 text-xs uppercase tracking-wide
+        "
+      >
+        Workspace
+      </p>
+
+      <h2
+        id="smart-save-quick-access"
+        className="
+          mt-1
+          font-bold text-slate-900 text-lg tracking-tight
+        "
+      >
+        Explore SmartSave
+      </h2>
+    </div>
+
+    <div
+      className="
+        grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3
+        gap-3
+      "
+    >
+      {QUICK_ACCESS_ITEMS.map(
+        ({
+          label,
+          description,
+          path,
+          icon: Icon,
+        }) => (
+          <Link
+            key={path}
+            to={path}
+            className="
+              flex items-center
+              p-4
+              bg-white
+              border border-slate-200 hover:border-slate-300 rounded-xl
+              focus:outline-none
+              shadow-sm transition
+              group gap-3
+              focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2
+            "
+          >
+            <div
+              className="
+                flex justify-center items-center
+                w-10 h-10
+                text-slate-700
+                bg-slate-100
+                rounded-xl
+                shrink-0
+              "
+              aria-hidden="true"
+            >
+              <Icon size={17} />
+            </div>
+
+            <div
+              className="
+                flex-1
+                min-w-0
+              "
+            >
+              <p
+                className="
+                  font-semibold text-slate-800 text-sm
+                "
+              >
+                {label}
+              </p>
+
+              <p
+                className="
+                  mt-0.5
+                  text-slate-500 text-xs leading-5
+                "
+              >
+                {description}
+              </p>
+            </div>
+
+            <ArrowRight
+              size={15}
+              className="
+                text-slate-400
+                transition
+                group-hover:text-slate-700 group-hover:translate-x-0.5 shrink-0
+              "
+              aria-hidden="true"
+            /
+            >
+          </Link>
+        )
       )}
     </div>
   </section>
 );
 
 /* =========================================================
-   MAIN PAGE
+   EMERGENCY FUND PREVIEW
 ========================================================= */
 
-const SmartSaveOverviewPage = () => {
-  const navigate =
-    useNavigate();
-
-  const smartSave =
-    useSmartSave();
-
-  const {
-    data,
-    loading = false,
-    error = null,
-    refresh,
-    isRefreshing = false,
-  } = smartSave ?? {};
-
-  const currency =
-    DEFAULT_CURRENCY ??
-    "NGN";
-
-  const savingsData =
-    resolveData(
-      data
-    );
-
-  const goals =
-    resolveGoals(
-      savingsData
-    );
-
-  const challenges =
-    resolveChallenges(
-      savingsData
-    );
-
-  const activity =
-    resolveActivity(
-      savingsData
-    );
-
-  const insights =
-    resolveInsights(
-      savingsData
-    );
-
-  const strategies =
-    resolveStrategies(
-      savingsData
-    );
-
-  const forecast =
-    resolveForecast(
-      savingsData
-    );
-
-  const health =
-    resolveHealth(
-      savingsData
-    );
-
-  const safeToSave =
-    resolveSafeToSave(
-      savingsData
-    );
-
-  const emergencyFund =
-    resolveEmergencyFund(
-      savingsData
-    );
-
-  const hasSavingsContent =
-    goals.length > 0 ||
-    challenges.length > 0 ||
-    activity.length > 0 ||
-    insights.length > 0 ||
-    strategies.length > 0 ||
-    Boolean(forecast) ||
-    Boolean(health) ||
-    Boolean(safeToSave) ||
-    Boolean(emergencyFund);
-
-  const handleRefresh =
-    async () => {
-      if (
-        typeof refresh !==
-        "function"
-      ) {
-        return;
-      }
-
-      try {
-        await refresh();
-      } catch {
-        // Hook remains the source of truth.
-      }
-    };
-
-  const handleCreateGoal =
-    () => {
-      navigate(
-        SMART_SAVE_ROUTES.GOALS
-      );
-    };
-
-  const handleOpenGoal =
-    () => {
-      navigate(
-        SMART_SAVE_ROUTES.GOALS
-      );
-    };
-
-  if (
-    loading &&
-    !data
-  ) {
-    return (
-      <main
-        className="
-          w-full min-h-screen
-          bg-slate-50
-        "
-        aria-busy="true"
-        aria-label="Loading SmartSave"
-      >
-        <SmartSaveHeader />
-
-        <div
-          className="
-            w-full max-w-7xl
-            mx-auto px-4 sm:px-6 lg:px-8 py-6
-          "
-        >
-          <SavingsSkeleton
-            module="page"
-          />
-        </div>
-      </main>
-    );
-  }
-
-  if (
-    error &&
-    !data
-  ) {
-    return (
-      <main
-        className="
-          w-full min-h-screen
-          bg-slate-50
-        "
-      >
-        <SmartSaveHeader />
-
-        <div
-          className="
-            flex items-center
-            w-full max-w-7xl min-h-[70vh]
-            mx-auto px-4 sm:px-6 lg:px-8
-          "
-        >
-          <div
-            className="
-              w-full
-            "
-          >
-            <SavingsErrorState
-              error={error}
-              onRetry={
-                handleRefresh
-              }
-            />
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  return (
-    <main
+const EmergencyFundPreview = () => (
+  <div
+    className="
+      overflow-hidden
+      bg-white
+      border border-slate-200 rounded-2xl
+      shadow-sm
+    "
+  >
+    <div
       className="
-        w-full min-h-screen
-        bg-slate-50
+        flex justify-between items-start
+        p-5
+        gap-4
       "
     >
-      <SmartSaveHeader />
-
       <div
         className="
-          w-full max-w-7xl
-          mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-7 lg:py-8
+          flex items-start
+          gap-3
         "
       >
-        {/* =================================================
-            REFRESH STATUS
-        ================================================= */}
-
-        {isRefreshing && (
-          <div
-            className="
-              flex items-center
-              mb-4 px-4 py-2.5
-              font-medium text-slate-500 text-xs
-              bg-white
-              border border-slate-200 rounded-xl
-              gap-2
-            "
-            role="status"
-            aria-live="polite"
-          >
-            <RefreshCw
-              size={13}
-              className="
-                animate-spin
-              "
-              aria-hidden="true"
-            /
-            >
-
-            Updating your SmartSave data...
-          </div>
-        )}
-
-        {/* =================================================
-            WELCOME / COMMAND STRIP
-        ================================================= */}
-
-        <section
+        <div
           className="
-            relative overflow-hidden
-            p-5 sm:p-7
-            bg-slate-900
-            rounded-2xl
-            shadow-sm
+            flex justify-center items-center
+            w-10 h-10
+            bg-slate-100
+            rounded-xl
+            shrink-0
+          "
+          aria-hidden="true"
+        >
+          <WalletCards
+            size={18}
+            className="
+              text-slate-700
+            "
+            /
+          >
+        </div>
+
+        <div>
+          <p
+            className="
+              font-semibold text-slate-500 text-xs uppercase tracking-wide
+            "
+          >
+            Safety net
+          </p>
+
+          <h3
+            className="
+              mt-1
+              font-bold text-slate-900 text-lg
+            "
+          >
+            Emergency fund
+          </h3>
+
+          <p
+            className="
+              mt-1
+              text-slate-500 text-xs leading-5
+            "
+          >
+            Your emergency savings position.
+          </p>
+        </div>
+      </div>
+
+      <Link
+        to={SMART_SAVE_ROUTES.EMERGENCY_FUND}
+        className="
+          inline-flex items-center
+          font-semibold text-slate-600 hover:text-slate-900 text-xs
+          focus:outline-none rounded
+          gap-1 shrink-0 focus-visible:ring-2 focus-visible:ring-slate-400
+        "
+      >
+        Details
+        <ArrowRight
+          size={13}
+          aria-hidden="true"
+        />
+      </Link>
+    </div>
+
+    <div
+      className="
+        px-5 pb-5
+      "
+    >
+      <div
+        className="
+          p-4
+          bg-slate-50
+          rounded-xl
+        "
+      >
+        <p
+          className="
+            text-slate-600 text-xs leading-5
           "
         >
-          <div
-            className="
-              flex flex-col lg:flex-row lg:justify-between lg:items-center
-              gap-6
-            "
-          >
-            <div
-              className="
-                max-w-2xl
-              "
-            >
-              <div
-                className="
-                  inline-flex items-center
-                  px-2.5 py-1.5
-                  font-semibold text-[11px] text-slate-200
-                  bg-white/10
-                  border border-white/10 rounded-lg
-                  gap-2
-                "
-              >
-                <Zap
-                  size={13}
-                  aria-hidden="true"
-                />
+          Your emergency fund data is available.
+          Open the dedicated page for detailed
+          coverage, progress and recommendations.
+        </p>
+      </div>
+    </div>
+  </div>
+);
 
-                SMARTSAVE OVERVIEW
-              </div>
+/* =========================================================
+   FORECAST PREVIEW
+========================================================= */
 
-              <h1
-                className="
-                  mt-4
-                  font-bold text-white text-2xl sm:text-3xl tracking-tight
-                "
-              >
-                Your savings, at a glance.
-              </h1>
-
-              <p
-                className="
-                  max-w-xl
-                  mt-2
-                  text-slate-300 text-sm leading-6
-                "
-              >
-                See your progress, understand your
-                financial position, and move quickly to
-                the part of SmartSave you need.
-              </p>
-            </div>
-
-            <div
-              className="
-                flex flex-wrap items-center
-                gap-2
-              "
-            >
-              <Link
-                to={SMART_SAVE_ROUTES.GOALS}
-                className="
-                  inline-flex justify-center items-center
-                  min-h-10
-                  px-4 py-2.5
-                  font-semibold text-slate-900 text-sm
-                  bg-white hover:bg-slate-100
-                  rounded-xl
-                  transition
-                  gap-2
-                "
-              >
-                <Target
-                  size={16}
-                  aria-hidden="true"
-                />
-
-                View goals
-              </Link>
-
-              <Link
-                to={
-                  SMART_SAVE_ROUTES.INSIGHTS
-                }
-                className="
-                  inline-flex justify-center items-center
-                  min-h-10
-                  px-4 py-2.5
-                  font-semibold text-white text-sm
-                  bg-white/10 hover:bg-white/15
-                  border border-white/10 rounded-xl
-                  transition
-                  gap-2
-                "
-              >
-                <Lightbulb
-                  size={16}
-                  aria-hidden="true"
-                />
-
-                Insights
-              </Link>
-            </div>
-          </div>
-        </section>
-
-        {/* =================================================
-            PARTIAL DATA WARNING
-        ================================================= */}
-
-        {error &&
-          data && (
-            <div
-              className="
-                flex flex-col sm:flex-row sm:justify-between sm:items-center
-                mt-4 p-4
-                bg-amber-50
-                border border-amber-200 rounded-xl
-                gap-3
-              "
-              role="alert"
-            >
-              <div>
-                <p
-                  className="
-                    font-semibold text-amber-900 text-sm
-                  "
-                >
-                  Some SmartSave data could not be
-                  updated.
-                </p>
-
-                <p
-                  className="
-                    mt-1
-                    text-amber-700 text-xs
-                  "
-                >
-                  Your previously loaded information
-                  remains available.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={
-                  handleRefresh
-                }
-                disabled={
-                  isRefreshing
-                }
-                className="
-                  inline-flex justify-center items-center
-                  min-h-9
-                  px-3 py-2
-                  font-semibold text-amber-800 text-xs
-                  bg-white hover:bg-amber-100
-                  border border-amber-200 rounded-lg
-                  disabled:opacity-50
-                  gap-2
-                "
-              >
-                <RefreshCw
-                  size={13}
-                  className={
-                    isRefreshing
-                      ? "animate-spin"
-                      : ""
-                  }
-                  aria-hidden="true"
-                />
-
-                Retry
-              </button>
-            </div>
-          )}
-
-        {/* =================================================
-            EMPTY WORKSPACE
-        ================================================= */}
-
-        {!hasSavingsContent && (
-          <section
-            className="
-              mt-6
-            "
-          >
-            <SavingsEmptyState
-              title="Your SmartSave workspace is ready"
-              description="Create your first savings goal and start building a smarter savings plan."
-              actionLabel="Explore savings goals"
-              onAction={
-                handleCreateGoal
-              }
-            />
-          </section>
-        )}
-
-        {/* =================================================
-            AT A GLANCE
-        ================================================= */}
-
-        {hasSavingsContent && (
-          <>
-            <section
-              className="
-                mt-6
-              "
-              aria-labelledby="smart-save-at-a-glance"
-            >
-              <div
-                className="
-                  mb-4
-                "
-              >
-                <p
-                  className="
-                    font-semibold text-slate-500 text-xs uppercase tracking-wide
-                  "
-                >
-                  Financial position
-                </p>
-
-                <h2
-                  id="smart-save-at-a-glance"
-                  className="
-                    mt-1
-                    font-bold text-slate-900 text-lg tracking-tight
-                  "
-                >
-                  At a glance
-                </h2>
-              </div>
-
-              <div
-                className="
-                  grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4
-                  gap-4
-                "
-              >
-                <SummaryCard
-                  icon={Target}
-                  label="Active goals"
-                  value={
-                    goals.length
-                  }
-                  description="Savings targets you're currently building."
-                  to={
-                    SMART_SAVE_ROUTES.GOALS
-                  }
-                />
-
-                <SummaryCard
-                  icon={Activity}
-                  label="Recent activity"
-                  value={
-                    activity.length
-                  }
-                  description="Recorded savings activity in your workspace."
-                  to={
-                    SMART_SAVE_ROUTES.ACTIVITY
-                  }
-                />
-
-                <SummaryCard
-                  icon={Trophy}
-                  label="Challenges"
-                  value={
-                    challenges.length
-                  }
-                  description="Savings challenges available in your workspace."
-                  to={
-                    SMART_SAVE_ROUTES.CHALLENGES
-                  }
-                />
-
-                <SummaryCard
-                  icon={Zap}
-                  label="Strategies"
-                  value={
-                    strategies.length
-                  }
-                  description="Saving strategies currently available to you."
-                  to={
-                    SMART_SAVE_ROUTES.STRATEGIES
-                  }
-                />
-              </div>
-            </section>
-
-            {/* =============================================
-                PRIMARY PROGRESS
-            ============================================= */}
-
-            <section
-              className="
-                mt-8
-              "
-              aria-labelledby="smart-save-progress"
-            >
-              <div
-                className="
-                  mb-4
-                "
-              >
-                <p
-                  className="
-                    font-semibold text-slate-500 text-xs uppercase tracking-wide
-                  "
-                >
-                  Progress
-                </p>
-
-                <h2
-                  id="smart-save-progress"
-                  className="
-                    mt-1
-                    font-bold text-slate-900 text-lg tracking-tight
-                  "
-                >
-                  What you're building
-                </h2>
-              </div>
-
-              <div
-                className="
-                  grid grid-cols-1 lg:grid-cols-2
-                  gap-4
-                "
-              >
-                <div
-                  className="
-                    p-5
-                    bg-slate-900
-                    rounded-2xl
-                    shadow-sm
-                  "
-                >
-                  <div
-                    className="
-                      flex justify-between items-center
-                      gap-3
-                    "
-                  >
-                    <div>
-                      <p
-                        className="
-                          font-semibold text-slate-300 text-xs uppercase
-                          tracking-wide
-                        "
-                      >
-                        Savings goals
-                      </p>
-
-                      <h3
-                        className="
-                          mt-1
-                          font-bold text-white text-lg
-                        "
-                      >
-                        Goal progress
-                      </h3>
-                    </div>
-
-                    <Link
-                      to={
-                        SMART_SAVE_ROUTES.GOALS
-                      }
-                      className="
-                        inline-flex items-center
-                        font-semibold text-slate-300 hover:text-white text-xs
-                        gap-1
-                      "
-                    >
-                      View all
-                      <ArrowRight
-                        size={13}
-                        aria-hidden="true"
-                      />
-                    </Link>
-                  </div>
-
-                  <div
-                    className="
-                      grid grid-cols-1 sm:grid-cols-2
-                      mt-5
-                      gap-3
-                    "
-                  >
-                    {goals
-                      .slice(0, 2)
-                      .map(
-                        (
-                          goal,
-                          index
-                        ) => {
-                          const goalId =
-                            getItemId(
-                              goal
-                            );
-
-                          const key =
-                            goalId
-                              ? `goal-${String(
-                                  goalId
-                                )}`
-                              : `goal-${index}`;
-
-                          return (
-                            <div
-                              key={key}
-                              className="
-                                [&>button]:bg-white [&>button]:border-slate-200
-                              "
-                            >
-                              <GoalProgressCard
-                                goal={goal}
-                                onOpen={
-                                  handleOpenGoal
-                                }
-                              />
-                            </div>
-                          );
-                        }
-                      )}
-
-                    {goals.length ===
-                      0 && (
-                      <div
-                        className="
-                          p-5
-                          bg-white/10
-                          border border-white/10 rounded-xl
-                          sm:col-span-2
-                        "
-                      >
-                        <p
-                          className="
-                            font-semibold text-white text-sm
-                          "
-                        >
-                          No savings goals yet
-                        </p>
-
-                        <p
-                          className="
-                            mt-1
-                            text-slate-300 text-xs leading-5
-                          "
-                        >
-                          Create your first goal to
-                          start tracking progress.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {emergencyFund && (
-                  <div
-                    className="
-                      overflow-hidden
-                      bg-white
-                      border border-slate-200 rounded-2xl
-                      shadow-sm
-                    "
-                  >
-                    <div
-                      className="
-                        flex justify-between items-start
-                        p-5
-                        gap-4
-                      "
-                    >
-                      <div
-                        className="
-                          flex items-start
-                          gap-3
-                        "
-                      >
-                        <div
-                          className="
-                            flex justify-center items-center
-                            w-10 h-10
-                            bg-slate-100
-                            rounded-xl
-                            shrink-0
-                          "
-                        >
-                          <WalletCards
-                            size={18}
-                            className="
-                              text-slate-700
-                            "
-                            aria-hidden="true"
-                          /
-                          >
-                        </div>
-
-                        <div>
-                          <p
-                            className="
-                              font-semibold text-slate-500 text-xs uppercase
-                              tracking-wide
-                            "
-                          >
-                            Safety net
-                          </p>
-
-                          <h3
-                            className="
-                              mt-1
-                              font-bold text-slate-900 text-lg
-                            "
-                          >
-                            Emergency fund
-                          </h3>
-
-                          <p
-                            className="
-                              mt-1
-                              text-slate-500 text-xs leading-5
-                            "
-                          >
-                            Your emergency savings
-                            position.
-                          </p>
-                        </div>
-                      </div>
-
-                      <Link
-                        to={
-                          SMART_SAVE_ROUTES.EMERGENCY_FUND
-                        }
-                        className="
-                          inline-flex items-center
-                          font-semibold
-                          text-slate-600 hover:text-slate-900 text-xs
-                          gap-1 shrink-0
-                        "
-                      >
-                        Details
-                        <ArrowRight
-                          size={13}
-                          aria-hidden="true"
-                        />
-                      </Link>
-                    </div>
-
-                    <div
-                      className="
-                        px-5 pb-5
-                      "
-                    >
-                      <div
-                        className="
-                          p-4
-                          bg-slate-50
-                          rounded-xl
-                        "
-                      >
-                        <p
-                          className="
-                            text-slate-600 text-xs leading-5
-                          "
-                        >
-                          Your emergency fund data is
-                          available. Open the dedicated
-                          page for detailed coverage,
-                          progress and recommendations.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </section>
-
-            {/* =============================================
-                INTELLIGENCE
-            ============================================= */}
-
-            {(health ||
-              safeToSave ||
-              forecast) && (
-              <section
-                className="
-                  mt-8
-                "
-                aria-labelledby="smart-save-intelligence"
-              >
-                <div
-                  className="
-                    mb-4
-                  "
-                >
-                  <p
-                    className="
-                      font-semibold text-slate-500 text-xs uppercase
-                      tracking-wide
-                    "
-                  >
-                    Intelligence
-                  </p>
-
-                  <h2
-                    id="smart-save-intelligence"
-                    className="
-                      mt-1
-                      font-bold text-slate-900 text-lg tracking-tight
-                    "
-                  >
-                    Know before you save
-                  </h2>
-
-                  <p
-                    className="
-                      max-w-2xl
-                      mt-1
-                      text-slate-500 text-sm leading-6
-                    "
-                  >
-                    SmartSave turns your savings data
-                    into signals that help you make
-                    better decisions.
-                  </p>
-                </div>
-
-                <div
-                  className="
-                    grid grid-cols-1 xl:grid-cols-2
-                    gap-4
-                  "
-                >
-                  {health && (
-                    <SavingsHealthScore
-                      data={health}
-                      currency={
-                        currency
-                      }
-                    />
-                  )}
-
-                  {safeToSave && (
-                    <SafeToSaveCard
-                      result={
-                        safeToSave
-                      }
-                      currency={
-                        currency
-                      }
-                    />
-                  )}
-
-                  {forecast && (
+const ForecastPreview = () => (
   <Link
     to={SMART_SAVE_ROUTES.FORECAST}
     className="
@@ -1736,9 +933,7 @@ const SmartSaveOverviewPage = () => {
           "
           aria-hidden="true"
         >
-          <TrendingUp
-            size={18}
-          />
+          <TrendingUp size={18} />
         </div>
 
         <div
@@ -1814,13 +1009,931 @@ const SmartSaveOverviewPage = () => {
       </span>
     </div>
   </Link>
-)}
-                </div>
-              </section>
-            )}
+);
+
+/* =========================================================
+   INTELLIGENCE SECTION
+========================================================= */
+
+const IntelligenceSection = ({
+  health,
+  safeToSave,
+  forecast,
+  currency,
+}) => {
+  if (!health && !safeToSave && !forecast) {
+    return null;
+  }
+
+  return (
+    <section
+      className="
+        mt-8
+      "
+      aria-labelledby="smart-save-intelligence"
+    >
+      <div
+        className="
+          mb-4
+        "
+      >
+        <p
+          className="
+            font-semibold text-slate-500 text-xs uppercase tracking-wide
+          "
+        >
+          Intelligence
+        </p>
+
+        <h2
+          id="smart-save-intelligence"
+          className="
+            mt-1
+            font-bold text-slate-900 text-lg tracking-tight
+          "
+        >
+          Know before you save
+        </h2>
+
+        <p
+          className="
+            max-w-2xl
+            mt-1
+            text-slate-500 text-sm leading-6
+          "
+        >
+          SmartSave turns your savings data into
+          signals that help you make better decisions.
+        </p>
+      </div>
+
+      <div
+        className="
+          grid grid-cols-1 xl:grid-cols-2
+          gap-4
+        "
+      >
+        {health && (
+          <SavingsHealthScore
+            data={health}
+            currency={currency}
+          />
+        )}
+
+        {safeToSave && (
+          <SafeToSaveCard
+            result={safeToSave}
+            currency={currency}
+          />
+        )}
+
+        {forecast && <ForecastPreview />}
+      </div>
+    </section>
+  );
+};
+
+/* =========================================================
+   INSIGHTS PREVIEW
+========================================================= */
+
+const InsightsPreview = ({ insights }) => {
+  const firstInsight = insights[0];
+
+  return (
+    <div
+      className="
+        p-5
+        bg-white
+        border border-slate-200 rounded-2xl
+        shadow-sm
+      "
+    >
+      <div
+        className="
+          flex justify-between items-start
+          gap-4
+        "
+      >
+        <div
+          className="
+            flex items-start
+            gap-3
+          "
+        >
+          <div
+            className="
+              flex justify-center items-center
+              w-10 h-10
+              bg-slate-100
+              rounded-xl
+              shrink-0
+            "
+            aria-hidden="true"
+          >
+            <Lightbulb
+              size={18}
+              className="
+                text-slate-700
+              "
+              /
+            >
+          </div>
+
+          <div>
+            <h3
+              className="
+                font-semibold text-slate-900 text-sm
+              "
+            >
+              Savings intelligence
+            </h3>
+
+            <p
+              className="
+                mt-1
+                text-slate-500 text-xs leading-5
+              "
+            >
+              Personalized signals from your
+              savings data.
+            </p>
+          </div>
+        </div>
+
+        <Link
+          to={SMART_SAVE_ROUTES.INSIGHTS}
+          className="
+            inline-flex items-center
+            font-semibold text-slate-600 hover:text-slate-900 text-xs
+            focus:outline-none rounded
+            gap-1 focus-visible:ring-2 focus-visible:ring-slate-400
+          "
+        >
+          View all
+          <ArrowRight
+            size={13}
+            aria-hidden="true"
+          />
+        </Link>
+      </div>
+
+      <div
+        className="
+          mt-5 p-4
+          bg-slate-50
+          rounded-xl
+        "
+      >
+        {firstInsight ? (
+          <>
+            <p
+              className="
+                font-semibold text-slate-800 text-sm
+              "
+            >
+              {getInsightTitle(firstInsight)}
+            </p>
+
+            <p
+              className="
+                mt-1
+                text-slate-500 text-xs leading-5
+              "
+            >
+              {getInsightDescription(firstInsight)}
+            </p>
+          </>
+        ) : (
+          <p
+            className="
+              text-slate-500 text-xs leading-5
+            "
+          >
+            Your savings insights will appear here
+            as SmartSave gathers enough information
+            about your activity.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* =========================================================
+   MAIN PAGE
+========================================================= */
+
+const SmartSaveOverviewPage = () => {
+  /*
+   * IMPORTANT:
+   *
+   * useSmartSave is the single source of truth.
+   *
+   * There is intentionally:
+   * - no useEffect
+   * - no useState
+   * - no page-level data synchronization
+   * - no derived state
+   *
+   * Everything below is derived directly from the hook.
+   */
+
+  const {
+    data = null,
+    loading = false,
+    error = null,
+    refresh,
+    isRefreshing = false,
+  } = useSmartSave() ?? {};
+
+  const currency = DEFAULT_CURRENCY || "NGN";
+
+  /* =======================================================
+     NORMALIZE SERVER RESPONSE ONCE
+  ======================================================= */
+
+  const savingsData = resolveData(data);
+
+  const goals = resolveGoals(savingsData);
+  const challenges = resolveChallenges(savingsData);
+  const activity = resolveActivity(savingsData);
+  const insights = resolveInsights(savingsData);
+  const strategies = resolveStrategies(savingsData);
+
+  const forecast = resolveForecast(savingsData);
+  const health = resolveHealth(savingsData);
+  const safeToSave = resolveSafeToSave(savingsData);
+  const emergencyFund = resolveEmergencyFund(savingsData);
+
+  /* =======================================================
+     WORKSPACE STATE
+  ======================================================= */
+
+  const hasSavingsContent =
+    goals.length > 0 ||
+    challenges.length > 0 ||
+    activity.length > 0 ||
+    insights.length > 0 ||
+    strategies.length > 0 ||
+    Boolean(forecast) ||
+    Boolean(health) ||
+    Boolean(safeToSave) ||
+    Boolean(emergencyFund);
+
+  /* =======================================================
+     REFRESH
+     -------------------------------------------------------
+     No local state is created here.
+
+     The hook remains responsible for:
+     - request state
+     - server state
+     - errors
+     - cache
+     - refresh behavior
+  ======================================================= */
+
+  const handleRefresh = async () => {
+    if (typeof refresh !== "function") {
+      return;
+    }
+
+    await refresh();
+  };
+
+  /* =======================================================
+     INITIAL LOADING
+  ======================================================= */
+
+  if (loading && !data) {
+    return (
+      <main
+        className="
+          w-full min-h-screen
+          bg-slate-50
+        "
+        aria-busy="true"
+        aria-label="Loading SmartSave"
+      >
+
+        <div
+          className="
+            w-full max-w-7xl
+            mx-auto px-4 sm:px-6 lg:px-8 py-6
+          "
+        >
+          <SavingsSkeleton module="page" />
+        </div>
+      </main>
+    );
+  }
+
+  /* =======================================================
+     INITIAL ERROR
+  ======================================================= */
+
+  if (error && !data) {
+    return (
+      <main
+        className="
+          w-full min-h-screen
+          bg-slate-50
+        "
+      >
+        <SmartSaveHeader />
+
+        <div
+          className="
+            flex items-center
+            w-full max-w-7xl min-h-[70vh]
+            mx-auto px-4 sm:px-6 lg:px-8
+          "
+        >
+          <div
+            className="
+              w-full
+            "
+          >
+            <SavingsErrorState
+              error={error}
+              onRetry={handleRefresh}
+            />
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  /* =======================================================
+     PAGE
+  ======================================================= */
+
+  return (
+    <main
+      className="
+        w-full min-h-screen
+        bg-slate-50
+      "
+    >
+      <SmartSaveHeader />
+
+      <div
+        className="
+          w-full max-w-7xl
+          mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-7 lg:py-8
+        "
+      >
+        {/* =================================================
+            REFRESH STATUS
+        ================================================= */}
+
+        {isRefreshing && (
+          <div
+            className="
+              flex items-center
+              mb-4 px-4 py-2.5
+              font-medium text-slate-500 text-xs
+              bg-white
+              border border-slate-200 rounded-xl
+              gap-2
+            "
+            role="status"
+            aria-live="polite"
+          >
+            <RefreshCw
+              size={13}
+              className="
+                animate-spin
+              "
+              aria-hidden="true"
+            /
+            >
+
+            Updating your SmartSave data...
+          </div>
+        )}
+
+        {/* =================================================
+            HERO
+        ================================================= */}
+
+        <section
+          className="
+            relative overflow-hidden
+            p-5 sm:p-7
+            bg-slate-900
+            rounded-2xl
+            shadow-sm
+          "
+          aria-labelledby="smart-save-overview-title"
+        >
+          <div
+            className="
+              flex flex-col lg:flex-row lg:justify-between lg:items-center
+              gap-6
+            "
+          >
+            <div
+              className="
+                max-w-2xl
+              "
+            >
+              <div
+                className="
+                  inline-flex items-center
+                  px-2.5 py-1.5
+                  font-semibold text-[11px] text-slate-200
+                  bg-white/10
+                  border border-white/10 rounded-lg
+                  gap-2
+                "
+              >
+                <Zap
+                  size={13}
+                  aria-hidden="true"
+                />
+
+                SMARTSAVE OVERVIEW
+              </div>
+
+              <h1
+                id="smart-save-overview-title"
+                className="
+                  mt-4
+                  font-bold text-white text-2xl sm:text-3xl tracking-tight
+                "
+              >
+                Your savings, at a glance.
+              </h1>
+
+              <p
+                className="
+                  max-w-xl
+                  mt-2
+                  text-slate-300 text-sm leading-6
+                "
+              >
+                See your progress, understand your
+                financial position, and move quickly
+                to the part of SmartSave you need.
+              </p>
+            </div>
+
+            <div
+              className="
+                flex flex-wrap items-center
+                gap-2
+              "
+            >
+              <Link
+                to={SMART_SAVE_ROUTES.GOALS}
+                className="
+                  inline-flex justify-center items-center
+                  min-h-10
+                  px-4 py-2.5
+                  font-semibold text-slate-900 text-sm
+                  bg-white hover:bg-slate-100
+                  rounded-xl focus:outline-none
+                  transition
+                  gap-2
+                  focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900
+                "
+              >
+                <Target
+                  size={16}
+                  aria-hidden="true"
+                />
+
+                View goals
+              </Link>
+
+              <Link
+                to={SMART_SAVE_ROUTES.INSIGHTS}
+                className="
+                  inline-flex justify-center items-center
+                  min-h-10
+                  px-4 py-2.5
+                  font-semibold text-white text-sm
+                  bg-white/10 hover:bg-white/15
+                  border border-white/10 rounded-xl focus:outline-none
+                  transition
+                  gap-2
+                  focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900
+                "
+              >
+                <Lightbulb
+                  size={16}
+                  aria-hidden="true"
+                />
+
+                Insights
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* =================================================
+            PARTIAL DATA WARNING
+        ================================================= */}
+
+        {error && data && (
+          <div
+            className="
+              flex flex-col sm:flex-row sm:justify-between sm:items-center
+              mt-4 p-4
+              bg-amber-50
+              border border-amber-200 rounded-xl
+              gap-3
+            "
+            role="alert"
+          >
+            <div>
+              <p
+                className="
+                  font-semibold text-amber-900 text-sm
+                "
+              >
+                Some SmartSave data could not be
+                updated.
+              </p>
+
+              <p
+                className="
+                  mt-1
+                  text-amber-700 text-xs
+                "
+              >
+                Your previously loaded information
+                remains available.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="
+                inline-flex justify-center items-center
+                min-h-9
+                px-3 py-2
+                font-semibold text-amber-800 text-xs
+                bg-white hover:bg-amber-100
+                border border-amber-200 rounded-lg
+                disabled:opacity-50
+                disabled:cursor-not-allowed
+                gap-2
+              "
+            >
+              <RefreshCw
+                size={13}
+                className={
+                  isRefreshing
+                    ? "animate-spin"
+                    : undefined
+                }
+                aria-hidden="true"
+              />
+
+              Retry
+            </button>
+          </div>
+        )}
+
+        {/* =================================================
+            EMPTY WORKSPACE
+        ================================================= */}
+
+        {!hasSavingsContent && (
+          <section
+            className="
+              mt-6
+            "
+          >
+            <SavingsEmptyState
+              title="Your SmartSave workspace is ready"
+              description="Create your first savings goal and start building a smarter savings plan."
+              actionLabel="Explore savings goals"
+              onAction={() => {
+                window.location.assign(
+                  SMART_SAVE_ROUTES.GOALS
+                );
+              }}
+            />
+          </section>
+        )}
+
+        {/* =================================================
+            POPULATED WORKSPACE
+        ================================================= */}
+
+        {hasSavingsContent && (
+          <>
+            {/* =============================================
+                AT A GLANCE
+            ============================================= */}
+
+            <section
+              className="
+                mt-6
+              "
+              aria-labelledby="smart-save-at-a-glance"
+            >
+              <div
+                className="
+                  mb-4
+                "
+              >
+                <p
+                  className="
+                    font-semibold text-slate-500 text-xs uppercase tracking-wide
+                  "
+                >
+                  Financial position
+                </p>
+
+                <h2
+                  id="smart-save-at-a-glance"
+                  className="
+                    mt-1
+                    font-bold text-slate-900 text-lg tracking-tight
+                  "
+                >
+                  At a glance
+                </h2>
+              </div>
+
+              <div
+                className="
+                  grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4
+                  gap-4
+                "
+              >
+                <SummaryCard
+                  icon={Target}
+                  label="Active goals"
+                  value={goals.length}
+                  description="Savings targets you're currently building."
+                  to={SMART_SAVE_ROUTES.GOALS}
+                />
+
+                <SummaryCard
+                  icon={Activity}
+                  label="Recent activity"
+                  value={activity.length}
+                  description="Recorded savings activity in your workspace."
+                  to={SMART_SAVE_ROUTES.ACTIVITY}
+                />
+
+                <SummaryCard
+                  icon={Trophy}
+                  label="Challenges"
+                  value={challenges.length}
+                  description="Savings challenges available in your workspace."
+                  to={SMART_SAVE_ROUTES.CHALLENGES}
+                />
+
+                <SummaryCard
+                  icon={Zap}
+                  label="Strategies"
+                  value={strategies.length}
+                  description="Saving strategies currently available to you."
+                  to={SMART_SAVE_ROUTES.STRATEGIES}
+                />
+              </div>
+            </section>
 
             {/* =============================================
-                ACTIVITY + INSIGHT
+                PRIMARY PROGRESS
+            ============================================= */}
+
+            <section
+              className="
+                mt-8
+              "
+              aria-labelledby="smart-save-progress"
+            >
+              <div
+                className="
+                  mb-4
+                "
+              >
+                <p
+                  className="
+                    font-semibold text-slate-500 text-xs uppercase tracking-wide
+                  "
+                >
+                  Progress
+                </p>
+
+                <h2
+                  id="smart-save-progress"
+                  className="
+                    mt-1
+                    font-bold text-slate-900 text-lg tracking-tight
+                  "
+                >
+                  What you're building
+                </h2>
+              </div>
+
+              <div
+                className="
+                  grid grid-cols-1 lg:grid-cols-2
+                  gap-4
+                "
+              >
+                {/* GOALS */}
+
+                <div
+                  className="
+                    p-5
+                    bg-slate-900
+                    rounded-2xl
+                    shadow-sm
+                  "
+                >
+                  <div
+                    className="
+                      flex justify-between items-center
+                      gap-3
+                    "
+                  >
+                    <div>
+                      <p
+                        className="
+                          font-semibold text-slate-300 text-xs uppercase
+                          tracking-wide
+                        "
+                      >
+                        Savings goals
+                      </p>
+
+                      <h3
+                        className="
+                          mt-1
+                          font-bold text-white text-lg
+                        "
+                      >
+                        Goal progress
+                      </h3>
+                    </div>
+
+                    <Link
+                      to={SMART_SAVE_ROUTES.GOALS}
+                      className="
+                        inline-flex items-center
+                        font-semibold text-slate-300 hover:text-white text-xs
+                        focus:outline-none rounded
+                        gap-1 focus-visible:ring-2 focus-visible:ring-white
+                      "
+                    >
+                      View all
+                      <ArrowRight
+                        size={13}
+                        aria-hidden="true"
+                      />
+                    </Link>
+                  </div>
+
+                  <div
+                    className="
+                      grid grid-cols-1 sm:grid-cols-2
+                      mt-5
+                      gap-3
+                    "
+                  >
+                    {goals
+                      .slice(0, 2)
+                      .map((goal, index) => {
+                        const goalId =
+                          getItemId(goal);
+
+                        const key = goalId
+                          ? `goal-${String(
+                              goalId
+                            )}`
+                          : `goal-${index}`;
+
+                        return (
+                          <GoalProgressCard
+                            key={key}
+                            goal={goal}
+                          />
+                        );
+                      })}
+
+                    {goals.length === 0 && (
+                      <div
+                        className="
+                          p-5
+                          bg-white/10
+                          border border-white/10 rounded-xl
+                          sm:col-span-2
+                        "
+                      >
+                        <p
+                          className="
+                            font-semibold text-white text-sm
+                          "
+                        >
+                          No savings goals yet
+                        </p>
+
+                        <p
+                          className="
+                            mt-1
+                            text-slate-300 text-xs leading-5
+                          "
+                        >
+                          Create your first goal to
+                          start tracking progress.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* EMERGENCY FUND */}
+
+                {emergencyFund ? (
+                  <EmergencyFundPreview />
+                ) : (
+                  <div
+                    className="
+                      flex flex-col justify-center
+                      p-5
+                      bg-white
+                      border border-slate-200 rounded-2xl
+                      shadow-sm
+                    "
+                  >
+                    <p
+                      className="
+                        font-semibold text-slate-500 text-xs uppercase
+                        tracking-wide
+                      "
+                    >
+                      Safety net
+                    </p>
+
+                    <h3
+                      className="
+                        mt-1
+                        font-bold text-slate-900 text-lg
+                      "
+                    >
+                      Build your emergency fund
+                    </h3>
+
+                    <p
+                      className="
+                        max-w-lg
+                        mt-2
+                        text-slate-500 text-xs leading-5
+                      "
+                    >
+                      Set up an emergency fund to
+                      create a financial safety buffer.
+                    </p>
+
+                    <Link
+                      to={
+                        SMART_SAVE_ROUTES.EMERGENCY_FUND
+                      }
+                      className="
+                        inline-flex items-center
+                        mt-5
+                        font-semibold
+                        text-slate-700 hover:text-slate-900 text-xs
+                        focus:outline-none rounded
+                        gap-1 focus-visible:ring-2 focus-visible:ring-slate-400
+                      "
+                    >
+                      Explore emergency fund
+                      <ArrowRight
+                        size={13}
+                        aria-hidden="true"
+                      />
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* =============================================
+                INTELLIGENCE
+            ============================================= */}
+
+            <IntelligenceSection
+              health={health}
+              safeToSave={safeToSave}
+              forecast={forecast}
+              currency={currency}
+            />
+
+            {/* =============================================
+                ACTIVITY + INSIGHTS
             ============================================= */}
 
             <section
@@ -1829,141 +1942,15 @@ const SmartSaveOverviewPage = () => {
                 mt-8
                 gap-4
               "
+              aria-label="Savings activity and insights"
             >
               <ActivityPreview
-                activity={
-                  activity
-                }
+                activity={activity}
               />
 
-              <div
-                className="
-                  p-5
-                  bg-white
-                  border border-slate-200 rounded-2xl
-                  shadow-sm
-                "
-              >
-                <div
-                  className="
-                    flex justify-between items-start
-                    gap-4
-                  "
-                >
-                  <div
-                    className="
-                      flex items-start
-                      gap-3
-                    "
-                  >
-                    <div
-                      className="
-                        flex justify-center items-center
-                        w-10 h-10
-                        bg-slate-100
-                        rounded-xl
-                        shrink-0
-                      "
-                    >
-                      <Lightbulb
-                        size={18}
-                        className="
-                          text-slate-700
-                        "
-                        aria-hidden="true"
-                      /
-                      >
-                    </div>
-
-                    <div>
-                      <h3
-                        className="
-                          font-semibold text-slate-900 text-sm
-                        "
-                      >
-                        Savings intelligence
-                      </h3>
-
-                      <p
-                        className="
-                          mt-1
-                          text-slate-500 text-xs leading-5
-                        "
-                      >
-                        Personalized signals from your
-                        savings data.
-                      </p>
-                    </div>
-                  </div>
-
-                  <Link
-                    to={
-                      SMART_SAVE_ROUTES.INSIGHTS
-                    }
-                    className="
-                      inline-flex items-center
-                      font-semibold text-slate-600 hover:text-slate-900 text-xs
-                      gap-1
-                    "
-                  >
-                    View all
-                    <ArrowRight
-                      size={13}
-                      aria-hidden="true"
-                    />
-                  </Link>
-                </div>
-
-                {insights.length >
-                0 ? (
-                  <div
-                    className="
-                      mt-5 p-4
-                      bg-slate-50
-                      rounded-xl
-                    "
-                  >
-                    <p
-                      className="
-                        font-semibold text-slate-800 text-sm
-                      "
-                    >
-                      {insights[0]?.title ??
-                        insights[0]?.headline ??
-                        "New savings insight available"}
-                    </p>
-
-                    <p
-                      className="
-                        mt-1
-                        text-slate-500 text-xs leading-5
-                      "
-                    >
-                      {insights[0]?.description ??
-                        insights[0]?.message ??
-                        "Review your latest SmartSave insights to understand your savings position."}
-                    </p>
-                  </div>
-                ) : (
-                  <div
-                    className="
-                      mt-5 p-4
-                      bg-slate-50
-                      rounded-xl
-                    "
-                  >
-                    <p
-                      className="
-                        text-slate-500 text-xs leading-5
-                      "
-                    >
-                      Your savings insights will appear
-                      here as SmartSave gathers enough
-                      information about your activity.
-                    </p>
-                  </div>
-                )}
-              </div>
+              <InsightsPreview
+                insights={insights}
+              />
             </section>
 
             {/* =============================================

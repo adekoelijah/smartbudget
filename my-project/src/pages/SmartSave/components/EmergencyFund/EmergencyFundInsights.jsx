@@ -1,4 +1,3 @@
-
 import {
   AlertTriangle,
   CheckCircle2,
@@ -8,11 +7,14 @@ import {
   ShieldAlert,
   Sparkles,
   Target,
-  TrendingDown,
   TrendingUp,
 } from "lucide-react";
 
-import { useCallback, useMemo } from "react";
+import {
+  useCallback,
+  useId,
+  useMemo,
+} from "react";
 
 import useEmergencyFund from "../../../../hooks/useEmergencyFund";
 
@@ -24,6 +26,16 @@ import {
 import {
   normalizeEmergencyFund,
 } from "../../../../utils/smartSave/emergencyFundNormalizers";
+
+/* =========================================================
+   CONSTANTS
+========================================================= */
+
+const DEFAULT_TARGET_MONTHS = 3;
+
+const MAX_INSIGHTS = 4;
+
+const EMPTY_INSIGHTS = Object.freeze([]);
 
 /* =========================================================
    SAFE HELPERS
@@ -48,6 +60,15 @@ const toNumber = (
     : fallback;
 };
 
+const toNonNegativeNumber = (
+  value,
+  fallback = 0
+) =>
+  Math.max(
+    0,
+    toNumber(value, fallback)
+  );
+
 const clamp = (
   value,
   min = 0,
@@ -61,63 +82,128 @@ const clamp = (
     )
   );
 
+const hasMeaningfulData = (
+  value
+) => {
+  if (!value) {
+    return false;
+  }
+
+  if (
+    typeof value !== "object"
+  ) {
+    return true;
+  }
+
+  return Object.keys(value).length > 0;
+};
+
+const getErrorMessage = (
+  error
+) => {
+  if (!error) {
+    return null;
+  }
+
+  if (
+    typeof error === "string"
+  ) {
+    return error;
+  }
+
+  return (
+    error?.response?.data?.message ||
+    error?.response?.data?.error?.message ||
+    error?.response?.data?.error ||
+    error?.message ||
+    "Something went wrong while loading emergency-fund insights."
+  );
+};
+
 /* =========================================================
    STATUS
 ========================================================= */
 
-const getFundStatus = (fund) => {
+const getFundStatus = (
+  fund
+) => {
   const explicitStatus = String(
     firstDefined(
       fund?.status,
       fund?.health,
       fund?.fundStatus
     ) || ""
-  ).toLowerCase();
+  )
+    .trim()
+    .toLowerCase();
 
   if (
-    explicitStatus.includes("complete") ||
-    explicitStatus.includes("fully") ||
-    explicitStatus.includes("funded")
+    explicitStatus.includes(
+      "complete"
+    ) ||
+    explicitStatus.includes(
+      "fully"
+    ) ||
+    explicitStatus.includes(
+      "funded"
+    )
   ) {
     return "funded";
   }
 
   if (
-    explicitStatus.includes("risk") ||
-    explicitStatus.includes("critical") ||
-    explicitStatus.includes("low")
+    explicitStatus.includes(
+      "critical"
+    ) ||
+    explicitStatus.includes(
+      "risk"
+    ) ||
+    explicitStatus.includes(
+      "low"
+    )
   ) {
     return "at-risk";
   }
 
   if (
-    explicitStatus.includes("good") ||
-    explicitStatus.includes("healthy") ||
-    explicitStatus.includes("strong")
+    explicitStatus.includes(
+      "healthy"
+    ) ||
+    explicitStatus.includes(
+      "good"
+    ) ||
+    explicitStatus.includes(
+      "strong"
+    )
   ) {
     return "healthy";
   }
 
-  const coverageMonths = toNumber(
-    firstDefined(
-      fund?.coverageMonths,
-      fund?.monthsCovered,
-      fund?.currentCoverageMonths
-    )
-  );
+  const coverageMonths =
+    toNonNegativeNumber(
+      firstDefined(
+        fund?.coverageMonths,
+        fund?.monthsCovered,
+        fund?.currentCoverageMonths
+      )
+    );
 
-  const targetMonths = toNumber(
-    firstDefined(
-      fund?.targetMonths,
-      fund?.recommendedMonths,
-      fund?.monthsTarget
-    ),
-    3
-  );
+  const targetMonths =
+    Math.max(
+      1,
+      toNonNegativeNumber(
+        firstDefined(
+          fund?.targetMonths,
+          fund?.recommendedMonths,
+          fund?.monthsTarget
+        ),
+        DEFAULT_TARGET_MONTHS
+      )
+    );
 
   if (
-    coverageMonths >= targetMonths &&
-    targetMonths > 0
+    coverageMonths >=
+      targetMonths
   ) {
     return "funded";
   }
@@ -128,6 +214,13 @@ const getFundStatus = (fund) => {
     return "at-risk";
   }
 
+  if (
+    coverageMonths >=
+    targetMonths * 0.5
+  ) {
+    return "healthy";
+  }
+
   return "building";
 };
 
@@ -135,46 +228,76 @@ const getFundStatus = (fund) => {
    STATUS CONFIG
 ========================================================= */
 
-const STATUS_CONFIG = {
+const STATUS_CONFIG = Object.freeze({
   funded: {
     label: "Emergency fund funded",
+
     description:
       "Your current reserve is meeting the recommended emergency-fund target.",
+
     icon: CheckCircle2,
+
     className:
       "border-emerald-200 bg-emerald-50 text-emerald-700",
   },
 
   healthy: {
     label: "Healthy emergency fund",
+
     description:
       "Your reserve provides a solid financial safety buffer.",
+
     icon: ShieldAlert,
+
     className:
       "border-blue-200 bg-blue-50 text-blue-700",
   },
 
   building: {
     label: "Emergency fund in progress",
+
     description:
-      "You are building your financial safety buffer.",
+      "You are actively building your financial safety buffer.",
+
     icon: TrendingUp,
+
     className:
       "border-slate-200 bg-slate-50 text-slate-700",
   },
 
   "at-risk": {
     label: "Emergency fund needs attention",
+
     description:
       "Your current reserve may not provide enough protection against unexpected expenses.",
+
     icon: AlertTriangle,
+
     className:
       "border-amber-200 bg-amber-50 text-amber-700",
   },
-};
+});
 
 /* =========================================================
-   INSIGHT CARD
+   INSIGHT TONES
+========================================================= */
+
+const INSIGHT_TONE_CLASSES = Object.freeze({
+  positive:
+    "border-emerald-200 bg-emerald-50",
+
+  warning:
+    "border-amber-200 bg-amber-50",
+
+  danger:
+    "border-red-200 bg-red-50",
+
+  neutral:
+    "border-slate-200 bg-slate-50",
+});
+
+/* =========================================================
+   INSIGHT
 ========================================================= */
 
 const Insight = ({
@@ -183,27 +306,20 @@ const Insight = ({
   description,
   tone = "neutral",
 }) => {
-  const toneClasses = {
-    positive:
-      "border-emerald-200 bg-emerald-50 text-emerald-700",
 
-    warning:
-      "border-amber-200 bg-amber-50 text-amber-700",
-
-    danger:
-      "border-red-200 bg-red-50 text-red-700",
-
-    neutral:
-      "border-slate-200 bg-slate-50 text-slate-700",
-  };
 
   return (
-    <div
+    <article
       className={`
         p-4
         border
         rounded-xl
-        ${toneClasses[tone] || toneClasses.neutral}
+        ${
+          INSIGHT_TONE_CLASSES[
+            tone
+          ] ||
+          INSIGHT_TONE_CLASSES.neutral
+        }
       `}
     >
       <div
@@ -220,8 +336,9 @@ const Insight = ({
             rounded-lg
             shrink-0
           "
+          aria-hidden="true"
         >
-          <Icon
+          <safeIcon
             size={16}
             strokeWidth={2}
           />
@@ -250,7 +367,7 @@ const Insight = ({
           </p>
         </div>
       </div>
-    </div>
+    </article>
   );
 };
 
@@ -264,6 +381,8 @@ const InsightsSkeleton = () => (
       space-y-3
       animate-pulse
     "
+    aria-busy="true"
+    aria-label="Loading emergency fund insights"
   >
     <div
       className="
@@ -289,17 +408,19 @@ const InsightsSkeleton = () => (
         gap-3
       "
     >
-      {[1, 2].map((item) => (
-        <div
-          key={item}
-          className="
-            h-24
-            bg-slate-100
-            rounded-xl
-          "
-          /
-        >
-      ))}
+      {[1, 2].map(
+        (item) => (
+          <div
+            key={item}
+            className="
+              h-24
+              bg-slate-100
+              rounded-xl
+            "
+            /
+          >
+        )
+      )}
     </div>
   </div>
 );
@@ -327,6 +448,7 @@ const EmptyInsights = () => (
         rounded-full
         shadow-sm
       "
+      aria-hidden="true"
     >
       <Lightbulb
         size={19}
@@ -352,8 +474,9 @@ const EmptyInsights = () => (
         text-slate-500 text-xs leading-5
       "
     >
-      Add your income, essential expenses, and
-      emergency-fund information to receive
+      Add your income, essential
+      expenses, and emergency-fund
+      information to receive
       personalized recommendations.
     </p>
   </div>
@@ -374,6 +497,7 @@ const InsightsError = ({
       bg-red-50
       border border-red-200 rounded-xl
     "
+    role="alert"
   >
     <div
       className="
@@ -388,7 +512,8 @@ const InsightsError = ({
           text-red-600
           shrink-0
         "
-        /
+        aria-hidden="true"
+      /
       >
 
       <div
@@ -402,7 +527,8 @@ const InsightsError = ({
             font-semibold text-red-800 text-sm
           "
         >
-          Unable to load emergency-fund insights
+          Unable to load
+          emergency-fund insights
         </p>
 
         <p
@@ -437,8 +563,9 @@ const InsightsError = ({
               className={
                 refreshing
                   ? "animate-spin"
-                  : ""
+                  : undefined
               }
+              aria-hidden="true"
             />
 
             {refreshing
@@ -464,12 +591,27 @@ const EmergencyFundInsights = ({
   showRefresh = true,
 }) => {
   /* =======================================================
-     HOOK
+     ACCESSIBLE IDS
   ======================================================= */
+
+  const componentId =
+    useId();
+
+  const titleId =
+    `emergency-fund-insights-title-${componentId}`;
+
+  /* =======================================================
+     DATA SOURCE
+  ======================================================= */
+
+  const hasSuppliedData =
+    hasMeaningfulData(
+      suppliedData
+    );
 
   const emergencyFundState =
     useEmergencyFund({
-      enabled: !suppliedData,
+      enabled: !hasSuppliedData,
     });
 
   const {
@@ -482,7 +624,8 @@ const EmergencyFundInsights = ({
     error,
     refresh,
     refetch,
-  } = emergencyFundState || {};
+  } =
+    emergencyFundState || {};
 
   /* =======================================================
      SOURCE DATA
@@ -491,13 +634,16 @@ const EmergencyFundInsights = ({
   const rawFund = useMemo(
     () =>
       firstDefined(
-        suppliedData,
+        hasSuppliedData
+          ? suppliedData
+          : undefined,
         fund,
         data?.fund,
         data?.emergencyFund,
         data
       ),
     [
+      hasSuppliedData,
       suppliedData,
       fund,
       data,
@@ -508,22 +654,34 @@ const EmergencyFundInsights = ({
      NORMALIZATION
   ======================================================= */
 
-  const normalizedFund = useMemo(() => {
-    if (!rawFund) {
-      return null;
-    }
+  const normalizedFund =
+    useMemo(() => {
+      if (
+        !hasMeaningfulData(
+          rawFund
+        )
+      ) {
+        return null;
+      }
 
-    try {
-      return normalizeEmergencyFund(
-        rawFund
-      );
-    } catch {
-      return null;
-    }
-  }, [rawFund]);
+      try {
+        const normalized =
+          normalizeEmergencyFund(
+            rawFund
+          );
+
+        return hasMeaningfulData(
+          normalized
+        )
+          ? normalized
+          : null;
+      } catch {
+        return null;
+      }
+    }, [rawFund]);
 
   /* =======================================================
-     STATES
+     LOADING / REFRESHING
   ======================================================= */
 
   const busy =
@@ -534,167 +692,224 @@ const EmergencyFundInsights = ({
     Boolean(refreshing) ||
     Boolean(isRefreshing);
 
-  const retry = useCallback(async () => {
-    if (
-      typeof refresh === "function"
-    ) {
-      await refresh();
-      return;
-    }
+  /* =======================================================
+     RETRY
+  ======================================================= */
 
-    if (
-      typeof refetch === "function"
-    ) {
-      await refetch();
-    }
-  }, [
-    refresh,
-    refetch,
-  ]);
+  const retry = useCallback(
+    async () => {
+      if (
+        refreshingFund
+      ) {
+        return;
+      }
+
+      try {
+        if (
+          typeof refresh ===
+          "function"
+        ) {
+          await refresh();
+          return;
+        }
+
+        if (
+          typeof refetch ===
+          "function"
+        ) {
+          await refetch();
+        }
+      } catch {
+        /*
+         * The hook owns the error state.
+         * Do not duplicate error state here.
+         */
+      }
+    },
+    [
+      refresh,
+      refetch,
+      refreshingFund,
+    ]
+  );
 
   /* =======================================================
      DERIVED VALUES
   ======================================================= */
 
-  const values = useMemo(() => {
-    if (!normalizedFund) {
-      return null;
-    }
+  const values =
+    useMemo(() => {
+      if (
+        !normalizedFund
+      ) {
+        return null;
+      }
 
-    const currentAmount =
-      toNumber(
-        firstDefined(
-          normalizedFund.currentAmount,
-          normalizedFund.amountSaved,
-          normalizedFund.currentBalance,
-          normalizedFund.balance
-        )
-      );
-
-    const targetAmount =
-      toNumber(
-        firstDefined(
-          normalizedFund.targetAmount,
-          normalizedFund.recommendedTarget,
-          normalizedFund.emergencyFundTarget,
-          normalizedFund.target
-        )
-      );
-
-    const monthlyExpenses =
-      toNumber(
-        firstDefined(
-          normalizedFund.monthlyExpenses,
-          normalizedFund.essentialMonthlyExpenses,
-          normalizedFund.averageMonthlyExpenses
-        )
-      );
-
-    const coverageMonths =
-      toNumber(
-        firstDefined(
-          normalizedFund.coverageMonths,
-          normalizedFund.monthsCovered,
-          normalizedFund.currentCoverageMonths,
-          monthlyExpenses > 0
-            ? currentAmount /
-              monthlyExpenses
-            : 0
-        )
-      );
-
-    const targetMonths =
-      toNumber(
-        firstDefined(
-          normalizedFund.targetMonths,
-          normalizedFund.recommendedMonths,
-          normalizedFund.monthsTarget
-        ),
-        3
-      );
-
-    const fundingGap =
-      Math.max(
-        0,
-        toNumber(
+      const currentAmount =
+        toNonNegativeNumber(
           firstDefined(
-            normalizedFund.fundingGap,
-            normalizedFund.remainingAmount,
-            targetAmount -
-              currentAmount
+            normalizedFund.currentAmount,
+            normalizedFund.amountSaved,
+            normalizedFund.currentBalance,
+            normalizedFund.balance
           )
-        )
-      );
+        );
 
-    const progress =
-      clamp(
+      const monthlyExpenses =
+        toNonNegativeNumber(
+          firstDefined(
+            normalizedFund.monthlyExpenses,
+            normalizedFund.essentialMonthlyExpenses,
+            normalizedFund.averageMonthlyExpenses
+          )
+        );
+
+      const targetMonths =
+        Math.max(
+          1,
+          toNonNegativeNumber(
+            firstDefined(
+              normalizedFund.targetMonths,
+              normalizedFund.recommendedMonths,
+              normalizedFund.monthsTarget
+            ),
+            DEFAULT_TARGET_MONTHS
+          )
+        );
+
+      const calculatedTarget =
+        monthlyExpenses *
+        targetMonths;
+
+      const targetAmount =
+        toNonNegativeNumber(
+          firstDefined(
+            normalizedFund.targetAmount,
+            normalizedFund.recommendedTarget,
+            normalizedFund.emergencyFundTarget,
+            normalizedFund.target,
+            calculatedTarget
+          )
+        );
+
+      const calculatedCoverage =
+        monthlyExpenses > 0
+          ? currentAmount /
+            monthlyExpenses
+          : 0;
+
+      const coverageMonths =
+        toNonNegativeNumber(
+          firstDefined(
+            normalizedFund.coverageMonths,
+            normalizedFund.monthsCovered,
+            normalizedFund.currentCoverageMonths,
+            calculatedCoverage
+          )
+        );
+
+      const fundingGap =
+        Math.max(
+          0,
+          toNonNegativeNumber(
+            firstDefined(
+              normalizedFund.fundingGap,
+              normalizedFund.remainingAmount,
+              targetAmount -
+                currentAmount
+            )
+          )
+        );
+
+      const calculatedProgress =
+        targetAmount > 0
+          ? (currentAmount /
+              targetAmount) *
+            100
+          : 0;
+
+      const progress =
+        clamp(
+          firstDefined(
+            normalizedFund.progressPercentage,
+            normalizedFund.progress,
+            calculatedProgress
+          )
+        );
+
+      const recommendedContribution =
+        toNonNegativeNumber(
+          firstDefined(
+            normalizedFund.recommendedMonthlyContribution,
+            normalizedFund.monthlyContribution,
+            normalizedFund.requiredMonthlyContribution,
+            normalizedFund.contributionAmount
+          )
+        );
+
+      const calculatedMonthsToFund =
+        recommendedContribution >
+        0
+          ? fundingGap /
+            recommendedContribution
+          : 0;
+
+      const monthsToFund =
+        toNonNegativeNumber(
+          firstDefined(
+            normalizedFund.monthsToFund,
+            normalizedFund.estimatedMonths,
+            calculatedMonthsToFund
+          )
+        );
+
+      const status =
+        getFundStatus(
+          normalizedFund
+        );
+
+      const currency =
         firstDefined(
-          normalizedFund.progressPercentage,
-          normalizedFund.progress,
-          targetAmount > 0
-            ? (currentAmount /
-                targetAmount) *
-                100
-            : 0
-        )
-      );
+          normalizedFund.currency,
+          normalizedFund.currencyCode,
+          "NGN"
+        );
 
-    const recommendedContribution =
-      toNumber(
-        firstDefined(
-          normalizedFund.recommendedMonthlyContribution,
-          normalizedFund.monthlyContribution,
-          normalizedFund.requiredMonthlyContribution,
-          normalizedFund.contributionAmount
-        )
-      );
-
-    const monthsToFund =
-      toNumber(
-        firstDefined(
-          normalizedFund.monthsToFund,
-          normalizedFund.estimatedMonths,
-          recommendedContribution > 0
-            ? fundingGap /
-              recommendedContribution
-            : 0
-        )
-      );
-
-    const status =
-      getFundStatus(
-        normalizedFund
-      );
-
-    return {
-      currentAmount,
-      targetAmount,
-      monthlyExpenses,
-      coverageMonths,
-      targetMonths,
-      fundingGap,
-      progress,
-      recommendedContribution,
-      monthsToFund,
-      status,
-      updatedAt:
+      const updatedAt =
         firstDefined(
           normalizedFund.updatedAt,
           normalizedFund.calculatedAt,
           normalizedFund.asOfDate
-        ),
-    };
-  }, [normalizedFund]);
+        );
+
+      return {
+        currentAmount,
+        targetAmount,
+        monthlyExpenses,
+        coverageMonths,
+        targetMonths,
+        fundingGap,
+        progress,
+        recommendedContribution,
+        monthsToFund,
+        status,
+        currency,
+        updatedAt,
+      };
+    }, [
+      normalizedFund,
+    ]);
 
   /* =======================================================
-     STATUS
+     STATUS CONFIG
   ======================================================= */
 
   const statusConfig =
     STATUS_CONFIG[
       values?.status ||
         "building"
-    ];
+    ] ||
+    STATUS_CONFIG.building;
 
   const StatusIcon =
     statusConfig.icon;
@@ -703,140 +918,183 @@ const EmergencyFundInsights = ({
      GENERATED INSIGHTS
   ======================================================= */
 
-  const insights = useMemo(() => {
-    if (!values) {
-      return [];
-    }
+  const insights =
+    useMemo(() => {
+      if (!values) {
+        return EMPTY_INSIGHTS;
+      }
 
-    const result = [];
+      const result = [];
 
-    if (
-      values.status ===
-      "funded"
-    ) {
-      result.push({
-        icon: CheckCircle2,
-        title:
-          "Your safety net is strong",
-        description:
-          "Your emergency reserve has reached the current recommended target. Consider maintaining it as your essential expenses change.",
-        tone: "positive",
-      });
-    }
+      if (
+        values.status ===
+        "funded"
+      ) {
+        result.push({
+          icon: CheckCircle2,
+          title:
+            "Your safety net is strong",
+          description:
+            "Your emergency reserve has reached the current recommended target. Maintain it as your essential expenses change.",
+          tone: "positive",
+        });
+      }
 
-    if (
-      values.status ===
-      "at-risk"
-    ) {
-      result.push({
-        icon: ShieldAlert,
-        title:
-          "Prioritize your emergency reserve",
-        description:
-          "Your current reserve may not cover unexpected expenses for long. Building the fund should be one of your near-term financial priorities.",
-        tone: "danger",
-      });
-    }
+      if (
+        values.status ===
+        "healthy"
+      ) {
+        result.push({
+          icon: ShieldAlert,
+          title:
+            "Your reserve is healthy",
+          description:
+            "Your current emergency reserve provides a meaningful financial safety buffer. Continue maintaining it as your circumstances change.",
+          tone: "positive",
+        });
+      }
 
-    if (
-      values.coverageMonths > 0 &&
-      values.coverageMonths <
-        values.targetMonths
-    ) {
-      result.push({
-        icon: Target,
-        title:
-          `${values.coverageMonths.toFixed(1)} months covered`,
-        description:
-          `Your current reserve covers approximately ${values.coverageMonths.toFixed(1)} months of essential expenses. The recommended target is about ${values.targetMonths} months.`,
-        tone:
-          values.coverageMonths >=
-          values.targetMonths * 0.5
-            ? "warning"
-            : "danger",
-      });
-    }
+      if (
+        values.status ===
+        "at-risk"
+      ) {
+        result.push({
+          icon: AlertTriangle,
+          title:
+            "Prioritize your emergency reserve",
+          description:
+            "Your current reserve may not cover unexpected expenses for long. Building the fund should be one of your near-term financial priorities.",
+          tone: "danger",
+        });
+      }
 
-    if (
-      values.fundingGap > 0
-    ) {
-      result.push({
-        icon: TrendingUp,
-        title:
-          "Close the funding gap",
-        description:
-          `You need approximately ${formatCurrency(
-            values.fundingGap
-          )} more to reach your emergency-fund target.`,
-        tone: "warning",
-      });
-    }
+      if (
+        values.coverageMonths >
+          0 &&
+        values.coverageMonths <
+          values.targetMonths
+      ) {
+        result.push({
+          icon: Target,
+          title:
+            `${values.coverageMonths.toFixed(1)} months covered`,
+          description:
+            `Your current reserve covers approximately ${values.coverageMonths.toFixed(1)} months of essential expenses. The recommended target is about ${values.targetMonths} months.`,
+          tone:
+            values.coverageMonths >=
+            values.targetMonths *
+              0.5
+              ? "warning"
+              : "danger",
+        });
+      }
 
-    if (
-      values.recommendedContribution >
-      0 &&
-      values.fundingGap > 0
-    ) {
-      result.push({
-        icon: Lightbulb,
-        title:
-          "Recommended monthly action",
-        description:
-          `Consider setting aside about ${formatCurrency(
-            values.recommendedContribution
-          )} each month toward your emergency reserve.`,
-        tone: "neutral",
-      });
-    }
+      if (
+        values.fundingGap >
+        0
+      ) {
+        result.push({
+          icon: TrendingUp,
+          title:
+            "Close the funding gap",
+          description:
+            `You need approximately ${formatCurrency(
+              values.fundingGap,
+              values.currency
+            )} more to reach your emergency-fund target.`,
+          tone: "warning",
+        });
+      }
 
-    if (
-      values.monthsToFund >
-      0 &&
-      values.fundingGap > 0
-    ) {
-      result.push({
-        icon: Clock3,
-        title:
-          "Your estimated funding timeline",
-        description:
-          `At the recommended contribution rate, your emergency fund could take approximately ${Math.ceil(
-            values.monthsToFund
-          )} months to reach its target.`,
-        tone: "neutral",
-      });
-    }
+      if (
+        values.recommendedContribution >
+          0 &&
+        values.fundingGap >
+          0
+      ) {
+        result.push({
+          icon: Lightbulb,
+          title:
+            "Recommended monthly action",
+          description:
+            `Consider setting aside about ${formatCurrency(
+              values.recommendedContribution,
+              values.currency
+            )} each month toward your emergency reserve.`,
+          tone: "neutral",
+        });
+      }
 
-    if (
-      values.progress >= 75 &&
-      values.progress < 100
-    ) {
-      result.push({
-        icon: TrendingUp,
-        title:
-          "You are close to the target",
-        description:
-          `You have completed approximately ${values.progress.toFixed(
-            0
-          )}% of your emergency-fund target. Maintaining your current saving discipline can help you finish the remaining gap.`,
-        tone: "positive",
-      });
-    }
+      if (
+        values.monthsToFund >
+          0 &&
+        values.fundingGap >
+          0
+      ) {
+        result.push({
+          icon: Clock3,
+          title:
+            "Estimated funding timeline",
+          description:
+            `At the recommended contribution rate, your emergency fund could take approximately ${Math.ceil(
+              values.monthsToFund
+            )} months to reach its target.`,
+          tone: "neutral",
+        });
+      }
 
-    if (
-      values.monthlyExpenses <= 0
-    ) {
-      result.push({
-        icon: AlertTriangle,
-        title:
-          "Update your essential expenses",
-        description:
-          "Accurate monthly essential expenses are important for calculating how many months your emergency fund can cover.",
-        tone: "warning",
-      });
-    }
+      if (
+        values.progress >=
+          75 &&
+        values.progress <
+          100 &&
+        values.fundingGap >
+          0
+      ) {
+        result.push({
+          icon: TrendingUp,
+          title:
+            "You are close to the target",
+          description:
+            `You have completed approximately ${values.progress.toFixed(
+              0
+            )}% of your emergency-fund target. Maintaining your current saving discipline can help you close the remaining gap.`,
+          tone: "positive",
+        });
+      }
 
-    return result.slice(0, 4);
-  }, [values]);
+      if (
+        values.monthlyExpenses <=
+        0
+      ) {
+        result.push({
+          icon: AlertTriangle,
+          title:
+            "Update your essential expenses",
+          description:
+            "Accurate monthly essential expenses are required to determine how many months your emergency fund can cover.",
+          tone: "warning",
+        });
+      }
+
+      return result.slice(
+        0,
+        MAX_INSIGHTS
+      );
+    }, [values]);
+
+  /* =======================================================
+     COMMON SECTION
+  ======================================================= */
+
+  const sectionClassName = `
+    rounded-2xl
+    border border-slate-200
+    bg-white
+    p-5
+    shadow-sm
+    ${className}
+  `;
 
   /* =======================================================
      LOADING
@@ -848,15 +1106,12 @@ const EmergencyFundInsights = ({
   ) {
     return (
       <section
-        className={`
-          rounded-2xl
-          border border-slate-200
-          bg-white
-          p-5
-          shadow-sm
-          ${className}
-        `}
-        aria-label="Emergency fund insights"
+        className={
+          sectionClassName
+        }
+        aria-labelledby={
+          titleId
+        }
       >
         <InsightsSkeleton />
       </section>
@@ -874,24 +1129,25 @@ const EmergencyFundInsights = ({
   ) {
     return (
       <section
-        className={`
-          rounded-2xl
-          border border-slate-200
-          bg-white
-          p-5
-          shadow-sm
-          ${className}
-        `}
-        aria-label="Emergency fund insights"
+        className={
+          sectionClassName
+        }
+        aria-labelledby={
+          titleId
+        }
       >
         <InsightsError
-          message={
-            typeof error === "string"
-              ? error
-              : error?.message ||
-                error?.error
+          message={getErrorMessage(
+            error
+          )}
+          onRetry={
+            typeof refresh ===
+              "function" ||
+            typeof refetch ===
+              "function"
+              ? retry
+              : undefined
           }
-          onRetry={retry}
           refreshing={
             refreshingFund
           }
@@ -907,15 +1163,12 @@ const EmergencyFundInsights = ({
   if (!normalizedFund) {
     return (
       <section
-        className={`
-          rounded-2xl
-          border border-slate-200
-          bg-white
-          p-5
-          shadow-sm
-          ${className}
-        `}
-        aria-label="Emergency fund insights"
+        className={
+          sectionClassName
+        }
+        aria-labelledby={
+          titleId
+        }
       >
         <EmptyInsights />
       </section>
@@ -928,19 +1181,16 @@ const EmergencyFundInsights = ({
 
   return (
     <section
-      className={`
-        rounded-2xl
-        border border-slate-200
-        bg-white
-        p-5
-        shadow-sm
-        ${className}
-      `}
-      aria-labelledby="emergency-fund-insights-title"
+      className={
+        sectionClassName
+      }
+      aria-labelledby={
+        titleId
+      }
     >
-      {/* ===================================================
+      {/* =================================================
           HEADER
-      =================================================== */}
+      ================================================= */}
 
       <header
         className="
@@ -951,52 +1201,52 @@ const EmergencyFundInsights = ({
       >
         <div
           className="
+            flex items-start
             min-w-0
+            gap-2
           "
         >
           <div
             className="
-              flex items-center
-              gap-2
+              flex justify-center items-center
+              w-9 h-9
+              bg-slate-100
+              rounded-xl
+              shrink-0
+            "
+            aria-hidden="true"
+          >
+            <Sparkles
+              size={18}
+              className="
+                text-slate-700
+              "
+              /
+            >
+          </div>
+
+          <div
+            className="
+              min-w-0
             "
           >
-            <div
+            <h3
+              id={titleId}
               className="
-                flex justify-center items-center
-                w-9 h-9
-                bg-slate-100
-                rounded-xl
-                shrink-0
+                font-bold text-slate-900 text-sm
               "
             >
-              <Sparkles
-                size={18}
-                className="
-                  text-slate-700
-                "
-                /
-              >
-            </div>
+              {title}
+            </h3>
 
-            <div>
-              <h3
-                id="emergency-fund-insights-title"
-                className="
-                  font-bold text-slate-900 text-sm
-                "
-              >
-                {title}
-              </h3>
-
-              <p
-                className="
-                  mt-0.5
-                  text-slate-500 text-xs leading-5
-                "
-              >
-                {description}
-              </p>
-            </div>
+            <p
+              className="
+                mt-0.5
+                text-slate-500 text-xs leading-5
+              "
+            >
+              {description}
+            </p>
           </div>
         </div>
 
@@ -1013,7 +1263,11 @@ const EmergencyFundInsights = ({
             disabled={
               refreshingFund
             }
-            aria-label="Refresh emergency fund insights"
+            aria-label={
+              refreshingFund
+                ? "Refreshing emergency fund insights"
+                : "Refresh emergency fund insights"
+            }
             title="Refresh insights"
             className="flex justify-center items-center bg-white hover:bg-slate-50 disabled:opacity-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400/30 w-9 h-9 text-slate-500 hover:text-slate-900 transition disabled:cursor-not-allowed shrink-0"
           >
@@ -1022,16 +1276,17 @@ const EmergencyFundInsights = ({
               className={
                 refreshingFund
                   ? "animate-spin"
-                  : ""
+                  : undefined
               }
+              aria-hidden="true"
             />
           </button>
         ) : null}
       </header>
 
-      {/* ===================================================
+      {/* =================================================
           STATUS
-      =================================================== */}
+      ================================================= */}
 
       <div
         className="
@@ -1056,6 +1311,7 @@ const EmergencyFundInsights = ({
         >
           <StatusIcon
             size={14}
+            aria-hidden="true"
           />
 
           {statusConfig.label}
@@ -1068,13 +1324,14 @@ const EmergencyFundInsights = ({
         >
           {values.progress.toFixed(
             0
-          )}% funded
+          )}
+          % funded
         </span>
       </div>
 
-      {/* ===================================================
+      {/* =================================================
           PROGRESS
-      =================================================== */}
+      ================================================= */}
 
       <div
         className="
@@ -1098,15 +1355,17 @@ const EmergencyFundInsights = ({
 
           <span
             className="
-              font-semibold text-slate-900 text-xs
+              font-semibold text-slate-900 text-xs text-right
             "
           >
             {formatCurrency(
-              values.currentAmount
+              values.currentAmount,
+              values.currency
             )}{" "}
             /{" "}
             {formatCurrency(
-              values.targetAmount
+              values.targetAmount,
+              values.currency
             )}
           </span>
         </div>
@@ -1124,6 +1383,9 @@ const EmergencyFundInsights = ({
           aria-valuenow={
             values.progress
           }
+          aria-valuetext={`${values.progress.toFixed(
+            0
+          )}% funded`}
           aria-label="Emergency fund progress"
         >
           <div
@@ -1141,9 +1403,9 @@ const EmergencyFundInsights = ({
         </div>
       </div>
 
-      {/* ===================================================
+      {/* =================================================
           INSIGHTS
-      =================================================== */}
+      ================================================= */}
 
       {insights.length > 0 ? (
         <div
@@ -1151,6 +1413,7 @@ const EmergencyFundInsights = ({
             grid sm:grid-cols-2
             gap-3
           "
+          aria-live="polite"
         >
           {insights.map(
             (
@@ -1179,9 +1442,9 @@ const EmergencyFundInsights = ({
         <EmptyInsights />
       )}
 
-      {/* ===================================================
+      {/* =================================================
           FUNDING SUMMARY
-      =================================================== */}
+      ================================================= */}
 
       <div
         className="
@@ -1239,9 +1502,13 @@ const EmergencyFundInsights = ({
               font-semibold text-slate-900 text-sm
             "
           >
-            {formatCurrency(
-              values.fundingGap
-            )}
+            {values.fundingGap >
+            0
+              ? formatCurrency(
+                  values.fundingGap,
+                  values.currency
+                )
+              : "Target reached"}
           </p>
         </div>
 
@@ -1269,16 +1536,17 @@ const EmergencyFundInsights = ({
             {values.recommendedContribution >
             0
               ? formatCurrency(
-                  values.recommendedContribution
+                  values.recommendedContribution,
+                  values.currency
                 )
               : "—"}
           </p>
         </div>
       </div>
 
-      {/* ===================================================
+      {/* =================================================
           REFRESHING
-      =================================================== */}
+      ================================================= */}
 
       {refreshingFund ? (
         <div
@@ -1295,16 +1563,19 @@ const EmergencyFundInsights = ({
             className="
               animate-spin
             "
-            /
+            aria-hidden="true"
+          /
           >
 
-          Updating emergency-fund intelligence...
+          Updating
+          emergency-fund
+          intelligence...
         </div>
       ) : null}
 
-      {/* ===================================================
+      {/* =================================================
           LAST UPDATED
-      =================================================== */}
+      ================================================= */}
 
       {values.updatedAt ? (
         <div
@@ -1315,7 +1586,10 @@ const EmergencyFundInsights = ({
             gap-2
           "
         >
-          <Clock3 size={12} />
+          <Clock3
+            size={12}
+            aria-hidden="true"
+          />
 
           <span>
             Insights updated{" "}

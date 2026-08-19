@@ -1,4 +1,3 @@
-
 import {
   ArrowRight,
   CalendarClock,
@@ -43,104 +42,98 @@ import {
 const DEFAULT_CURRENCY = "NGN";
 
 const DEFAULT_STATUS =
-  SAVINGS_PLAN_STATUS?.DRAFT ??
-  "draft";
+  SAVINGS_PLAN_STATUS?.DRAFT ?? "draft";
 
 const DEFAULT_FREQUENCY =
-  SAVINGS_FREQUENCIES?.MONTHLY ??
-  "monthly";
+  SAVINGS_FREQUENCIES?.MONTHLY ?? "monthly";
 
 /* =========================================================
    STATUS CONFIGURATION
 ========================================================= */
 
-const STATUS_CONFIG = {
+const STATUS_CONFIG = Object.freeze({
   active: {
     label: "Active",
-    icon: CheckCircle2,
     badge:
       "bg-emerald-50 text-emerald-700 border-emerald-200",
   },
 
   paused: {
     label: "Paused",
-    icon: CirclePause,
     badge:
       "bg-amber-50 text-amber-700 border-amber-200",
   },
 
   completed: {
     label: "Completed",
-    icon: CheckCircle2,
     badge:
       "bg-blue-50 text-blue-700 border-blue-200",
   },
 
   cancelled: {
     label: "Cancelled",
-    icon: CirclePause,
     badge:
       "bg-red-50 text-red-700 border-red-200",
   },
 
   draft: {
     label: "Draft",
-    icon: Clock3,
     badge:
       "bg-slate-50 text-slate-600 border-slate-200",
   },
-};
+});
 
 /* =========================================================
    STRATEGY CONFIGURATION
 ========================================================= */
 
-const STRATEGY_CONFIG = {
-  [SAVINGS_STRATEGIES?.FIXED ??
-    "fixed"]: {
+const STRATEGY_CONFIG = Object.freeze({
+  [SAVINGS_STRATEGIES?.FIXED ?? "fixed"]: {
     label: "Fixed amount",
     description:
       "Save a consistent amount on every contribution.",
-    icon: PiggyBank,
   },
 
-  [SAVINGS_STRATEGIES?.PERCENTAGE ??
-    "percentage"]: {
+  [SAVINGS_STRATEGIES?.PERCENTAGE ?? "percentage"]: {
     label: "Percentage",
     description:
       "Automatically save a percentage of your available income.",
-    icon: TrendingUp,
   },
 
-  [SAVINGS_STRATEGIES?.ROUND_UP ??
-    "round_up"]: {
+  [SAVINGS_STRATEGIES?.ROUND_UP ?? "round_up"]: {
     label: "Round-up",
     description:
       "Build savings gradually through transaction round-ups.",
-    icon: Wallet,
   },
 
-  [SAVINGS_STRATEGIES?.GOAL_BASED ??
-    "goal_based"]: {
+  [SAVINGS_STRATEGIES?.GOAL_BASED ?? "goal_based"]: {
     label: "Goal based",
     description:
       "Adjust contributions around a specific savings target.",
-    icon: Target,
   },
-};
+});
 
 /* =========================================================
    FREQUENCY LABELS
 ========================================================= */
 
-const FREQUENCY_LABELS = {
+const FREQUENCY_LABELS = Object.freeze({
   daily: "Daily",
   weekly: "Weekly",
   biweekly: "Every 2 weeks",
   monthly: "Monthly",
   quarterly: "Quarterly",
   yearly: "Yearly",
-};
+});
+
+/* =========================================================
+   FALLBACK CONFIGURATION
+========================================================= */
+
+const FALLBACK_STRATEGY_CONFIG = Object.freeze({
+  label: "Custom strategy",
+  description: "Personalized savings strategy.",
+});
 
 /* =========================================================
    SAFE VALUE HELPERS
@@ -157,13 +150,21 @@ const getText = (...values) => {
 };
 
 const getId = (strategy) => {
-  const id =
-    strategy?._id ??
-    strategy?.id ??
-    strategy?.planId ??
-    strategy?.strategyId;
+  if (!strategy || typeof strategy !== "object") {
+    return null;
+  }
 
-  return id ? String(id) : null;
+  const id =
+    strategy._id ??
+    strategy.id ??
+    strategy.planId ??
+    strategy.strategyId;
+
+  return id !== null &&
+    id !== undefined &&
+    String(id).trim()
+    ? String(id)
+    : null;
 };
 
 const getNumericValue = (...values) => {
@@ -180,6 +181,10 @@ const getNumericValue = (...values) => {
     ? numericValue
     : 0;
 };
+
+/* =========================================================
+   NORMALIZATION
+========================================================= */
 
 const normalizeStatus = (strategy) => {
   const status = getText(
@@ -198,25 +203,63 @@ const normalizeFrequency = (strategy) => {
     strategy?.schedule?.frequency
   ).toLowerCase();
 
-  return (
-    FREQUENCY_LABELS[frequency]
-      ? frequency
-      : DEFAULT_FREQUENCY
-  );
+  return FREQUENCY_LABELS[frequency]
+    ? frequency
+    : DEFAULT_FREQUENCY;
 };
 
-const normalizeStrategyType = (strategy) => {
-  return getText(
+const normalizeStrategyType = (strategy) =>
+  getText(
     strategy?.strategy,
     strategy?.strategyType,
     strategy?.method,
     strategy?.type
   ).toLowerCase();
-};
 
 /* =========================================================
-   PROGRESS HELPER
+   AMOUNT HELPERS
 ========================================================= */
+
+const getCurrentAmount = (strategy) =>
+  getNumericValue(
+    strategy?.currentAmount,
+    strategy?.savedAmount,
+    strategy?.progress?.current,
+    strategy?.metrics?.savedAmount
+  );
+
+const getTargetAmount = (strategy) =>
+  getNumericValue(
+    strategy?.targetAmount,
+    strategy?.target,
+    strategy?.goalAmount,
+    strategy?.progress?.target
+  );
+
+const getContributionAmount = (strategy) =>
+  getNumericValue(
+    strategy?.contributionAmount,
+    strategy?.amount,
+    strategy?.savingAmount,
+    strategy?.metrics?.contributionAmount
+  );
+
+/* =========================================================
+   PROGRESS
+========================================================= */
+
+const clampPercentage = (value) => {
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue)) {
+    return 0;
+  }
+
+  return Math.min(
+    100,
+    Math.max(0, numericValue)
+  );
+};
 
 const getProgress = (strategy) => {
   const explicitProgress =
@@ -226,67 +269,40 @@ const getProgress = (strategy) => {
 
   if (
     explicitProgress !== null &&
-    explicitProgress !== undefined
+    explicitProgress !== undefined &&
+    explicitProgress !== ""
   ) {
-    const numericProgress =
-      Number(explicitProgress);
-
-    if (
-      Number.isFinite(numericProgress)
-    ) {
-      return Math.min(
-        100,
-        Math.max(0, numericProgress)
-      );
-    }
+    return clampPercentage(
+      explicitProgress
+    );
   }
 
   const currentAmount =
-    getNumericValue(
-      strategy?.currentAmount,
-      strategy?.savedAmount,
-      strategy?.progress?.current,
-      strategy?.metrics?.savedAmount
-    );
+    getCurrentAmount(strategy);
 
   const targetAmount =
-    getNumericValue(
-      strategy?.targetAmount,
-      strategy?.target,
-      strategy?.goalAmount,
-      strategy?.progress?.target
-    );
+    getTargetAmount(strategy);
 
   if (targetAmount <= 0) {
     return 0;
   }
 
   try {
-    return Math.min(
-      100,
-      Math.max(
-        0,
-        Number(
-          calculateProgressPercentage(
-            currentAmount,
-            targetAmount
-          )
-        ) || 0
+    return clampPercentage(
+      calculateProgressPercentage(
+        currentAmount,
+        targetAmount
       )
     );
   } catch {
-    return Math.min(
-      100,
-      Math.max(
-        0,
-        (currentAmount / targetAmount) * 100
-      )
+    return clampPercentage(
+      (currentAmount / targetAmount) * 100
     );
   }
 };
 
 /* =========================================================
-   DATE FORMATTER
+   DATE FORMATTING
 ========================================================= */
 
 const safeFormatDate = (value) => {
@@ -295,15 +311,179 @@ const safeFormatDate = (value) => {
   }
 
   try {
-    return formatDate(value);
-  } catch {
-    const date = new Date(value);
+    const formatted = formatDate(value);
 
-    if (Number.isNaN(date.getTime())) {
+    if (
+      typeof formatted === "string" &&
+      formatted.trim()
+    ) {
+      return formatted.trim();
+    }
+  } catch {
+    // Fall through to native Date formatting.
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date.toLocaleDateString();
+};
+
+/* =========================================================
+   CURRENCY FORMATTING
+========================================================= */
+
+const safeFormatCurrency = (
+  amount,
+  currency
+) => {
+  if (!Number.isFinite(Number(amount))) {
+    return null;
+  }
+
+  try {
+    return formatCurrency(
+      Number(amount),
+      currency
+    );
+  } catch {
+    try {
+      return `${currency} ${Number(
+        amount
+      ).toLocaleString()}`;
+    } catch {
       return null;
     }
+  }
+};
 
-    return date.toLocaleDateString();
+/* =========================================================
+   STATUS ICON
+========================================================= */
+
+/**
+ * Stable component.
+ *
+ * Important:
+ * We intentionally do NOT do this inside the card:
+ *
+ * const StatusIcon = statusConfig.icon;
+ *
+ * That pattern can trigger React's static-component
+ * validation and causes unnecessary component identity
+ * concerns during rendering.
+ */
+const StatusIcon = ({
+  status,
+  size = 11,
+  strokeWidth = 2,
+}) => {
+  switch (status) {
+    case "active":
+      return (
+        <CheckCircle2
+          size={size}
+          strokeWidth={strokeWidth}
+        />
+      );
+
+    case "paused":
+      return (
+        <CirclePause
+          size={size}
+          strokeWidth={strokeWidth}
+        />
+      );
+
+    case "completed":
+      return (
+        <CheckCircle2
+          size={size}
+          strokeWidth={strokeWidth}
+        />
+      );
+
+    case "cancelled":
+      return (
+        <CirclePause
+          size={size}
+          strokeWidth={strokeWidth}
+        />
+      );
+
+    case "draft":
+    default:
+      return (
+        <Clock3
+          size={size}
+          strokeWidth={strokeWidth}
+        />
+      );
+  }
+};
+
+/* =========================================================
+   STRATEGY ICON
+========================================================= */
+
+/**
+ * Stable component.
+ *
+ * The switch keeps all icon component references static
+ * and avoids creating a component variable inside render.
+ */
+const StrategyIcon = ({
+  strategyType,
+  size = 20,
+  strokeWidth = 2,
+}) => {
+  switch (strategyType) {
+    case SAVINGS_STRATEGIES?.FIXED ??
+      "fixed":
+      return (
+        <PiggyBank
+          size={size}
+          strokeWidth={strokeWidth}
+        />
+      );
+
+    case SAVINGS_STRATEGIES?.PERCENTAGE ??
+      "percentage":
+      return (
+        <TrendingUp
+          size={size}
+          strokeWidth={strokeWidth}
+        />
+      );
+
+    case SAVINGS_STRATEGIES?.ROUND_UP ??
+      "round_up":
+      return (
+        <Wallet
+          size={size}
+          strokeWidth={strokeWidth}
+        />
+      );
+
+    case SAVINGS_STRATEGIES?.GOAL_BASED ??
+      "goal_based":
+      return (
+        <Target
+          size={size}
+          strokeWidth={strokeWidth}
+        />
+      );
+
+    default:
+      return (
+        <PiggyBank
+          size={size}
+          strokeWidth={strokeWidth}
+        />
+      );
   }
 };
 
@@ -336,7 +516,8 @@ const CustomSavingStrategyCard = ({
 
   if (
     !strategy ||
-    typeof strategy !== "object"
+    typeof strategy !== "object" ||
+    Array.isArray(strategy)
   ) {
     return null;
   }
@@ -345,8 +526,7 @@ const CustomSavingStrategyCard = ({
      NORMALIZED DATA
   ======================================================= */
 
-  const strategyId =
-    getId(strategy);
+  const strategyId = getId(strategy);
 
   const title =
     getText(
@@ -356,40 +536,26 @@ const CustomSavingStrategyCard = ({
       strategy.strategyName
     ) || "Custom saving strategy";
 
-  const description =
-    getText(
-      strategy.description,
-      strategy.summary,
-      strategy.note
-    );
+  const description = getText(
+    strategy.description,
+    strategy.summary,
+    strategy.note
+  );
 
-  const status =
-    normalizeStatus(strategy);
+  const status = normalizeStatus(
+    strategy
+  );
 
   const statusConfig =
     STATUS_CONFIG[status] ??
     STATUS_CONFIG.draft;
 
-  const StatusIcon =
-    statusConfig.icon;
-
   const strategyType =
-    normalizeStrategyType(
-      strategy
-    );
+    normalizeStrategyType(strategy);
 
   const strategyConfig =
-    STRATEGY_CONFIG[
-      strategyType
-    ] ?? {
-      label: "Custom strategy",
-      description:
-        "Personalized savings strategy.",
-      icon: PiggyBank,
-    };
-
-  const StrategyIcon =
-    strategyConfig.icon;
+    STRATEGY_CONFIG[strategyType] ??
+    FALLBACK_STRATEGY_CONFIG;
 
   const frequency =
     normalizeFrequency(strategy);
@@ -406,28 +572,13 @@ const CustomSavingStrategyCard = ({
     ) || DEFAULT_CURRENCY;
 
   const currentAmount =
-    getNumericValue(
-      strategy.currentAmount,
-      strategy.savedAmount,
-      strategy.progress?.current,
-      strategy.metrics?.savedAmount
-    );
+    getCurrentAmount(strategy);
 
   const targetAmount =
-    getNumericValue(
-      strategy.targetAmount,
-      strategy.target,
-      strategy.goalAmount,
-      strategy.progress?.target
-    );
+    getTargetAmount(strategy);
 
   const contributionAmount =
-    getNumericValue(
-      strategy.contributionAmount,
-      strategy.amount,
-      strategy.savingAmount,
-      strategy.metrics?.contributionAmount
-    );
+    getContributionAmount(strategy);
 
   const progress =
     getProgress(strategy);
@@ -435,19 +586,23 @@ const CustomSavingStrategyCard = ({
   const nextExecution =
     safeFormatDate(
       strategy.nextExecutionAt ??
-      strategy.nextContributionAt ??
-      strategy.schedule?.nextExecutionAt
+        strategy.nextContributionAt ??
+        strategy.schedule?.nextExecutionAt
     );
 
+  /* =======================================================
+     FORMATTED VALUES
+  ======================================================= */
+
   const formattedCurrentAmount =
-    formatCurrency(
+    safeFormatCurrency(
       currentAmount,
       currency
-    );
+    ) ?? `${currency} 0`;
 
   const formattedTargetAmount =
     targetAmount > 0
-      ? formatCurrency(
+      ? safeFormatCurrency(
           targetAmount,
           currency
         )
@@ -455,15 +610,21 @@ const CustomSavingStrategyCard = ({
 
   const formattedContributionAmount =
     contributionAmount > 0
-      ? formatCurrency(
+      ? safeFormatCurrency(
           contributionAmount,
           currency
         )
       : null;
 
+  const roundedProgress =
+    Math.round(progress);
+
   /* =======================================================
      ACTION AVAILABILITY
   ======================================================= */
+
+  const hasViewAction =
+    typeof onView === "function";
 
   const canActivate =
     status === "draft" ||
@@ -475,71 +636,62 @@ const CustomSavingStrategyCard = ({
   const canResume =
     status === "paused";
 
-  const hasViewAction =
-    typeof onView === "function";
+  const hasActivateAction =
+    canActivate &&
+    typeof onActivate === "function";
+
+  const hasPauseAction =
+    canPause &&
+    typeof onPause === "function";
+
+  const hasResumeAction =
+    canResume &&
+    typeof onResume === "function";
 
   const hasLifecycleAction =
-    (canActivate &&
-      typeof onActivate === "function") ||
-    (canPause &&
-      typeof onPause === "function") ||
-    (canResume &&
-      typeof onResume === "function");
+    hasActivateAction ||
+    hasPauseAction ||
+    hasResumeAction;
+
+  const shouldShowActions =
+    showActions &&
+    (hasLifecycleAction ||
+      hasViewAction);
 
   /* =======================================================
      ACTION HANDLERS
   ======================================================= */
 
   const handleView = () => {
-    if (
-      typeof onView !== "function"
-    ) {
+    if (!hasViewAction) {
       return;
     }
 
-    onView(
-      strategy,
-      strategyId
-    );
+    onView(strategy, strategyId);
   };
 
   const handleActivate = () => {
-    if (
-      typeof onActivate !== "function"
-    ) {
+    if (!hasActivateAction) {
       return;
     }
 
-    onActivate(
-      strategy,
-      strategyId
-    );
+    onActivate(strategy, strategyId);
   };
 
   const handlePause = () => {
-    if (
-      typeof onPause !== "function"
-    ) {
+    if (!hasPauseAction) {
       return;
     }
 
-    onPause(
-      strategy,
-      strategyId
-    );
+    onPause(strategy, strategyId);
   };
 
   const handleResume = () => {
-    if (
-      typeof onResume !== "function"
-    ) {
+    if (!hasResumeAction) {
       return;
     }
 
-    onResume(
-      strategy,
-      strategyId
-    );
+    onResume(strategy, strategyId);
   };
 
   /* =======================================================
@@ -557,12 +709,13 @@ const CustomSavingStrategyCard = ({
         border-slate-200
         bg-white
         shadow-sm
-        transition
+        transition-shadow
         duration-200
         hover:shadow-md
         ${compact ? "p-4" : "p-5"}
         ${className}
       `}
+      aria-label={`${title} savings strategy`}
     >
       {/* ===================================================
           HEADER
@@ -593,6 +746,7 @@ const CustomSavingStrategyCard = ({
             aria-hidden="true"
           >
             <StrategyIcon
+              strategyType={strategyType}
               size={20}
               strokeWidth={2}
             />
@@ -619,6 +773,9 @@ const CustomSavingStrategyCard = ({
               "
             >
               <span
+                title={
+                  strategyConfig.description
+                }
                 className="
                   inline-flex items-center
                   px-2 py-0.5
@@ -645,6 +802,7 @@ const CustomSavingStrategyCard = ({
                 `}
               >
                 <StatusIcon
+                  status={status}
                   size={11}
                   strokeWidth={2}
                 />
@@ -660,6 +818,7 @@ const CustomSavingStrategyCard = ({
             type="button"
             onClick={handleView}
             className="
+              inline-flex justify-center items-center
               p-2
               text-slate-400 hover:text-slate-700
               hover:bg-slate-100
@@ -671,6 +830,7 @@ const CustomSavingStrategyCard = ({
           >
             <ChevronRight
               size={18}
+              strokeWidth={2}
             />
           </button>
         )}
@@ -718,6 +878,8 @@ const CustomSavingStrategyCard = ({
           >
             <PiggyBank
               size={14}
+              strokeWidth={2}
+              aria-hidden="true"
             />
 
             <span
@@ -755,6 +917,8 @@ const CustomSavingStrategyCard = ({
           >
             <Target
               size={14}
+              strokeWidth={2}
+              aria-hidden="true"
             />
 
             <span
@@ -808,7 +972,7 @@ const CustomSavingStrategyCard = ({
                   font-bold text-slate-900 text-xs
                 "
               >
-                {Math.round(progress)}%
+                {roundedProgress}%
               </span>
             </div>
 
@@ -821,11 +985,11 @@ const CustomSavingStrategyCard = ({
                 rounded-full
               "
               role="progressbar"
-              aria-valuemin="0"
-              aria-valuemax="100"
-              aria-valuenow={Math.round(
-                progress
-              )}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={
+                roundedProgress
+              }
               aria-label={`${title} progress`}
             >
               <div
@@ -865,10 +1029,12 @@ const CustomSavingStrategyCard = ({
         >
           <CalendarClock
             size={14}
+            strokeWidth={2}
             className="
               text-slate-400
             "
-            /
+            aria-hidden="true"
+          /
           >
 
           <span>
@@ -886,10 +1052,12 @@ const CustomSavingStrategyCard = ({
           >
             <PiggyBank
               size={14}
+              strokeWidth={2}
               className="
                 text-slate-400
               "
-              /
+              aria-hidden="true"
+            /
             >
 
             <span>
@@ -908,10 +1076,12 @@ const CustomSavingStrategyCard = ({
           >
             <Clock3
               size={14}
+              strokeWidth={2}
               className="
                 text-slate-400
               "
-              /
+              aria-hidden="true"
+            /
             >
 
             <span>
@@ -925,103 +1095,47 @@ const CustomSavingStrategyCard = ({
           ACTIONS
       =================================================== */}
 
-      {showActions &&
-        (hasLifecycleAction ||
-          hasViewAction) && (
-          <footer
-            className="
-              flex flex-col sm:flex-row sm:justify-between sm:items-center
-              mt-5 pt-4
-              border-slate-100 border-t
-              gap-2
-            "
-          >
-            <div>
-              {canActivate &&
-                typeof onActivate ===
-                  "function" && (
-                  <button
-                    type="button"
-                    onClick={handleActivate}
-                    className="
-                      inline-flex justify-center items-center
-                      min-h-9
-                      px-3.5 py-2
-                      font-semibold text-white text-sm
-                      bg-slate-900 hover:bg-slate-800
-                      rounded-lg focus:outline-none
-                      focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
-                      transition
-                      gap-2
-                    "
-                  >
-                    <Play
-                      size={14}
-                      fill="currentColor"
-                    />
-
-                    Activate
-                  </button>
-                )}
-
-              {canPause &&
-                typeof onPause ===
-                  "function" && (
-                  <button
-                    type="button"
-                    onClick={handlePause}
-                    className="
-                      inline-flex justify-center items-center
-                      min-h-9
-                      px-3.5 py-2
-                      font-semibold text-slate-700 text-sm
-                      bg-white hover:bg-slate-50
-                      border border-slate-200 rounded-lg focus:outline-none
-                      focus:ring-2 focus:ring-slate-300
-                      transition
-                      gap-2
-                    "
-                  >
-                    <CirclePause
-                      size={14}
-                    />
-
-                    Pause
-                  </button>
-                )}
-
-              {canResume &&
-                typeof onResume ===
-                  "function" && (
-                  <button
-                    type="button"
-                    onClick={handleResume}
-                    className="
-                      inline-flex justify-center items-center
-                      min-h-9
-                      px-3.5 py-2
-                      font-semibold text-white text-sm
-                      bg-slate-900 hover:bg-slate-800
-                      rounded-lg focus:outline-none
-                      focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
-                      transition
-                      gap-2
-                    "
-                  >
-                    <Play
-                      size={14}
-                      fill="currentColor"
-                    />
-
-                    Resume
-                  </button>
-                )}
-            </div>
-
-            {hasViewAction && (
+      {shouldShowActions && (
+        <footer
+          className="
+            flex flex-col sm:flex-row sm:justify-between sm:items-center
+            mt-5 pt-4
+            border-slate-100 border-t
+            gap-2
+          "
+        >
+          <div>
+            {hasActivateAction && (
               <button
                 type="button"
-                onClick={handleView}
+                onClick={handleActivate}
+                className="
+                  inline-flex justify-center items-center
+                  min-h-9
+                  px-3.5 py-2
+                  font-semibold text-white text-sm
+                  bg-slate-900 hover:bg-slate-800
+                  rounded-lg focus:outline-none
+                  focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
+                  transition
+                  gap-2
+                "
+              >
+                <Play
+                  size={14}
+                  strokeWidth={2}
+                  fill="currentColor"
+                  aria-hidden="true"
+                />
+
+                Activate
+              </button>
+            )}
+
+            {hasPauseAction && (
+              <button
+                type="button"
+                onClick={handlePause}
                 className="
                   inline-flex justify-center items-center
                   min-h-9
@@ -1029,20 +1143,76 @@ const CustomSavingStrategyCard = ({
                   font-semibold text-slate-700 text-sm
                   bg-white hover:bg-slate-50
                   border border-slate-200 rounded-lg focus:outline-none
-                  focus:ring-2 focus:ring-slate-300
+                  focus:ring-2 focus:ring-slate-300 focus:ring-offset-2
                   transition
                   gap-2
                 "
               >
-                View strategy
-
-                <ArrowRight
+                <CirclePause
                   size={14}
+                  strokeWidth={2}
+                  aria-hidden="true"
                 />
+
+                Pause
               </button>
             )}
-          </footer>
-        )}
+
+            {hasResumeAction && (
+              <button
+                type="button"
+                onClick={handleResume}
+                className="
+                  inline-flex justify-center items-center
+                  min-h-9
+                  px-3.5 py-2
+                  font-semibold text-white text-sm
+                  bg-slate-900 hover:bg-slate-800
+                  rounded-lg focus:outline-none
+                  focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
+                  transition
+                  gap-2
+                "
+              >
+                <Play
+                  size={14}
+                  strokeWidth={2}
+                  fill="currentColor"
+                  aria-hidden="true"
+                />
+
+                Resume
+              </button>
+            )}
+          </div>
+
+          {hasViewAction && (
+            <button
+              type="button"
+              onClick={handleView}
+              className="
+                inline-flex justify-center items-center
+                min-h-9
+                px-3.5 py-2
+                font-semibold text-slate-700 text-sm
+                bg-white hover:bg-slate-50
+                border border-slate-200 rounded-lg focus:outline-none
+                focus:ring-2 focus:ring-slate-300 focus:ring-offset-2
+                transition
+                gap-2
+              "
+            >
+              View strategy
+
+              <ArrowRight
+                size={14}
+                strokeWidth={2}
+                aria-hidden="true"
+              />
+            </button>
+          )}
+        </footer>
+      )}
 
       {/* ===================================================
           ACCESSIBILITY
@@ -1060,5 +1230,8 @@ const CustomSavingStrategyCard = ({
     </article>
   );
 };
+
+CustomSavingStrategyCard.displayName =
+  "CustomSavingStrategyCard";
 
 export default CustomSavingStrategyCard;

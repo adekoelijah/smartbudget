@@ -1,4 +1,3 @@
-
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -9,61 +8,149 @@ import {
   TrendingUp,
 } from "lucide-react";
 
+import { memo } from "react";
+
+/* =========================================================
+   CONSTANTS
+========================================================= */
+
+const DEFAULT_CURRENCY = "NGN";
+
+const DEFAULT_LOCALE = "en-NG";
+
+const DEFAULT_CLASS_NAME = "";
+
 /* =========================================================
    SAFE HELPERS
 ========================================================= */
 
-const toNumber = (value) => {
+const toNumber = (value, fallback = 0) => {
   const number = Number(value);
 
-  return Number.isFinite(number) ? number : 0;
+  return Number.isFinite(number)
+    ? number
+    : fallback;
 };
 
-const normalizeText = (value, fallback = "") =>
-  typeof value === "string" && value.trim()
-    ? value.trim()
+const normalizeText = (
+  value,
+  fallback = ""
+) => {
+  if (
+    typeof value !== "string"
+  ) {
+    return fallback;
+  }
+
+  const normalized =
+    value.trim();
+
+  return normalized
+    ? normalized
     : fallback;
+};
+
+const normalizeCurrency = (
+  value
+) =>
+  normalizeText(
+    value,
+    DEFAULT_CURRENCY
+  ).toUpperCase();
+
+const joinClasses = (...classes) =>
+  classes
+    .filter(
+      (className) =>
+        typeof className ===
+          "string" &&
+        className.trim()
+    )
+    .join(" ");
+
+/* =========================================================
+   CURRENCY
+========================================================= */
 
 const formatAmount = (
   value,
-  currency = "NGN"
+  currency = DEFAULT_CURRENCY
 ) => {
-  const amount = toNumber(value);
+  const amount =
+    toNumber(value);
+
+  const safeCurrency =
+    normalizeCurrency(
+      currency
+    );
 
   try {
-    return new Intl.NumberFormat("en-NG", {
-      style: "currency",
-      currency:
-        normalizeText(currency, "NGN").toUpperCase(),
-      maximumFractionDigits: 2,
-    }).format(amount);
+    return new Intl.NumberFormat(
+      DEFAULT_LOCALE,
+      {
+        style: "currency",
+        currency: safeCurrency,
+        maximumFractionDigits: 2,
+      }
+    ).format(amount);
   } catch {
-    return `${currency || "NGN"} ${amount.toLocaleString()}`;
+    return `${safeCurrency} ${amount.toLocaleString(
+      DEFAULT_LOCALE,
+      {
+        maximumFractionDigits: 2,
+      }
+    )}`;
   }
 };
 
-const formatDate = (value) => {
+/* =========================================================
+   DATE
+========================================================= */
+
+const formatDate = (
+  value
+) => {
   if (!value) {
     return "Not set";
   }
 
-  const date = new Date(value);
+  const date =
+    new Date(value);
 
-  if (Number.isNaN(date.getTime())) {
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
     return "Not set";
   }
 
-  return new Intl.DateTimeFormat("en-NG", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(date);
+  try {
+    return new Intl.DateTimeFormat(
+      DEFAULT_LOCALE,
+      {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }
+    ).format(date);
+  } catch {
+    return "Not set";
+  }
 };
 
-const formatDays = (value) => {
+/* =========================================================
+   DAYS
+========================================================= */
+
+const formatDays = (
+  value
+) => {
   const days = Math.max(
     0,
-    Math.round(toNumber(value))
+    Math.round(
+      toNumber(value)
+    )
   );
 
   if (days === 0) {
@@ -86,19 +173,30 @@ const calculateProgress = ({
   targetAmount,
   progress,
 }) => {
+  const explicitProgress =
+    Number(progress);
+
   if (
     progress !== undefined &&
     progress !== null &&
-    Number.isFinite(Number(progress))
+    Number.isFinite(
+      explicitProgress
+    )
   ) {
     return Math.min(
       100,
-      Math.max(0, Number(progress))
+      Math.max(
+        0,
+        explicitProgress
+      )
     );
   }
 
-  const current = toNumber(currentAmount);
-  const target = toNumber(targetAmount);
+  const current =
+    toNumber(currentAmount);
+
+  const target =
+    toNumber(targetAmount);
 
   if (target <= 0) {
     return 0;
@@ -106,12 +204,16 @@ const calculateProgress = ({
 
   return Math.min(
     100,
-    Math.max(0, (current / target) * 100)
+    Math.max(
+      0,
+      (current / target) *
+        100
+    )
   );
 };
 
 /* =========================================================
-   STATUS
+   FORECAST STATUS
 ========================================================= */
 
 const getForecastStatus = ({
@@ -119,9 +221,14 @@ const getForecastStatus = ({
   targetAmount,
   progress,
 }) => {
-  const projected = toNumber(projectedAmount);
-  const target = toNumber(targetAmount);
-  const percentage = toNumber(progress);
+  const projected =
+    toNumber(projectedAmount);
+
+  const target =
+    toNumber(targetAmount);
+
+  const percentage =
+    toNumber(progress);
 
   if (
     target > 0 &&
@@ -131,7 +238,7 @@ const getForecastStatus = ({
       label: "On track",
       description:
         "Your current saving pace can reach this goal.",
-      icon: TrendingUp,
+      Icon: TrendingUp,
       tone: "emerald",
     };
   }
@@ -141,7 +248,7 @@ const getForecastStatus = ({
       label: "Nearly there",
       description:
         "You are making strong progress toward your target.",
-      icon: ArrowUpRight,
+      Icon: ArrowUpRight,
       tone: "blue",
     };
   }
@@ -151,7 +258,7 @@ const getForecastStatus = ({
       label: "In progress",
       description:
         "Keep contributing consistently to stay on course.",
-      icon: TrendingUp,
+      Icon: TrendingUp,
       tone: "amber",
     };
   }
@@ -160,7 +267,7 @@ const getForecastStatus = ({
     label: "Needs attention",
     description:
       "Consider increasing your contributions to reach the target sooner.",
-    icon: ArrowDownRight,
+    Icon: ArrowDownRight,
     tone: "rose",
   };
 };
@@ -169,7 +276,7 @@ const getForecastStatus = ({
    TONE CONFIG
 ========================================================= */
 
-const TONE_STYLES = {
+const TONE_STYLES = Object.freeze({
   emerald: {
     wrapper:
       "border-emerald-200 bg-emerald-50",
@@ -205,52 +312,118 @@ const TONE_STYLES = {
     label:
       "text-rose-700",
   },
-};
+});
 
 /* =========================================================
-   STAT ITEM
+   SUMMARY STAT
 ========================================================= */
 
-const SummaryStat = ({
-  icon: Icon,
-  label,
-  value,
-  description,
-}) => (
-  <div
-    className="
-      flex items-start
-      p-4
-      bg-white
-      border border-slate-200 rounded-xl
-      gap-3
-    "
-  >
-    <div
-      className="
-        flex justify-center items-center
-        w-9 h-9
-        text-slate-600
-        bg-slate-100
-        rounded-lg
-        shrink-0
-      "
-    >
-      <Icon
-        size={17}
-        strokeWidth={2}
-        aria-hidden="true"
-      />
-    </div>
+const SummaryStat = memo(
+  ({
+    icon: Icon,
+    label,
+    value,
+    description,
+  }) => {
+    const SafeIcon =
+      typeof Icon === "function"
+        ? Icon
+        : CircleDollarSign;
 
+    return (
+      <div
+        className="
+          flex items-start
+          p-4
+          bg-white
+          border border-slate-200 rounded-xl
+          gap-3
+        "
+      >
+        <div
+          className="
+            flex justify-center items-center
+            w-9 h-9
+            text-slate-600
+            bg-slate-100
+            rounded-lg
+            shrink-0
+          "
+          aria-hidden="true"
+        >
+          <SafeIcon
+            size={17}
+            strokeWidth={2}
+          />
+        </div>
+
+        <div
+          className="
+            min-w-0
+          "
+        >
+          <p
+            className="
+              text-slate-500 text-xs
+            "
+          >
+            {label}
+          </p>
+
+          <p
+            className="
+              mt-0.5
+              font-semibold text-slate-900 text-sm truncate
+            "
+            title={
+              typeof value ===
+              "string"
+                ? value
+                : undefined
+            }
+          >
+            {value}
+          </p>
+
+          {description ? (
+            <p
+              className="
+                mt-0.5
+                text-slate-400 text-xs leading-4
+              "
+            >
+              {description}
+            </p>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+);
+
+SummaryStat.displayName =
+  "SavingsForecastSummaryStat";
+
+/* =========================================================
+   CONTRIBUTION ITEM
+========================================================= */
+
+const ContributionItem = memo(
+  ({
+    label,
+    amount,
+    currency,
+  }) => (
     <div
       className="
-        min-w-0
+        p-3
+        bg-white
+        border border-slate-200 rounded-lg
       "
     >
       <p
         className="
-          text-slate-500 text-xs
+          text-slate-400 text-xs
         "
       >
         {label}
@@ -258,26 +431,21 @@ const SummaryStat = ({
 
       <p
         className="
-          mt-0.5
-          font-semibold text-slate-900 text-sm truncate
+          mt-1
+          font-semibold text-slate-900 text-sm
         "
       >
-        {value}
+        {formatAmount(
+          amount,
+          currency
+        )}
       </p>
-
-      {description && (
-        <p
-          className="
-            mt-0.5
-            text-slate-400 text-xs
-          "
-        >
-          {description}
-        </p>
-      )}
     </div>
-  </div>
+  )
 );
+
+ContributionItem.displayName =
+  "SavingsForecastContributionItem";
 
 /* =========================================================
    COMPONENT
@@ -301,140 +469,208 @@ const SavingsForecastSummary = ({
   progress,
 
   daysRemaining,
-  currency = "NGN",
+  currency = DEFAULT_CURRENCY,
 
-  className = "",
+  className = DEFAULT_CLASS_NAME,
 }) => {
-  /*
-   * Support both:
-   *
-   * <SavingsForecastSummary
-   *   forecast={forecast}
-   * />
-   *
-   * and direct props.
-   *
-   * This makes the component resilient to changes
-   * in the forecast service response shape.
-   */
+  /* =======================================================
+     SAFE OBJECTS
+  ======================================================= */
 
-  const data =
+  const forecastData =
     forecast &&
-    typeof forecast === "object"
+    typeof forecast ===
+      "object" &&
+    !Array.isArray(forecast)
       ? forecast
       : {};
 
   const goalData =
     goal &&
-    typeof goal === "object"
+    typeof goal ===
+      "object" &&
+    !Array.isArray(goal)
       ? goal
       : {};
 
+  /* =======================================================
+     RESOLVE CURRENCY
+  ======================================================= */
+
   const resolvedCurrency =
-    normalizeText(
-      data.currency ||
-        goalData.currency ||
-        currency,
-      "NGN"
-    ).toUpperCase();
+    normalizeCurrency(
+      forecastData.currency ??
+        goalData.currency ??
+        currency
+    );
+
+  /* =======================================================
+     RESOLVE AMOUNTS
+  ======================================================= */
 
   const resolvedCurrentAmount =
-    data.currentAmount ??
-    data.currentSaved ??
-    data.savedAmount ??
-    goalData.currentAmount ??
-    goalData.savedAmount ??
-    currentAmount ??
-    0;
+    toNumber(
+      forecastData.currentAmount ??
+        forecastData.currentSaved ??
+        forecastData.savedAmount ??
+        goalData.currentAmount ??
+        goalData.savedAmount ??
+        currentAmount
+    );
 
   const resolvedTargetAmount =
-    data.targetAmount ??
-    data.target ??
-    goalData.targetAmount ??
-    targetAmount ??
-    0;
+    toNumber(
+      forecastData.targetAmount ??
+        forecastData.target ??
+        goalData.targetAmount ??
+        targetAmount
+    );
 
   const resolvedProjectedAmount =
-    data.projectedAmount ??
-    data.projectedTotal ??
-    data.forecastAmount ??
-    projectedAmount ??
-    resolvedCurrentAmount;
+    toNumber(
+      forecastData.projectedAmount ??
+        forecastData.projectedTotal ??
+        forecastData.forecastAmount ??
+        projectedAmount ??
+        resolvedCurrentAmount
+    );
 
   const resolvedRemainingAmount =
-    data.remainingAmount ??
-    data.amountRemaining ??
     Math.max(
       0,
-      toNumber(resolvedTargetAmount) -
-        toNumber(resolvedCurrentAmount)
+      toNumber(
+        forecastData.remainingAmount ??
+          forecastData.amountRemaining ??
+          remainingAmount ??
+          resolvedTargetAmount -
+            resolvedCurrentAmount
+      )
     );
+
+  /* =======================================================
+     RESOLVE PROGRESS
+  ======================================================= */
 
   const resolvedProgress =
     calculateProgress({
       currentAmount:
         resolvedCurrentAmount,
+
       targetAmount:
         resolvedTargetAmount,
+
       progress:
-        data.progress ??
-        data.progressPercentage ??
+        forecastData.progress ??
+        forecastData.progressPercentage ??
         progress,
     });
 
+  /* =======================================================
+     RESOLVE DATES
+  ======================================================= */
+
   const resolvedTargetDate =
-    data.targetDate ??
-    data.deadline ??
+    forecastData.targetDate ??
+    forecastData.deadline ??
     goalData.targetDate ??
     goalData.deadline ??
     targetDate;
 
   const resolvedProjectedDate =
-    data.projectedDate ??
-    data.forecastDate ??
-    data.expectedCompletionDate ??
+    forecastData.projectedDate ??
+    forecastData.forecastDate ??
+    forecastData.expectedCompletionDate ??
     projectedDate;
 
-  const resolvedDaysRemaining =
-    data.daysRemaining ??
-    data.remainingDays ??
-    daysRemaining;
-
-  const resolvedDailyAmount =
-    data.requiredDailyAmount ??
-    data.dailyRequired ??
-    requiredDailyAmount;
-
-  const resolvedMonthlyAmount =
-    data.requiredMonthlyAmount ??
-    data.monthlyRequired ??
-    requiredMonthlyAmount;
-
-  const status = getForecastStatus({
-    projectedAmount:
-      resolvedProjectedAmount,
-    targetAmount:
-      resolvedTargetAmount,
-    progress:
-      resolvedProgress,
-  });
-
-  const StatusIcon = status.icon;
-
-  const tone =
-    TONE_STYLES[status.tone] ||
-    TONE_STYLES.blue;
-
-  const safeProjectedDate =
+  const resolvedCompletionDate =
     resolvedProjectedDate ||
     resolvedTargetDate;
 
+  /* =======================================================
+     RESOLVE TIME
+  ======================================================= */
+
+  const resolvedDaysRemaining =
+    forecastData.daysRemaining ??
+    forecastData.remainingDays ??
+    daysRemaining;
+
+  /* =======================================================
+     RESOLVE CONTRIBUTION
+  ======================================================= */
+
+  const resolvedDailyAmount =
+    forecastData.requiredDailyAmount ??
+    forecastData.dailyRequired ??
+    requiredDailyAmount;
+
+  const resolvedMonthlyAmount =
+    forecastData.requiredMonthlyAmount ??
+    forecastData.monthlyRequired ??
+    requiredMonthlyAmount;
+
+  const hasDailyAmount =
+    Number.isFinite(
+      Number(resolvedDailyAmount)
+    ) &&
+    Number(resolvedDailyAmount) >
+      0;
+
+  const hasMonthlyAmount =
+    Number.isFinite(
+      Number(resolvedMonthlyAmount)
+    ) &&
+    Number(resolvedMonthlyAmount) >
+      0;
+
+  /* =======================================================
+     STATUS
+  ======================================================= */
+
+  const status =
+    getForecastStatus({
+      projectedAmount:
+        resolvedProjectedAmount,
+
+      targetAmount:
+        resolvedTargetAmount,
+
+      progress:
+        resolvedProgress,
+    });
+
+  const StatusIcon =
+    typeof status.Icon ===
+    "function"
+      ? status.Icon
+      : TrendingUp;
+
+  const tone =
+    TONE_STYLES[
+      status.tone
+    ] ??
+    TONE_STYLES.blue;
+
+  /* =======================================================
+     CLASS NAME
+  ======================================================= */
+
+  const safeClassName =
+    typeof className ===
+    "string"
+      ? className.trim()
+      : "";
+
+  /* =======================================================
+     RENDER
+  ======================================================= */
+
   return (
     <section
-      className={`
-        space-y-4
-        ${className}
-      `}
+      className={joinClasses(
+        "space-y-4",
+        safeClassName
+      )}
       aria-label="Savings forecast summary"
     >
       {/* =================================================
@@ -442,28 +678,32 @@ const SavingsForecastSummary = ({
       ================================================= */}
 
       <div
-        className={`
-          flex items-start
-          p-4
-          border
-          rounded-xl
-          gap-3
-          ${tone.wrapper}
-        `}
+        className={joinClasses(
+          `
+            flex items-start
+            p-4
+            border
+            rounded-xl
+            gap-3
+          `,
+          tone.wrapper
+        )}
       >
         <div
-          className={`
-            flex justify-center items-center
-            w-10 h-10
-            rounded-lg
-            shrink-0
-            ${tone.icon}
-          `}
+          className={joinClasses(
+            `
+              flex justify-center items-center
+              w-10 h-10
+              rounded-lg
+              shrink-0
+            `,
+            tone.icon
+          )}
+          aria-hidden="true"
         >
           <StatusIcon
             size={19}
             strokeWidth={2}
-            aria-hidden="true"
           />
         </div>
 
@@ -473,10 +713,10 @@ const SavingsForecastSummary = ({
           "
         >
           <p
-            className={`
-              font-semibold text-sm
-              ${tone.label}
-            `}
+            className={joinClasses(
+              "font-semibold text-sm",
+              tone.label
+            )}
           >
             {status.label}
           </p>
@@ -522,7 +762,9 @@ const SavingsForecastSummary = ({
               aria-hidden="true"
             />
 
-            <span>Goal progress</span>
+            <span>
+              Goal progress
+            </span>
           </div>
 
           <span
@@ -530,7 +772,10 @@ const SavingsForecastSummary = ({
               font-semibold text-slate-900 text-xs
             "
           >
-            {resolvedProgress.toFixed(1)}%
+            {resolvedProgress.toFixed(
+              1
+            )}
+            %
           </span>
         </div>
 
@@ -545,8 +790,8 @@ const SavingsForecastSummary = ({
           aria-valuenow={Math.round(
             resolvedProgress
           )}
-          aria-valuemin="0"
-          aria-valuemax="100"
+          aria-valuemin={0}
+          aria-valuemax={100}
           aria-label="Savings goal progress"
         >
           <div
@@ -554,7 +799,7 @@ const SavingsForecastSummary = ({
               h-full
               bg-blue-600
               rounded-full
-              transition-all duration-500
+              transition-[width] duration-500
             "
             style={{
               width: `${resolvedProgress}%`,
@@ -575,14 +820,16 @@ const SavingsForecastSummary = ({
             {formatAmount(
               resolvedCurrentAmount,
               resolvedCurrency
-            )} saved
+            )}{" "}
+            saved
           </span>
 
           <span>
             {formatAmount(
               resolvedTargetAmount,
               resolvedCurrency
-            )} target
+            )}{" "}
+            target
           </span>
         </div>
       </div>
@@ -621,7 +868,7 @@ const SavingsForecastSummary = ({
           icon={CalendarDays}
           label="Expected completion"
           value={formatDate(
-            safeProjectedDate
+            resolvedCompletionDate
           )}
           description={
             resolvedProjectedDate
@@ -636,7 +883,8 @@ const SavingsForecastSummary = ({
           value={
             resolvedDaysRemaining !==
               undefined &&
-            resolvedDaysRemaining !== null
+            resolvedDaysRemaining !==
+              null
               ? formatDays(
                   resolvedDaysRemaining
                 )
@@ -650,8 +898,8 @@ const SavingsForecastSummary = ({
           CONTRIBUTION REQUIREMENT
       ================================================= */}
 
-      {(resolvedDailyAmount ||
-        resolvedMonthlyAmount) && (
+      {(hasDailyAmount ||
+        hasMonthlyAmount) && (
         <div
           className="
             p-4
@@ -687,64 +935,28 @@ const SavingsForecastSummary = ({
               gap-3
             "
           >
-            {resolvedDailyAmount && (
-              <div
-                className="
-                  p-3
-                  bg-white
-                  border border-slate-200 rounded-lg
-                "
-              >
-                <p
-                  className="
-                    text-slate-400 text-xs
-                  "
-                >
-                  Per day
-                </p>
-
-                <p
-                  className="
-                    mt-1
-                    font-semibold text-slate-900 text-sm
-                  "
-                >
-                  {formatAmount(
-                    resolvedDailyAmount,
-                    resolvedCurrency
-                  )}
-                </p>
-              </div>
+            {hasDailyAmount && (
+              <ContributionItem
+                label="Per day"
+                amount={
+                  resolvedDailyAmount
+                }
+                currency={
+                  resolvedCurrency
+                }
+              />
             )}
 
-            {resolvedMonthlyAmount && (
-              <div
-                className="
-                  p-3
-                  bg-white
-                  border border-slate-200 rounded-lg
-                "
-              >
-                <p
-                  className="
-                    text-slate-400 text-xs
-                  "
-                >
-                  Per month
-                </p>
-
-                <p
-                  className="
-                    mt-1
-                    font-semibold text-slate-900 text-sm
-                  "
-                >
-                  {formatAmount(
-                    resolvedMonthlyAmount,
-                    resolvedCurrency
-                  )}
-                </p>
-              </div>
+            {hasMonthlyAmount && (
+              <ContributionItem
+                label="Per month"
+                amount={
+                  resolvedMonthlyAmount
+                }
+                currency={
+                  resolvedCurrency
+                }
+              />
             )}
           </div>
         </div>
@@ -753,4 +965,9 @@ const SavingsForecastSummary = ({
   );
 };
 
-export default SavingsForecastSummary;
+SavingsForecastSummary.displayName =
+  "SavingsForecastSummary";
+
+export default memo(
+  SavingsForecastSummary
+);

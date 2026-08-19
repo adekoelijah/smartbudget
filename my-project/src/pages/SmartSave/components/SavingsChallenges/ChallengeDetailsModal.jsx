@@ -1,4 +1,3 @@
-// :::writing{variant="document" id="73142" title="ChallengeDetailsModal.jsx"}
 import {
   memo,
   useCallback,
@@ -35,25 +34,54 @@ import {
 } from "../../../../utils/smartSave/savingsFormatters";
 
 /* =========================================================
+   CONSTANTS
+========================================================= */
+
+const ACTIONS = Object.freeze({
+  ACTIVATE: "activate",
+  PAUSE: "pause",
+  RESUME: "resume",
+  COMPLETE: "complete",
+  CANCEL: "cancel",
+});
+
+const ACTION_LABELS = Object.freeze({
+  [ACTIONS.ACTIVATE]: "Activate",
+  [ACTIONS.PAUSE]: "Pause",
+  [ACTIONS.RESUME]: "Resume",
+  [ACTIONS.COMPLETE]: "Complete",
+  [ACTIONS.CANCEL]: "Cancel",
+});
+
+const DEFAULT_STATUS = "unknown";
+
+/* =========================================================
    HELPERS
 ========================================================= */
 
 const getId = (value) => {
-  if (!value) return null;
+  if (!value) {
+    return null;
+  }
 
   if (typeof value === "string") {
-    return value.trim() || null;
+    const normalized = value.trim();
+
+    return normalized || null;
   }
 
   return (
-    value.id ||
-    value._id ||
-    value.challengeId ||
+    value.id ??
+    value._id ??
+    value.challengeId ??
     null
   );
 };
 
-const toNumber = (value, fallback = 0) => {
+const toNumber = (
+  value,
+  fallback = 0
+) => {
   const number = Number(value);
 
   return Number.isFinite(number)
@@ -61,15 +89,40 @@ const toNumber = (value, fallback = 0) => {
     : fallback;
 };
 
-const clamp = (value, min, max) =>
-  Math.min(Math.max(value, min), max);
+const clamp = (
+  value,
+  min = 0,
+  max = 100
+) => {
+  return Math.min(
+    Math.max(
+      toNumber(value, min),
+      min
+    ),
+    max
+  );
+};
 
-const getStatusLabel = (status) => {
+const getChallengeStatus = (
+  challenge
+) => {
+  return (
+    challenge?.status ??
+    challenge?.state ??
+    DEFAULT_STATUS
+  );
+};
+
+const getStatusLabel = (
+  status
+) => {
   if (
     status &&
     CHALLENGE_STATUS_LABELS?.[status]
   ) {
-    return CHALLENGE_STATUS_LABELS[status];
+    return CHALLENGE_STATUS_LABELS[
+      status
+    ];
   }
 
   if (!status) {
@@ -83,16 +136,9 @@ const getStatusLabel = (status) => {
     );
 };
 
-const getChallengeStatus = (challenge) =>
-  challenge?.status ||
-  challenge?.state ||
-  "unknown";
-
-/* =========================================================
-   STATUS CONFIG
-========================================================= */
-
-const getStatusConfig = (status) => {
+const getStatusConfig = (
+  status
+) => {
   switch (status) {
     case CHALLENGE_STATUS?.ACTIVE:
     case "active":
@@ -179,6 +225,24 @@ const getStatusConfig = (status) => {
   }
 };
 
+const getErrorMessage = (
+  error,
+  fallback
+) => {
+  if (!error) {
+    return fallback;
+  }
+
+  if (typeof error === "string") {
+    return error;
+  }
+
+  return (
+    error.message ||
+    fallback
+  );
+};
+
 /* =========================================================
    COMPONENT
 ========================================================= */
@@ -188,31 +252,37 @@ const ChallengeDetailsModal = ({
   isOpen,
   onClose,
   onUpdated,
-
-  /*
-   * Optional custom actions.
-   */
   showLifecycleActions = true,
 }) => {
-  const challengeId = useMemo(
-    () => getId(challenge),
-    [challenge]
+  /* =======================================================
+     IDENTIFIER
+  ======================================================= */
+
+  const challengeId = getId(
+    challenge
   );
 
   /* =======================================================
      CHALLENGE HOOK
   ======================================================= */
 
+  /*
+   * IMPORTANT:
+   *
+   * The modal must not automatically fetch the complete
+   * challenge collection.
+   *
+   * The parent/page owns collection fetching.
+   *
+   * The modal only requests the selected challenge snapshot
+   * and performs lifecycle mutations.
+   */
   const {
     snapshot,
-    loading,
-    error,
+    loadingSnapshot,
+    mutationError,
 
-    /*
-     * Lifecycle operations are intentionally consumed
-     * from the hook rather than calling the service directly.
-     */
-    getChallengeSnapshot,
+    fetchSnapshot,
 
     activateChallenge,
     pauseChallenge,
@@ -220,14 +290,16 @@ const ChallengeDetailsModal = ({
     completeChallenge,
     cancelChallenge,
 
-    refreshChallenges,
-  } = useSavingsChallenges();
+    clearError,
+  } = useSavingsChallenges({
+    autoFetch: false,
+  });
 
   /* =======================================================
-     LOCAL UI STATE
+     LOCAL STATE
   ======================================================= */
 
-  const [action, setAction] =
+  const [selectedAction, setSelectedAction] =
     useState(null);
 
   const [actionError, setActionError] =
@@ -237,47 +309,114 @@ const ChallengeDetailsModal = ({
     useState(false);
 
   /* =======================================================
-     RESET MODAL STATE
+     EFFECT: RESET WHEN CLOSED
+  ======================================================= */
+
+  useEffect(() => {
+    if (isOpen) {
+      return;
+    }
+
+    setSelectedAction(null);
+    setActionError(null);
+    setIsSubmitting(false);
+  }, [isOpen]);
+
+  /* =======================================================
+     EFFECT: BODY SCROLL LOCK
   ======================================================= */
 
   useEffect(() => {
     if (!isOpen) {
-      setAction(null);
-      setActionError(null);
-      setIsSubmitting(false);
+      return undefined;
     }
+
+    const previousOverflow =
+      document.body.style.overflow;
+
+    document.body.style.overflow =
+      "hidden";
+
+    return () => {
+      document.body.style.overflow =
+        previousOverflow;
+    };
   }, [isOpen]);
 
   /* =======================================================
-     LOAD SNAPSHOT
+     EFFECT: ESCAPE KEY
+  ======================================================= */
+
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+
+    const handleKeyDown = (
+      event
+    ) => {
+      if (
+        event.key !== "Escape" ||
+        isSubmitting
+      ) {
+        return;
+      }
+
+      onClose?.();
+    };
+
+    window.addEventListener(
+      "keydown",
+      handleKeyDown
+    );
+
+    return () => {
+      window.removeEventListener(
+        "keydown",
+        handleKeyDown
+      );
+    };
+  }, [
+    isOpen,
+    isSubmitting,
+    onClose,
+  ]);
+
+  /* =======================================================
+     EFFECT: LOAD SNAPSHOT
   ======================================================= */
 
   useEffect(() => {
     if (
       !isOpen ||
-      !challengeId ||
-      typeof getChallengeSnapshot !==
-        "function"
+      !challengeId
     ) {
       return undefined;
     }
 
-    /*
-     * Async work begins inside an effect rather than
-     * synchronously during render.
-     */
     let cancelled = false;
 
     const loadSnapshot = async () => {
+      clearError();
+      setActionError(null);
+
       try {
-        await getChallengeSnapshot(
+        await fetchSnapshot(
           challengeId
         );
       } catch (requestError) {
+        /*
+         * The hook owns the normalized error state.
+         *
+         * We only create a local modal-level message if
+         * the request is still relevant.
+         */
         if (!cancelled) {
           setActionError(
-            requestError?.message ||
+            getErrorMessage(
+              requestError,
               "Unable to load challenge progress."
+            )
           );
         }
       }
@@ -291,232 +430,285 @@ const ChallengeDetailsModal = ({
   }, [
     isOpen,
     challengeId,
-    getChallengeSnapshot,
+    fetchSnapshot,
+    clearError,
   ]);
 
   /* =======================================================
-     DERIVED CHALLENGE DATA
+     DERIVED DATA
   ======================================================= */
 
   const status = useMemo(
-    () => getChallengeStatus(challenge),
+    () =>
+      getChallengeStatus(
+        challenge
+      ),
     [challenge]
   );
 
   const statusConfig = useMemo(
-    () => getStatusConfig(status),
+    () =>
+      getStatusConfig(status),
     [status]
   );
 
-  const StatusIcon = statusConfig.icon;
+  const StatusIcon =
+    statusConfig.icon;
 
   const currentSnapshot =
-    snapshot ||
-    challenge?.snapshot ||
+    snapshot ??
+    challenge?.snapshot ??
     {};
 
-  const currentAmount = toNumber(
-    currentSnapshot?.currentAmount ??
-      currentSnapshot?.savedAmount ??
-      challenge?.currentAmount ??
-      challenge?.progress?.currentAmount
-  );
-
-  const targetAmount = toNumber(
-    currentSnapshot?.targetAmount ??
-      challenge?.targetAmount ??
-      challenge?.goalAmount
-  );
-
-  const calculatedProgress = useMemo(() => {
-    if (targetAmount <= 0) {
-      return 0;
-    }
-
-    return clamp(
-      (currentAmount / targetAmount) * 100,
-      0,
-      100
+  const currentAmount =
+    toNumber(
+      currentSnapshot?.currentAmount ??
+        currentSnapshot?.savedAmount ??
+        challenge?.currentAmount ??
+        challenge?.progress
+          ?.currentAmount,
+      0
     );
-  }, [
-    currentAmount,
-    targetAmount,
-  ]);
 
-  const progressPercentage = toNumber(
-    currentSnapshot?.progressPercentage ??
-      currentSnapshot?.percentage ??
-      challenge?.progress?.percentage,
-    calculatedProgress
-  );
+  const targetAmount =
+    toNumber(
+      currentSnapshot?.targetAmount ??
+        challenge?.targetAmount ??
+        challenge?.goalAmount,
+      0
+    );
 
-  const remainingAmount = Math.max(
-    targetAmount - currentAmount,
-    0
-  );
+  const calculatedProgress =
+    useMemo(() => {
+      if (targetAmount <= 0) {
+        return 0;
+      }
+
+      return clamp(
+        (currentAmount /
+          targetAmount) *
+          100
+      );
+    }, [
+      currentAmount,
+      targetAmount,
+    ]);
+
+  const progressPercentage =
+    clamp(
+      currentSnapshot?.progressPercentage ??
+        currentSnapshot?.percentage ??
+        challenge?.progress
+          ?.percentage ??
+        calculatedProgress
+    );
+
+  const remainingAmount =
+    Math.max(
+      targetAmount -
+        currentAmount,
+      0
+    );
 
   const startDate =
-    challenge?.startDate ||
-    challenge?.startsAt;
+    challenge?.startDate ??
+    challenge?.startsAt ??
+    null;
 
   const endDate =
-    challenge?.endDate ||
-    challenge?.endsAt;
+    challenge?.endDate ??
+    challenge?.endsAt ??
+    null;
 
   /* =======================================================
      LIFECYCLE PERMISSIONS
   ======================================================= */
 
+  const draftStatus =
+    CHALLENGE_STATUS?.DRAFT ??
+    "draft";
+
+  const activeStatus =
+    CHALLENGE_STATUS?.ACTIVE ??
+    "active";
+
+  const pausedStatus =
+    CHALLENGE_STATUS?.PAUSED ??
+    "paused";
+
   const canActivate =
-    status ===
-      (CHALLENGE_STATUS?.DRAFT || "draft") ||
-    status === "paused";
+    status === draftStatus ||
+    status === pausedStatus;
 
   const canPause =
-    status ===
-    (CHALLENGE_STATUS?.ACTIVE || "active");
+    status === activeStatus;
 
   const canResume =
-    status ===
-    (CHALLENGE_STATUS?.PAUSED || "paused");
+    status === pausedStatus;
 
   const canComplete =
-    status ===
-    (CHALLENGE_STATUS?.ACTIVE || "active");
+    status === activeStatus;
 
   const canCancel =
     [
-      "draft",
-      "active",
-      "paused",
+      draftStatus,
+      activeStatus,
+      pausedStatus,
     ].includes(status);
 
   /* =======================================================
-     ACTION EXECUTION
+     ACTION MAP
   ======================================================= */
 
-  const executeAction = useCallback(
-    async (actionName) => {
-      if (
-        !challengeId ||
-        isSubmitting
-      ) {
-        return;
-      }
+  const actionHandlers = useMemo(
+    () => ({
+      [ACTIONS.ACTIVATE]:
+        activateChallenge,
 
-      const actionMap = {
-        activate: activateChallenge,
-        pause: pauseChallenge,
-        resume: resumeChallenge,
-        complete: completeChallenge,
-        cancel: cancelChallenge,
-      };
+      [ACTIONS.PAUSE]:
+        pauseChallenge,
 
-      const handler =
-        actionMap[actionName];
+      [ACTIONS.RESUME]:
+        resumeChallenge,
 
-      if (typeof handler !== "function") {
-        setActionError(
-          `The ${actionName} challenge action is unavailable.`
-        );
-        return;
-      }
+      [ACTIONS.COMPLETE]:
+        completeChallenge,
 
-      setIsSubmitting(true);
-      setActionError(null);
-
-      try {
-        await handler(challengeId);
-
-        /*
-         * Refresh through the hook/service abstraction.
-         */
-        if (
-          typeof refreshChallenges ===
-          "function"
-        ) {
-          await refreshChallenges();
-        }
-
-        if (
-          typeof onUpdated === "function"
-        ) {
-          await onUpdated();
-        }
-
-        setAction(null);
-      } catch (requestError) {
-        setActionError(
-          requestError?.message ||
-            `Unable to ${actionName} this challenge.`
-        );
-      } finally {
-        setIsSubmitting(false);
-      }
-    },
+      [ACTIONS.CANCEL]:
+        cancelChallenge,
+    }),
     [
-      challengeId,
-      isSubmitting,
       activateChallenge,
       pauseChallenge,
       resumeChallenge,
       completeChallenge,
       cancelChallenge,
-      refreshChallenges,
-      onUpdated,
     ]
   );
 
   /* =======================================================
-     ACTION LABEL
+     EXECUTE ACTION
   ======================================================= */
 
-  const actionLabel = useMemo(() => {
-    switch (action) {
-      case "activate":
-        return "Activate";
+  const executeAction =
+    useCallback(
+      async (actionName) => {
+        if (
+          !challengeId ||
+          isSubmitting
+        ) {
+          return;
+        }
 
-      case "pause":
-        return "Pause";
+        const handler =
+          actionHandlers[
+            actionName
+          ];
 
-      case "resume":
-        return "Resume";
+        if (
+          typeof handler !==
+          "function"
+        ) {
+          setActionError(
+            `The ${actionName} challenge action is unavailable.`
+          );
 
-      case "complete":
-        return "Complete";
+          return;
+        }
 
-      case "cancel":
-        return "Cancel";
+        setIsSubmitting(true);
+        setActionError(null);
 
-      default:
-        return null;
-    }
-  }, [action]);
+        try {
+          /*
+           * The hook's executeMutation()
+           * handles the appropriate SmartSave
+           * refresh operations.
+           */
+          await handler(
+            challengeId
+          );
+
+          /*
+           * The lifecycle mutation refreshes
+           * the hook's snapshot when configured
+           * to do so.
+           *
+           * Notify the parent so it can refresh
+           * its collection if necessary.
+           */
+          if (
+            typeof onUpdated ===
+            "function"
+          ) {
+            await onUpdated();
+          }
+
+          setSelectedAction(null);
+        } catch (requestError) {
+          setActionError(
+            getErrorMessage(
+              requestError,
+              `Unable to ${actionName} this challenge.`
+            )
+          );
+        } finally {
+          setIsSubmitting(false);
+        }
+      },
+      [
+        challengeId,
+        isSubmitting,
+        actionHandlers,
+        onUpdated,
+      ]
+    );
 
   /* =======================================================
-     MODAL VISIBILITY
+     BACKDROP
   ======================================================= */
 
-  if (!isOpen || !challenge) {
+  const handleBackdropMouseDown =
+    useCallback(
+      (event) => {
+        if (
+          isSubmitting ||
+          event.target !==
+            event.currentTarget
+        ) {
+          return;
+        }
+
+        onClose?.();
+      },
+      [
+        isSubmitting,
+        onClose,
+      ]
+    );
+
+  /* =======================================================
+     EARLY RETURN
+  ======================================================= */
+
+  if (
+    !isOpen ||
+    !challenge
+  ) {
     return null;
   }
 
   /* =======================================================
-     RENDER
+     ERROR MESSAGE
   ======================================================= */
 
+  const visibleError =
+    actionError ||
+    mutationError;
 
-  const handleBackdropMouseDown = (event) => {
-  if (isSubmitting) {
-    return;
-  }
-
-  if (event.target !== event.currentTarget) {
-    return;
-  }
-
-  onClose?.();
-};
+  /* =======================================================
+     RENDER
+  ======================================================= */
 
   return (
     <div
@@ -527,12 +719,19 @@ const ChallengeDetailsModal = ({
         backdrop-blur-sm
       "
       role="presentation"
-  onMouseDown={handleBackdropMouseDown}
+      onMouseDown={
+        handleBackdropMouseDown
+      }
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="challenge-details-title"
+        aria-describedby={
+          challenge?.description
+            ? "challenge-details-description"
+            : undefined
+        }
         className="
           flex flex-col overflow-hidden
           w-full max-h-[92vh] sm:max-w-2xl
@@ -582,7 +781,9 @@ const ChallengeDetailsModal = ({
                   aria-hidden="true"
                 />
 
-                {getStatusLabel(status)}
+                {getStatusLabel(
+                  status
+                )}
               </span>
             </div>
 
@@ -592,13 +793,14 @@ const ChallengeDetailsModal = ({
                 font-bold text-slate-900 text-lg sm:text-xl tracking-tight
               "
             >
-              {challenge?.name ||
-                challenge?.title ||
+              {challenge?.name ??
+                challenge?.title ??
                 "Savings Challenge"}
             </h2>
 
             {challenge?.description && (
               <p
+                id="challenge-details-description"
                 className="
                   mt-1
                   text-slate-500 text-sm leading-5
@@ -647,7 +849,7 @@ const ChallengeDetailsModal = ({
               ERROR
           ================================================= */}
 
-          {(error || actionError) && (
+          {visibleError && (
             <div
               role="alert"
               className="
@@ -657,10 +859,10 @@ const ChallengeDetailsModal = ({
                 border border-red-200 rounded-2xl
               "
             >
-              {actionError ||
-                error?.message ||
-                error ||
-                "Unable to load challenge information."}
+              {getErrorMessage(
+                visibleError,
+                "Unable to load challenge information."
+              )}
             </div>
           )}
 
@@ -668,7 +870,8 @@ const ChallengeDetailsModal = ({
               PROGRESS
           ================================================= */}
 
-          <div
+          <section
+            aria-label="Challenge progress"
             className="
               p-4
               bg-slate-50
@@ -740,6 +943,15 @@ const ChallengeDetailsModal = ({
                   bg-slate-200
                   rounded-full
                 "
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={
+                  Math.round(
+                    progressPercentage
+                  )
+                }
+                aria-label="Savings challenge progress"
               >
                 <div
                   className="
@@ -749,11 +961,7 @@ const ChallengeDetailsModal = ({
                     transition-all duration-500
                   "
                   style={{
-                    width: `${clamp(
-                      progressPercentage,
-                      0,
-                      100
-                    )}%`,
+                    width: `${progressPercentage}%`,
                   }}
                 /
                 >
@@ -768,11 +976,7 @@ const ChallengeDetailsModal = ({
               >
                 <span>
                   {Math.round(
-                    clamp(
-                      progressPercentage,
-                      0,
-                      100
-                    )
+                    progressPercentage
                   )}
                   % complete
                 </span>
@@ -785,13 +989,14 @@ const ChallengeDetailsModal = ({
                 </span>
               </div>
             </div>
-          </div>
+          </section>
 
           {/* =================================================
               METRICS
           ================================================= */}
 
-          <div
+          <section
+            aria-label="Challenge metrics"
             className="
               grid grid-cols-2 sm:grid-cols-4
               mt-4
@@ -830,18 +1035,21 @@ const ChallengeDetailsModal = ({
               value={
                 currentSnapshot
                   ?.successfulPeriods ??
-                challenge?.successfulPeriods ??
+                challenge
+                  ?.successfulPeriods ??
                 0
               }
             />
-          </div>
+          </section>
 
           {/* =================================================
               DATES
           ================================================= */}
 
-          {(startDate || endDate) && (
-            <div
+          {(startDate ||
+            endDate) && (
+            <section
+              aria-label="Challenge dates"
               className="
                 grid grid-cols-1 sm:grid-cols-2
                 mt-5
@@ -867,14 +1075,14 @@ const ChallengeDetailsModal = ({
                   )}
                 />
               )}
-            </div>
+            </section>
           )}
 
           {/* =================================================
-              LOADING SNAPSHOT
+              SNAPSHOT LOADING
           ================================================= */}
 
-          {loading && (
+          {loadingSnapshot && (
             <div
               className="
                 flex items-center
@@ -901,7 +1109,7 @@ const ChallengeDetailsModal = ({
         </div>
 
         {/* =================================================
-            ACTION FOOTER
+            FOOTER
         ================================================= */}
 
         {showLifecycleActions && (
@@ -912,64 +1120,30 @@ const ChallengeDetailsModal = ({
               border-slate-100 border-t
             "
           >
-            {action ? (
-              <div
-                className="
-                  p-4
-                  bg-slate-50
-                  border border-slate-200 rounded-2xl
-                "
-              >
-                <p
-                  className="
-                    font-semibold text-slate-900 text-sm
-                  "
-                >
-                  {actionLabel} this challenge?
-                </p>
-
-                <p
-                  className="
-                    mt-1
-                    text-slate-500 text-xs leading-5
-                  "
-                >
-                  This action will update the
-                  challenge lifecycle state.
-                </p>
-
-                <div
-                  className="
-                    flex flex-col-reverse sm:flex-row sm:justify-end
-                    mt-4
-                    gap-2
-                  "
-                >
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setAction(null)
-                    }
-                    disabled={isSubmitting}
-                    className="bg-white hover:bg-slate-100 disabled:opacity-50 px-4 py-2.5 border border-slate-200 rounded-xl font-semibold text-slate-700 text-sm"
-                  >
-                    Go back
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      executeAction(action)
-                    }
-                    disabled={isSubmitting}
-                    className="bg-slate-900 hover:bg-slate-800 disabled:opacity-50 px-4 py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 font-semibold text-white text-sm transition disabled:cursor-not-allowed"
-                  >
-                    {isSubmitting
-                      ? "Updating…"
-                      : actionLabel}
-                  </button>
-                </div>
-              </div>
+            {selectedAction ? (
+              <ActionConfirmation
+                action={
+                  selectedAction
+                }
+                actionLabel={
+                  ACTION_LABELS[
+                    selectedAction
+                  ]
+                }
+                isSubmitting={
+                  isSubmitting
+                }
+                onCancel={() =>
+                  setSelectedAction(
+                    null
+                  )
+                }
+                onConfirm={() =>
+                  executeAction(
+                    selectedAction
+                  )
+                }
+              />
             ) : (
               <div
                 className="
@@ -981,9 +1155,12 @@ const ChallengeDetailsModal = ({
                   <ActionButton
                     label="Activate"
                     icon={Play}
+                    disabled={
+                      isSubmitting
+                    }
                     onClick={() =>
-                      setAction(
-                        "activate"
+                      setSelectedAction(
+                        ACTIONS.ACTIVATE
                       )
                     }
                   />
@@ -993,8 +1170,13 @@ const ChallengeDetailsModal = ({
                   <ActionButton
                     label="Pause"
                     icon={Pause}
+                    disabled={
+                      isSubmitting
+                    }
                     onClick={() =>
-                      setAction("pause")
+                      setSelectedAction(
+                        ACTIONS.PAUSE
+                      )
                     }
                   />
                 )}
@@ -1003,8 +1185,13 @@ const ChallengeDetailsModal = ({
                   <ActionButton
                     label="Resume"
                     icon={Play}
+                    disabled={
+                      isSubmitting
+                    }
                     onClick={() =>
-                      setAction("resume")
+                      setSelectedAction(
+                        ACTIONS.RESUME
+                      )
                     }
                   />
                 )}
@@ -1012,12 +1199,17 @@ const ChallengeDetailsModal = ({
                 {canComplete && (
                   <ActionButton
                     label="Complete"
-                    icon={CheckCircle2}
+                    icon={
+                      CheckCircle2
+                    }
+                    disabled={
+                      isSubmitting
+                    }
                     onClick={() =>
-                      setAction(
-                        "complete"
+                      setSelectedAction(
+                        ACTIONS.COMPLETE
                       )
-                  }
+                    }
                   />
                 )}
 
@@ -1026,8 +1218,13 @@ const ChallengeDetailsModal = ({
                     label="Cancel"
                     icon={XCircle}
                     danger
+                    disabled={
+                      isSubmitting
+                    }
                     onClick={() =>
-                      setAction("cancel")
+                      setSelectedAction(
+                        ACTIONS.CANCEL
+                      )
                     }
                   />
                 )}
@@ -1041,6 +1238,93 @@ const ChallengeDetailsModal = ({
 };
 
 /* =========================================================
+   ACTION CONFIRMATION
+========================================================= */
+
+const ActionConfirmation =
+  memo(
+    ({
+      action,
+      actionLabel,
+      isSubmitting,
+      onCancel,
+      onConfirm,
+    }) => {
+      return (
+        <div
+          className="
+            p-4
+            bg-slate-50
+            border border-slate-200 rounded-2xl
+          "
+        >
+          <p
+            className="
+              font-semibold text-slate-900 text-sm
+            "
+          >
+            {actionLabel} this challenge?
+          </p>
+
+          <p
+            className="
+              mt-1
+              text-slate-500 text-xs leading-5
+            "
+          >
+            This action will update the
+            challenge lifecycle state.
+          </p>
+
+          <div
+            className="
+              flex flex-col-reverse sm:flex-row sm:justify-end
+              mt-4
+              gap-2
+            "
+          >
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={isSubmitting}
+              className="
+                px-4 py-2.5
+                font-semibold text-slate-700 text-sm
+                bg-white hover:bg-slate-100
+                border border-slate-200 rounded-xl focus:outline-none
+                focus:ring-2 focus:ring-slate-400
+                disabled:opacity-50
+                disabled:cursor-not-allowed
+              "
+            >
+              Go back
+            </button>
+
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={isSubmitting}
+              className="
+                px-4 py-2.5
+                font-semibold text-white text-sm
+                bg-slate-900 hover:bg-slate-800
+                rounded-xl focus:outline-none
+                focus:ring-2 focus:ring-slate-500 focus:ring-offset-2
+                disabled:opacity-50
+                disabled:cursor-not-allowed
+              "
+            >
+              {isSubmitting
+                ? "Updating…"
+                : actionLabel}
+            </button>
+          </div>
+        </div>
+      );
+    }
+  );
+
+/* =========================================================
    METRIC
 ========================================================= */
 
@@ -1049,42 +1333,44 @@ const Metric = memo(
     icon: Icon,
     label,
     value,
-  }) => (
-    <div
-      className="
-        p-3
-        bg-white
-        border border-slate-200 rounded-2xl
-      "
-    >
-      <Icon
-        size={17}
+  }) => {
+    return (
+      <div
         className="
-          text-slate-500
+          p-3
+          bg-white
+          border border-slate-200 rounded-2xl
         "
-        aria-hidden="true"
-      /
       >
+        <Icon
+          size={17}
+          className="
+            text-slate-500
+          "
+          aria-hidden="true"
+        /
+        >
 
-      <p
-        className="
-          mt-2
-          font-medium text-[11px] text-slate-400 uppercase tracking-wide
-        "
-      >
-        {label}
-      </p>
+        <p
+          className="
+            mt-2
+            font-medium text-[11px] text-slate-400 uppercase tracking-wide
+          "
+        >
+          {label}
+        </p>
 
-      <p
-        className="
-          mt-0.5
-          font-bold text-slate-900 text-sm truncate
-        "
-      >
-        {value}
-      </p>
-    </div>
-  )
+        <p
+          className="
+            mt-0.5
+            font-bold text-slate-900 text-sm truncate
+          "
+        >
+          {value}
+        </p>
+      </div>
+    );
+  }
 );
 
 /* =========================================================
@@ -1096,49 +1382,51 @@ const InfoRow = memo(
     icon: Icon,
     label,
     value,
-  }) => (
-    <div
-      className="
-        flex items-center
-        px-4 py-3
-        bg-white
-        border border-slate-200 rounded-2xl
-        gap-3
-      "
-    >
-      <Icon
-        size={18}
-        className="
-          text-slate-500
-          shrink-0
-        "
-        aria-hidden="true"
-      /
-      >
-
+  }) => {
+    return (
       <div
         className="
-          min-w-0
+          flex items-center
+          px-4 py-3
+          bg-white
+          border border-slate-200 rounded-2xl
+          gap-3
         "
       >
-        <p
+        <Icon
+          size={18}
           className="
-            text-slate-400 text-xs
+            text-slate-500
+            shrink-0
           "
+          aria-hidden="true"
+        /
         >
-          {label}
-        </p>
 
-        <p
+        <div
           className="
-            font-semibold text-slate-800 text-sm truncate
+            min-w-0
           "
         >
-          {value}
-        </p>
+          <p
+            className="
+              text-slate-400 text-xs
+            "
+          >
+            {label}
+          </p>
+
+          <p
+            className="
+              font-semibold text-slate-800 text-sm truncate
+            "
+          >
+            {value}
+          </p>
+        </div>
       </div>
-    </div>
-  )
+    );
+  }
 );
 
 /* =========================================================
@@ -1151,50 +1439,57 @@ const ActionButton = memo(
     icon: Icon,
     onClick,
     danger = false,
-  }) => (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`
-        inline-flex
-        min-h-10
-        items-center
-        justify-center
-        gap-2
-        rounded-xl
-        px-4 py-2.5
-        text-sm
-        font-semibold
-        transition
-        focus:outline-none
-        focus:ring-2
-        focus:ring-offset-2
-        ${
-          danger
-            ? `
-              border border-red-200
-              bg-red-50
-              text-red-700
-              hover:bg-red-100
-              focus:ring-red-400
-            `
-            : `
-              bg-slate-900
-              text-white
-              hover:bg-slate-800
-              focus:ring-slate-500
-            `
-        }
-      `}
-    >
-      <Icon
-        size={16}
-        aria-hidden="true"
-      />
+    disabled = false,
+  }) => {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className={`
+          inline-flex
+          min-h-10
+          items-center
+          justify-center
+          gap-2
+          rounded-xl
+          px-4 py-2.5
+          text-sm
+          font-semibold
+          transition
+          focus:outline-none
+          focus:ring-2
+          focus:ring-offset-2
+          disabled:cursor-not-allowed
+          disabled:opacity-50
 
-      {label}
-    </button>
-  )
+          ${
+            danger
+              ? `
+                border border-red-200
+                bg-red-50
+                text-red-700
+                hover:bg-red-100
+                focus:ring-red-400
+              `
+              : `
+                bg-slate-900
+                text-white
+                hover:bg-slate-800
+                focus:ring-slate-500
+              `
+          }
+        `}
+      >
+        <Icon
+          size={16}
+          aria-hidden="true"
+        />
+
+        {label}
+      </button>
+    );
+  }
 );
 
 /* =========================================================

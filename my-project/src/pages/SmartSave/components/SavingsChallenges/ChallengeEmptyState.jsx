@@ -1,4 +1,10 @@
 import {
+  memo,
+  useCallback,
+  useMemo,
+} from "react";
+
+import {
   Trophy,
   Plus,
   Sparkles,
@@ -9,96 +15,147 @@ import {
 
 /**
  * =========================================================
- * CHALLENGE EMPTY STATE
+ * ChallengeEmptyState
  * =========================================================
  *
- * Presentational component for the SmartSave challenges area.
+ * Pure presentational component for the SmartSave
+ * Savings Challenges page.
  *
  * Responsibilities:
- * - Explain that no challenges are currently available.
- * - Provide a clear primary CTA for creating a challenge.
- * - Optionally provide a secondary CTA.
- * - Remain completely independent of API/service calls.
+ * - Display an empty state.
+ * - Distinguish between:
+ *   1. No challenges at all.
+ *   2. No challenges matching current filters.
+ * - Provide optional navigation/actions.
+ * - Remain independent of API/service/business logic.
  *
  * Architecture:
  *
  * ChallengeEmptyState
  *        ↓
+ * Parent/Page
+ *        ↓
  * useSavingsChallenges
  *        ↓
  * smartSaveService
- *        ↓
- * api.js
- *        ↓
- * SmartSave backend
  *
  * IMPORTANT:
- * This component intentionally does NOT:
- * - fetch challenges
- * - mutate React state during render
- * - call smartSaveService directly
- * - invent backend endpoints
- * - contain business logic
+ * This component does NOT:
+ * - fetch data
+ * - mutate application state
+ * - call smartSaveService
+ * - know backend endpoints
+ * - contain challenge business rules
+ * =========================================================
  */
 
+/* =========================================================
+   CONSTANTS
+========================================================= */
+
+const EMPTY_STATE_IDS = {
+  title: "savings-challenge-empty-title",
+  description:
+    "savings-challenge-empty-description",
+};
+
+const DEFAULT_TITLE =
+  "Start your first savings challenge";
+
+const DEFAULT_DESCRIPTION =
+  "Turn your savings goal into a structured challenge and build momentum with consistent progress.";
+
+const FILTERED_TITLE =
+  "No challenges found";
+
+const FILTERED_DESCRIPTION =
+  "We couldn't find any challenges matching your current filters. Try adjusting your filters or view all challenges.";
+
+/* =========================================================
+   CLASS NAME UTILITY
+========================================================= */
+
 const cn = (...classes) =>
-  classes.filter(Boolean).join(" ");
+  classes
+    .filter(
+      (value) =>
+        typeof value === "string" &&
+        value.trim().length > 0
+    )
+    .join(" ");
 
 /* =========================================================
    SUPPORT ITEM
 ========================================================= */
 
-const SupportItem = ({
-  icon: Icon,
-  title,
-  description,
-}) => {
-  return (
-    <div
-      className="
-        flex items-start
-        gap-3
-      "
-    >
+const SupportItem = memo(
+  ({
+    icon: Icon,
+    title,
+    description,
+  }) => {
+    if (
+      typeof Icon !== "function" ||
+      !title
+    ) {
+      return null;
+    }
+
+    return (
       <div
         className="
-          flex justify-center items-center
-          w-9 h-9
-          text-blue-600 dark:text-blue-400
-          bg-blue-50 dark:bg-blue-950/40
-          rounded-xl ring-1 ring-blue-100 dark:ring-blue-900/50
-          shrink-0
-        "
-        aria-hidden="true"
-      >
-        <Icon size={17} strokeWidth={2} />
-      </div>
-
-      <div
-        className="
-          min-w-0
+          flex items-start
+          gap-3
         "
       >
-        <p
+        <div
           className="
-            font-semibold text-slate-900 dark:text-white text-sm
+            flex justify-center items-center
+            w-9 h-9
+            text-blue-600 dark:text-blue-400
+            bg-blue-50 dark:bg-blue-950/40
+            rounded-xl ring-1 ring-blue-100 dark:ring-blue-900/50
+            shrink-0
           "
+          aria-hidden="true"
         >
-          {title}
-        </p>
+          <Icon
+            size={17}
+            strokeWidth={2}
+          />
+        </div>
 
-        <p
+        <div
           className="
-            mt-0.5
-            text-slate-500 dark:text-slate-400 text-xs leading-5
+            min-w-0
           "
         >
-          {description}
-        </p>
+          <p
+            className="
+              font-semibold text-slate-900 dark:text-white text-sm
+            "
+          >
+            {title}
+          </p>
+
+          {description && (
+            <p
+              className="
+                mt-0.5
+                text-slate-500 dark:text-slate-400 text-xs leading-5
+              "
+            >
+              {description}
+            </p>
+          )}
+        </div>
       </div>
-    </div>
-  );
-};
+    );
+  }
+);
+
+SupportItem.displayName =
+  "SupportItem";
 
 /* =========================================================
    MAIN COMPONENT
@@ -107,41 +164,96 @@ const SupportItem = ({
 const ChallengeEmptyState = ({
   onCreateChallenge,
   onViewChallenges,
-
   loading = false,
-
-  /**
-   * Allows the parent to communicate that the current
-   * filter/search produced no results rather than the
-   * user having no challenges at all.
-   */
   filtered = false,
-
   className = "",
 }) => {
-  const handleCreateChallenge = () => {
-    if (loading) return;
+  /* =======================================================
+     NORMALIZED FLAGS
+  ======================================================= */
 
-    if (typeof onCreateChallenge === "function") {
+  const isLoading =
+    loading === true;
+
+  const hasCreateHandler =
+    typeof onCreateChallenge ===
+    "function";
+
+  const hasViewHandler =
+    typeof onViewChallenges ===
+    "function";
+
+  /* =======================================================
+     CONTENT
+  ======================================================= */
+
+  const content = useMemo(
+    () => ({
+      title: filtered
+        ? FILTERED_TITLE
+        : DEFAULT_TITLE,
+
+      description: filtered
+        ? FILTERED_DESCRIPTION
+        : DEFAULT_DESCRIPTION,
+
+      icon: filtered
+        ? Target
+        : Trophy,
+
+      primaryLabel: isLoading
+        ? "Please wait..."
+        : "Create a Challenge",
+
+      secondaryLabel: filtered
+        ? "View All Challenges"
+        : "Explore Challenges",
+    }),
+    [filtered, isLoading]
+  );
+
+  const EmptyStateIcon =
+    content.icon;
+
+  /* =======================================================
+     ACTIONS
+  ======================================================= */
+
+  const handleCreateChallenge =
+    useCallback(() => {
+      if (
+        isLoading ||
+        !hasCreateHandler
+      ) {
+        return;
+      }
+
       onCreateChallenge();
-    }
-  };
+    }, [
+      isLoading,
+      hasCreateHandler,
+      onCreateChallenge,
+    ]);
 
-  const handleViewChallenges = () => {
-    if (loading) return;
+  const handleViewChallenges =
+    useCallback(() => {
+      if (
+        isLoading ||
+        !hasViewHandler
+      ) {
+        return;
+      }
 
-    if (typeof onViewChallenges === "function") {
       onViewChallenges();
-    }
-  };
+    }, [
+      isLoading,
+      hasViewHandler,
+      onViewChallenges,
+    ]);
 
-  const title = filtered
-    ? "No challenges found"
-    : "Start your first savings challenge";
-
-  const description = filtered
-    ? "We couldn't find any challenges matching your current filters. Try adjusting your filters or view all challenges."
-    : "Turn your savings goal into a structured challenge and build momentum with consistent progress.";
+  /* =======================================================
+     RENDER
+  ======================================================= */
 
   return (
     <section
@@ -149,19 +261,28 @@ const ChallengeEmptyState = ({
         "w-full",
         className
       )}
-      aria-labelledby="savings-challenge-empty-title"
-      aria-describedby="savings-challenge-empty-description"
+      aria-labelledby={
+        EMPTY_STATE_IDS.title
+      }
+      aria-describedby={
+        EMPTY_STATE_IDS.description
+      }
+      aria-busy={isLoading}
     >
       <div
         className="
           relative overflow-hidden
+          w-full
           px-6 sm:px-10 py-10 sm:py-12
           bg-white dark:bg-slate-950
           border border-slate-200 dark:border-slate-800 rounded-3xl
           shadow-sm
         "
       >
-        {/* Decorative background */}
+        {/* =================================================
+            DECORATIVE BACKGROUND
+        ================================================= */}
+
         <div
           className="
             absolute
@@ -190,6 +311,10 @@ const ChallengeEmptyState = ({
         /
         >
 
+        {/* =================================================
+            CONTENT
+        ================================================= */}
+
         <div
           className="
             relative
@@ -198,7 +323,10 @@ const ChallengeEmptyState = ({
             text-center
           "
         >
-          {/* Icon */}
+          {/* =================================================
+              ICON
+          ================================================= */}
+
           <div
             className="
               flex justify-center items-center
@@ -211,20 +339,16 @@ const ChallengeEmptyState = ({
             "
             aria-hidden="true"
           >
-            {filtered ? (
-              <Target
-                size={30}
-                strokeWidth={1.8}
-              />
-            ) : (
-              <Trophy
-                size={30}
-                strokeWidth={1.8}
-              />
-            )}
+            <EmptyStateIcon
+              size={30}
+              strokeWidth={1.8}
+            />
           </div>
 
-          {/* Badge */}
+          {/* =================================================
+              BADGE
+          ================================================= */}
+
           <div
             className="
               inline-flex items-center
@@ -246,107 +370,136 @@ const ChallengeEmptyState = ({
             </span>
           </div>
 
-          {/* Heading */}
+          {/* =================================================
+              HEADING
+          ================================================= */}
+
           <h2
-            id="savings-challenge-empty-title"
+            id={EMPTY_STATE_IDS.title}
             className="
               mt-4
               font-bold text-slate-950 dark:text-white text-xl sm:text-2xl
               tracking-tight
             "
           >
-            {title}
+            {content.title}
           </h2>
 
-          {/* Description */}
+          {/* =================================================
+              DESCRIPTION
+          ================================================= */}
+
           <p
-            id="savings-challenge-empty-description"
+            id={
+              EMPTY_STATE_IDS.description
+            }
             className="
               max-w-xl
               mx-auto mt-3
               text-slate-500 dark:text-slate-400 text-sm sm:text-base leading-6
             "
           >
-            {description}
+            {content.description}
           </p>
 
-          {/* Actions */}
-          <div
-            className="
-              flex flex-col sm:flex-row justify-center
-              items-stretch sm:items-center
-              mt-7
-              gap-3
-            "
-          >
-            {!filtered && (
-              <button
-                type="button"
-                onClick={handleCreateChallenge}
-                disabled={loading}
-                className="
-                  inline-flex justify-center items-center
-                  min-h-11
-                  px-5 py-2.5
-                  font-semibold text-white text-sm
-                  bg-blue-600 hover:bg-blue-700
-                  rounded-xl focus:outline-none
-                  focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-950
-                  disabled:opacity-60 shadow-blue-600/20 shadow-sm transition
-                  disabled:cursor-not-allowed
-                  gap-2
-                "
-                aria-label="Create a new savings challenge"
-              >
-                <Plus
-                  size={18}
-                  strokeWidth={2}
-                  aria-hidden="true"
-                />
+          {/* =================================================
+              ACTIONS
+          ================================================= */}
 
-                <span>
-                  {loading
-                    ? "Please wait..."
-                    : "Create a Challenge"}
-                </span>
-              </button>
-            )}
+          {(hasCreateHandler ||
+            hasViewHandler) && (
+            <div
+              className="
+                flex flex-col sm:flex-row justify-center
+                items-stretch sm:items-center
+                mt-7
+                gap-3
+              "
+            >
+              {/* Primary action */}
 
-            {typeof onViewChallenges === "function" && (
-              <button
-                type="button"
-                onClick={handleViewChallenges}
-                disabled={loading}
-                className="
-                  inline-flex justify-center items-center
-                  min-h-11
-                  px-5 py-2.5
-                  font-semibold text-slate-700 dark:text-slate-200 text-sm
-                  bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800
-                  border border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600
-                  rounded-xl focus:outline-none
-                  focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-950
-                  disabled:opacity-60 transition
-                  disabled:cursor-not-allowed
-                  gap-2
-                "
-              >
-                <span>
-                  {filtered
-                    ? "View All Challenges"
-                    : "Explore Challenges"}
-                </span>
+              {!filtered &&
+                hasCreateHandler && (
+                  <button
+                    type="button"
+                    onClick={
+                      handleCreateChallenge
+                    }
+                    disabled={isLoading}
+                    aria-disabled={
+                      isLoading
+                    }
+                    className="
+                      inline-flex justify-center items-center
+                      min-h-11
+                      px-5 py-2.5
+                      font-semibold text-white text-sm
+                      bg-blue-600 hover:bg-blue-700 disabled:hover:bg-blue-600
+                      rounded-xl focus:outline-none
+                      focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-950
+                      disabled:opacity-60 shadow-blue-600/20 shadow-sm
+                      transition
+                      disabled:cursor-not-allowed
+                      gap-2
+                    "
+                    aria-label="Create a new savings challenge"
+                  >
+                    <Plus
+                      size={18}
+                      strokeWidth={2}
+                      aria-hidden="true"
+                    />
 
-                <ArrowRight
-                  size={17}
-                  strokeWidth={2}
-                  aria-hidden="true"
-                />
-              </button>
-            )}
-          </div>
+                    <span>
+                      {content.primaryLabel}
+                    </span>
+                  </button>
+                )}
 
-          {/* Value propositions */}
+              {/* Secondary action */}
+
+              {hasViewHandler && (
+                <button
+                  type="button"
+                  onClick={
+                    handleViewChallenges
+                  }
+                  disabled={isLoading}
+                  aria-disabled={
+                    isLoading
+                  }
+                  className="
+                    inline-flex justify-center items-center
+                    min-h-11
+                    px-5 py-2.5
+                    font-semibold text-slate-700 dark:text-slate-200 text-sm
+                    bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800
+                    border border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600
+                    rounded-xl focus:outline-none
+                    focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-950
+                    disabled:opacity-60 transition
+                    disabled:cursor-not-allowed
+                    gap-2
+                  "
+                >
+                  <span>
+                    {content.secondaryLabel}
+                  </span>
+
+                  <ArrowRight
+                    size={17}
+                    strokeWidth={2}
+                    aria-hidden="true"
+                  />
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* =================================================
+              VALUE PROPOSITIONS
+          ================================================= */}
+
           {!filtered && (
             <div
               className="
@@ -377,4 +530,17 @@ const ChallengeEmptyState = ({
   );
 };
 
-export default ChallengeEmptyState;
+/* =========================================================
+   DISPLAY NAME
+========================================================= */
+
+ChallengeEmptyState.displayName =
+  "ChallengeEmptyState";
+
+/* =========================================================
+   EXPORT
+========================================================= */
+
+export default memo(
+  ChallengeEmptyState
+);

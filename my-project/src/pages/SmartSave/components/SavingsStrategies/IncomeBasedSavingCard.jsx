@@ -1,4 +1,3 @@
-
 import {
   ArrowRight,
   CalendarClock,
@@ -43,16 +42,13 @@ import {
 const DEFAULT_CURRENCY = "NGN";
 
 const DEFAULT_STATUS =
-  SAVINGS_PLAN_STATUS?.DRAFT ??
-  "draft";
+  SAVINGS_PLAN_STATUS?.DRAFT ?? "draft";
 
 const DEFAULT_FREQUENCY =
-  SAVINGS_FREQUENCIES?.MONTHLY ??
-  "monthly";
+  SAVINGS_FREQUENCIES?.MONTHLY ?? "monthly";
 
-const INCOME_BASED_STRATEGY =
-  SAVINGS_STRATEGIES?.PERCENTAGE ??
-  "percentage";
+const PERCENTAGE_STRATEGY =
+  SAVINGS_STRATEGIES?.PERCENTAGE ?? "percentage";
 
 /* =========================================================
    STATUS CONFIGURATION
@@ -96,7 +92,7 @@ const STATUS_CONFIG = {
 };
 
 /* =========================================================
-   FREQUENCY LABELS
+   FREQUENCY CONFIGURATION
 ========================================================= */
 
 const FREQUENCY_LABELS = {
@@ -113,58 +109,87 @@ const FREQUENCY_LABELS = {
 ========================================================= */
 
 const getText = (...values) => {
-  const value = values.find(
-    (item) =>
-      typeof item === "string" &&
-      item.trim().length > 0
-  );
+  for (const value of values) {
+    if (
+      typeof value === "string" &&
+      value.trim().length > 0
+    ) {
+      return value.trim();
+    }
+  }
 
-  return value?.trim() || "";
+  return "";
 };
 
 const getId = (strategy) => {
-  const id =
-    strategy?._id ??
-    strategy?.id ??
-    strategy?.planId ??
-    strategy?.strategyId;
+  if (!strategy || typeof strategy !== "object") {
+    return null;
+  }
 
-  return id ? String(id) : null;
+  const id =
+    strategy._id ??
+    strategy.id ??
+    strategy.planId ??
+    strategy.strategyId;
+
+  return id !== null &&
+    id !== undefined &&
+    String(id).trim()
+    ? String(id)
+    : null;
 };
 
 const getNumber = (...values) => {
-  const value = values.find(
-    (item) =>
-      item !== null &&
-      item !== undefined &&
-      item !== ""
-  );
+  for (const value of values) {
+    if (
+      value === null ||
+      value === undefined ||
+      value === ""
+    ) {
+      continue;
+    }
 
-  const number = Number(value);
+    const numericValue = Number(value);
 
-  return Number.isFinite(number)
-    ? number
-    : 0;
+    if (Number.isFinite(numericValue)) {
+      return numericValue;
+    }
+  }
+
+  return 0;
 };
 
-const getPercentage = (...values) => {
-  const value = values.find(
-    (item) =>
-      item !== null &&
-      item !== undefined &&
-      item !== ""
-  );
+const clampPercentage = (value) => {
+  const numericValue = Number(value);
 
-  const percentage = Number(value);
-
-  if (!Number.isFinite(percentage)) {
+  if (!Number.isFinite(numericValue)) {
     return 0;
   }
 
   return Math.min(
     100,
-    Math.max(0, percentage)
+    Math.max(0, numericValue)
   );
+};
+
+const getPercentage = (...values) => {
+  for (const value of values) {
+    if (
+      value === null ||
+      value === undefined ||
+      value === ""
+    ) {
+      continue;
+    }
+
+    const numericValue = Number(value);
+
+    if (Number.isFinite(numericValue)) {
+      return clampPercentage(numericValue);
+    }
+  }
+
+  return 0;
 };
 
 /* =========================================================
@@ -172,34 +197,57 @@ const getPercentage = (...values) => {
 ========================================================= */
 
 const normalizeStatus = (strategy) => {
-  const status = getText(
+  const rawStatus = getText(
     strategy?.status,
     strategy?.state
   ).toLowerCase();
 
-  return STATUS_CONFIG[status]
-    ? status
+  return STATUS_CONFIG[rawStatus]
+    ? rawStatus
     : DEFAULT_STATUS;
 };
 
 const normalizeFrequency = (strategy) => {
-  const frequency = getText(
+  const rawFrequency = getText(
     strategy?.frequency,
     strategy?.schedule?.frequency
   ).toLowerCase();
 
-  return FREQUENCY_LABELS[frequency]
-    ? frequency
+  return FREQUENCY_LABELS[rawFrequency]
+    ? rawFrequency
     : DEFAULT_FREQUENCY;
 };
 
-const normalizeStrategyType = (strategy) => {
-  return getText(
+const normalizeStrategyType = (strategy) =>
+  getText(
     strategy?.strategy,
     strategy?.strategyType,
     strategy?.method,
     strategy?.type
   ).toLowerCase();
+
+/* =========================================================
+   STRATEGY TYPE VALIDATION
+========================================================= */
+
+const isIncomeBasedStrategy = (strategy) => {
+  const strategyType =
+    normalizeStrategyType(strategy);
+
+  /*
+   * If the backend omitted the strategy type,
+   * preserve compatibility with existing records.
+   */
+  if (!strategyType) {
+    return true;
+  }
+
+  return (
+    strategyType === PERCENTAGE_STRATEGY ||
+    strategyType === "percentage" ||
+    strategyType === "income_based" ||
+    strategyType === "income-based"
+  );
 };
 
 /* =========================================================
@@ -218,47 +266,47 @@ const getProgress = (
 
   if (
     explicitProgress !== null &&
-    explicitProgress !== undefined
+    explicitProgress !== undefined &&
+    explicitProgress !== ""
   ) {
-    return getPercentage(
+    return clampPercentage(
       explicitProgress
     );
   }
 
-  if (targetAmount <= 0) {
+  if (
+    !Number.isFinite(targetAmount) ||
+    targetAmount <= 0
+  ) {
     return 0;
   }
 
   try {
-    const calculated =
-      Number(
-        calculateProgressPercentage(
-          currentAmount,
-          targetAmount
-        )
-      );
+    const calculatedProgress = Number(
+      calculateProgressPercentage(
+        currentAmount,
+        targetAmount
+      )
+    );
 
-    if (Number.isFinite(calculated)) {
-      return Math.min(
-        100,
-        Math.max(0, calculated)
+    if (
+      Number.isFinite(calculatedProgress)
+    ) {
+      return clampPercentage(
+        calculatedProgress
       );
     }
   } catch {
-    // Safe mathematical fallback.
+    // Fall through to deterministic calculation.
   }
 
-  return Math.min(
-    100,
-    Math.max(
-      0,
-      (currentAmount / targetAmount) * 100
-    )
+  return clampPercentage(
+    (currentAmount / targetAmount) * 100
   );
 };
 
 /* =========================================================
-   DATE FORMATTER
+   SAFE DATE FORMATTER
 ========================================================= */
 
 const safeFormatDate = (value) => {
@@ -267,19 +315,25 @@ const safeFormatDate = (value) => {
   }
 
   try {
-    const formatted =
-      formatDate(value);
+    const formatted = formatDate(value);
 
-    return formatted || null;
-  } catch {
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-      return null;
+    if (
+      typeof formatted === "string" &&
+      formatted.trim()
+    ) {
+      return formatted;
     }
-
-    return date.toLocaleDateString();
+  } catch {
+    // Fall through to native date formatting.
   }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date.toLocaleDateString();
 };
 
 /* =========================================================
@@ -306,8 +360,17 @@ const IncomeBasedSavingCard = ({
 
   if (
     !strategy ||
-    typeof strategy !== "object"
+    typeof strategy !== "object" ||
+    Array.isArray(strategy)
   ) {
+    return null;
+  }
+
+  /* =======================================================
+     STRATEGY TYPE GUARD
+  ======================================================= */
+
+  if (!isIncomeBasedStrategy(strategy)) {
     return null;
   }
 
@@ -315,36 +378,7 @@ const IncomeBasedSavingCard = ({
      IDENTIFICATION
   ======================================================= */
 
-  const strategyId =
-    getId(strategy);
-
-  /* =======================================================
-     STRATEGY TYPE
-  ======================================================= */
-
-  const strategyType =
-    normalizeStrategyType(
-      strategy
-    );
-
-  /*
-   * Income-based saving is represented by the
-   * percentage strategy in the SmartSave contract.
-   */
-  const isIncomeBased =
-    !strategyType ||
-    strategyType ===
-      INCOME_BASED_STRATEGY ||
-    strategyType ===
-      "percentage" ||
-    strategyType ===
-      "income_based" ||
-    strategyType ===
-      "income-based";
-
-  if (!isIncomeBased) {
-    return null;
-  }
+  const strategyId = getId(strategy);
 
   /* =======================================================
      BASIC INFORMATION
@@ -391,7 +425,7 @@ const IncomeBasedSavingCard = ({
     ) || DEFAULT_CURRENCY;
 
   /* =======================================================
-     FINANCIAL VALUES
+     SAVINGS VALUES
   ======================================================= */
 
   const currentAmount =
@@ -410,10 +444,10 @@ const IncomeBasedSavingCard = ({
       strategy.progress?.target
     );
 
-  /*
-   * Income-based strategies use a percentage as their
-   * primary configuration value.
-   */
+  /* =======================================================
+     SAVINGS PERCENTAGE
+  ======================================================= */
+
   const savingsPercentage =
     getPercentage(
       strategy.percentage,
@@ -425,11 +459,10 @@ const IncomeBasedSavingCard = ({
       strategy.configuration?.percentage
     );
 
-  /*
-   * Optional estimated contribution. This is display
-   * information only and is never calculated into the
-   * backend state.
-   */
+  /* =======================================================
+     ESTIMATED CONTRIBUTION
+  ======================================================= */
+
   const estimatedContribution =
     getNumber(
       strategy.estimatedContribution,
@@ -442,12 +475,14 @@ const IncomeBasedSavingCard = ({
      PROGRESS
   ======================================================= */
 
-  const progress =
-    getProgress(
-      strategy,
-      currentAmount,
-      targetAmount
-    );
+  const progress = getProgress(
+    strategy,
+    currentAmount,
+    targetAmount
+  );
+
+  const roundedProgress =
+    Math.round(progress);
 
   /* =======================================================
      FORMATTED VALUES
@@ -493,12 +528,12 @@ const IncomeBasedSavingCard = ({
   const nextExecution =
     safeFormatDate(
       strategy.nextExecutionAt ??
-      strategy.nextContributionAt ??
-      strategy.schedule?.nextExecutionAt
+        strategy.nextContributionAt ??
+        strategy.schedule?.nextExecutionAt
     );
 
   /* =======================================================
-     LIFECYCLE STATE
+     LIFECYCLE PERMISSIONS
   ======================================================= */
 
   const canActivate =
@@ -509,6 +544,10 @@ const IncomeBasedSavingCard = ({
 
   const canResume =
     status === "paused";
+
+  /* =======================================================
+     ACTION AVAILABILITY
+  ======================================================= */
 
   const hasView =
     typeof onView === "function";
@@ -525,8 +564,17 @@ const IncomeBasedSavingCard = ({
     canResume &&
     typeof onResume === "function";
 
+  const hasActions =
+    showActions &&
+    (
+      hasActivate ||
+      hasPause ||
+      hasResume ||
+      hasView
+    );
+
   /* =======================================================
-     HANDLERS
+     EVENT HANDLERS
   ======================================================= */
 
   const handleView = () => {
@@ -534,10 +582,7 @@ const IncomeBasedSavingCard = ({
       return;
     }
 
-    onView(
-      strategy,
-      strategyId
-    );
+    onView(strategy, strategyId);
   };
 
   const handleActivate = () => {
@@ -545,10 +590,7 @@ const IncomeBasedSavingCard = ({
       return;
     }
 
-    onActivate(
-      strategy,
-      strategyId
-    );
+    onActivate(strategy, strategyId);
   };
 
   const handlePause = () => {
@@ -556,10 +598,7 @@ const IncomeBasedSavingCard = ({
       return;
     }
 
-    onPause(
-      strategy,
-      strategyId
-    );
+    onPause(strategy, strategyId);
   };
 
   const handleResume = () => {
@@ -567,10 +606,7 @@ const IncomeBasedSavingCard = ({
       return;
     }
 
-    onResume(
-      strategy,
-      strategyId
-    );
+    onResume(strategy, strategyId);
   };
 
   /* =======================================================
@@ -659,9 +695,7 @@ const IncomeBasedSavingCard = ({
                   gap-1
                 "
               >
-                <Percent
-                  size={10}
-                />
+                <Percent size={10} />
 
                 Income based
               </span>
@@ -705,9 +739,7 @@ const IncomeBasedSavingCard = ({
             "
             aria-label={`View ${title}`}
           >
-            <ArrowRight
-              size={17}
-            />
+            <ArrowRight size={17} />
           </button>
         )}
       </header>
@@ -731,12 +763,13 @@ const IncomeBasedSavingCard = ({
           INCOME-BASED CONFIGURATION
       =================================================== */}
 
-      <div
+      <section
         className="
           mt-5 p-4
           bg-slate-50
           border border-slate-200 rounded-xl
         "
+        aria-label="Income-based savings configuration"
       >
         <div
           className="
@@ -761,10 +794,9 @@ const IncomeBasedSavingCard = ({
                 shadow-sm
                 shrink-0
               "
+              aria-hidden="true"
             >
-              <Percent
-                size={17}
-              />
+              <Percent size={17} />
             </div>
 
             <div
@@ -817,7 +849,7 @@ const IncomeBasedSavingCard = ({
 
         <div
           className="
-            flex items-center
+            flex items-start
             mt-3
             text-slate-500 text-xs leading-5
             gap-2
@@ -826,9 +858,11 @@ const IncomeBasedSavingCard = ({
           <PiggyBank
             size={14}
             className="
+              mt-0.5
               shrink-0
             "
-            /
+            aria-hidden="true"
+          /
           >
 
           <span>
@@ -836,7 +870,7 @@ const IncomeBasedSavingCard = ({
             the configured savings percentage.
           </span>
         </div>
-      </div>
+      </section>
 
       {/* ===================================================
           ESTIMATED CONTRIBUTION
@@ -863,7 +897,8 @@ const IncomeBasedSavingCard = ({
               className="
                 text-slate-400
               "
-              /
+              aria-hidden="true"
+            /
             >
 
             <span
@@ -916,6 +951,7 @@ const IncomeBasedSavingCard = ({
               mt-1
               font-bold text-slate-900 text-sm truncate
             "
+            title={formattedCurrentAmount}
           >
             {formattedCurrentAmount}
           </p>
@@ -939,7 +975,8 @@ const IncomeBasedSavingCard = ({
               className="
                 text-slate-400
               "
-              /
+              aria-hidden="true"
+            /
             >
 
             <p
@@ -956,6 +993,10 @@ const IncomeBasedSavingCard = ({
               mt-1
               font-bold text-slate-900 text-sm truncate
             "
+            title={
+              formattedTargetAmount ??
+              "No target"
+            }
           >
             {formattedTargetAmount ??
               "No target"}
@@ -967,67 +1008,65 @@ const IncomeBasedSavingCard = ({
           PROGRESS
       =================================================== */}
 
-      {showProgress &&
-        targetAmount > 0 && (
+      {showProgress && targetAmount > 0 && (
+        <section
+          className="
+            mt-5
+          "
+          aria-label="Savings progress"
+        >
           <div
             className="
-              mt-5
+              flex justify-between items-center
+              gap-3
             "
+          >
+            <span
+              className="
+                font-medium text-slate-600 text-xs
+              "
+            >
+              Goal progress
+            </span>
+
+            <span
+              className="
+                font-bold text-slate-900 text-xs
+              "
+            >
+              {roundedProgress}%
+            </span>
+          </div>
+
+          <div
+            className="
+              overflow-hidden
+              h-2
+              mt-2
+              bg-slate-100
+              rounded-full
+            "
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={roundedProgress}
+            aria-label={`${title} progress`}
           >
             <div
               className="
-                flex justify-between items-center
-                gap-3
-              "
-            >
-              <span
-                className="
-                  font-medium text-slate-600 text-xs
-                "
-              >
-                Goal progress
-              </span>
-
-              <span
-                className="
-                  font-bold text-slate-900 text-xs
-                "
-              >
-                {Math.round(progress)}%
-              </span>
-            </div>
-
-            <div
-              className="
-                overflow-hidden
-                h-2
-                mt-2
-                bg-slate-100
+                h-full
+                bg-slate-900
                 rounded-full
+                transition-all duration-500
               "
-              role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={Math.round(
-                progress
-              )}
-              aria-label={`${title} progress`}
+              style={{
+                width: `${progress}%`,
+              }}
+            /
             >
-              <div
-                className="
-                  h-full
-                  bg-slate-900
-                  rounded-full
-                  transition-all duration-500
-                "
-                style={{
-                  width: `${progress}%`,
-                }}
-              /
-              >
-            </div>
           </div>
-        )}
+        </section>
+      )}
 
       {/* ===================================================
           SCHEDULE
@@ -1053,12 +1092,11 @@ const IncomeBasedSavingCard = ({
             className="
               text-slate-400
             "
-            /
+            aria-hidden="true"
+          /
           >
 
-          <span>
-            {frequencyLabel}
-          </span>
+          <span>{frequencyLabel}</span>
         </div>
 
         {nextExecution && (
@@ -1074,7 +1112,8 @@ const IncomeBasedSavingCard = ({
               className="
                 text-slate-400
               "
-              /
+              aria-hidden="true"
+            /
             >
 
             <span>
@@ -1088,99 +1127,51 @@ const IncomeBasedSavingCard = ({
           ACTIONS
       =================================================== */}
 
-      {showActions &&
-        (hasActivate ||
-          hasPause ||
-          hasResume ||
-          hasView) && (
-          <footer
+      {hasActions && (
+        <footer
+          className="
+            flex flex-col sm:flex-row sm:justify-between sm:items-center
+            mt-5 pt-4
+            border-slate-100 border-t
+            gap-2
+          "
+        >
+          <div
             className="
-              flex flex-col sm:flex-row sm:justify-between sm:items-center
-              mt-5 pt-4
-              border-slate-100 border-t
+              flex flex-wrap
               gap-2
             "
           >
-            <div>
-              {hasActivate && (
-                <button
-                  type="button"
-                  onClick={handleActivate}
-                  className="
-                    inline-flex justify-center items-center
-                    min-h-9
-                    px-3.5 py-2
-                    font-semibold text-white text-sm
-                    bg-slate-900 hover:bg-slate-800
-                    rounded-lg focus:outline-none
-                    focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
-                    transition
-                    gap-2
-                  "
-                >
-                  <Play
-                    size={14}
-                    fill="currentColor"
-                  />
-
-                  Activate
-                </button>
-              )}
-
-              {hasPause && (
-                <button
-                  type="button"
-                  onClick={handlePause}
-                  className="
-                    inline-flex justify-center items-center
-                    min-h-9
-                    px-3.5 py-2
-                    font-semibold text-slate-700 text-sm
-                    bg-white hover:bg-slate-50
-                    border border-slate-200 rounded-lg focus:outline-none
-                    focus:ring-2 focus:ring-slate-300
-                    transition
-                    gap-2
-                  "
-                >
-                  <CirclePause
-                    size={14}
-                  />
-
-                  Pause
-                </button>
-              )}
-
-              {hasResume && (
-                <button
-                  type="button"
-                  onClick={handleResume}
-                  className="
-                    inline-flex justify-center items-center
-                    min-h-9
-                    px-3.5 py-2
-                    font-semibold text-white text-sm
-                    bg-slate-900 hover:bg-slate-800
-                    rounded-lg focus:outline-none
-                    focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
-                    transition
-                    gap-2
-                  "
-                >
-                  <Play
-                    size={14}
-                    fill="currentColor"
-                  />
-
-                  Resume
-                </button>
-              )}
-            </div>
-
-            {hasView && (
+            {hasActivate && (
               <button
                 type="button"
-                onClick={handleView}
+                onClick={handleActivate}
+                className="
+                  inline-flex justify-center items-center
+                  min-h-9
+                  px-3.5 py-2
+                  font-semibold text-white text-sm
+                  bg-slate-900 hover:bg-slate-800
+                  rounded-lg focus:outline-none
+                  focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
+                  transition
+                  gap-2
+                "
+              >
+                <Play
+                  size={14}
+                  fill="currentColor"
+                  aria-hidden="true"
+                />
+
+                Activate
+              </button>
+            )}
+
+            {hasPause && (
+              <button
+                type="button"
+                onClick={handlePause}
                 className="
                   inline-flex justify-center items-center
                   min-h-9
@@ -1188,20 +1179,87 @@ const IncomeBasedSavingCard = ({
                   font-semibold text-slate-700 text-sm
                   bg-white hover:bg-slate-50
                   border border-slate-200 rounded-lg focus:outline-none
-                  focus:ring-2 focus:ring-slate-300
+                  focus:ring-2 focus:ring-slate-300 focus:ring-offset-2
                   transition
                   gap-2
                 "
               >
-                View strategy
-
-                <ArrowRight
+                <CirclePause
                   size={14}
+                  aria-hidden="true"
                 />
+
+                Pause
               </button>
             )}
-          </footer>
-        )}
+
+            {hasResume && (
+              <button
+                type="button"
+                onClick={handleResume}
+                className="
+                  inline-flex justify-center items-center
+                  min-h-9
+                  px-3.5 py-2
+                  font-semibold text-white text-sm
+                  bg-slate-900 hover:bg-slate-800
+                  rounded-lg focus:outline-none
+                  focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
+                  transition
+                  gap-2
+                "
+              >
+                <Play
+                  size={14}
+                  fill="currentColor"
+                  aria-hidden="true"
+                />
+
+                Resume
+              </button>
+            )}
+          </div>
+
+          {hasView && (
+            <button
+              type="button"
+              onClick={handleView}
+              className="
+                inline-flex justify-center items-center
+                min-h-9
+                px-3.5 py-2
+                font-semibold text-slate-700 text-sm
+                bg-white hover:bg-slate-50
+                border border-slate-200 rounded-lg focus:outline-none
+                focus:ring-2 focus:ring-slate-300 focus:ring-offset-2
+                transition
+                gap-2
+              "
+            >
+              View strategy
+
+              <ArrowRight
+                size={14}
+                aria-hidden="true"
+              />
+            </button>
+          )}
+        </footer>
+      )}
+
+      {/* ===================================================
+          ACCESSIBILITY
+      =================================================== */}
+
+      {strategyId && (
+        <span
+          className="
+            sr-only
+          "
+        >
+          Strategy ID: {strategyId}
+        </span>
+      )}
     </article>
   );
 };

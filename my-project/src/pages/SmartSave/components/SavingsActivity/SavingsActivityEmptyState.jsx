@@ -10,96 +10,125 @@ import {
 
 import {
   memo,
-  useCallback,
-  useMemo,
+  useId,
 } from "react";
+
+/* =========================================================
+   CONSTANTS
+========================================================= */
+
+const EMPTY_STATE_CONTENT = {
+  default: {
+    eyebrow: "Savings activity",
+    title: "Your savings activity will appear here",
+    description:
+      "Once you start saving, your contributions, scheduled savings, and completed saving activity will be organized here for easy tracking.",
+    primaryLabel: "Start saving",
+  },
+
+  filtered: {
+    eyebrow: "No matching activity",
+    title: "Nothing matches your current filters",
+    description:
+      "We couldn't find savings activity for the filters you've selected. Adjust your filters or clear them to view your full activity history.",
+    primaryLabel: "Clear filters",
+  },
+};
+
+/* =========================================================
+   HINTS
+========================================================= */
+
+const DEFAULT_HINTS = [
+  {
+    id: "completed-activity",
+    icon: CircleDollarSign,
+    text: "Your completed savings activity will appear here.",
+  },
+  {
+    id: "scheduled-activity",
+    icon: CalendarClock,
+    text:
+      "Scheduled and automatic savings can be tracked from your activity history.",
+  },
+];
+
+const FILTERED_HINTS = [
+  {
+    id: "remove-filters",
+    icon: FilterX,
+    text:
+      "Try removing some filters to see more activity.",
+  },
+  {
+    id: "expand-date-range",
+    icon: CalendarClock,
+    text:
+      "You can also expand your activity date range.",
+  },
+];
 
 /* =========================================================
    ICON
 ========================================================= */
 
-const EmptyStateIcon = memo(
-  ({ filtered = false }) => {
-    const Icon = filtered
-      ? FilterX
-      : PiggyBank;
+const EmptyStateIcon = memo(function EmptyStateIcon({
+  filtered = false,
+}) {
+  const Icon = filtered ? FilterX : PiggyBank;
 
-    return (
-      <div
-        aria-hidden="true"
-        className="
-          flex justify-center items-center
-          w-16 h-16
-          text-slate-500
-          bg-slate-50
-          border border-slate-200 rounded-2xl
-          shadow-sm
-          shrink-0
-        "
-      >
-        <Icon
-          size={28}
-          strokeWidth={1.8}
-        />
-      </div>
-    );
-  }
-);
+  return (
+    <div
+      aria-hidden="true"
+      className="
+        flex justify-center items-center
+        w-16 h-16
+        text-slate-500
+        bg-slate-50
+        border border-slate-200 rounded-2xl
+        shadow-sm
+        shrink-0
+      "
+    >
+      <Icon
+        size={28}
+        strokeWidth={1.8}
+      />
+    </div>
+  );
+});
 
-EmptyStateIcon.displayName =
-  "EmptyStateIcon";
+EmptyStateIcon.displayName = "EmptyStateIcon";
 
 /* =========================================================
    SECONDARY INFORMATION
 ========================================================= */
 
 const ActivityEmptyStateHints = memo(
-  ({ filtered }) => {
-    const hints = useMemo(
-      () =>
-        filtered
-          ? [
-              {
-                icon: FilterX,
-                text:
-                  "Try removing some filters to see more activity.",
-              },
-              {
-                icon: CalendarClock,
-                text:
-                  "You can also expand your activity date range.",
-              },
-            ]
-          : [
-              {
-                icon: CircleDollarSign,
-                text:
-                  "Your completed savings activity will appear here.",
-              },
-              {
-                icon: CalendarClock,
-                text:
-                  "Scheduled and automatic savings can be tracked from your activity history.",
-              },
-            ],
-      [filtered]
-    );
+  function ActivityEmptyStateHints({
+    filtered = false,
+  }) {
+    const hints = filtered
+      ? FILTERED_HINTS
+      : DEFAULT_HINTS;
 
     return (
       <div
         className="
           grid sm:grid-cols-2
+          w-full
           mt-6
           gap-3
         "
       >
         {hints.map(
           ({
+            id,
             icon: Icon,
             text,
           }) => (
             <div
-              key={text}
+              key={id}
               className="
                 flex items-start
                 px-4 py-3
@@ -112,6 +141,7 @@ const ActivityEmptyStateHints = memo(
               <Icon
                 aria-hidden="true"
                 size={18}
+                strokeWidth={1.8}
                 className="
                   mt-0.5
                   text-slate-400
@@ -145,10 +175,7 @@ ActivityEmptyStateHints.displayName =
 /**
  * SavingsActivityEmptyState
  *
- * Presentational empty state for SmartSave activity.
- *
- * IMPORTANT:
- * This component intentionally does not fetch data.
+ * Purely presentational empty state for SmartSave activity.
  *
  * Data ownership:
  *
@@ -156,27 +183,34 @@ ActivityEmptyStateHints.displayName =
  *      ↓
  * useSavingsActivity
  *      ↓
+ * SavingsActivityPage
+ *      ↓
  * SavingsActivityEmptyState
  *
- * Props:
+ * This component:
+ * - Does not fetch data.
+ * - Does not own activity state.
+ * - Does not perform navigation.
+ * - Does not contain financial business logic.
  *
- * @param {boolean} filtered
+ * @param {Object} props
+ * @param {boolean} [props.filtered=false]
  *   Whether the empty state is caused by active filters.
  *
- * @param {Function} onCreateSaving
- *   Called when the user wants to start saving.
+ * @param {Function} [props.onCreateSaving]
+ *   Called when the user chooses to start saving.
  *
- * @param {Function} onClearFilters
- *   Called when active filters should be removed.
+ * @param {Function} [props.onClearFilters]
+ *   Called when the user chooses to clear active filters.
  *
- * @param {Function} onRefresh
- *   Optional activity refresh callback.
+ * @param {Function} [props.onRefresh]
+ *   Optional callback used to refresh activity.
  *
- * @param {boolean} refreshing
+ * @param {boolean} [props.refreshing=false]
  *   Whether activity is currently refreshing.
  *
- * @param {boolean} disabled
- *   Disables interactive actions.
+ * @param {boolean} [props.disabled=false]
+ *   Disables all interactive actions.
  */
 const SavingsActivityEmptyState = ({
   filtered = false,
@@ -187,71 +221,62 @@ const SavingsActivityEmptyState = ({
   disabled = false,
 }) => {
   /* =======================================================
-     CALLBACKS
+     ACCESSIBILITY
   ======================================================= */
 
-  const handlePrimaryAction =
-    useCallback(() => {
-      if (disabled) {
-        return;
-      }
-
-      if (filtered) {
-        onClearFilters?.();
-        return;
-      }
-
-      onCreateSaving?.();
-    }, [
-      disabled,
-      filtered,
-      onClearFilters,
-      onCreateSaving,
-    ]);
-
-  const handleRefresh =
-    useCallback(() => {
-      if (
-        disabled ||
-        refreshing
-      ) {
-        return;
-      }
-
-      onRefresh?.();
-    }, [
-      disabled,
-      onRefresh,
-      refreshing,
-    ]);
+  const titleId = useId();
+  const descriptionId = `${titleId}-description`;
 
   /* =======================================================
-     CONTENT
+     DERIVED STATE
   ======================================================= */
 
-  const content = useMemo(() => {
-    if (filtered) {
-      return {
-        eyebrow: "No matching activity",
-        title:
-          "Nothing matches your current filters",
-        description:
-          "We couldn't find savings activity for the filters you've selected. Adjust your filters or clear them to view your full activity history.",
-        primaryLabel:
-          "Clear filters",
-      };
+  const content = filtered
+    ? EMPTY_STATE_CONTENT.filtered
+    : EMPTY_STATE_CONTENT.default;
+
+  const hasPrimaryAction = filtered
+    ? typeof onClearFilters === "function"
+    : typeof onCreateSaving === "function";
+
+  const canRefresh =
+    typeof onRefresh === "function";
+
+  const primaryActionDisabled =
+    disabled ||
+    !hasPrimaryAction;
+
+  const refreshDisabled =
+    disabled ||
+    refreshing;
+
+  /* =======================================================
+     HANDLERS
+  ======================================================= */
+
+  const handlePrimaryAction = () => {
+    if (primaryActionDisabled) {
+      return;
     }
 
-    return {
-      eyebrow: "Savings activity",
-      title:
-        "Your savings activity will appear here",
-      description:
-        "Once you start saving, your contributions, scheduled savings, and completed saving activity will be organized here for easy tracking.",
-      primaryLabel:
-        "Start saving",
-    };
-  }, [filtered]);
+    if (filtered) {
+      onClearFilters();
+      return;
+    }
+
+    onCreateSaving();
+  };
+
+  const handleRefresh = () => {
+    if (
+      refreshDisabled ||
+      !canRefresh
+    ) {
+      return;
+    }
+
+    onRefresh();
+  };
 
   /* =======================================================
      RENDER
@@ -259,7 +284,9 @@ const SavingsActivityEmptyState = ({
 
   return (
     <section
-      aria-labelledby="savings-activity-empty-title"
+      aria-labelledby={titleId}
+      aria-describedby={descriptionId}
+      aria-busy={refreshing}
       className="
         w-full
         px-5 sm:px-8 py-8 sm:py-10
@@ -276,9 +303,17 @@ const SavingsActivityEmptyState = ({
           text-center
         "
       >
+        {/* =================================================
+            ICON
+        ================================================= */}
+
         <EmptyStateIcon
           filtered={filtered}
         />
+
+        {/* =================================================
+            EYEBROW
+        ================================================= */}
 
         <span
           className="
@@ -289,8 +324,12 @@ const SavingsActivityEmptyState = ({
           {content.eyebrow}
         </span>
 
+        {/* =================================================
+            TITLE
+        ================================================= */}
+
         <h2
-          id="savings-activity-empty-title"
+          id={titleId}
           className="
             mt-2
             font-bold text-slate-900 text-xl sm:text-2xl tracking-tight
@@ -299,7 +338,12 @@ const SavingsActivityEmptyState = ({
           {content.title}
         </h2>
 
+        {/* =================================================
+            DESCRIPTION
+        ================================================= */}
+
         <p
+          id={descriptionId}
           className="
             max-w-xl
             mt-3
@@ -322,15 +366,14 @@ const SavingsActivityEmptyState = ({
             gap-3
           "
         >
+          {/* ===============================================
+              PRIMARY ACTION
+          =============================================== */}
+
           <button
             type="button"
             onClick={handlePrimaryAction}
-            disabled={
-              disabled ||
-              (filtered
-                ? !onClearFilters
-                : !onCreateSaving)
-            }
+            disabled={primaryActionDisabled}
             className="
               inline-flex justify-center items-center
               min-h-11
@@ -348,72 +391,101 @@ const SavingsActivityEmptyState = ({
               <RotateCcw
                 aria-hidden="true"
                 size={17}
+                strokeWidth={2}
               />
             ) : (
               <Plus
                 aria-hidden="true"
                 size={17}
+                strokeWidth={2}
               />
             )}
 
-            {content.primaryLabel}
+            <span>
+              {content.primaryLabel}
+            </span>
 
             <ArrowRight
               aria-hidden="true"
               size={16}
+              strokeWidth={2}
             />
           </button>
 
-          {!filtered &&
-            onRefresh && (
-              <button
-                type="button"
-                onClick={handleRefresh}
-                disabled={
-                  disabled ||
-                  refreshing
-                }
-                className="
-                  inline-flex justify-center items-center
-                  min-h-11
-                  px-5 py-2.5
-                  font-semibold text-slate-700 text-sm
-                  bg-white hover:bg-slate-50
-                  border border-slate-200 hover:border-slate-300 rounded-xl
-                  focus:outline-none
-                  disabled:opacity-50 transition
-                  disabled:cursor-not-allowed
-                  gap-2
-                  focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2
-                "
-                aria-busy={refreshing}
-              >
-                <RotateCcw
-                  aria-hidden="true"
-                  size={17}
-                  className={
-                    refreshing
-                      ? "animate-spin"
-                      : undefined
-                  }
-                />
+          {/* ===============================================
+              REFRESH ACTION
+          =============================================== */}
 
+          {!filtered && canRefresh && (
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={refreshDisabled}
+              aria-busy={refreshing}
+              className="
+                inline-flex justify-center items-center
+                min-h-11
+                px-5 py-2.5
+                font-semibold text-slate-700 text-sm
+                bg-white hover:bg-slate-50
+                border border-slate-200 hover:border-slate-300 rounded-xl
+                focus:outline-none
+                disabled:opacity-50 transition
+                disabled:cursor-not-allowed
+                gap-2
+                focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2
+              "
+            >
+              <RotateCcw
+                aria-hidden="true"
+                size={17}
+                strokeWidth={2}
+                className={
+                  refreshing
+                    ? "animate-spin"
+                    : undefined
+                }
+              />
+
+              <span>
                 {refreshing
                   ? "Refreshing..."
                   : "Refresh"}
-              </button>
-            )}
+              </span>
+            </button>
+          )}
         </div>
+
+        {/* =================================================
+            HINTS
+        ================================================= */}
 
         <ActivityEmptyStateHints
           filtered={filtered}
         />
+
+        {/* =================================================
+            SCREEN READER STATUS
+        ================================================= */}
+
+        {refreshing && (
+          <span
+            role="status"
+            aria-live="polite"
+            className="
+              sr-only
+            "
+          >
+            Refreshing savings activity.
+          </span>
+        )}
       </div>
     </section>
   );
 };
 
-SavingsActivityEmptyState.displayName ="SavingsActivityEmptyState";
+SavingsActivityEmptyState.displayName =
+  "SavingsActivityEmptyState";
 
 export default memo(
   SavingsActivityEmptyState

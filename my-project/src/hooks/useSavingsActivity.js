@@ -17,31 +17,31 @@ import smartSaveService from "../services/smartSaveService";
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
 
-const DEFAULT_PAGINATION = {
+const DEFAULT_PAGINATION = Object.freeze({
   page: DEFAULT_PAGE,
   limit: DEFAULT_LIMIT,
   total: 0,
   totalPages: 0,
   hasNextPage: false,
   hasPreviousPage: false,
-};
+});
 
-const DEFAULT_STATE = {
-  items: [],
-  pagination: DEFAULT_PAGINATION,
-};
-
-const DEFAULT_FILTERS = {
+const DEFAULT_FILTERS = Object.freeze({
   savingGoalId: "",
   savingScheduleId: "",
   status: "",
   page: DEFAULT_PAGE,
   limit: DEFAULT_LIMIT,
-};
+});
 
 /* =========================================================
-   NORMALIZATION HELPERS
+   SAFE HELPERS
 ========================================================= */
+
+const isPlainObject = (value) =>
+  value !== null &&
+  typeof value === "object" &&
+  !Array.isArray(value);
 
 const normalizePositiveInteger = (
   value,
@@ -49,11 +49,9 @@ const normalizePositiveInteger = (
 ) => {
   const number = Number(value);
 
-  if (!Number.isInteger(number) || number <= 0) {
-    return fallback;
-  }
-
-  return number;
+  return Number.isInteger(number) && number > 0
+    ? number
+    : fallback;
 };
 
 const normalizeNonNegativeInteger = (
@@ -62,11 +60,9 @@ const normalizeNonNegativeInteger = (
 ) => {
   const number = Number(value);
 
-  if (!Number.isInteger(number) || number < 0) {
-    return fallback;
-  }
-
-  return number;
+  return Number.isInteger(number) && number >= 0
+    ? number
+    : fallback;
 };
 
 /* =========================================================
@@ -104,21 +100,22 @@ const normalizeFilters = (filters = {}) => ({
    FILTER EQUALITY
 ========================================================= */
 
-const areFiltersEqual = (first, second) => {
-  if (first === second) {
+const areFiltersEqual = (a, b) => {
+  if (a === b) {
     return true;
   }
 
-  if (!first || !second) {
+  if (!a || !b) {
     return false;
   }
 
   return (
-    first.savingGoalId === second.savingGoalId &&
-    first.savingScheduleId === second.savingScheduleId &&
-    first.status === second.status &&
-    first.page === second.page &&
-    first.limit === second.limit
+    a.savingGoalId === b.savingGoalId &&
+    a.savingScheduleId ===
+      b.savingScheduleId &&
+    a.status === b.status &&
+    a.page === b.page &&
+    a.limit === b.limit
   );
 };
 
@@ -127,72 +124,35 @@ const areFiltersEqual = (first, second) => {
 ========================================================= */
 
 const createRequestKey = (filters) =>
-  [
+  JSON.stringify([
     filters.savingGoalId,
     filters.savingScheduleId,
     filters.status,
     filters.page,
     filters.limit,
-  ].join("|");
+  ]);
 
 /* =========================================================
-   RESPONSE DATA EXTRACTION
+   RESPONSE NORMALIZATION
 ========================================================= */
 
-/**
- * SmartSave can potentially return any of these shapes:
- *
- * []
- *
- * { data: [] }
- *
- * { items: [] }
- *
- * { executions: [] }
- *
- * { data: { items: [] } }
- *
- * { data: { executions: [] } }
- *
- * { data: { data: { items: [] } } }
- *
- * { data: { data: { executions: [] } } }
- */
 const normalizeItems = (response) => {
-  if (Array.isArray(response)) {
-    return response;
-  }
+  const candidates = [
+    response,
+    response?.items,
+    response?.executions,
+    response?.data,
+    response?.data?.items,
+    response?.data?.executions,
+    response?.data?.data,
+    response?.data?.data?.items,
+    response?.data?.data?.executions,
+  ];
 
-  if (Array.isArray(response?.items)) {
-    return response.items;
-  }
-
-  if (Array.isArray(response?.executions)) {
-    return response.executions;
-  }
-
-  if (Array.isArray(response?.data)) {
-    return response.data;
-  }
-
-  if (Array.isArray(response?.data?.items)) {
-    return response.data.items;
-  }
-
-  if (Array.isArray(response?.data?.executions)) {
-    return response.data.executions;
-  }
-
-  if (Array.isArray(response?.data?.data)) {
-    return response.data.data;
-  }
-
-  if (Array.isArray(response?.data?.data?.items)) {
-    return response.data.data.items;
-  }
-
-  if (Array.isArray(response?.data?.data?.executions)) {
-    return response.data.data.executions;
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      return candidate;
+    }
   }
 
   return [];
@@ -203,16 +163,19 @@ const normalizeItems = (response) => {
 ========================================================= */
 
 const getPaginationSource = (response) => {
+  const candidates = [
+    response?.pagination,
+    response?.data?.pagination,
+    response?.data?.data?.pagination,
+    response?.meta?.pagination,
+    response?.data?.meta?.pagination,
+    response?.meta,
+    response?.data?.meta,
+    response?.data?.data?.meta,
+  ];
+
   return (
-    response?.pagination ||
-    response?.data?.pagination ||
-    response?.data?.data?.pagination ||
-    response?.meta?.pagination ||
-    response?.data?.meta?.pagination ||
-    response?.meta ||
-    response?.data?.meta ||
-    response?.data?.data?.meta ||
-    {}
+    candidates.find(isPlainObject) || {}
   );
 };
 
@@ -224,32 +187,37 @@ const normalizePagination = (
   response,
   filters
 ) => {
-  const source = getPaginationSource(response);
+  const source =
+    getPaginationSource(response);
 
-  const page = normalizePositiveInteger(
-    source.page,
-    filters.page
-  );
+  const page =
+    normalizePositiveInteger(
+      source.page,
+      filters.page
+    );
 
-  const limit = normalizePositiveInteger(
-    source.limit,
-    filters.limit
-  );
+  const limit =
+    normalizePositiveInteger(
+      source.limit,
+      filters.limit
+    );
 
-  const total = normalizeNonNegativeInteger(
-    source.total,
-    0
-  );
+  const total =
+    normalizeNonNegativeInteger(
+      source.total,
+      0
+    );
 
   const calculatedTotalPages =
     limit > 0
       ? Math.ceil(total / limit)
       : 0;
 
-  const totalPages = normalizeNonNegativeInteger(
-    source.totalPages,
-    calculatedTotalPages
-  );
+  const totalPages =
+    normalizeNonNegativeInteger(
+      source.totalPages,
+      calculatedTotalPages
+    );
 
   return {
     page,
@@ -258,12 +226,14 @@ const normalizePagination = (
     totalPages,
 
     hasNextPage:
-      typeof source.hasNextPage === "boolean"
+      typeof source.hasNextPage ===
+      "boolean"
         ? source.hasNextPage
         : page < totalPages,
 
     hasPreviousPage:
-      typeof source.hasPreviousPage === "boolean"
+      typeof source.hasPreviousPage ===
+      "boolean"
         ? source.hasPreviousPage
         : page > 1,
   };
@@ -284,6 +254,9 @@ const normalizeError = (error) => {
     message:
       normalized?.message ||
       normalized?.response?.data?.message ||
+      normalized?.response?.data?.error?.message ||
+      normalized?.response?.data?.error ||
+      normalized?.message ||
       "Unable to load savings activity.",
 
     code:
@@ -306,58 +279,76 @@ const normalizeError = (error) => {
 };
 
 /* =========================================================
+   ABORT DETECTION
+========================================================= */
+
+const isAbortError = (error) => {
+  return (
+    error?.name === "AbortError" ||
+    error?.code === "ERR_CANCELED" ||
+    error?.code === "ECONNABORTED" ||
+    error?.message === "canceled" ||
+    error?.message === "aborted"
+  );
+};
+
+/* =========================================================
    HOOK
 ========================================================= */
 
-const useSavingsActivity = (initialFilters = {}) => {
+const useSavingsActivity = (
+  initialFilters = {}
+) => {
   /* =======================================================
-     INITIAL FILTER STATE
+     FILTER STATE
   ======================================================= */
 
-  const [filters, setFiltersState] = useState(() =>
-    normalizeFilters(initialFilters)
-  );
+  const [filters, setFiltersState] =
+    useState(() =>
+      normalizeFilters(initialFilters)
+    );
 
   /* =======================================================
      DATA STATE
   ======================================================= */
 
-  const [state, setState] = useState(() => ({
-    items: [],
-    pagination: {
+  const [items, setItems] = useState([]);
+
+  const [pagination, setPagination] =
+    useState(() => ({
       ...DEFAULT_PAGINATION,
-    },
-  }));
+    }));
 
   /* =======================================================
      REQUEST STATE
   ======================================================= */
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] =
+    useState(false);
 
-  const [refreshing, setRefreshing] = useState(false);
+  const [refreshing, setRefreshing] =
+    useState(false);
 
-  const [error, setError] = useState(null);
+  const [error, setError] =
+    useState(null);
 
   /* =======================================================
-     LIFECYCLE / REQUEST REFS
+     LIFECYCLE
   ======================================================= */
 
-  /**
-   * This is intentionally the only mutable ref used by
-   * the hook for request coordination.
-   *
-   * It is NEVER accessed or mutated during render.
-   */
   const mountedRef = useRef(false);
 
-  /**
-   * Every request gets a monotonically increasing ID.
-   *
-   * This prevents stale requests from overwriting newer
-   * request results.
-   */
   const requestIdRef = useRef(0);
+
+  const abortControllerRef =
+    useRef(null);
+
+  /*
+   * Stores the most recently completed
+   * request key.
+   */
+  const completedRequestKeyRef =
+    useRef(null);
 
   /* =======================================================
      MOUNT / UNMOUNT
@@ -369,18 +360,240 @@ const useSavingsActivity = (initialFilters = {}) => {
     return () => {
       mountedRef.current = false;
 
-      /*
-       * Invalidate every outstanding request.
-       */
       requestIdRef.current += 1;
+
+      abortControllerRef.current?.abort();
+
+      abortControllerRef.current = null;
     };
   }, []);
 
   /* =======================================================
-     REQUEST KEY
+     STABLE REQUEST KEY
   ======================================================= */
 
-  const requestKey = createRequestKey(filters);
+  const requestKey = useMemo(
+    () => createRequestKey(filters),
+    [filters]
+  );
+
+  /* =======================================================
+     REQUEST
+  ======================================================= */
+
+  const executeRequest = useCallback(
+    async (
+      requestFilters,
+      {
+        silent = false,
+        force = false,
+      } = {}
+    ) => {
+      if (!mountedRef.current) {
+        return null;
+      }
+
+      const normalizedFilters =
+        normalizeFilters(requestFilters);
+
+      const currentRequestKey =
+        createRequestKey(
+          normalizedFilters
+        );
+
+      /*
+       * Prevent accidental duplicate requests.
+       */
+      if (
+        !force &&
+        completedRequestKeyRef.current ===
+          currentRequestKey
+      ) {
+        return {
+          items,
+          pagination,
+          raw: null,
+          cached: true,
+        };
+      }
+
+      /*
+       * Cancel the previous request.
+       */
+      abortControllerRef.current?.abort();
+
+      const controller =
+        new AbortController();
+
+      abortControllerRef.current =
+        controller;
+
+      const requestId =
+        ++requestIdRef.current;
+
+      if (silent) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+
+      setError(null);
+
+      try {
+        /*
+         * Important:
+         *
+         * Your service should accept `signal`
+         * if it uses Axios/fetch.
+         *
+         * If smartSaveService currently only
+         * accepts filters, remove `signal`
+         * from this call and keep the request
+         * ID protection.
+         */
+        const response =
+          await smartSaveService.getSavingExecutions(
+            normalizedFilters,
+            {
+              signal:
+                controller.signal,
+            }
+          );
+
+        /*
+         * Ignore stale responses.
+         */
+        if (
+          !mountedRef.current ||
+          controller.signal.aborted ||
+          requestId !==
+            requestIdRef.current
+        ) {
+          return null;
+        }
+
+        const nextItems =
+          normalizeItems(response);
+
+        const nextPagination =
+          normalizePagination(
+            response,
+            normalizedFilters
+          );
+
+        /*
+         * Update data only after the
+         * request has been verified current.
+         */
+        setItems(nextItems);
+
+        setPagination(nextPagination);
+
+        completedRequestKeyRef.current =
+          currentRequestKey;
+
+        return {
+          items: nextItems,
+          pagination: nextPagination,
+          raw: response,
+          cached: false,
+        };
+      } catch (requestError) {
+        /*
+         * Cancellation is expected during
+         * rapid filter changes/unmounting.
+         */
+        if (
+          isAbortError(requestError) ||
+          controller.signal.aborted
+        ) {
+          return null;
+        }
+
+        if (
+          !mountedRef.current ||
+          requestId !==
+            requestIdRef.current
+        ) {
+          return null;
+        }
+
+        const normalized =
+          normalizeError(requestError);
+
+        setError(normalized);
+
+        throw normalized;
+      } finally {
+        if (
+          mountedRef.current &&
+          requestId ===
+            requestIdRef.current
+        ) {
+          setLoading(false);
+          setRefreshing(false);
+        }
+      }
+    },
+    [items, pagination]
+  );
+
+  /* =======================================================
+     AUTOMATIC FETCH
+  ======================================================= */
+
+  useEffect(() => {
+    if (!mountedRef.current) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        if (cancelled) {
+          return;
+        }
+
+        await executeRequest(filters);
+      } catch {
+        /*
+         * Error already stored by the hook.
+         */
+      }
+    };
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    requestKey,
+    executeRequest,
+    filters,
+  ]);
+
+  /* =======================================================
+     REFRESH
+  ======================================================= */
+
+  const refresh = useCallback(
+    async () => {
+      try {
+        return await executeRequest(
+          filters,
+          {
+            silent: true,
+            force: true,
+          }
+        );
+      } catch {
+        return null;
+      }
+    },
+    [executeRequest, filters]
+  );
 
   /* =======================================================
      FETCH ACTIVITY
@@ -391,175 +604,18 @@ const useSavingsActivity = (initialFilters = {}) => {
       overrideFilters = {},
       options = {}
     ) => {
-      const {
-        silent = false,
-      } = options;
-
-      /*
-       * Never start a request after unmount.
-       */
-      if (!mountedRef.current) {
-        return null;
-      }
-
-      /*
-       * Build the request from the latest state captured
-       * by this callback plus any explicit overrides.
-       */
-      const mergedFilters = normalizeFilters({
-        ...filters,
-        ...overrideFilters,
-      });
-
-      /*
-       * Generate a unique request ID.
-       */
-      const requestId =
-        ++requestIdRef.current;
-
-      /*
-       * Clear the previous error before starting a new
-       * request.
-       */
-      setError(null);
-
-      /*
-       * `silent` means an explicit refresh.
-       *
-       * Otherwise this is a normal data load.
-       */
-      if (silent) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
-      }
-
-      try {
-        const response =
-          await smartSaveService.getSavingExecutions(
-            mergedFilters
-          );
-
-        /*
-         * Ignore the response if:
-         *
-         * 1. The component has unmounted.
-         * 2. A newer request has started.
-         */
-        if (
-          !mountedRef.current ||
-          requestId !== requestIdRef.current
-        ) {
-          return null;
-        }
-
-        const items =
-          normalizeItems(response);
-
-        const pagination =
-          normalizePagination(
-            response,
-            mergedFilters
-          );
-
-        setState({
-          items,
-          pagination,
+      const merged =
+        normalizeFilters({
+          ...filters,
+          ...overrideFilters,
         });
 
-        return {
-          items,
-          pagination,
-          raw: response,
-        };
-      } catch (requestError) {
-        /*
-         * Ignore stale request errors.
-         */
-        if (
-          !mountedRef.current ||
-          requestId !== requestIdRef.current
-        ) {
-          return null;
-        }
-
-        const normalized =
-          normalizeError(requestError);
-
-        setError(normalized);
-
-        /*
-         * Keep the public behavior predictable:
-         * callers can catch a normalized error.
-         */
-        throw normalized;
-      } finally {
-        /*
-         * Only the current request can change the
-         * request-state flags.
-         */
-        if (
-          mountedRef.current &&
-          requestId === requestIdRef.current
-        ) {
-          setLoading(false);
-          setRefreshing(false);
-        }
-      }
+      return executeRequest(
+        merged,
+        options
+      );
     },
-    [filters]
-  );
-
-  /* =======================================================
-     AUTOMATIC FETCH
-  ======================================================= */
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadActivity = async () => {
-      if (
-        cancelled ||
-        !mountedRef.current
-      ) {
-        return;
-      }
-
-      try {
-        await fetchActivity();
-      } catch {
-        /*
-         * fetchActivity already stores the normalized
-         * error in hook state.
-         */
-      }
-    };
-
-    loadActivity();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [requestKey, fetchActivity]);
-
-  /* =======================================================
-     REFRESH
-  ======================================================= */
-
-  const refresh = useCallback(
-    async () => {
-      try {
-        return await fetchActivity(
-          {},
-          {
-            silent: true,
-          }
-        );
-      } catch {
-        return null;
-      }
-    },
-    [fetchActivity]
+    [filters, executeRequest]
   );
 
   /* =======================================================
@@ -577,38 +633,35 @@ const useSavingsActivity = (initialFilters = {}) => {
                 ...nextFilters,
               };
 
-        const next = normalizeFilters({
-          ...candidate,
+        const next =
+          normalizeFilters({
+            ...candidate,
 
-          /*
-           * Any actual filter change returns the user to
-           * the first page.
-           */
-          page: DEFAULT_PAGE,
-        });
+            /*
+             * Filter changes always reset
+             * pagination.
+             */
+            page: DEFAULT_PAGE,
+          });
 
-        if (
-          areFiltersEqual(
-            previous,
-            next
-          )
-        ) {
-          return previous;
-        }
-
-        return next;
+        return areFiltersEqual(
+          previous,
+          next
+        )
+          ? previous
+          : next;
       });
     },
     []
   );
 
   /* =======================================================
-     GO TO PAGE
+     PAGE NAVIGATION
   ======================================================= */
 
   const goToPage = useCallback(
     (page) => {
-      const normalizedPage =
+      const nextPage =
         normalizePositiveInteger(
           page,
           DEFAULT_PAGE
@@ -616,100 +669,89 @@ const useSavingsActivity = (initialFilters = {}) => {
 
       setFiltersState((previous) => {
         if (
-          previous.page ===
-          normalizedPage
+          previous.page === nextPage
         ) {
           return previous;
         }
 
-        return normalizeFilters({
+        return {
           ...previous,
-          page: normalizedPage,
-        });
+          page: nextPage,
+        };
       });
     },
     []
   );
 
-  /* =======================================================
-     NEXT PAGE
-  ======================================================= */
-
   const nextPage = useCallback(() => {
     setFiltersState((previous) => {
-      const pagination =
-        state.pagination;
+      /*
+       * Pagination is intentionally read
+       * from the current state inside the
+       * callback instead of being captured
+       * in the callback dependency array.
+       */
+      const canGoNext =
+        pagination.hasNextPage;
 
-      if (
-        !pagination.hasNextPage
-      ) {
+      if (!canGoNext) {
         return previous;
       }
 
-      return normalizeFilters({
+      return {
         ...previous,
         page: previous.page + 1,
-      });
+      };
     });
-  }, [state.pagination]);
-
-  /* =======================================================
-     PREVIOUS PAGE
-  ======================================================= */
+  }, [pagination.hasNextPage]);
 
   const previousPage = useCallback(() => {
     setFiltersState((previous) => {
-      const pagination =
-        state.pagination;
+      const canGoPrevious =
+        pagination.hasPreviousPage;
 
       if (
-        !pagination.hasPreviousPage ||
+        !canGoPrevious ||
         previous.page <= 1
       ) {
         return previous;
       }
 
-      return normalizeFilters({
+      return {
         ...previous,
         page: previous.page - 1,
-      });
+      };
     });
-  }, [state.pagination]);
+  }, [pagination.hasPreviousPage]);
 
   /* =======================================================
-     GOAL FILTER
+     FILTER HELPERS
   ======================================================= */
 
   const setGoalFilter = useCallback(
     (savingGoalId) => {
       setFiltersState((previous) => {
-        const next = normalizeFilters({
-          ...previous,
-          savingGoalId:
-            typeof savingGoalId === "string"
-              ? savingGoalId
-              : "",
-          page: DEFAULT_PAGE,
-        });
+        const next =
+          normalizeFilters({
+            ...previous,
+            savingGoalId:
+              typeof savingGoalId ===
+              "string"
+                ? savingGoalId.trim()
+                : "",
+            page: DEFAULT_PAGE,
+          });
 
-        if (
-          areFiltersEqual(
-            previous,
-            next
-          )
-        ) {
-          return previous;
-        }
-
-        return next;
+        return areFiltersEqual(
+          previous,
+          next
+        )
+          ? previous
+          : next;
       });
     },
     []
   );
-
-  /* =======================================================
-     SCHEDULE FILTER
-  ======================================================= */
 
   const setScheduleFilter =
     useCallback(
@@ -721,88 +763,68 @@ const useSavingsActivity = (initialFilters = {}) => {
               savingScheduleId:
                 typeof savingScheduleId ===
                 "string"
-                  ? savingScheduleId
+                  ? savingScheduleId.trim()
                   : "",
               page: DEFAULT_PAGE,
             });
 
-          if (
-            areFiltersEqual(
-              previous,
-              next
-            )
-          ) {
-            return previous;
-          }
-
-          return next;
+          return areFiltersEqual(
+            previous,
+            next
+          )
+            ? previous
+            : next;
         });
       },
       []
     );
 
-  /* =======================================================
-     STATUS FILTER
-  ======================================================= */
-
   const setStatusFilter = useCallback(
     (status) => {
       setFiltersState((previous) => {
-        const next = normalizeFilters({
-          ...previous,
-          status:
-            typeof status === "string"
-              ? status
-              : "",
-          page: DEFAULT_PAGE,
-        });
+        const next =
+          normalizeFilters({
+            ...previous,
+            status:
+              typeof status === "string"
+                ? status.trim()
+                : "",
+            page: DEFAULT_PAGE,
+          });
 
-        if (
-          areFiltersEqual(
-            previous,
-            next
-          )
-        ) {
-          return previous;
-        }
+        return areFiltersEqual(
+          previous,
+          next
+        )
+          ? previous
+          : next;
+      });
+    },
+    []
+  );
 
-        return next;
+  const clearFilters = useCallback(
+    () => {
+      setFiltersState((previous) => {
+        const next =
+          normalizeFilters(
+            DEFAULT_FILTERS
+          );
+
+        return areFiltersEqual(
+          previous,
+          next
+        )
+          ? previous
+          : next;
       });
     },
     []
   );
 
   /* =======================================================
-     CLEAR FILTERS
+     DERIVED STATE
   ======================================================= */
-
-  const clearFilters = useCallback(() => {
-    setFiltersState((previous) => {
-      const next = normalizeFilters(
-        DEFAULT_FILTERS
-      );
-
-      if (
-        areFiltersEqual(
-          previous,
-          next
-        )
-      ) {
-        return previous;
-      }
-
-      return next;
-    });
-  }, []);
-
-  /* =======================================================
-     DERIVED DATA
-  ======================================================= */
-
-  const activities = state.items;
-
-  const pagination =
-    state.pagination;
 
   const total = pagination.total;
 
@@ -819,12 +841,12 @@ const useSavingsActivity = (initialFilters = {}) => {
     pagination.hasPreviousPage;
 
   const hasActivity =
-    activities.length > 0;
+    items.length > 0;
 
   const isEmpty =
     !loading &&
     !refreshing &&
-    activities.length === 0;
+    items.length === 0;
 
   /* =======================================================
      PUBLIC API
@@ -832,90 +854,50 @@ const useSavingsActivity = (initialFilters = {}) => {
 
   return useMemo(
     () => ({
-      /* -----------------------------
-         DATA
-      ----------------------------- */
+      /* DATA */
+      activities: items,
+      items,
 
-      activities,
-
-      items: activities,
-
-      /* -----------------------------
-         PAGINATION
-      ----------------------------- */
-
+      /* PAGINATION */
       pagination,
-
       total,
-
       currentPage,
-
       totalPages,
-
       hasNextPage,
-
       hasPreviousPage,
 
-      /* -----------------------------
-         FILTERS
-      ----------------------------- */
-
+      /* FILTERS */
       filters,
-
       setFilters,
-
       setGoalFilter,
-
       setScheduleFilter,
-
       setStatusFilter,
-
       clearFilters,
 
-      /* -----------------------------
-         NAVIGATION
-      ----------------------------- */
-
+      /* NAVIGATION */
       goToPage,
-
       nextPage,
-
       previousPage,
 
-      /* -----------------------------
-         REQUEST STATE
-      ----------------------------- */
-
+      /* REQUEST */
       loading,
-
       refreshing,
-
       isLoading: loading,
-
       isRefreshing: refreshing,
 
       error,
-
       hasError: Boolean(error),
 
-      /* -----------------------------
-         EMPTY STATE
-      ----------------------------- */
-
+      /* EMPTY */
       hasActivity,
-
       isEmpty,
 
-      /* -----------------------------
-         ACTIONS
-      ----------------------------- */
-
+      /* ACTIONS */
       fetchActivity,
-
       refresh,
     }),
     [
-      activities,
+      items,
       pagination,
 
       total,

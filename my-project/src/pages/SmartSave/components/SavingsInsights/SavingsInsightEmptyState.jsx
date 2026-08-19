@@ -1,4 +1,7 @@
-// :::writing{variant="document" id="48217" title="SavingsInsightEmptyState.jsx"}
+// SavingsInsightEmptyState.jsx
+
+import { memo } from "react";
+
 import {
   ArrowRight,
   Lightbulb,
@@ -8,81 +11,100 @@ import {
 } from "lucide-react";
 
 /* =========================================================
-   OPTIONAL SMARTSAVE CONFIGURATION
-========================================================= */
-
-import {
-  SMART_SAVE_CURRENCY,
-} from "../../../../config/smartSaveConfig";
-
-/* =========================================================
    CONSTANTS
 ========================================================= */
 
-import {
-  SAVINGS_INSIGHT_TYPES,
-} from "../../../../constants/smartSaveConstants";
+const EMPTY_VARIANT = "empty";
+const FILTERED_VARIANT = "filtered";
 
 /* =========================================================
    COMPONENT
 ========================================================= */
 
 const SavingsInsightEmptyState = ({
-  /*
-   * Controls whether this is a true empty state or a
-   * filtered/search result state.
-   */
-  variant = "empty",
+  variant = EMPTY_VARIANT,
 
-  /*
-   * Optional parent actions.
-   *
-   * The component never performs API calls itself.
-   */
   onRefresh,
   onCreateGoal,
   onExploreSavings,
 
-  /*
-   * Useful when the parent hook is currently refreshing.
-   */
   isRefreshing = false,
 
-  /*
-   * Optional customization.
-   */
   title,
   description,
+
   className = "",
   compact = false,
 }) => {
-  const isFiltered = variant === "filtered";
+  /* =======================================================
+     NORMALIZATION
+  ======================================================= */
+
+  const isFiltered = variant === FILTERED_VARIANT;
 
   const resolvedTitle =
-    title ||
-    (isFiltered
-      ? "No matching insights"
-      : "No savings insights yet");
+    typeof title === "string" && title.trim()
+      ? title.trim()
+      : isFiltered
+        ? "No matching insights"
+        : "No savings insights yet";
 
   const resolvedDescription =
-    description ||
-    (isFiltered
-      ? "There are no savings insights matching your current filters. Try adjusting your filters or refresh your savings data."
-      : "SmartSave will analyze your savings activity, goals, and progress to surface useful recommendations here.");
+    typeof description === "string" &&
+    description.trim()
+      ? description.trim()
+      : isFiltered
+        ? "There are no savings insights matching your current filters. Try adjusting your filters or refresh your savings data."
+        : "SmartSave will surface useful recommendations when enough savings activity, goals, or progress data is available.";
+
+  /* =======================================================
+     ACTION AVAILABILITY
+  ======================================================= */
+
+  const canCreateGoal =
+    typeof onCreateGoal === "function";
+
+  const canExploreSavings =
+    typeof onExploreSavings === "function";
+
+  const canRefresh =
+    typeof onRefresh === "function";
+
+  const hasPrimaryAction =
+    canCreateGoal || canExploreSavings;
+
+  /* =======================================================
+     SAFE ACTION HANDLERS
+  ======================================================= */
 
   const handleRefresh = () => {
-    if (
-      typeof onRefresh !== "function" ||
-      isRefreshing
-    ) {
+    if (!canRefresh || isRefreshing) {
       return;
     }
 
-    onRefresh();
+    try {
+      const result = onRefresh();
+
+      /*
+       * The parent owns async error state.
+       * We intentionally do not create another error state
+       * inside this presentational component.
+       */
+      if (
+        result &&
+        typeof result.catch === "function"
+      ) {
+        result.catch(() => {
+          // Parent hook owns refresh errors.
+        });
+      }
+    } catch {
+      // Parent callback owns error handling.
+    }
   };
 
   const handleCreateGoal = () => {
-    if (typeof onCreateGoal !== "function") {
+    if (!canCreateGoal) {
       return;
     }
 
@@ -90,23 +112,23 @@ const SavingsInsightEmptyState = ({
   };
 
   const handleExploreSavings = () => {
-    if (typeof onExploreSavings !== "function") {
+    if (!canExploreSavings) {
       return;
     }
 
     onExploreSavings();
   };
 
-  const hasPrimaryAction =
-    typeof onCreateGoal === "function" ||
-    typeof onExploreSavings === "function";
+  /* =======================================================
+     RENDER
+  ======================================================= */
 
   return (
     <section
-      aria-label="Savings insights"
       className={`
         relative
         overflow-hidden
+        w-full
         rounded-2xl
         border
         border-slate-200/80
@@ -115,10 +137,11 @@ const SavingsInsightEmptyState = ({
         ${compact ? "p-6" : "p-8"}
         ${className}
       `}
+      aria-labelledby="savings-insight-empty-title"
     >
-      {/* =====================================================
+      {/* ===================================================
           DECORATIVE BACKGROUND
-      ===================================================== */}
+      =================================================== */}
 
       <div
         aria-hidden="true"
@@ -148,9 +171,9 @@ const SavingsInsightEmptyState = ({
         /
       >
 
-      {/* =====================================================
+      {/* ===================================================
           CONTENT
-      ===================================================== */}
+      =================================================== */}
 
       <div
         className="
@@ -158,9 +181,9 @@ const SavingsInsightEmptyState = ({
           text-center
         "
       >
-        {/* ===================================================
+        {/* =================================================
             ICON
-        =================================================== */}
+        ================================================= */}
 
         <div
           className="
@@ -186,22 +209,23 @@ const SavingsInsightEmptyState = ({
           )}
         </div>
 
-        {/* ===================================================
+        {/* =================================================
             TITLE
-        =================================================== */}
+        ================================================= */}
 
-        <h3
+        <h2
+          id="savings-insight-empty-title"
           className="
             mt-5
             font-semibold text-slate-900 text-base sm:text-lg tracking-tight
           "
         >
           {resolvedTitle}
-        </h3>
+        </h2>
 
-        {/* ===================================================
+        {/* =================================================
             DESCRIPTION
-        =================================================== */}
+        ================================================= */}
 
         <p
           className="
@@ -213,9 +237,9 @@ const SavingsInsightEmptyState = ({
           {resolvedDescription}
         </p>
 
-        {/* ===================================================
+        {/* =================================================
             INSIGHT EXPLANATION
-        =================================================== */}
+        ================================================= */}
 
         {!isFiltered && (
           <div
@@ -248,34 +272,36 @@ const SavingsInsightEmptyState = ({
                 text-slate-600 text-xs leading-5
               "
             >
-              Keep your savings goals and activity up to date.
-              SmartSave can use that information to identify
-              opportunities, risks, and progress worth paying
-              attention to.
+              Keep your savings goals and activity
+              up to date. SmartSave can use available
+              data to surface opportunities, risks,
+              recommendations, and progress worth
+              paying attention to.
             </p>
           </div>
         )}
 
-        {/* ===================================================
+        {/* =================================================
             ACTIONS
-        =================================================== */}
+        ================================================= */}
 
-        <div
-          className="
-            flex flex-col sm:flex-row justify-center items-center
-            mt-6
-            gap-2.5
-          "
-        >
-          {/* -------------------------------------------------
-              PRIMARY ACTION
-          ------------------------------------------------- */}
+        {(hasPrimaryAction || canRefresh) && (
+          <div
+            className="
+              flex flex-col sm:flex-row justify-center items-center
+              mt-6
+              gap-2.5
+            "
+          >
+            {/* =============================================
+                CREATE GOAL
+            ============================================= */}
 
-          {hasPrimaryAction &&
-            typeof onCreateGoal === "function" && (
+            {canCreateGoal && (
               <button
                 type="button"
                 onClick={handleCreateGoal}
+                disabled={isRefreshing}
                 className="
                   inline-flex justify-center items-center
                   min-h-10
@@ -292,101 +318,115 @@ const SavingsInsightEmptyState = ({
                 <Target
                   size={16}
                   strokeWidth={2}
+                  aria-hidden="true"
                 />
 
-                Create savings goal
+                <span>
+                  Create savings goal
+                </span>
 
                 <ArrowRight
                   size={15}
                   strokeWidth={2}
+                  aria-hidden="true"
                 />
               </button>
             )}
 
-          {/* -------------------------------------------------
-              SECONDARY EXPLORE ACTION
-          ------------------------------------------------- */}
+            {/* =============================================
+                EXPLORE
+            ============================================= */}
 
-          {typeof onExploreSavings === "function" && (
-            <button
-              type="button"
-              onClick={handleExploreSavings}
-              className="
-                inline-flex justify-center items-center
-                min-h-10
-                px-4 py-2.5
-                font-semibold text-slate-700 text-sm
-                bg-white hover:bg-slate-50
-                border border-slate-200 rounded-lg focus:outline-none
-                focus:ring-2 focus:ring-slate-300 focus:ring-offset-2
-                transition
-                gap-2
-              "
-            >
-              Explore savings
+            {canExploreSavings && (
+              <button
+                type="button"
+                onClick={handleExploreSavings}
+                disabled={isRefreshing}
+                className="
+                  inline-flex justify-center items-center
+                  min-h-10
+                  px-4 py-2.5
+                  font-semibold text-slate-700 text-sm
+                  bg-white hover:bg-slate-50
+                  border border-slate-200 rounded-lg focus:outline-none
+                  focus:ring-2 focus:ring-slate-300 focus:ring-offset-2
+                  disabled:opacity-60 transition
+                  disabled:cursor-not-allowed
+                  gap-2
+                "
+              >
+                <span>
+                  Explore savings
+                </span>
 
-              <ArrowRight
-                size={15}
-                strokeWidth={2}
-              />
-            </button>
-          )}
+                <ArrowRight
+                  size={15}
+                  strokeWidth={2}
+                  aria-hidden="true"
+                />
+              </button>
+            )}
 
-          {/* -------------------------------------------------
-              REFRESH
-          ------------------------------------------------- */}
+            {/* =============================================
+                REFRESH
+            ============================================= */}
 
-          {typeof onRefresh === "function" && (
-            <button
-              type="button"
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              className="
-                inline-flex justify-center items-center
-                min-h-10
-                px-3.5 py-2.5
-                font-medium text-slate-600 hover:text-slate-800 text-sm
-                hover:bg-slate-100
-                rounded-lg focus:outline-none
-                focus:ring-2 focus:ring-slate-300 focus:ring-offset-2
-                disabled:opacity-50 transition
-                disabled:cursor-not-allowed
-                gap-2
-              "
-              aria-label={
-                isRefreshing
-                  ? "Refreshing savings insights"
-                  : "Refresh savings insights"
-              }
-            >
-              <RefreshCw
-                size={16}
-                strokeWidth={2}
-                className={
+            {canRefresh && (
+              <button
+                type="button"
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="
+                  inline-flex justify-center items-center
+                  min-h-10
+                  px-3.5 py-2.5
+                  font-medium text-slate-600 hover:text-slate-800 text-sm
+                  hover:bg-slate-100
+                  rounded-lg focus:outline-none
+                  focus:ring-2 focus:ring-slate-300 focus:ring-offset-2
+                  disabled:opacity-50 transition
+                  disabled:cursor-not-allowed
+                  gap-2
+                "
+                aria-label={
                   isRefreshing
-                    ? "animate-spin"
-                    : ""
+                    ? "Refreshing savings insights"
+                    : "Refresh savings insights"
                 }
-              />
+              >
+                <RefreshCw
+                  size={16}
+                  strokeWidth={2}
+                  className={
+                    isRefreshing
+                      ? "animate-spin"
+                      : undefined
+                  }
+                  aria-hidden="true"
+                />
 
-              {isRefreshing
-                ? "Refreshing..."
-                : "Refresh"}
-            </button>
-          )}
-        </div>
+                <span>
+                  {isRefreshing
+                    ? "Refreshing..."
+                    : "Refresh"}
+                </span>
+              </button>
+            )}
+          </div>
+        )}
 
-        {/* ===================================================
-            ACCESSIBILITY / SYSTEM INFORMATION
-        =================================================== */}
+        {/* =================================================
+            SYSTEM INFORMATION
+        ================================================= */}
 
         <p
           className="
+            max-w-md
             mt-5
             text-[11px] text-slate-400 leading-5
           "
         >
-          Savings intelligence is generated from your
+          Savings intelligence is generated from
           available SmartSave data.
         </p>
       </div>
@@ -394,4 +434,13 @@ const SavingsInsightEmptyState = ({
   );
 };
 
-export default SavingsInsightEmptyState;
+/* =========================================================
+   EXPORT
+========================================================= */
+
+SavingsInsightEmptyState.displayName =
+  "SavingsInsightEmptyState";
+
+export default memo(
+  SavingsInsightEmptyState
+);

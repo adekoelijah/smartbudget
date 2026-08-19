@@ -33,12 +33,6 @@ const DEFAULT_TITLE = "Savings Activity";
 const DEFAULT_DESCRIPTION =
   "Track your recent savings contributions, executions, and progress.";
 
-const DEFAULT_EMPTY_TITLE =
-  "No savings activity yet";
-
-const DEFAULT_EMPTY_DESCRIPTION =
-  "Your savings activity will appear here as you start contributing to your goals and strategies.";
-
 const DEFAULT_LIMIT = 20;
 
 const DEFAULT_CURRENCY = "NGN";
@@ -48,37 +42,45 @@ const DEFAULT_LOCALE = "en-NG";
 const DEFAULT_ERROR_MESSAGE =
   "We couldn't load your savings activity. Please try again.";
 
+const DEFAULT_PAGE = 1;
+
 /* =========================================================
    SAFE HELPERS
 ========================================================= */
 
 /**
- * Resolve a backend/entity identifier.
+ * Resolve a stable backend/entity identifier.
  */
 const getEntityId = (entity) => {
   if (!entity) {
     return null;
   }
 
-  if (typeof entity === "string") {
+  if (
+    typeof entity === "string" ||
+    typeof entity === "number"
+  ) {
     return entity;
   }
 
   return (
-    entity?.id ??
-    entity?._id ??
-    entity?.activityId ??
-    entity?.executionId ??
-    entity?.contributionId ??
+    entity.id ??
+    entity._id ??
+    entity.activityId ??
+    entity.executionId ??
+    entity.contributionId ??
+    entity.transactionId ??
     null
   );
 };
 
 /**
- * Safely resolve an API collection.
+ * Safely extract an activity collection from supported
+ * response shapes.
  *
- * The backend/service should already normalize this.
- * These fallbacks protect the presentation boundary.
+ * The hook/service should normally normalize this before
+ * reaching the page. These fallbacks are intentionally kept
+ * at the presentation boundary as defensive protection.
  */
 const resolveActivities = (value) => {
   if (Array.isArray(value)) {
@@ -121,7 +123,9 @@ const resolveActivities = (value) => {
 };
 
 /**
- * Convert unknown errors into safe UI text.
+ * Convert an unknown error into safe user-facing text.
+ *
+ * Never expose raw Axios/network internals directly.
  */
 const getErrorMessage = (error) => {
   if (!error) {
@@ -129,74 +133,83 @@ const getErrorMessage = (error) => {
   }
 
   if (typeof error === "string") {
-    return error;
+    return error.trim() || DEFAULT_ERROR_MESSAGE;
   }
 
-  return (
+  const message =
     error?.response?.data?.message ??
     error?.response?.data?.error ??
     error?.message ??
-    error?.error ??
-    DEFAULT_ERROR_MESSAGE
-  );
+    error?.error;
+
+  if (
+    typeof message === "string" &&
+    message.trim()
+  ) {
+    return message.trim();
+  }
+
+  return DEFAULT_ERROR_MESSAGE;
 };
 
 /**
- * Safely resolve a positive financial amount.
+ * Extract a display-only activity amount.
  *
- * This is display-only logic.
- * Financial calculations remain backend-owned.
+ * No financial calculations are performed here.
  */
 const getActivityAmount = (activity) => {
-  const value =
-    activity?.amount ??
-    activity?.value ??
-    activity?.totalAmount ??
-    0;
+  if (!activity || typeof activity !== "object") {
+    return 0;
+  }
 
-  const amount = Number(value);
+  const rawAmount =
+    typeof activity.amount === "object" &&
+    activity.amount !== null
+      ? activity.amount.value
+      : activity.amount ??
+        activity.value ??
+        activity.totalAmount;
 
-  return Number.isFinite(amount) && amount > 0
+  const amount = Number(rawAmount);
+
+  return Number.isFinite(amount)
     ? amount
     : 0;
 };
 
 /**
- * Stable React key.
+ * Normalize pagination.
  */
-const getActivityKey = (activity, index) => {
-  const id = getEntityId(activity);
+const normalizePage = (value) => {
+  const page = Number(value);
 
-  if (id) {
-    return String(id);
-  }
-
-  const timestamp =
-    activity?.createdAt ??
-    activity?.date ??
-    activity?.executedAt ??
-    "";
-
-  const type =
-    activity?.type ??
-    activity?.activityType ??
-    "activity";
-
-  return `${type}-${timestamp}-${index}`;
+  return Number.isInteger(page) && page > 0
+    ? page
+    : DEFAULT_PAGE;
 };
 
 /**
- * Build a stable query object.
+ * Normalize activity limit.
  *
- * IMPORTANT:
- * Do not pass the caller's object directly to the hook.
- * We intentionally create a canonical object containing
- * only supported pagination/filter values.
+ * Keep this aligned with the SmartSave hook/service contract.
  */
-const buildQuery = ({
+const normalizeLimit = (value) => {
+  const parsed = Number(value);
+
+  return Number.isInteger(parsed) && parsed > 0
+    ? parsed
+    : DEFAULT_LIMIT;
+};
+
+/**
+ * Build the canonical query passed to useSavingsActivity.
+ *
+ * This function does not perform any API work.
+ */
+const buildQuery = (
   incomingQuery,
-  limit,
-}) => {
+  limit
+) => {
   const source =
     incomingQuery &&
     typeof incomingQuery === "object" &&
@@ -204,24 +217,15 @@ const buildQuery = ({
       ? incomingQuery
       : {};
 
-  const normalizedLimit =
-    Number.isInteger(limit) && limit > 0
-      ? limit
-      : DEFAULT_LIMIT;
-
   return {
     ...source,
-    page:
-      Number.isInteger(source.page) &&
-      source.page > 0
-        ? source.page
-        : 1,
-    limit: normalizedLimit,
+    page: normalizePage(source.page),
+    limit: normalizeLimit(limit),
   };
 };
 
 /* =========================================================
-   HEADER
+   PAGE HEADER
 ========================================================= */
 
 const PageHeader = memo(
@@ -295,7 +299,9 @@ const PageHeader = memo(
                   {title}
                 </h1>
 
-                {Number.isInteger(activityCount) ? (
+                {Number.isInteger(
+                  activityCount
+                ) && (
                   <span
                     className="
                       inline-flex items-center
@@ -308,10 +314,10 @@ const PageHeader = memo(
                   >
                     {activityCount}
                   </span>
-                ) : null}
+                )}
               </div>
 
-              {description ? (
+              {description && (
                 <p
                   className="
                     max-w-2xl
@@ -321,7 +327,7 @@ const PageHeader = memo(
                 >
                   {description}
                 </p>
-              ) : null}
+              )}
             </div>
           </div>
 
@@ -331,7 +337,7 @@ const PageHeader = memo(
               gap-2 shrink-0
             "
           >
-            {typeof onRefresh === "function" ? (
+            {typeof onRefresh === "function" && (
               <button
                 type="button"
                 onClick={onRefresh}
@@ -344,16 +350,17 @@ const PageHeader = memo(
                   bg-white hover:bg-slate-50
                   border border-slate-200 hover:border-slate-300 rounded-xl
                   focus:outline-none
-                  focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
                   disabled:opacity-50 transition
                   disabled:cursor-not-allowed
                   gap-2
+                  focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2
                 "
                 aria-label={
                   refreshing
                     ? "Refreshing savings activity"
                     : "Refresh savings activity"
                 }
+                aria-busy={refreshing}
               >
                 <RefreshCw
                   size={14}
@@ -375,9 +382,9 @@ const PageHeader = memo(
                     : "Refresh"}
                 </span>
               </button>
-            ) : null}
+            )}
 
-            {typeof onViewAll === "function" ? (
+            {typeof onViewAll === "function" && (
               <button
                 type="button"
                 onClick={onViewAll}
@@ -388,9 +395,9 @@ const PageHeader = memo(
                   font-semibold text-white text-xs sm:text-sm
                   bg-slate-950 hover:bg-slate-800
                   rounded-xl focus:outline-none
-                  focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
                   transition
                   gap-2
+                  focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2
                 "
               >
                 View all
@@ -400,7 +407,7 @@ const PageHeader = memo(
                   aria-hidden="true"
                 />
               </button>
-            ) : null}
+            )}
           </div>
         </div>
       </header>
@@ -425,16 +432,24 @@ const ActivitySummary = memo(
       return null;
     }
 
-    const formattedAmount =
-      new Intl.NumberFormat(
-        DEFAULT_LOCALE,
-        {
-          style: "currency",
-          currency:
-            currency || DEFAULT_CURRENCY,
-          maximumFractionDigits: 2,
-        }
-      ).format(totalAmount);
+    let formattedAmount;
+
+    try {
+      formattedAmount =
+        new Intl.NumberFormat(
+          DEFAULT_LOCALE,
+          {
+            style: "currency",
+            currency:
+              currency || DEFAULT_CURRENCY,
+            maximumFractionDigits: 2,
+          }
+        ).format(totalAmount);
+    } catch {
+      formattedAmount = `${currency || DEFAULT_CURRENCY} ${Number(
+        totalAmount || 0
+      ).toFixed(2)}`;
+    }
 
     return (
       <div
@@ -595,7 +610,7 @@ const BackgroundError = memo(
           </p>
         </div>
 
-        {typeof onRetry === "function" ? (
+        {typeof onRetry === "function" && (
           <button
             type="button"
             onClick={onRetry}
@@ -607,7 +622,7 @@ const BackgroundError = memo(
               font-semibold text-amber-800 text-xs
               bg-white hover:bg-amber-100
               border border-amber-200 rounded-lg
-              disabled:opacity-50
+              disabled:opacity-50 transition
               disabled:cursor-not-allowed
               shrink-0
             "
@@ -616,7 +631,7 @@ const BackgroundError = memo(
               ? "Retrying..."
               : "Retry"}
           </button>
-        ) : null}
+        )}
       </div>
     );
   }
@@ -631,7 +646,6 @@ BackgroundError.displayName =
 
 const SavingsActivityPage = ({
   title = DEFAULT_TITLE,
-
   description = DEFAULT_DESCRIPTION,
 
   query: incomingQuery = {},
@@ -641,35 +655,28 @@ const SavingsActivityPage = ({
   currency = DEFAULT_CURRENCY,
 
   onViewAll,
-
   onActivityClick,
 
-  emptyAction,
-
-  emptyActionLabel,
+  onCreateSaving,
 
   className = "",
-
   compact = false,
 
   showEmptyState = true,
-
   showSummary = true,
-
   showHeader = true,
-
   showRefresh = true,
 }) => {
   /* =======================================================
-     STABLE QUERY
+     CANONICAL QUERY
   ======================================================= */
 
   const query = useMemo(
     () =>
-      buildQuery({
+      buildQuery(
         incomingQuery,
-        limit,
-      }),
+        limit
+      ),
     [
       incomingQuery,
       limit,
@@ -686,7 +693,6 @@ const SavingsActivityPage = ({
   const {
     activities: hookActivities,
     items: hookItems,
-
     data,
 
     loading = false,
@@ -706,17 +712,13 @@ const SavingsActivityPage = ({
      REQUEST STATE
   ======================================================= */
 
-  const hasInitialRequest =
-    Boolean(
-      loading ||
-      isLoading
-    );
+  const initialLoading = Boolean(
+    loading || isLoading
+  );
 
-  const isRefreshingActivity =
-    Boolean(
-      refreshing ||
-      isRefreshing
-    );
+  const refreshingActivity = Boolean(
+    refreshing || isRefreshing
+  );
 
   /* =======================================================
      RESOLVE ACTIVITIES
@@ -732,21 +734,22 @@ const SavingsActivityPage = ({
     const collection =
       resolveActivities(source);
 
-    return collection
-      .map(
-        (activity) =>
-          normalizeSavingsActivity(
+    const normalized = collection
+      .map((activity) => {
+        try {
+          return normalizeSavingsActivity(
             activity
-          )
-      )
-      .filter(Boolean)
-      .slice(
-        0,
-        Number.isInteger(limit) &&
-          limit > 0
-          ? limit
-          : DEFAULT_LIMIT
-      );
+          );
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
+
+    return normalized.slice(
+      0,
+      normalizeLimit(limit)
+    );
   }, [
     hookActivities,
     hookItems,
@@ -764,26 +767,21 @@ const SavingsActivityPage = ({
   const hasActivities =
     activityCount > 0;
 
-  const totalAmount =
-    useMemo(
-      () =>
-        activities.reduce(
-          (total, activity) =>
-            total +
-            getActivityAmount(
-              activity
-            ),
-          0
-        ),
-      [activities]
-    );
+  const totalAmount = useMemo(
+    () =>
+      activities.reduce(
+        (total, activity) =>
+          total +
+          getActivityAmount(activity),
+        0
+      ),
+    [activities]
+  );
 
-  const errorMessage =
-    useMemo(
-      () =>
-        getErrorMessage(error),
-      [error]
-    );
+  const errorMessage = useMemo(
+    () => getErrorMessage(error),
+    [error]
+  );
 
   const canRefresh =
     typeof refresh === "function" ||
@@ -798,15 +796,13 @@ const SavingsActivityPage = ({
   const handleRefresh =
     useCallback(async () => {
       if (
-        typeof refresh ===
-        "function"
+        typeof refresh === "function"
       ) {
         return refresh();
       }
 
       if (
-        typeof refetch ===
-        "function"
+        typeof refetch === "function"
       ) {
         return refetch();
       }
@@ -815,9 +811,7 @@ const SavingsActivityPage = ({
         typeof fetchActivities ===
         "function"
       ) {
-        return fetchActivities(
-          query
-        );
+        return fetchActivities(query);
       }
 
       return undefined;
@@ -831,9 +825,7 @@ const SavingsActivityPage = ({
   const handleRetry =
     useCallback(() => {
       void handleRefresh();
-    }, [
-      handleRefresh,
-    ]);
+    }, [handleRefresh]);
 
   /* =======================================================
      CALLBACKS
@@ -841,108 +833,84 @@ const SavingsActivityPage = ({
 
   const handleViewAll =
     useCallback(() => {
-      if (
-        typeof onViewAll ===
-        "function"
-      ) {
-        onViewAll();
-      }
-    }, [
-      onViewAll,
-    ]);
+      onViewAll?.();
+    }, [onViewAll]);
 
   const handleActivityClick =
     useCallback(
-      (activity, ...args) => {
-        if (
-          typeof onActivityClick !==
-          "function"
-        ) {
-          return;
-        }
-
-        onActivityClick(
-          activity,
-          ...args
-        );
+      (activity) => {
+        onActivityClick?.(activity);
       },
-      [
-        onActivityClick,
-      ]
+      [onActivityClick]
     );
 
-  const handleEmptyAction =
+  const handleCreateSaving =
     useCallback(() => {
-      if (
-        typeof emptyAction ===
-        "function"
-      ) {
-        return emptyAction();
-      }
-
-      return undefined;
-    }, [
-      emptyAction,
-    ]);
+      onCreateSaving?.();
+    }, [onCreateSaving]);
 
   /* =======================================================
      CAPABILITIES
   ======================================================= */
 
   const refreshHandler =
-    showRefresh &&
-    canRefresh
+    showRefresh && canRefresh
       ? handleRefresh
       : undefined;
 
   const viewAllHandler =
-    typeof onViewAll ===
-    "function"
+    typeof onViewAll === "function"
       ? handleViewAll
       : undefined;
 
-  const emptyActionHandler =
-    typeof emptyAction ===
+  const createSavingHandler =
+    typeof onCreateSaving ===
     "function"
-      ? handleEmptyAction
+      ? handleCreateSaving
       : undefined;
 
   /* =======================================================
      CONTAINER
   ======================================================= */
 
-  const containerClassName = `
-    w-full
-    overflow-hidden
-    rounded-3xl
-    border border-slate-200
-    bg-white
-    shadow-sm
-    ${className}
-  `;
+  const containerClassName = [
+    "w-full",
+    "overflow-hidden",
+    "rounded-3xl",
+    "border border-slate-200",
+    "bg-white",
+    "shadow-sm",
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   /* =======================================================
      INITIAL LOADING
   ======================================================= */
 
   if (
-    hasInitialRequest &&
+    initialLoading &&
     !hasActivities
   ) {
     return (
       <section
         className={containerClassName}
-        aria-labelledby="savings-activity-title"
+        aria-labelledby={
+          showHeader
+            ? "savings-activity-title"
+            : undefined
+        }
         aria-busy="true"
       >
-        {showHeader ? (
+        {showHeader && (
           <PageHeader
             title={title}
             description={description}
             activityCount={null}
             refreshing={false}
           />
-        ) : null}
+        )}
 
         <div
           className="
@@ -950,11 +918,7 @@ const SavingsActivityPage = ({
           "
         >
           <SavingsSkeleton
-            count={
-              compact
-                ? 3
-                : 5
-            }
+            count={compact ? 3 : 5}
           />
         </div>
       </section>
@@ -972,9 +936,13 @@ const SavingsActivityPage = ({
     return (
       <section
         className={containerClassName}
-        aria-labelledby="savings-activity-title"
+        aria-labelledby={
+          showHeader
+            ? "savings-activity-title"
+            : undefined
+        }
       >
-        {showHeader ? (
+        {showHeader && (
           <PageHeader
             title={title}
             description={description}
@@ -984,7 +952,7 @@ const SavingsActivityPage = ({
               refreshHandler
             }
           />
-        ) : null}
+        )}
 
         <div
           className="
@@ -999,7 +967,7 @@ const SavingsActivityPage = ({
                 : undefined
             }
             retrying={
-              isRefreshingActivity
+              refreshingActivity
             }
           />
         </div>
@@ -1018,15 +986,19 @@ const SavingsActivityPage = ({
     return (
       <section
         className={containerClassName}
-        aria-labelledby="savings-activity-title"
+        aria-labelledby={
+          showHeader
+            ? "savings-activity-title"
+            : undefined
+        }
       >
-        {showHeader ? (
+        {showHeader && (
           <PageHeader
             title={title}
             description={description}
             activityCount={0}
             refreshing={
-              isRefreshingActivity
+              refreshingActivity
             }
             onRefresh={
               refreshHandler
@@ -1035,7 +1007,7 @@ const SavingsActivityPage = ({
               viewAllHandler
             }
           />
-        ) : null}
+        )}
 
         <div
           className="
@@ -1043,17 +1015,15 @@ const SavingsActivityPage = ({
           "
         >
           <SavingsActivityEmptyState
-            title={
-              DEFAULT_EMPTY_TITLE
+            filtered={false}
+            onCreateSaving={
+              createSavingHandler
             }
-            description={
-              DEFAULT_EMPTY_DESCRIPTION
+            onRefresh={
+              refreshHandler
             }
-            actionLabel={
-              emptyActionLabel
-            }
-            onAction={
-              emptyActionHandler
+            refreshing={
+              refreshingActivity
             }
           />
         </div>
@@ -1068,7 +1038,11 @@ const SavingsActivityPage = ({
   return (
     <main
       className={`w-full ${className}`}
-      aria-labelledby="savings-activity-title"
+      aria-labelledby={
+        showHeader
+          ? "savings-activity-title"
+          : undefined
+    }
     >
       <section
         className="
@@ -1081,7 +1055,7 @@ const SavingsActivityPage = ({
       >
         {/* HEADER */}
 
-        {showHeader ? (
+        {showHeader && (
           <PageHeader
             title={title}
             description={description}
@@ -1089,7 +1063,7 @@ const SavingsActivityPage = ({
               activityCount
             }
             refreshing={
-              isRefreshingActivity
+              refreshingActivity
             }
             onRefresh={
               refreshHandler
@@ -1098,7 +1072,7 @@ const SavingsActivityPage = ({
               viewAllHandler
             }
           />
-        ) : null}
+        )}
 
         {/* CONTENT */}
 
@@ -1109,90 +1083,63 @@ const SavingsActivityPage = ({
         >
           {/* SUMMARY */}
 
-          {showSummary ? (
+          {showSummary && (
             <div
               className="
                 mb-5
               "
             >
               <ActivitySummary
-                count={
-                  activityCount
-                }
+                count={activityCount}
                 totalAmount={
                   totalAmount
                 }
-                currency={
-                  currency
-                }
+                currency={currency}
               />
             </div>
-          ) : null}
+          )}
 
           {/* BACKGROUND ERROR */}
 
           {errorMessage &&
-          hasActivities ? (
-            <BackgroundError
-              message={
-                errorMessage
-              }
-              refreshing={
-                isRefreshingActivity
-              }
-              onRetry={
-                canRefresh
-                  ? handleRetry
-                  : undefined
-              }
-            />
-          ) : null}
+            hasActivities && (
+              <BackgroundError
+                message={errorMessage}
+                refreshing={
+                  refreshingActivity
+                }
+                onRetry={
+                  canRefresh
+                    ? handleRetry
+                    : undefined
+                }
+              />
+            )}
 
-          {/* ACTIVITY */}
+          {/* REFRESH STATUS */}
 
-          <div
-            className="
-              relative
-            "
-            aria-busy={
-              isRefreshingActivity
+          <RefreshStatus
+            refreshing={
+              refreshingActivity
             }
-          >
-            <RefreshStatus
-              refreshing={
-                isRefreshingActivity
-              }
-            />
+          />
 
-            <SavingsActivityList
-              activities={
-                activities
-              }
-              loading={
-                hasInitialRequest
-              }
-              error={
-                errorMessage
-              }
-              onRetry={
-                canRefresh
-                  ? handleRetry
-                  : undefined
-              }
-              onActivityClick={
-                handleActivityClick
-              }
-              emptyAction={
-                emptyActionHandler
-              }
-              emptyActionLabel={
-                emptyActionLabel
-              }
-              compact={
-                compact
-              }
-            />
-          </div>
+          {/* ACTIVITY LIST */}
+
+          <SavingsActivityList
+            activities={activities}
+            loading={initialLoading}
+            error={errorMessage}
+            onRetry={
+              canRefresh
+                ? handleRetry
+                : undefined
+            }
+            onActivityClick={
+              handleActivityClick
+            }
+            ariaLabel="Savings activity list"
+          />
         </div>
 
         {/* FOOTER */}
@@ -1217,13 +1164,14 @@ const SavingsActivityPage = ({
             account.
           </p>
 
-          {isRefreshingActivity ? (
+          {refreshingActivity && (
             <span
               className="
                 inline-flex items-center
                 font-medium text-[11px] text-slate-500
                 gap-1.5 shrink-0
               "
+              role="status"
               aria-live="polite"
             >
               <RefreshCw
@@ -1237,7 +1185,7 @@ const SavingsActivityPage = ({
 
               Updating
             </span>
-          ) : null}
+          )}
         </footer>
       </section>
     </main>

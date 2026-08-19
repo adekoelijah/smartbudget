@@ -9,7 +9,6 @@ import {
   RefreshCw,
   Target,
   Trophy,
-  X,
 } from "lucide-react";
 
 import {
@@ -56,34 +55,51 @@ const COMPACT_SKELETON_COUNT = 2;
 
 const MAX_SAFE_LIMIT = 100;
 
-const STATUS = {
+/* =========================================================
+   STATUS
+========================================================= */
+
+const STATUS = Object.freeze({
   ACTIVE: String(
     CHALLENGE_STATUS?.ACTIVE ?? "active"
-  ).toLowerCase(),
+  )
+    .trim()
+    .toLowerCase(),
 
   PAUSED: String(
     CHALLENGE_STATUS?.PAUSED ?? "paused"
-  ).toLowerCase(),
+  )
+    .trim()
+    .toLowerCase(),
 
   COMPLETED: String(
     CHALLENGE_STATUS?.COMPLETED ?? "completed"
-  ).toLowerCase(),
+  )
+    .trim()
+    .toLowerCase(),
 
   CANCELLED: String(
     CHALLENGE_STATUS?.CANCELLED ?? "cancelled"
-  ).toLowerCase(),
+  )
+    .trim()
+    .toLowerCase(),
 
   DRAFT: String(
     CHALLENGE_STATUS?.DRAFT ?? "draft"
-  ).toLowerCase(),
-};
+  )
+    .trim()
+    .toLowerCase(),
+});
 
 /* =========================================================
    SAFE HELPERS
 ========================================================= */
 
 const getEntityId = (entity) => {
-  if (!entity) {
+  if (
+    entity === null ||
+    entity === undefined
+  ) {
     return null;
   }
 
@@ -91,20 +107,26 @@ const getEntityId = (entity) => {
     typeof entity === "string" ||
     typeof entity === "number"
   ) {
-    return String(entity);
+    const value = String(entity).trim();
+
+    return value || null;
   }
 
-  const id =
+  const value =
     entity?._id ??
     entity?.id ??
     entity?.challengeId ??
     null;
 
-  return id !== null &&
-    id !== undefined &&
-    id !== ""
-    ? String(id)
-    : null;
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return null;
+  }
+
+  return String(value);
 };
 
 const resolveCollection = (value) => {
@@ -116,7 +138,11 @@ const resolveCollection = (value) => {
     return value.data;
   }
 
-  if (Array.isArray(value?.data?.challenges)) {
+  if (
+    Array.isArray(
+      value?.data?.challenges
+    )
+  ) {
     return value.data.challenges;
   }
 
@@ -141,10 +167,9 @@ const getErrorMessage = (error) => {
   }
 
   if (typeof error === "string") {
-    return (
-      error.trim() ||
-      DEFAULT_ERROR
-    );
+    const message = error.trim();
+
+    return message || DEFAULT_ERROR;
   }
 
   const message =
@@ -155,10 +180,14 @@ const getErrorMessage = (error) => {
     error?.message ??
     error?.error;
 
-  return typeof message === "string" &&
+  if (
+    typeof message === "string" &&
     message.trim()
-    ? message.trim()
-    : DEFAULT_ERROR;
+  ) {
+    return message.trim();
+  }
+
+  return DEFAULT_ERROR;
 };
 
 const normalizeStatus = (value) =>
@@ -174,32 +203,26 @@ const getChallengeStatus = (challenge) =>
       STATUS.DRAFT
   );
 
-const isActive = (challenge) =>
-  getChallengeStatus(challenge) ===
-  STATUS.ACTIVE;
-
-const isPaused = (challenge) =>
-  getChallengeStatus(challenge) ===
-  STATUS.PAUSED;
-
-const isCompleted = (challenge) =>
-  getChallengeStatus(challenge) ===
-  STATUS.COMPLETED;
-
 const getChallengeKey = (
   challenge,
   index
 ) => {
   const id = getEntityId(challenge);
 
-  if (id) {
-    return `challenge-${id}`;
-  }
-
-  return `challenge-${index}`;
+  return id
+    ? `challenge-${id}`
+    : `challenge-${index}`;
 };
 
 const sanitizeLimit = (value) => {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return null;
+  }
+
   const numeric = Number(value);
 
   if (
@@ -216,7 +239,7 @@ const sanitizeLimit = (value) => {
 };
 
 /* =========================================================
-   PAGE HEADER
+   SECTION HEADER
 ========================================================= */
 
 const SectionHeader = memo(
@@ -229,167 +252,170 @@ const SectionHeader = memo(
     canCreate,
     canRefresh,
     refreshing,
-  }) => {
-    return (
-      <header
+  }) => (
+    <header
+      className="
+        flex flex-col lg:flex-row lg:justify-between lg:items-start
+        gap-5
+      "
+    >
+      <div
         className="
-          flex flex-col lg:flex-row lg:justify-between lg:items-start
-          gap-5
+          min-w-0
         "
       >
         <div
           className="
-            min-w-0
+            flex items-start
+            gap-3
           "
         >
           <div
             className="
-              flex items-start
-              gap-3
+              flex justify-center items-center
+              w-11 h-11
+              text-blue-700
+              bg-blue-50
+              border border-blue-100 rounded-2xl
+              shrink-0
+            "
+            aria-hidden="true"
+          >
+            <Target
+              size={20}
+              strokeWidth={1.8}
+            />
+          </div>
+
+          <div
+            className="
+              min-w-0
             "
           >
             <div
               className="
-                flex justify-center items-center
-                w-11 h-11
-                text-blue-700
-                bg-blue-50
-                border border-blue-100 rounded-2xl
-                shrink-0
-              "
-              aria-hidden="true"
-            >
-              <Target
-                size={20}
-                strokeWidth={1.8}
-              />
-            </div>
-
-            <div
-              className="
-                min-w-0
-              "
-            >
-              <div
-                className="
-                  flex flex-wrap items-center
-                  gap-2
-                "
-              >
-                <h1
-                  id="savings-challenges-title"
-                  className="
-                    font-bold text-slate-950 text-2xl sm:text-3xl tracking-tight
-                  "
-                >
-                  {title}
-                </h1>
-
-                <span
-                  className="
-                    inline-flex justify-center items-center
-                    min-h-6
-                    px-2.5
-                    font-semibold text-slate-600 text-xs
-                    bg-slate-100
-                    border border-slate-200 rounded-full
-                  "
-                >
-                  {count}
-                </span>
-              </div>
-
-              {description ? (
-                <p
-                  className="
-                    max-w-2xl
-                    mt-1.5
-                    text-slate-500 text-sm leading-6
-                  "
-                >
-                  {description}
-                </p>
-              ) : null}
-            </div>
-          </div>
-        </div>
-
-        <div
-          className="
-            flex items-center
-            w-full lg:w-auto
-            gap-2
-          "
-        >
-          {canRefresh ? (
-            <button
-              type="button"
-              onClick={onRefresh}
-              disabled={refreshing}
-              className="
-                inline-flex justify-center items-center
-                min-h-11
-                px-4
-                font-medium text-slate-700 text-sm
-                bg-white hover:bg-slate-50 disabled:bg-slate-50
-                border border-slate-200 hover:border-slate-300 rounded-xl
-                focus:outline-none focus:ring-2 focus:ring-slate-400/30
-                disabled:opacity-60 shadow-sm transition
-                disabled:cursor-not-allowed
+                flex flex-wrap items-center
                 gap-2
               "
-              aria-label={
-                refreshing
-                  ? "Refreshing challenges"
-                  : "Refresh challenges"
-              }
             >
-              <RefreshCw
-                size={16}
-                className={
-                  refreshing
-                    ? "animate-spin"
-                    : undefined
-                }
-              />
+              <h1
+                id="savings-challenges-title"
+                className="
+                  font-bold text-slate-950 text-2xl sm:text-3xl tracking-tight
+                "
+              >
+                {title}
+              </h1>
 
               <span
                 className="
-                  hidden sm:inline
+                  inline-flex justify-center items-center
+                  min-h-6
+                  px-2.5
+                  font-semibold text-slate-600 text-xs
+                  bg-slate-100
+                  border border-slate-200 rounded-full
+                "
+                aria-label={`${count} challenges`}
+              >
+                {count}
+              </span>
+            </div>
+
+            {description ? (
+              <p
+                className="
+                  max-w-2xl
+                  mt-1.5
+                  text-slate-500 text-sm leading-6
                 "
               >
-                {refreshing
-                  ? "Refreshing..."
-                  : "Refresh"}
-              </span>
-            </button>
-          ) : null}
+                {description}
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </div>
 
-          {canCreate ? (
-            <button
-              type="button"
-              onClick={onCreate}
+      <div
+        className="
+          flex items-center
+          w-full lg:w-auto
+          gap-2
+        "
+      >
+        {canRefresh ? (
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={refreshing}
+            className="
+              inline-flex justify-center items-center
+              min-h-11
+              px-4
+              font-medium text-slate-700 text-sm
+              bg-white hover:bg-slate-50 disabled:bg-slate-50
+              border border-slate-200 hover:border-slate-300 rounded-xl
+              focus:outline-none focus:ring-2 focus:ring-slate-400/30
+              disabled:opacity-60 shadow-sm transition
+              disabled:cursor-not-allowed
+              gap-2
+            "
+            aria-label={
+              refreshing
+                ? "Refreshing challenges"
+                : "Refresh challenges"
+            }
+          >
+            <RefreshCw
+              size={16}
+              className={
+                refreshing
+                  ? "animate-spin"
+                  : undefined
+              }
+              aria-hidden="true"
+            />
+
+            <span
               className="
-                inline-flex flex-1 lg:flex-none justify-center items-center
-                min-h-11
-                px-4
-                font-semibold text-white text-sm
-                bg-slate-950 hover:bg-slate-800
-                rounded-xl focus:outline-none
-                focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
-                shadow-sm transition
-                gap-2
+                hidden sm:inline
               "
             >
-              <Plus size={17} />
+              {refreshing
+                ? "Refreshing..."
+                : "Refresh"}
+            </span>
+          </button>
+        ) : null}
 
-              New challenge
-            </button>
-          ) : null}
-        </div>
-      </header>
-    );
-  }
+        {canCreate ? (
+          <button
+            type="button"
+            onClick={onCreate}
+            className="
+              inline-flex flex-1 lg:flex-none justify-center items-center
+              min-h-11
+              px-4
+              font-semibold text-white text-sm
+              bg-slate-950 hover:bg-slate-800
+              rounded-xl focus:outline-none
+              focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
+              shadow-sm transition
+              gap-2
+            "
+          >
+            <Plus
+              size={17}
+              aria-hidden="true"
+            />
+
+            New challenge
+          </button>
+        ) : null}
+      </div>
+    </header>
+  )
 );
 
 SectionHeader.displayName =
@@ -429,6 +455,7 @@ const SummaryMetric = memo(
             rounded-xl
             shrink-0
           "
+          aria-hidden="true"
         >
           <Icon size={17} />
         </div>
@@ -473,7 +500,7 @@ SummaryMetric.displayName =
   "SavingsChallengeSummaryMetric";
 
 /* =========================================================
-   NON-BLOCKING ERROR
+   REFRESH WARNING
 ========================================================= */
 
 const RefreshWarning = memo(
@@ -503,6 +530,7 @@ const RefreshWarning = memo(
           rounded-xl
           shrink-0
         "
+        aria-hidden="true"
       >
         <AlertCircle size={16} />
       </div>
@@ -600,7 +628,6 @@ const SavingsChallengesPage = ({
     refetch,
 
     createChallenge,
-
     activateChallenge,
     pauseChallenge,
     resumeChallenge,
@@ -612,37 +639,58 @@ const SavingsChallengesPage = ({
      MUTATION LOCK
   ======================================================= */
 
-  /*
-   * Prevents double-clicks and duplicate mutation requests.
-   *
-   * A ref is deliberately used instead of state so clicking
-   * an action twice in the same event loop cannot dispatch
-   * two requests before React re-renders.
-   */
   const mutationLockRef =
     useRef(false);
 
   /* =======================================================
-     NORMALIZATION
+     MODAL STATE
+  ======================================================= */
+
+  const [
+    selectedChallenge,
+    setSelectedChallenge,
+  ] = useState(null);
+
+  const [
+    createModalOpen,
+    setCreateModalOpen,
+  ] = useState(false);
+
+  /* =======================================================
+     NORMALIZED CHALLENGES
   ======================================================= */
 
   const challenges = useMemo(() => {
     const source =
-      hookChallenges ??
-      data ??
-      [];
+      hookChallenges ?? data ?? [];
 
-    return resolveCollection(source)
-      .map((challenge) => {
-        try {
-          return normalizeSavingsChallenge(
+    const collection =
+      resolveCollection(source);
+
+    if (collection.length === 0) {
+      return [];
+    }
+
+    const normalized = [];
+
+    for (const challenge of collection) {
+      try {
+        const result =
+          normalizeSavingsChallenge(
             challenge
           );
-        } catch {
-          return null;
+
+        if (result) {
+          normalized.push(result);
         }
-      })
-      .filter(Boolean);
+      } catch {
+        // Ignore malformed records.
+        // A single invalid challenge must not
+        // crash the entire page.
+      }
+    }
+
+    return normalized;
   }, [
     hookChallenges,
     data,
@@ -654,15 +702,13 @@ const SavingsChallengesPage = ({
 
   const initialLoading =
     Boolean(
-      loading ||
-        isLoading
+      loading || isLoading
     ) &&
     challenges.length === 0;
 
-  const Refreshing =
+  const isCurrentlyRefreshing =
     Boolean(
-      refreshing ||
-        isRefreshing
+      refreshing || isRefreshing
     );
 
   /* =======================================================
@@ -703,6 +749,10 @@ const SavingsChallengesPage = ({
       normalizedStatus,
     ]);
 
+  /* =======================================================
+     LIMIT
+  ======================================================= */
+
   const safeLimit = useMemo(
     () => sanitizeLimit(limit),
     [limit]
@@ -728,26 +778,39 @@ const SavingsChallengesPage = ({
   ======================================================= */
 
   const summary = useMemo(() => {
-    const total =
-      filteredChallenges.length;
+    let active = 0;
+    let paused = 0;
+    let completed = 0;
 
-    const active =
-      filteredChallenges.filter(
-        isActive
-      ).length;
+    for (
+      const challenge
+      of filteredChallenges
+    ) {
+      const challengeStatus =
+        getChallengeStatus(
+          challenge
+        );
 
-    const paused =
-      filteredChallenges.filter(
-        isPaused
-      ).length;
+      switch (challengeStatus) {
+        case STATUS.ACTIVE:
+          active += 1;
+          break;
 
-    const completed =
-      filteredChallenges.filter(
-        isCompleted
-      ).length;
+        case STATUS.PAUSED:
+          paused += 1;
+          break;
+
+        case STATUS.COMPLETED:
+          completed += 1;
+          break;
+
+        default:
+          break;
+      }
+    }
 
     return {
-      total,
+      total: filteredChallenges.length,
       active,
       paused,
       completed,
@@ -755,20 +818,6 @@ const SavingsChallengesPage = ({
   }, [
     filteredChallenges,
   ]);
-
-  /* =======================================================
-     MODAL STATE
-  ======================================================= */
-
-  const [
-    selectedChallenge,
-    setSelectedChallenge,
-  ] = useState(null);
-
-  const [
-    createModalOpen,
-    setCreateModalOpen,
-  ] = useState(false);
 
   /* =======================================================
      CAPABILITIES
@@ -811,13 +860,14 @@ const SavingsChallengesPage = ({
     useCallback(async () => {
       if (
         mutationLockRef.current ||
-        isRefreshing
+        isCurrentlyRefreshing
       ) {
         return undefined;
       }
 
       if (
-        typeof refetch === "function"
+        typeof refetch ===
+        "function"
       ) {
         return refetch();
       }
@@ -833,7 +883,7 @@ const SavingsChallengesPage = ({
     }, [
       refetch,
       fetchChallenges,
-      isRefreshing,
+      isCurrentlyRefreshing,
     ]);
 
   /* =======================================================
@@ -883,7 +933,8 @@ const SavingsChallengesPage = ({
           return undefined;
         }
 
-        mutationLockRef.current = true;
+        mutationLockRef.current =
+          true;
 
         try {
           const result =
@@ -891,11 +942,6 @@ const SavingsChallengesPage = ({
               payload
             );
 
-          /*
-           * The hook should update its cache/state.
-           * We additionally reconcile from the server when
-           * a refetch function exists.
-           */
           if (
             typeof refetch ===
             "function"
@@ -956,7 +1002,7 @@ const SavingsChallengesPage = ({
     }, []);
 
   /* =======================================================
-     GENERIC MUTATION EXECUTOR
+     MUTATION EXECUTOR
   ======================================================= */
 
   const executeMutation =
@@ -964,15 +1010,15 @@ const SavingsChallengesPage = ({
       async (
         mutation,
         challenge,
-        options = {}
+        closeDetails = false
       ) => {
-        const id =
+        const challengeId =
           getEntityId(
             challenge
           );
 
         if (
-          !id ||
+          !challengeId ||
           typeof mutation !==
             "function" ||
           mutationLockRef.current
@@ -985,13 +1031,10 @@ const SavingsChallengesPage = ({
 
         try {
           const result =
-            await mutation(id);
+            await mutation(
+              challengeId
+            );
 
-          /*
-           * Server remains authoritative.
-           * Re-fetch after every successful
-           * challenge state transition.
-           */
           if (
             typeof refetch ===
             "function"
@@ -999,14 +1042,7 @@ const SavingsChallengesPage = ({
             await refetch();
           }
 
-          /*
-           * If the currently selected challenge was
-           * mutated, close the details modal so we do
-           * not keep presenting stale state.
-           */
-          if (
-            options.closeDetails
-          ) {
+          if (closeDetails) {
             setSelectedChallenge(
               null
             );
@@ -1022,7 +1058,7 @@ const SavingsChallengesPage = ({
     );
 
   /* =======================================================
-     MUTATIONS
+     MUTATION HANDLERS
   ======================================================= */
 
   const handleActivate =
@@ -1070,9 +1106,7 @@ const SavingsChallengesPage = ({
         executeMutation(
           completeChallenge,
           challenge,
-          {
-            closeDetails: true,
-          }
+          true
         ),
       [
         executeMutation,
@@ -1086,9 +1120,7 @@ const SavingsChallengesPage = ({
         executeMutation(
           cancelChallenge,
           challenge,
-          {
-            closeDetails: true,
-          }
+          true
         ),
       [
         executeMutation,
@@ -1097,7 +1129,7 @@ const SavingsChallengesPage = ({
     );
 
   /* =======================================================
-     INITIAL STATES
+     VIEW STATE
   ======================================================= */
 
   const hasChallenges =
@@ -1122,12 +1154,8 @@ const SavingsChallengesPage = ({
       title={title}
       description={description}
       count={summary.total}
-      onCreate={
-        handleOpenCreate
-      }
-      onRefresh={
-        handleRefresh
-      }
+      onCreate={handleOpenCreate}
+      onRefresh={handleRefresh}
       canCreate={
         showCreateButton &&
         (
@@ -1141,10 +1169,24 @@ const SavingsChallengesPage = ({
         canRefresh
       }
       refreshing={
-        isRefreshing
+        isCurrentlyRefreshing
       }
     />
   ) : null;
+
+  /* =======================================================
+     CREATE MODAL
+  ======================================================= */
+
+  const createModal = (
+    <CreateChallengeModal
+      open={createModalOpen}
+      onClose={handleCloseCreate}
+      onSubmit={
+        handleCreateChallenge
+      }
+    />
+  );
 
   /* =======================================================
      LOADING
@@ -1152,42 +1194,36 @@ const SavingsChallengesPage = ({
 
   if (initialLoading) {
     return (
-      <section
-        className={`
-          w-full
-          space-y-5
-          ${className}
-        `}
-        aria-labelledby="savings-challenges-title"
-        aria-busy="true"
-      >
-        {header}
-
-        <div
-          className="
-            grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3
-            gap-4
-          "
+      <>
+        <section
+          className={`
+            w-full
+            space-y-5
+            ${className}
+          `}
+          aria-labelledby="savings-challenges-title"
+          aria-busy="true"
         >
-          <SavingsSkeleton
-            count={
-              compact
-                ? COMPACT_SKELETON_COUNT
-                : DEFAULT_SKELETON_COUNT
-            }
-          />
-        </div>
+          {header}
 
-        <CreateChallengeModal
-          open={createModalOpen}
-          onClose={
-            handleCloseCreate
-          }
-          onSubmit={
-            handleCreateChallenge
-          }
-        />
-      </section>
+          <div
+            className="
+              grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3
+              gap-4
+            "
+          >
+            <SavingsSkeleton
+              count={
+                compact
+                  ? COMPACT_SKELETON_COUNT
+                  : DEFAULT_SKELETON_COUNT
+              }
+            />
+          </div>
+        </section>
+
+        {createModal}
+      </>
     );
   }
 
@@ -1216,20 +1252,12 @@ const SavingsChallengesPage = ({
                 : undefined
             }
             retrying={
-              isRefreshing
+              isCurrentlyRefreshing
             }
           />
         </section>
 
-        <CreateChallengeModal
-          open={createModalOpen}
-          onClose={
-            handleCloseCreate
-          }
-          onSubmit={
-            handleCreateChallenge
-          }
-        />
+        {createModal}
       </>
     );
   }
@@ -1265,15 +1293,7 @@ const SavingsChallengesPage = ({
           />
         </section>
 
-        <CreateChallengeModal
-          open={createModalOpen}
-          onClose={
-            handleCloseCreate
-          }
-          onSubmit={
-            handleCreateChallenge
-          }
-        />
+        {createModal}
       </>
     );
   }
@@ -1292,14 +1312,14 @@ const SavingsChallengesPage = ({
         `}
         aria-labelledby="savings-challenges-title"
         aria-busy={
-          isRefreshing
+          isCurrentlyRefreshing
         }
       >
         {header}
 
-        {/* ===============================================
+        {/* =================================================
             SUMMARY
-        =============================================== */}
+        ================================================= */}
 
         <section
           className="
@@ -1311,51 +1331,41 @@ const SavingsChallengesPage = ({
           <SummaryMetric
             icon={Target}
             label="Total"
-            value={
-              summary.total
-            }
+            value={summary.total}
             description="Available challenges"
           />
 
           <SummaryMetric
             icon={CheckCircle2}
             label="Active"
-            value={
-              summary.active
-            }
+            value={summary.active}
             description="Currently running"
           />
 
           <SummaryMetric
             icon={Clock3}
             label="Paused"
-            value={
-              summary.paused
-            }
+            value={summary.paused}
             description="Temporarily paused"
           />
 
           <SummaryMetric
             icon={Trophy}
             label="Completed"
-            value={
-              summary.completed
-            }
+            value={summary.completed}
             description="Successfully finished"
           />
         </section>
 
-        {/* ===============================================
+        {/* =================================================
             NON-BLOCKING ERROR
-        =============================================== */}
+        ================================================= */}
 
         {errorMessage ? (
           <RefreshWarning
-            message={
-              errorMessage
-            }
+            message={errorMessage}
             refreshing={
-              isRefreshing
+              isCurrentlyRefreshing
             }
             onRetry={
               handleRefresh
@@ -1366,9 +1376,9 @@ const SavingsChallengesPage = ({
           />
         ) : null}
 
-        {/* ===============================================
+        {/* =================================================
             LIST HEADER
-        =============================================== */}
+        ================================================= */}
 
         <div
           className="
@@ -1391,8 +1401,9 @@ const SavingsChallengesPage = ({
                 text-slate-500 text-sm
               "
             >
-              Stay consistent and make progress
-              toward your savings goals.
+              Stay consistent and make
+              progress toward your
+              savings goals.
             </p>
           </div>
 
@@ -1426,6 +1437,7 @@ const SavingsChallengesPage = ({
               <>
                 <ChevronRight
                   size={12}
+                  aria-hidden="true"
                 />
 
                 <span>
@@ -1436,9 +1448,9 @@ const SavingsChallengesPage = ({
           </span>
         </div>
 
-        {/* ===============================================
+        {/* =================================================
             CHALLENGE GRID
-        =============================================== */}
+        ================================================= */}
 
         <div
           className="
@@ -1447,11 +1459,8 @@ const SavingsChallengesPage = ({
           "
         >
           {visibleChallenges.map(
-            (
-              challenge,
-              index
-            ) => (
-              <article
+            (challenge, index) => (
+              <div
                 key={getChallengeKey(
                   challenge,
                   index
@@ -1461,12 +1470,8 @@ const SavingsChallengesPage = ({
                 "
               >
                 <SavingsChallengeCard
-                  challenge={
-                    challenge
-                  }
-                  compact={
-                    compact
-                  }
+                  challenge={challenge}
+                  compact={compact}
                   onView={
                     handleChallengeClick
                   }
@@ -1496,16 +1501,16 @@ const SavingsChallengesPage = ({
                       : undefined
                   }
                 />
-              </article>
+              </div>
             )
           )}
         </div>
 
-        {/* ===============================================
+        {/* =================================================
             BACKGROUND REFRESH
-        =============================================== */}
+        ================================================= */}
 
-        {isRefreshing ? (
+        {isCurrentlyRefreshing ? (
           <div
             className="
               flex justify-center items-center
@@ -1525,7 +1530,8 @@ const SavingsChallengesPage = ({
             /
             >
 
-            Updating your savings challenges...
+            Updating your savings
+            challenges...
           </div>
         ) : null}
       </section>
@@ -1534,15 +1540,7 @@ const SavingsChallengesPage = ({
           CREATE MODAL
       ================================================= */}
 
-      <CreateChallengeModal
-        open={createModalOpen}
-        onClose={
-          handleCloseCreate
-        }
-        onSubmit={
-          handleCreateChallenge
-        }
-      />
+      {createModal}
 
       {/* =================================================
           DETAILS MODAL
@@ -1550,9 +1548,7 @@ const SavingsChallengesPage = ({
 
       <ChallengeDetailsModal
         open={
-          Boolean(
-            selectedChallenge
-          )
+          Boolean(selectedChallenge)
         }
         challenge={
           selectedChallenge

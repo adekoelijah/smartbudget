@@ -32,15 +32,7 @@ import {
    SAFE HELPERS
 ========================================================= */
 
-const getId = (value) => {
-  if (!value) return "";
 
-  if (typeof value === "string") {
-    return value;
-  }
-
-  return value?._id || value?.id || "";
-};
 
 
 const getLabel = (collection, value, fallback) => {
@@ -263,8 +255,8 @@ const SavingsChallengeCard = ({
      NORMALIZED DATA
   ======================================================= */
 
-  const challengeId =
-    getId(challenge);
+  // const challengeId =
+  //   getId(challenge);
 
   const name =
     challenge?.name ||

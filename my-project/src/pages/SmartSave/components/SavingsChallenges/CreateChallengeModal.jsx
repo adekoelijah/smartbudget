@@ -1,4 +1,3 @@
-
 import {
   useCallback,
   useEffect,
@@ -31,12 +30,11 @@ import {
   validateSavingsChallenge,
 } from "../../../../utils/smartSave/savingsValidators";
 
-
 /* =========================================================
-   DEFAULT FORM
+   CONSTANTS
 ========================================================= */
 
-const INITIAL_FORM = {
+const INITIAL_FORM = Object.freeze({
   name: "",
   description: "",
   challengeType: "",
@@ -46,28 +44,111 @@ const INITIAL_FORM = {
   endDate: "",
   savingPlan: "",
   savingAccount: "",
-};
-
+});
 
 /* =========================================================
-   SAFE VALUE HELPERS
+   HELPERS
 ========================================================= */
 
 const getId = (value) => {
-  if (!value) return "";
+  if (value == null) {
+    return "";
+  }
 
   if (typeof value === "string") {
     return value;
   }
 
-  return (
-    value?._id ||
-    value?.id ||
-    value?.value ||
-    ""
-  );
+  if (typeof value === "object") {
+    return (
+      value._id ??
+      value.id ??
+      value.value ??
+      ""
+    );
+  }
+
+  return "";
 };
 
+const createInitialForm = (values = {}) => ({
+  ...INITIAL_FORM,
+
+  name:
+    typeof values.name === "string"
+      ? values.name
+      : "",
+
+  description:
+    typeof values.description === "string"
+      ? values.description
+      : "",
+
+  challengeType:
+    values.challengeType ?? "",
+
+  difficulty:
+    values.difficulty ?? "",
+
+  targetAmount:
+    values.targetAmount ?? "",
+
+  startDate:
+    values.startDate ?? "",
+
+  endDate:
+    values.endDate ?? "",
+
+  savingPlan:
+    getId(values.savingPlan),
+
+  savingAccount:
+    getId(values.savingAccount),
+});
+
+const normalizeOptions = (source) => {
+  if (Array.isArray(source)) {
+    return source.map((option) => {
+      if (
+        option &&
+        typeof option === "object"
+      ) {
+        return {
+          value:
+            option.value ??
+            option.id ??
+            option._id ??
+            "",
+          label:
+            option.label ??
+            option.name ??
+            option.title ??
+            option.value ??
+            "",
+        };
+      }
+
+      return {
+        value: option,
+        label: String(option),
+      };
+    });
+  }
+
+  if (
+    source &&
+    typeof source === "object"
+  ) {
+    return Object.entries(source).map(
+      ([value, label]) => ({
+        value,
+        label: String(label),
+      })
+    );
+  }
+
+  return [];
+};
 
 /* =========================================================
    COMPONENT
@@ -89,129 +170,87 @@ const CreateChallengeModal = ({
     error: challengeError,
   } = useSavingsChallenges();
 
-
   /* =======================================================
-     LOCAL FORM STATE
+     LOCAL STATE
   ======================================================= */
 
-  const [form, setForm] = useState(() => ({
-    ...INITIAL_FORM,
-    ...initialValues,
-  }));
+  const [form, setForm] = useState(() =>
+    createInitialForm(initialValues)
+  );
 
   const [errors, setErrors] = useState({});
-  const [submitError, setSubmitError] = useState("");
-
-
-  /* =======================================================
-     RESET FORM
-  ======================================================= */
-
-  const resetForm = useCallback(() => {
-    setForm({
-      ...INITIAL_FORM,
-      ...initialValues,
-    });
-
-    setErrors({});
-    setSubmitError("");
-  }, [initialValues]);
-
+  const [submitError, setSubmitError] =
+    useState("");
 
   /* =======================================================
-     INPUT HANDLER
+     OPTIONS
   ======================================================= */
 
-  const handleChange = useCallback((event) => {
-    const {
-      name,
-      value,
-    } = event.target;
+  const challengeTypeOptions = useMemo(
+    () => normalizeOptions(CHALLENGE_TYPES),
+    []
+  );
 
-    setForm((previous) => ({
-      ...previous,
-      [name]: value,
-    }));
+  const difficultyOptions = useMemo(
+    () =>
+      normalizeOptions(
+        CHALLENGE_DIFFICULTIES
+      ),
+    []
+  );
 
-    setErrors((previous) => {
-      if (!previous[name]) {
-        return previous;
-      }
+  /* =======================================================
+     INPUT CHANGE
+  ======================================================= */
 
-      const next = {
+  const handleChange = useCallback(
+    (event) => {
+      const {
+        name,
+        value,
+      } = event.target;
+
+      setForm((previous) => ({
         ...previous,
-      };
+        [name]: value,
+      }));
 
-      delete next[name];
+      setErrors((previous) => {
+        if (!previous[name]) {
+          return previous;
+        }
 
-      return next;
-    });
+        const next = {
+          ...previous,
+        };
 
-    setSubmitError("");
-  }, []);
+        delete next[name];
 
+        return next;
+      });
+
+      setSubmitError("");
+    },
+    []
+  );
 
   /* =======================================================
-     CLOSE HANDLER
+     CLOSE
   ======================================================= */
 
   const handleClose = useCallback(() => {
-    if (creating) return;
+    if (creating) {
+      return;
+    }
 
-    resetForm();
+    setErrors({});
+    setSubmitError("");
+
     onClose?.();
   }, [
     creating,
-    resetForm,
     onClose,
   ]);
-
-
-  /* =======================================================
-     NORMALIZED OPTIONS
-  ======================================================= */
-
-  const challengeTypeOptions = useMemo(() => {
-    if (Array.isArray(CHALLENGE_TYPES)) {
-      return CHALLENGE_TYPES;
-    }
-
-    if (
-      CHALLENGE_TYPES &&
-      typeof CHALLENGE_TYPES === "object"
-    ) {
-      return Object.entries(CHALLENGE_TYPES).map(
-        ([value, label]) => ({
-          value,
-          label,
-        })
-      );
-    }
-
-    return [];
-  }, []);
-
-
-  const difficultyOptions = useMemo(() => {
-    if (Array.isArray(CHALLENGE_DIFFICULTIES)) {
-      return CHALLENGE_DIFFICULTIES;
-    }
-
-    if (
-      CHALLENGE_DIFFICULTIES &&
-      typeof CHALLENGE_DIFFICULTIES === "object"
-    ) {
-      return Object.entries(
-        CHALLENGE_DIFFICULTIES
-      ).map(([value, label]) => ({
-        value,
-        label,
-      }));
-    }
-
-    return [];
-  }, []);
-
 
   /* =======================================================
      PAYLOAD
@@ -220,10 +259,15 @@ const CreateChallengeModal = ({
   const buildPayload = useCallback(() => {
     const rawPayload = {
       name: form.name.trim(),
-      description: form.description.trim(),
 
-      challengeType: form.challengeType,
-      difficulty: form.difficulty,
+      description:
+        form.description.trim(),
+
+      challengeType:
+        form.challengeType,
+
+      difficulty:
+        form.difficulty,
 
       targetAmount:
         form.targetAmount === ""
@@ -237,15 +281,18 @@ const CreateChallengeModal = ({
         form.endDate || undefined,
 
       savingPlan:
-        getId(form.savingPlan) || undefined,
+        getId(form.savingPlan) ||
+        undefined,
 
       savingAccount:
-        getId(form.savingAccount) || undefined,
+        getId(form.savingAccount) ||
+        undefined,
     };
 
-    return normalizeChallengePayload(rawPayload);
+    return normalizeChallengePayload(
+      rawPayload
+    );
   }, [form]);
-
 
   /* =======================================================
      VALIDATION
@@ -255,7 +302,9 @@ const CreateChallengeModal = ({
     (payload) => {
       try {
         const result =
-          validateSavingsChallenge(payload);
+          validateSavingsChallenge(
+            payload
+          );
 
         if (result === true) {
           return {};
@@ -269,13 +318,20 @@ const CreateChallengeModal = ({
         }
 
         return {};
-      } catch {
-        return {};
+      } catch (error) {
+        console.error(
+          "CREATE_CHALLENGE_VALIDATION_ERROR:",
+          error
+        );
+
+        return {
+          form:
+            "Unable to validate the challenge. Please check your information.",
+        };
       }
     },
     []
   );
-
 
   /* =======================================================
      SUBMIT
@@ -285,7 +341,9 @@ const CreateChallengeModal = ({
     async (event) => {
       event.preventDefault();
 
-      if (creating) return;
+      if (creating) {
+        return;
+      }
 
       setSubmitError("");
 
@@ -295,8 +353,9 @@ const CreateChallengeModal = ({
         validateForm(payload);
 
       if (
-        validationErrors &&
-        Object.keys(validationErrors).length
+        Object.keys(
+          validationErrors
+        ).length > 0
       ) {
         setErrors(validationErrors);
         return;
@@ -306,11 +365,32 @@ const CreateChallengeModal = ({
         const created =
           await createChallenge(payload);
 
+        /*
+         * Notify parent before closing so the
+         * parent can update its collection.
+         */
         onCreated?.(created);
 
-        resetForm();
+        /*
+         * Explicitly reset local state.
+         * No reset callback is required.
+         */
+        setForm(
+          createInitialForm(
+            initialValues
+          )
+        );
+
+        setErrors({});
+        setSubmitError("");
+
         onClose?.();
       } catch (error) {
+        console.error(
+          "CREATE_CHALLENGE_ERROR:",
+          error
+        );
+
         setSubmitError(
           error?.message ||
             "Unable to create the savings challenge. Please try again."
@@ -323,11 +403,10 @@ const CreateChallengeModal = ({
       validateForm,
       createChallenge,
       onCreated,
-      resetForm,
+      initialValues,
       onClose,
     ]
   );
-
 
   /* =======================================================
      ESCAPE KEY
@@ -339,13 +418,14 @@ const CreateChallengeModal = ({
     }
 
     const handleKeyDown = (event) => {
-      if (event.key !== "Escape") {
+      if (
+        event.key !== "Escape" ||
+        creating
+      ) {
         return;
       }
 
-      if (!creating) {
-        handleClose();
-      }
+      handleClose();
     };
 
     window.addEventListener(
@@ -364,7 +444,6 @@ const CreateChallengeModal = ({
     creating,
     handleClose,
   ]);
-
 
   /* =======================================================
      BODY SCROLL LOCK
@@ -387,49 +466,81 @@ const CreateChallengeModal = ({
     };
   }, [isOpen]);
 
-
   /* =======================================================
      ERROR RESOLUTION
   ======================================================= */
 
   const visibleError =
     submitError ||
-    challengeError?.message ||
     (
-      typeof challengeError === "string"
+      typeof challengeError ===
+      "string"
         ? challengeError
-        : ""
+        : challengeError?.message || ""
     );
 
+  /* =======================================================
+     BACKDROP
+  ======================================================= */
+
+
+
+  /* =========================================================
+   MODAL INTERACTION HANDLERS
+========================================================= */
+
+const handleBackdropClick = useCallback(
+  (event) => {
+    if (creating) {
+      return;
+    }
+
+    if (event.target !== event.currentTarget) {
+      return;
+    }
+
+    handleClose();
+  },
+  [creating, handleClose]
+);
+
+const handleModalClick = useCallback((event) => {
+  event.stopPropagation();
+}, []);
+
+  const handleBackdropMouseDown =
+    useCallback(
+      (event) => {
+        if (creating) {
+          return;
+        }
+
+        if (
+          event.target !==
+          event.currentTarget
+        ) {
+          return;
+        }
+
+        handleClose();
+      },
+      [
+        creating,
+        handleClose,
+      ]
+    );
 
   /* =======================================================
-     RENDER
+     CLOSED STATE
   ======================================================= */
 
   if (!isOpen) {
     return null;
   }
 
-
   /* =======================================================
-     BACKDROP HANDLER
+     RENDER
   ======================================================= */
-
-  const handleBackdropMouseDown = (event) => {
-    if (creating) {
-      return;
-    }
-
-    if (
-      event.target !==
-      event.currentTarget
-    ) {
-      return;
-    }
-
-    handleClose();
-  };
-
 
   return (
     <div
@@ -442,7 +553,7 @@ const CreateChallengeModal = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="create-challenge-title"
-      onMouseDown={handleBackdropMouseDown}
+      onClick={handleBackdropClick}
     >
       <div
         className="
@@ -452,11 +563,9 @@ const CreateChallengeModal = ({
           rounded-2xl
           shadow-2xl
         "
-        onMouseDown={handleBackdropMouseDown}
+        onClick={handleModalClick}
       >
-        {/* =================================================
-            HEADER
-        ================================================= */}
+        {/* HEADER */}
 
         <div
           className="
@@ -468,6 +577,7 @@ const CreateChallengeModal = ({
           <div
             className="
               flex items-center
+              min-w-0
               gap-3
             "
           >
@@ -478,15 +588,18 @@ const CreateChallengeModal = ({
                 text-blue-600
                 bg-blue-50
                 rounded-xl
+                shrink-0
               "
+              aria-hidden="true"
             >
-              <Trophy
-                size={20}
-                aria-hidden="true"
-              />
+              <Trophy size={20} />
             </div>
 
-            <div>
+            <div
+              className="
+                min-w-0
+              "
+            >
               <h2
                 id="create-challenge-title"
                 className="
@@ -502,8 +615,8 @@ const CreateChallengeModal = ({
                   text-slate-500 text-sm
                 "
               >
-                Set a measurable savings target
-                and build consistency.
+                Set a measurable savings
+                target and build consistency.
               </p>
             </div>
           </div>
@@ -516,9 +629,10 @@ const CreateChallengeModal = ({
               p-2
               text-slate-400 hover:text-slate-700
               hover:bg-slate-100
-              rounded-lg
+              rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500
               disabled:opacity-50 transition
               disabled:cursor-not-allowed
+              shrink-0
             "
             aria-label="Close modal"
           >
@@ -529,10 +643,7 @@ const CreateChallengeModal = ({
           </button>
         </div>
 
-
-        {/* =================================================
-            FORM
-        ================================================= */}
+        {/* FORM */}
 
         <form
           onSubmit={handleSubmit}
@@ -548,10 +659,6 @@ const CreateChallengeModal = ({
               px-5 sm:px-6 py-5
             "
           >
-            {/* =============================================
-                API ERROR
-            ============================================= */}
-
             {visibleError && (
               <div
                 className="
@@ -580,16 +687,25 @@ const CreateChallengeModal = ({
               </div>
             )}
 
-
-            {/* =============================================
-                BASIC INFORMATION
-            ============================================= */}
+            {errors.form && (
+              <p
+                className="
+                  mb-4
+                  text-red-600 text-xs
+                "
+                role="alert"
+              >
+                {errors.form}
+              </p>
+            )}
 
             <div
               className="
                 space-y-5
               "
             >
+              {/* NAME */}
+
               <div>
                 <label
                   htmlFor="challenge-name"
@@ -612,19 +728,21 @@ const CreateChallengeModal = ({
                   autoComplete="off"
                   maxLength={120}
                   placeholder="e.g. Emergency Fund Challenge"
+                  aria-invalid={
+                    Boolean(errors.name)
+                  }
                   className={`
                     w-full
-                    rounded-xl
-                    border
                     px-3.5 py-2.5
                     text-sm
                     text-slate-900
+                    placeholder:text-slate-400
+                    border
+                    rounded-xl
                     outline-none
                     transition
-                    placeholder:text-slate-400
-                    focus:ring-2
                     disabled:bg-slate-50
-
+                    focus:ring-2
                     ${
                       errors.name
                         ? "border-red-300 focus:border-red-500 focus:ring-red-100"
@@ -639,12 +757,14 @@ const CreateChallengeModal = ({
                       mt-1.5
                       text-red-600 text-xs
                     "
+                    role="alert"
                   >
                     {errors.name}
                   </p>
                 )}
               </div>
 
+              {/* DESCRIPTION */}
 
               <div>
                 <label
@@ -681,14 +801,11 @@ const CreateChallengeModal = ({
                 >
               </div>
 
-
-              {/* ===========================================
-                  TYPE / DIFFICULTY
-              =========================================== */}
+              {/* TYPE / DIFFICULTY */}
 
               <div
                 className="
-                  grid sm:grid-cols-2
+                  grid grid-cols-1 sm:grid-cols-2
                   gap-4
                 "
               >
@@ -707,7 +824,9 @@ const CreateChallengeModal = ({
                   <select
                     id="challenge-type"
                     name="challengeType"
-                    value={form.challengeType}
+                    value={
+                      form.challengeType
+                    }
                     onChange={handleChange}
                     disabled={creating}
                     className="
@@ -726,17 +845,10 @@ const CreateChallengeModal = ({
                     {challengeTypeOptions.map(
                       (option) => (
                         <option
-                          key={
-                            option?.value ??
-                            option
-                          }
-                          value={
-                            option?.value ??
-                            option
-                          }
+                          key={option.value}
+                          value={option.value}
                         >
-                          {option?.label ??
-                            option}
+                          {option.label}
                         </option>
                       )
                     )}
@@ -748,12 +860,14 @@ const CreateChallengeModal = ({
                         mt-1.5
                         text-red-600 text-xs
                       "
+                      role="alert"
                     >
-                      {errors.challengeType}
+                      {
+                        errors.challengeType
+                      }
                     </p>
                   )}
                 </div>
-
 
                 <div>
                   <label
@@ -770,7 +884,9 @@ const CreateChallengeModal = ({
                   <select
                     id="challenge-difficulty"
                     name="difficulty"
-                    value={form.difficulty}
+                    value={
+                      form.difficulty
+                    }
                     onChange={handleChange}
                     disabled={creating}
                     className="
@@ -789,17 +905,10 @@ const CreateChallengeModal = ({
                     {difficultyOptions.map(
                       (option) => (
                         <option
-                          key={
-                            option?.value ??
-                            option
-                          }
-                          value={
-                            option?.value ??
-                            option
-                          }
+                          key={option.value}
+                          value={option.value}
                         >
-                          {option?.label ??
-                            option}
+                          {option.label}
                         </option>
                       )
                     )}
@@ -811,6 +920,7 @@ const CreateChallengeModal = ({
                         mt-1.5
                         text-red-600 text-xs
                       "
+                      role="alert"
                     >
                       {errors.difficulty}
                     </p>
@@ -818,10 +928,7 @@ const CreateChallengeModal = ({
                 </div>
               </div>
 
-
-              {/* ===========================================
-                  TARGET
-              =========================================== */}
+              {/* TARGET */}
 
               <div>
                 <label
@@ -859,25 +966,31 @@ const CreateChallengeModal = ({
                     inputMode="decimal"
                     min="0"
                     step="0.01"
-                    value={form.targetAmount}
+                    value={
+                      form.targetAmount
+                    }
                     onChange={handleChange}
                     disabled={creating}
                     placeholder="0.00"
+                    aria-invalid={
+                      Boolean(
+                        errors.targetAmount
+                      )
+                    }
                     className={`
                       w-full
-                      rounded-xl
-                      border
                       py-2.5
                       pl-10
                       pr-3.5
                       text-sm
                       text-slate-900
+                      placeholder:text-slate-400
+                      border
+                      rounded-xl
                       outline-none
                       transition
-                      placeholder:text-slate-400
-                      focus:ring-2
                       disabled:bg-slate-50
-
+                      focus:ring-2
                       ${
                         errors.targetAmount
                           ? "border-red-300 focus:border-red-500 focus:ring-red-100"
@@ -893,20 +1006,20 @@ const CreateChallengeModal = ({
                       mt-1.5
                       text-red-600 text-xs
                     "
+                    role="alert"
                   >
-                    {errors.targetAmount}
+                    {
+                      errors.targetAmount
+                    }
                   </p>
                 )}
               </div>
 
-
-              {/* ===========================================
-                  DATES
-              =========================================== */}
+              {/* DATES */}
 
               <div
                 className="
-                  grid sm:grid-cols-2
+                  grid grid-cols-1 sm:grid-cols-2
                   gap-4
                 "
               >
@@ -943,8 +1056,12 @@ const CreateChallengeModal = ({
                       id="challenge-start-date"
                       name="startDate"
                       type="date"
-                      value={form.startDate}
-                      onChange={handleChange}
+                      value={
+                        form.startDate
+                      }
+                      onChange={
+                        handleChange
+                      }
                       disabled={creating}
                       className="
                         w-full
@@ -964,12 +1081,12 @@ const CreateChallengeModal = ({
                         mt-1.5
                         text-red-600 text-xs
                       "
+                      role="alert"
                     >
                       {errors.startDate}
                     </p>
                   )}
                 </div>
-
 
                 <div>
                   <label
@@ -1004,8 +1121,12 @@ const CreateChallengeModal = ({
                       id="challenge-end-date"
                       name="endDate"
                       type="date"
-                      value={form.endDate}
-                      onChange={handleChange}
+                      value={
+                        form.endDate
+                      }
+                      onChange={
+                        handleChange
+                      }
                       disabled={creating}
                       className="
                         w-full
@@ -1025,6 +1146,7 @@ const CreateChallengeModal = ({
                         mt-1.5
                         text-red-600 text-xs
                       "
+                      role="alert"
                     >
                       {errors.endDate}
                     </p>
@@ -1032,14 +1154,11 @@ const CreateChallengeModal = ({
                 </div>
               </div>
 
-
-              {/* ===========================================
-                  SAVING PLAN / ACCOUNT
-              =========================================== */}
+              {/* PLAN / ACCOUNT */}
 
               <div
                 className="
-                  grid sm:grid-cols-2
+                  grid grid-cols-1 sm:grid-cols-2
                   gap-4
                 "
               >
@@ -1058,7 +1177,11 @@ const CreateChallengeModal = ({
                   <select
                     id="challenge-plan"
                     name="savingPlan"
-                    value={getId(form.savingPlan)}
+                    value={
+                      getId(
+                        form.savingPlan
+                      )
+                    }
                     onChange={handleChange}
                     disabled={creating}
                     className="
@@ -1074,20 +1197,30 @@ const CreateChallengeModal = ({
                       No saving plan
                     </option>
 
-                    {savingPlans.map((plan) => {
-                      const id = getId(plan);
+                    {Array.isArray(
+                      savingPlans
+                    ) &&
+                      savingPlans.map(
+                        (plan) => {
+                          const id =
+                            getId(plan);
 
-                      return (
-                        <option
-                          key={id}
-                          value={id}
-                        >
-                          {plan?.name ||
-                            plan?.title ||
-                            `Plan ${id}`}
-                        </option>
-                      );
-                    })}
+                          if (!id) {
+                            return null;
+                          }
+
+                          return (
+                            <option
+                              key={id}
+                              value={id}
+                            >
+                              {plan?.name ||
+                                plan?.title ||
+                                `Plan ${id}`}
+                            </option>
+                          );
+                        }
+                      )}
                   </select>
 
                   {errors.savingPlan && (
@@ -1096,12 +1229,12 @@ const CreateChallengeModal = ({
                         mt-1.5
                         text-red-600 text-xs
                       "
+                      role="alert"
                     >
                       {errors.savingPlan}
                     </p>
                   )}
                 </div>
-
 
                 <div>
                   <label
@@ -1118,7 +1251,11 @@ const CreateChallengeModal = ({
                   <select
                     id="challenge-account"
                     name="savingAccount"
-                    value={getId(form.savingAccount)}
+                    value={
+                      getId(
+                        form.savingAccount
+                      )
+                    }
                     onChange={handleChange}
                     disabled={creating}
                     className="
@@ -1134,23 +1271,30 @@ const CreateChallengeModal = ({
                       No saving account
                     </option>
 
-                    {savingAccounts.map(
-                      (account) => {
-                        const id =
-                          getId(account);
+                    {Array.isArray(
+                      savingAccounts
+                    ) &&
+                      savingAccounts.map(
+                        (account) => {
+                          const id =
+                            getId(account);
 
-                        return (
-                          <option
-                            key={id}
-                            value={id}
-                          >
-                            {account?.name ||
-                              account?.title ||
-                              `Account ${id}`}
-                          </option>
-                        );
-                      }
-                    )}
+                          if (!id) {
+                            return null;
+                          }
+
+                          return (
+                            <option
+                              key={id}
+                              value={id}
+                            >
+                              {account?.name ||
+                                account?.title ||
+                                `Account ${id}`}
+                            </option>
+                          );
+                        }
+                      )}
                   </select>
 
                   {errors.savingAccount && (
@@ -1159,8 +1303,11 @@ const CreateChallengeModal = ({
                         mt-1.5
                         text-red-600 text-xs
                       "
+                      role="alert"
                     >
-                      {errors.savingAccount}
+                      {
+                        errors.savingAccount
+                      }
                     </p>
                   )}
                 </div>
@@ -1168,10 +1315,7 @@ const CreateChallengeModal = ({
             </div>
           </div>
 
-
-          {/* =================================================
-              FOOTER
-          ================================================= */}
+          {/* FOOTER */}
 
           <div
             className="
@@ -1191,7 +1335,8 @@ const CreateChallengeModal = ({
                 px-4 py-2.5
                 font-medium text-slate-700 text-sm
                 bg-white hover:bg-slate-100
-                border border-slate-200 rounded-xl
+                border border-slate-200 rounded-xl focus:outline-none
+                focus:ring-2 focus:ring-blue-500
                 disabled:opacity-50 transition
                 disabled:cursor-not-allowed
               "
@@ -1207,7 +1352,7 @@ const CreateChallengeModal = ({
                 px-5 py-2.5
                 font-semibold text-white text-sm
                 bg-slate-900 hover:bg-slate-800
-                rounded-xl
+                rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500
                 disabled:opacity-60 shadow-sm transition
                 disabled:cursor-not-allowed
                 gap-2
@@ -1223,7 +1368,6 @@ const CreateChallengeModal = ({
                     aria-hidden="true"
                   /
                   >
-
                   Creating...
                 </>
               ) : (
@@ -1232,7 +1376,6 @@ const CreateChallengeModal = ({
                     size={17}
                     aria-hidden="true"
                   />
-
                   Create Challenge
                 </>
               )}
@@ -1243,6 +1386,5 @@ const CreateChallengeModal = ({
     </div>
   );
 };
-
 
 export default CreateChallengeModal;

@@ -1,3 +1,4 @@
+// SavingsRecommendation.jsx
 
 import {
   AlertTriangle,
@@ -19,55 +20,70 @@ import {
 } from "../../../../utils/smartSave/savingsFormatters";
 
 /* =========================================================
-   DEFAULTS
+   CONSTANTS
 ========================================================= */
 
 const DEFAULT_PRIORITY = "medium";
 const DEFAULT_CURRENCY = "NGN";
 
+const FALLBACK_INSIGHT_TYPE =
+  SAVINGS_INSIGHT_TYPES.RECOMMENDATION;
+
 /* =========================================================
    PRIORITY CONFIGURATION
 ========================================================= */
 
-const PRIORITY_CONFIG = {
+const PRIORITY_CONFIG = Object.freeze({
   critical: {
     icon: AlertTriangle,
     label: "Critical",
-    container: "border-red-200 bg-red-50/70",
-    iconWrapper: "bg-red-100 text-red-600",
-    badge: "bg-red-100 text-red-700",
+    container:
+      "border-red-200 bg-red-50/70",
+    iconWrapper:
+      "bg-red-100 text-red-600",
+    badge:
+      "bg-red-100 text-red-700",
   },
 
   high: {
     icon: AlertTriangle,
     label: "High priority",
-    container: "border-orange-200 bg-orange-50/70",
-    iconWrapper: "bg-orange-100 text-orange-600",
-    badge: "bg-orange-100 text-orange-700",
+    container:
+      "border-orange-200 bg-orange-50/70",
+    iconWrapper:
+      "bg-orange-100 text-orange-600",
+    badge:
+      "bg-orange-100 text-orange-700",
   },
 
   medium: {
     icon: Lightbulb,
     label: "Recommended",
-    container: "border-slate-200 bg-slate-50/70",
-    iconWrapper: "bg-slate-100 text-slate-700",
-    badge: "bg-slate-100 text-slate-700",
+    container:
+      "border-slate-200 bg-slate-50/70",
+    iconWrapper:
+      "bg-slate-100 text-slate-700",
+    badge:
+      "bg-slate-100 text-slate-700",
   },
 
   low: {
     icon: Info,
     label: "Suggestion",
-    container: "border-slate-200 bg-white",
-    iconWrapper: "bg-slate-100 text-slate-600",
-    badge: "bg-slate-100 text-slate-600",
+    container:
+      "border-slate-200 bg-white",
+    iconWrapper:
+      "bg-slate-100 text-slate-600",
+    badge:
+      "bg-slate-100 text-slate-600",
   },
-};
+});
 
 /* =========================================================
    INSIGHT TYPE CONFIGURATION
 ========================================================= */
 
-const TYPE_CONFIG = {
+const TYPE_CONFIG = Object.freeze({
   [SAVINGS_INSIGHT_TYPES.GOAL]: {
     icon: Target,
     label: "Goal",
@@ -92,21 +108,28 @@ const TYPE_CONFIG = {
     icon: Lightbulb,
     label: "Recommendation",
   },
-};
+});
 
 /* =========================================================
    HELPERS
 ========================================================= */
 
 const getText = (...values) => {
-  const value = values.find(
-    (item) =>
-      typeof item === "string" &&
-      item.trim().length > 0
-  );
+  for (const value of values) {
+    if (
+      typeof value === "string" &&
+      value.trim().length > 0
+    ) {
+      return value.trim();
+    }
+  }
 
-  return value?.trim() || "";
+  return "";
 };
+
+/* ---------------------------------------------------------
+   PRIORITY
+--------------------------------------------------------- */
 
 const getPriority = (recommendation) => {
   const priority = getText(
@@ -115,54 +138,121 @@ const getPriority = (recommendation) => {
     recommendation?.urgency
   ).toLowerCase();
 
-  return PRIORITY_CONFIG[priority]
+  return Object.prototype.hasOwnProperty.call(
+    PRIORITY_CONFIG,
+    priority
+  )
     ? priority
     : DEFAULT_PRIORITY;
 };
 
+/* ---------------------------------------------------------
+   INSIGHT TYPE
+--------------------------------------------------------- */
+
 const getInsightType = (recommendation) => {
-  return getText(
+  const type = getText(
     recommendation?.type,
     recommendation?.category,
     recommendation?.insightType
   ).toLowerCase();
+
+  return Object.prototype.hasOwnProperty.call(
+    TYPE_CONFIG,
+    type
+  )
+    ? type
+    : FALLBACK_INSIGHT_TYPE;
 };
 
-const getRecommendationId = (recommendation) => {
+/* ---------------------------------------------------------
+   ID
+--------------------------------------------------------- */
+
+const getRecommendationId = (
+  recommendation
+) => {
   const id =
     recommendation?._id ??
     recommendation?.id ??
     recommendation?.insightId ??
     recommendation?.recommendationId;
 
-  return id ? String(id) : null;
-};
-
-const getFormattedAmount = (
-  amount,
-  currency
-) => {
   if (
-    amount === null ||
-    amount === undefined ||
-    amount === ""
+    id === null ||
+    id === undefined ||
+    id === ""
   ) {
     return null;
   }
 
-  const numericAmount = Number(amount);
+  return String(id);
+};
 
-  if (!Number.isFinite(numericAmount)) {
+/* ---------------------------------------------------------
+   AMOUNT
+--------------------------------------------------------- */
+
+const getAmount = (recommendation) => {
+  const value =
+    recommendation?.amount ??
+    recommendation?.recommendedAmount ??
+    recommendation?.suggestedAmount ??
+    null;
+
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return null;
+  }
+
+  const amount = Number(value);
+
+  return Number.isFinite(amount)
+    ? amount
+    : null;
+};
+
+/* ---------------------------------------------------------
+   CURRENCY
+--------------------------------------------------------- */
+
+const getCurrency = (recommendation) => {
+  const currency = getText(
+    recommendation?.currency,
+    recommendation?.targetCurrency
+  );
+
+  return currency || DEFAULT_CURRENCY;
+};
+
+/* ---------------------------------------------------------
+   FORMATTED AMOUNT
+--------------------------------------------------------- */
+
+const formatAmount = (
+  amount,
+  currency
+) => {
+  if (amount === null) {
     return null;
   }
 
   try {
     return formatCurrency(
-      numericAmount,
+      amount,
       currency
     );
   } catch {
-    return `${currency} ${numericAmount.toLocaleString()}`;
+    try {
+      return `${currency} ${amount.toLocaleString(
+        "en-NG"
+      )}`;
+    } catch {
+      return `${currency} ${amount}`;
+    }
   }
 };
 
@@ -178,17 +268,14 @@ const SavingsRecommendation = ({
   showType = true,
   className = "",
 }) => {
-  /*
-   * Normalize safely without hooks.
-   *
-   * This component is intentionally presentational.
-   * It does not fetch, mutate, navigate, or manage
-   * asynchronous state.
-   */
+  /* =======================================================
+     SOURCE VALIDATION
+  ======================================================= */
 
   const source =
     recommendation &&
-    typeof recommendation === "object"
+    typeof recommendation === "object" &&
+    !Array.isArray(recommendation)
       ? recommendation
       : null;
 
@@ -197,7 +284,7 @@ const SavingsRecommendation = ({
   }
 
   /* =======================================================
-     NORMALIZED DATA
+     NORMALIZED DISPLAY DATA
   ======================================================= */
 
   const title =
@@ -227,47 +314,37 @@ const SavingsRecommendation = ({
   const insightType =
     getInsightType(source);
 
-  const amount =
-    source.amount ??
-    source.recommendedAmount ??
-    source.suggestedAmount ??
-    null;
-
-  const currency =
-    source.currency ??
-    source.targetCurrency ??
-    DEFAULT_CURRENCY;
-
   const recommendationId =
     getRecommendationId(source);
 
+  const amount =
+    getAmount(source);
+
+  const currency =
+    getCurrency(source);
+
   /* =======================================================
-     CONFIGURATION
+     STABLE CONFIGURATION REFERENCES
   ======================================================= */
 
   const priorityConfig =
-    PRIORITY_CONFIG[priority] ??
-    PRIORITY_CONFIG[DEFAULT_PRIORITY];
+    PRIORITY_CONFIG[priority];
 
   const PriorityIcon =
     priorityConfig.icon;
 
   const typeConfig =
-    TYPE_CONFIG[insightType] ??
-    TYPE_CONFIG[
-      SAVINGS_INSIGHT_TYPES.RECOMMENDATION
-    ];
+    TYPE_CONFIG[insightType];
 
   const TypeIcon =
-    typeConfig?.icon ??
-    Lightbulb;
+    typeConfig.icon;
 
   /* =======================================================
-     FORMATTED AMOUNT
+     FORMATTING
   ======================================================= */
 
   const formattedAmount =
-    getFormattedAmount(
+    formatAmount(
       amount,
       currency
     );
@@ -276,8 +353,11 @@ const SavingsRecommendation = ({
      ACTION
   ======================================================= */
 
+  const hasAction =
+    typeof onAction === "function";
+
   const handleAction = () => {
-    if (typeof onAction !== "function") {
+    if (!hasAction) {
       return;
     }
 
@@ -309,9 +389,9 @@ const SavingsRecommendation = ({
         ${className}
       `}
     >
-      {/* ===================================================
+      {/* =================================================
           HEADER
-      =================================================== */}
+      ================================================= */}
 
       <header
         className="
@@ -326,14 +406,18 @@ const SavingsRecommendation = ({
             gap-3
           "
         >
+          {/* ===============================================
+              PRIORITY ICON
+          =============================================== */}
+
           <div
             className={`
               flex
-              h-10
-              w-10
-              shrink-0
               items-center
               justify-center
+              w-10
+              h-10
+              shrink-0
               rounded-xl
               ${priorityConfig.iconWrapper}
             `}
@@ -344,6 +428,10 @@ const SavingsRecommendation = ({
               strokeWidth={2}
             />
           </div>
+
+          {/* ===============================================
+              TITLE / META
+          =============================================== */}
 
           <div
             className="
@@ -367,22 +455,26 @@ const SavingsRecommendation = ({
                   gap-1.5
                 "
               >
+                {/* Priority */}
+
                 {showPriority && (
                   <span
                     className={`
                       inline-flex
                       items-center
-                      rounded-full
                       px-2
                       py-0.5
-                      text-[10px]
+                      rounded-full
                       font-semibold
+                      text-[10px]
                       ${priorityConfig.badge}
                     `}
                   >
                     {priorityConfig.label}
                   </span>
                 )}
+
+                {/* Type */}
 
                 {showType && (
                   <span
@@ -398,6 +490,7 @@ const SavingsRecommendation = ({
                     <TypeIcon
                       size={11}
                       strokeWidth={2}
+                      aria-hidden="true"
                     />
 
                     {typeConfig.label}
@@ -409,9 +502,9 @@ const SavingsRecommendation = ({
         </div>
       </header>
 
-      {/* ===================================================
+      {/* =================================================
           DESCRIPTION
-      =================================================== */}
+      ================================================= */}
 
       {description && (
         <p
@@ -424,9 +517,9 @@ const SavingsRecommendation = ({
         </p>
       )}
 
-      {/* ===================================================
+      {/* =================================================
           RECOMMENDED AMOUNT
-      =================================================== */}
+      ================================================= */}
 
       {formattedAmount && (
         <div
@@ -455,11 +548,11 @@ const SavingsRecommendation = ({
         </div>
       )}
 
-      {/* ===================================================
+      {/* =================================================
           ACTION
-      =================================================== */}
+      ================================================= */}
 
-      {typeof onAction === "function" && (
+      {hasAction && (
         <footer
           className="
             mt-5 pt-4
@@ -481,7 +574,9 @@ const SavingsRecommendation = ({
               gap-2
             "
           >
-            {actionLabel}
+            <span>
+              {actionLabel}
+            </span>
 
             <ArrowRight
               size={15}
@@ -490,28 +585,25 @@ const SavingsRecommendation = ({
                 transition-transform duration-200
                 group-hover:translate-x-0.5
               "
-              /
+              aria-hidden="true"
+            /
             >
           </button>
         </footer>
       )}
-
-      {/* ===================================================
-          ACCESSIBILITY
-      =================================================== */}
-
-      {recommendationId && (
-        <span
-          className="
-            sr-only
-          "
-        >
-          Recommendation ID:{" "}
-          {recommendationId}
-        </span>
-      )}
     </article>
   );
 };
+
+/* =========================================================
+   COMPONENT METADATA
+========================================================= */
+
+SavingsRecommendation.displayName =
+  "SavingsRecommendation";
+
+/* =========================================================
+   EXPORT
+========================================================= */
 
 export default SavingsRecommendation;

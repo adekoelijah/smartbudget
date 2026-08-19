@@ -1,3 +1,6 @@
+import {
+  memo,
+} from "react";
 
 import {
   ArrowRight,
@@ -35,7 +38,7 @@ import {
 } from "../../../../utils/smartSave/savingsProgress";
 
 /* =========================================================
-   DEFAULTS
+   CONSTANTS
 ========================================================= */
 
 const DEFAULT_CURRENCY = "NGN";
@@ -111,39 +114,67 @@ const FREQUENCY_LABELS = {
 ========================================================= */
 
 const getText = (...values) => {
-  const value = values.find(
-    (item) =>
-      typeof item === "string" &&
-      item.trim().length > 0
-  );
+  for (const value of values) {
+    if (
+      typeof value === "string" &&
+      value.trim().length > 0
+    ) {
+      return value.trim();
+    }
+  }
 
-  return value?.trim() || "";
+  return "";
 };
 
-const getId = (strategy) => {
+/* =========================================================
+   IDENTIFIER
+========================================================= */
+
+const getStrategyId = (strategy) => {
   const id =
     strategy?._id ??
     strategy?.id ??
     strategy?.planId ??
     strategy?.strategyId;
 
-  return id ? String(id) : null;
+  if (
+    id === null ||
+    id === undefined ||
+    id === ""
+  ) {
+    return null;
+  }
+
+  return String(id);
 };
+
+/* =========================================================
+   NUMERIC NORMALIZATION
+========================================================= */
 
 const getNumber = (...values) => {
-  const value = values.find(
-    (item) =>
-      item !== null &&
-      item !== undefined &&
-      item !== ""
-  );
+  for (const value of values) {
+    if (
+      value === null ||
+      value === undefined ||
+      value === ""
+    ) {
+      continue;
+    }
 
-  const number = Number(value);
+    const number = Number(value);
 
-  return Number.isFinite(number)
-    ? number
-    : 0;
+    if (Number.isFinite(number)) {
+      return number;
+    }
+  }
+
+  return 0;
 };
+
+/* =========================================================
+   STATUS NORMALIZATION
+========================================================= */
 
 const normalizeStatus = (strategy) => {
   const status = getText(
@@ -151,10 +182,21 @@ const normalizeStatus = (strategy) => {
     strategy?.state
   ).toLowerCase();
 
-  return STATUS_CONFIG[status]
-    ? status
-    : DEFAULT_STATUS;
+  if (
+    Object.prototype.hasOwnProperty.call(
+      STATUS_CONFIG,
+      status
+    )
+  ) {
+    return status;
+  }
+
+  return DEFAULT_STATUS;
 };
+
+/* =========================================================
+   FREQUENCY NORMALIZATION
+========================================================= */
 
 const normalizeFrequency = (strategy) => {
   const frequency = getText(
@@ -162,9 +204,48 @@ const normalizeFrequency = (strategy) => {
     strategy?.schedule?.frequency
   ).toLowerCase();
 
-  return FREQUENCY_LABELS[frequency]
-    ? frequency
-    : DEFAULT_FREQUENCY;
+  if (
+    Object.prototype.hasOwnProperty.call(
+      FREQUENCY_LABELS,
+      frequency
+    )
+  ) {
+    return frequency;
+  }
+
+  return DEFAULT_FREQUENCY;
+};
+
+/* =========================================================
+   STRATEGY TYPE NORMALIZATION
+========================================================= */
+
+const normalizeStrategyType = (strategy) =>
+  getText(
+    strategy?.strategy,
+    strategy?.strategyType,
+    strategy?.method,
+    strategy?.type
+  ).toLowerCase();
+
+/* =========================================================
+   FIXED STRATEGY VALIDATION
+========================================================= */
+
+const isFixedAmountStrategy = (strategy) => {
+  const type = normalizeStrategyType(
+    strategy
+  );
+
+  /*
+   * Missing type is tolerated because some backend
+   * responses may already be scoped to fixed strategies.
+   */
+  return (
+    !type ||
+    type === FIXED_STRATEGY ||
+    type === "fixed"
+  );
 };
 
 /* =========================================================
@@ -183,7 +264,8 @@ const getProgress = (
 
   if (
     explicitProgress !== null &&
-    explicitProgress !== undefined
+    explicitProgress !== undefined &&
+    explicitProgress !== ""
   ) {
     const percentage =
       Number(explicitProgress);
@@ -216,40 +298,51 @@ const getProgress = (
       );
     }
   } catch {
-    // Safe fallback below.
+    // Fall through to deterministic calculation.
   }
+
+  const fallback =
+    (currentAmount / targetAmount) * 100;
 
   return Math.min(
     100,
-    Math.max(
-      0,
-      (currentAmount / targetAmount) * 100
-    )
+    Math.max(0, fallback)
   );
 };
 
 /* =========================================================
-   SAFE DATE
+   SAFE DATE FORMATTER
 ========================================================= */
 
 const safeFormatDate = (value) => {
-  if (!value) {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
     return null;
   }
 
   try {
     const formatted = formatDate(value);
 
-    return formatted || null;
-  } catch {
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-      return null;
+    if (
+      typeof formatted === "string" &&
+      formatted.trim()
+    ) {
+      return formatted;
     }
-
-    return date.toLocaleDateString();
+  } catch {
+    // Use native fallback below.
   }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date.toLocaleDateString();
 };
 
 /* =========================================================
@@ -271,22 +364,35 @@ const FixedAmountSavingCard = ({
   className = "",
 }) => {
   /* =======================================================
-     INVALID DATA GUARD
+     DATA GUARD
+     
+     IMPORTANT:
+     This guard intentionally appears before no hooks because
+     this component does not use React hooks.
   ======================================================= */
 
   if (
     !strategy ||
-    typeof strategy !== "object"
+    typeof strategy !== "object" ||
+    Array.isArray(strategy)
   ) {
     return null;
   }
 
   /* =======================================================
-     NORMALIZED IDENTIFIERS
+     STRATEGY VALIDATION
+  ======================================================= */
+
+  if (!isFixedAmountStrategy(strategy)) {
+    return null;
+  }
+
+  /* =======================================================
+     IDENTIFIER
   ======================================================= */
 
   const strategyId =
-    getId(strategy);
+    getStrategyId(strategy);
 
   /* =======================================================
      BASIC INFORMATION
@@ -308,32 +414,6 @@ const FixedAmountSavingCard = ({
     );
 
   /* =======================================================
-     STRATEGY TYPE
-  ======================================================= */
-
-  const strategyType =
-    getText(
-      strategy.strategy,
-      strategy.strategyType,
-      strategy.method,
-      strategy.type
-    ).toLowerCase();
-
-  /*
-   * This card is specifically for fixed-amount
-   * strategies. We do not mutate or transform the
-   * supplied strategy here.
-   */
-  const isFixedStrategy =
-    !strategyType ||
-    strategyType === FIXED_STRATEGY ||
-    strategyType === "fixed";
-
-  if (!isFixedStrategy) {
-    return null;
-  }
-
-  /* =======================================================
      STATUS
   ======================================================= */
 
@@ -348,7 +428,7 @@ const FixedAmountSavingCard = ({
     statusConfig.icon;
 
   /* =======================================================
-     FINANCIAL VALUES
+     CURRENCY
   ======================================================= */
 
   const currency =
@@ -357,6 +437,10 @@ const FixedAmountSavingCard = ({
       strategy.targetCurrency,
       strategy.savingAccount?.currency
     ) || DEFAULT_CURRENCY;
+
+  /* =======================================================
+     FINANCIAL VALUES
+  ======================================================= */
 
   const currentAmount =
     getNumber(
@@ -374,10 +458,6 @@ const FixedAmountSavingCard = ({
       strategy.progress?.target
     );
 
-  /*
-   * Fixed amount strategies should expose the recurring
-   * contribution amount explicitly.
-   */
   const fixedAmount =
     getNumber(
       strategy.amount,
@@ -387,6 +467,10 @@ const FixedAmountSavingCard = ({
       strategy.metrics?.contributionAmount
     );
 
+  /* =======================================================
+     PROGRESS
+  ======================================================= */
+
   const progress =
     getProgress(
       strategy,
@@ -394,8 +478,11 @@ const FixedAmountSavingCard = ({
       targetAmount
     );
 
+  const roundedProgress =
+    Math.round(progress);
+
   /* =======================================================
-     FORMATTED FINANCIAL VALUES
+     FORMATTED VALUES
   ======================================================= */
 
   const formattedCurrentAmount =
@@ -443,35 +530,39 @@ const FixedAmountSavingCard = ({
     );
 
   /* =======================================================
-     LIFECYCLE PERMISSIONS
+     ACTION AVAILABILITY
   ======================================================= */
-
-  const canActivate =
-    status === "draft";
-
-  const canPause =
-    status === "active";
-
-  const canResume =
-    status === "paused";
 
   const hasView =
     typeof onView === "function";
 
   const hasActivate =
-    canActivate &&
+    status === "draft" &&
     typeof onActivate === "function";
 
   const hasPause =
-    canPause &&
+    status === "active" &&
     typeof onPause === "function";
 
   const hasResume =
-    canResume &&
+    status === "paused" &&
     typeof onResume === "function";
+
+  const hasActions =
+    showActions &&
+    (
+      hasActivate ||
+      hasPause ||
+      hasResume ||
+      hasView
+    );
 
   /* =======================================================
      EVENT HANDLERS
+     
+     No useCallback is required here. These handlers are
+     local UI callbacks and do not participate in dependency
+     arrays or effect lifecycles.
   ======================================================= */
 
   const handleView = () => {
@@ -519,26 +610,37 @@ const FixedAmountSavingCard = ({
   };
 
   /* =======================================================
+     CLASS NAMES
+  ======================================================= */
+
+  const cardClassName = [
+    "group",
+    "relative",
+    "overflow-hidden",
+    "rounded-2xl",
+    "border",
+    "border-slate-200",
+    "bg-white",
+    "shadow-sm",
+    "transition-all",
+    "duration-200",
+    "hover:shadow-md",
+    compact ? "p-4" : "p-5",
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  /* =======================================================
      RENDER
   ======================================================= */
 
   return (
     <article
-      className={`
-        group
-        relative
-        overflow-hidden
-        rounded-2xl
-        border
-        border-slate-200
-        bg-white
-        shadow-sm
-        transition-all
-        duration-200
-        hover:shadow-md
-        ${compact ? "p-4" : "p-5"}
-        ${className}
-      `}
+      className={cardClassName}
+      data-strategy-id={
+        strategyId ?? undefined
+      }
     >
       {/* ===================================================
           HEADER
@@ -636,6 +738,7 @@ const FixedAmountSavingCard = ({
             type="button"
             onClick={handleView}
             className="
+              inline-flex justify-center items-center
               p-2
               text-slate-400 hover:text-slate-700
               hover:bg-slate-100
@@ -645,9 +748,7 @@ const FixedAmountSavingCard = ({
             "
             aria-label={`View ${title}`}
           >
-            <ArrowRight
-              size={17}
-            />
+            <ArrowRight size={17} />
           </button>
         )}
       </header>
@@ -687,6 +788,7 @@ const FixedAmountSavingCard = ({
           <div
             className="
               flex items-center
+              min-w-0
               gap-2
             "
           >
@@ -698,11 +800,11 @@ const FixedAmountSavingCard = ({
                 bg-white
                 rounded-lg
                 shadow-sm
+                shrink-0
               "
+              aria-hidden="true"
             >
-              <Wallet
-                size={15}
-              />
+              <Wallet size={15} />
             </div>
 
             <span
@@ -716,7 +818,7 @@ const FixedAmountSavingCard = ({
 
           <span
             className="
-              font-bold text-slate-900 text-base
+              font-bold text-slate-900 text-base text-right truncate
             "
           >
             {formattedFixedAmount ??
@@ -734,6 +836,7 @@ const FixedAmountSavingCard = ({
         >
           <CalendarClock
             size={14}
+            aria-hidden="true"
           />
 
           <span>
@@ -755,6 +858,7 @@ const FixedAmountSavingCard = ({
       >
         <div
           className="
+            min-w-0
             p-3
             bg-white
             border border-slate-200 rounded-xl
@@ -773,6 +877,7 @@ const FixedAmountSavingCard = ({
               mt-1
               font-bold text-slate-900 text-sm truncate
             "
+            title={formattedCurrentAmount}
           >
             {formattedCurrentAmount}
           </p>
@@ -780,6 +885,7 @@ const FixedAmountSavingCard = ({
 
         <div
           className="
+            min-w-0
             p-3
             bg-white
             border border-slate-200 rounded-xl
@@ -798,6 +904,10 @@ const FixedAmountSavingCard = ({
               mt-1
               font-bold text-slate-900 text-sm truncate
             "
+            title={
+              formattedTargetAmount ??
+              "No target"
+            }
           >
             {formattedTargetAmount ??
               "No target"}
@@ -835,7 +945,7 @@ const FixedAmountSavingCard = ({
                   font-bold text-slate-900 text-xs
                 "
               >
-                {Math.round(progress)}%
+                {roundedProgress}%
               </span>
             </div>
 
@@ -850,9 +960,7 @@ const FixedAmountSavingCard = ({
               role="progressbar"
               aria-valuemin={0}
               aria-valuemax={100}
-              aria-valuenow={Math.round(
-                progress
-              )}
+              aria-valuenow={roundedProgress}
               aria-label={`${title} progress`}
             >
               <div
@@ -860,7 +968,7 @@ const FixedAmountSavingCard = ({
                   h-full
                   bg-slate-900
                   rounded-full
-                  transition-all duration-500
+                  transition-[width] duration-500
                 "
                 style={{
                   width: `${progress}%`,
@@ -889,8 +997,10 @@ const FixedAmountSavingCard = ({
             size={14}
             className="
               text-slate-400
+              shrink-0
             "
-            /
+            aria-hidden="true"
+          /
           >
 
           <span>
@@ -910,99 +1020,51 @@ const FixedAmountSavingCard = ({
           ACTIONS
       =================================================== */}
 
-      {showActions &&
-        (hasActivate ||
-          hasPause ||
-          hasResume ||
-          hasView) && (
-          <footer
+      {hasActions && (
+        <footer
+          className="
+            flex flex-col sm:flex-row sm:justify-between sm:items-center
+            mt-5 pt-4
+            border-slate-100 border-t
+            gap-2
+          "
+        >
+          <div
             className="
-              flex flex-col sm:flex-row sm:justify-between sm:items-center
-              mt-5 pt-4
-              border-slate-100 border-t
+              flex flex-wrap items-center
               gap-2
             "
           >
-            <div>
-              {hasActivate && (
-                <button
-                  type="button"
-                  onClick={handleActivate}
-                  className="
-                    inline-flex justify-center items-center
-                    min-h-9
-                    px-3.5 py-2
-                    font-semibold text-white text-sm
-                    bg-slate-900 hover:bg-slate-800
-                    rounded-lg focus:outline-none
-                    focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
-                    transition
-                    gap-2
-                  "
-                >
-                  <Play
-                    size={14}
-                    fill="currentColor"
-                  />
-
-                  Activate
-                </button>
-              )}
-
-              {hasPause && (
-                <button
-                  type="button"
-                  onClick={handlePause}
-                  className="
-                    inline-flex justify-center items-center
-                    min-h-9
-                    px-3.5 py-2
-                    font-semibold text-slate-700 text-sm
-                    bg-white hover:bg-slate-50
-                    border border-slate-200 rounded-lg focus:outline-none
-                    focus:ring-2 focus:ring-slate-300
-                    transition
-                    gap-2
-                  "
-                >
-                  <CirclePause
-                    size={14}
-                  />
-
-                  Pause
-                </button>
-              )}
-
-              {hasResume && (
-                <button
-                  type="button"
-                  onClick={handleResume}
-                  className="
-                    inline-flex justify-center items-center
-                    min-h-9
-                    px-3.5 py-2
-                    font-semibold text-white text-sm
-                    bg-slate-900 hover:bg-slate-800
-                    rounded-lg focus:outline-none
-                    focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
-                    transition
-                    gap-2
-                  "
-                >
-                  <Play
-                    size={14}
-                    fill="currentColor"
-                  />
-
-                  Resume
-                </button>
-              )}
-            </div>
-
-            {hasView && (
+            {hasActivate && (
               <button
                 type="button"
-                onClick={handleView}
+                onClick={handleActivate}
+                className="
+                  inline-flex justify-center items-center
+                  min-h-9
+                  px-3.5 py-2
+                  font-semibold text-white text-sm
+                  bg-slate-900 hover:bg-slate-800
+                  rounded-lg focus:outline-none
+                  focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
+                  transition
+                  gap-2
+                "
+              >
+                <Play
+                  size={14}
+                  fill="currentColor"
+                  aria-hidden="true"
+                />
+
+                Activate
+              </button>
+            )}
+
+            {hasPause && (
+              <button
+                type="button"
+                onClick={handlePause}
                 className="
                   inline-flex justify-center items-center
                   min-h-9
@@ -1015,17 +1077,79 @@ const FixedAmountSavingCard = ({
                   gap-2
                 "
               >
-                View strategy
-
-                <ArrowRight
+                <CirclePause
                   size={14}
+                  aria-hidden="true"
                 />
+
+                Pause
               </button>
             )}
-          </footer>
-        )}
+
+            {hasResume && (
+              <button
+                type="button"
+                onClick={handleResume}
+                className="
+                  inline-flex justify-center items-center
+                  min-h-9
+                  px-3.5 py-2
+                  font-semibold text-white text-sm
+                  bg-slate-900 hover:bg-slate-800
+                  rounded-lg focus:outline-none
+                  focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
+                  transition
+                  gap-2
+                "
+              >
+                <Play
+                  size={14}
+                  fill="currentColor"
+                  aria-hidden="true"
+                />
+
+                Resume
+              </button>
+            )}
+          </div>
+
+          {hasView && (
+            <button
+              type="button"
+              onClick={handleView}
+              className="
+                inline-flex justify-center items-center
+                min-h-9
+                px-3.5 py-2
+                font-semibold text-slate-700 text-sm
+                bg-white hover:bg-slate-50
+                border border-slate-200 rounded-lg focus:outline-none
+                focus:ring-2 focus:ring-slate-300
+                transition
+                gap-2
+              "
+            >
+              View strategy
+
+              <ArrowRight
+                size={14}
+                aria-hidden="true"
+              />
+            </button>
+          )}
+        </footer>
+      )}
     </article>
   );
 };
 
-export default FixedAmountSavingCard;
+/* =========================================================
+   COMPONENT CONTRACT
+========================================================= */
+
+FixedAmountSavingCard.displayName =
+  "FixedAmountSavingCard";
+
+export default memo(
+  FixedAmountSavingCard
+);

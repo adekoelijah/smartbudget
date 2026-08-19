@@ -1,4 +1,7 @@
+// SavingsInsightsPage.jsx
+
 import {
+  createElement,
   memo,
   useCallback,
   useMemo,
@@ -56,7 +59,9 @@ const getErrorMessage = (error) => {
   }
 
   if (typeof error === "string") {
-    return error.trim() || DEFAULT_ERROR;
+    const message = error.trim();
+
+    return message || DEFAULT_ERROR;
   }
 
   const message =
@@ -67,31 +72,58 @@ const getErrorMessage = (error) => {
     error?.message ??
     error?.error;
 
-  return typeof message === "string" && message.trim()
-    ? message.trim()
-    : DEFAULT_ERROR;
+  if (
+    typeof message === "string" &&
+    message.trim()
+  ) {
+    return message.trim();
+  }
+
+  return DEFAULT_ERROR;
 };
 
+/* =========================================================
+   INSIGHT IDENTITY
+========================================================= */
+
 const getInsightId = (insight) => {
-  if (!insight || typeof insight !== "object") {
+  if (
+    !insight ||
+    typeof insight !== "object"
+  ) {
     return null;
   }
 
-  return (
+  const id =
     insight._id ??
     insight.id ??
-    insight.insightId ??
-    null
-  );
+    insight.insightId;
+
+  if (
+    id === null ||
+    id === undefined ||
+    id === ""
+  ) {
+    return null;
+  }
+
+  return String(id);
 };
 
-const getInsightKey = (insight, index) => {
+const getInsightKey = (
+  insight,
+  index
+) => {
   const id = getInsightId(insight);
 
   return id
-    ? `savings-insight-${String(id)}`
+    ? `savings-insight-${id}`
     : `savings-insight-${index}`;
 };
+
+/* =========================================================
+   INSIGHT CLASSIFICATION
+========================================================= */
 
 const getInsightType = (insight) =>
   String(
@@ -111,17 +143,19 @@ const getRecommendationType = () =>
     .trim()
     .toLowerCase();
 
-const isRecommendation = (insight) =>
+const isRecommendation = (
+  insight
+) =>
   getInsightType(insight) ===
   getRecommendationType();
 
 /* =========================================================
-   RESPONSE NORMALIZATION
+   RESPONSE RESOLUTION
 ========================================================= */
 
 /**
- * Resolve insights from all supported SmartSave
- * response envelopes.
+ * Resolves the insight collection from supported
+ * SmartSave response envelopes.
  *
  * Supported:
  *
@@ -132,13 +166,19 @@ const isRecommendation = (insight) =>
  * { items: [] }
  * { data: { items: [] } }
  * { results: [] }
+ * { data: { results: [] } }
  */
-const resolveInsights = (value) => {
+const resolveInsights = (
+  value
+) => {
   if (Array.isArray(value)) {
     return value;
   }
 
-  if (!value || typeof value !== "object") {
+  if (
+    !value ||
+    typeof value !== "object"
+  ) {
     return [];
   }
 
@@ -162,15 +202,27 @@ const resolveInsights = (value) => {
     value.data &&
     typeof value.data === "object"
   ) {
-    if (Array.isArray(value.data.insights)) {
+    if (
+      Array.isArray(
+        value.data.insights
+      )
+    ) {
       return value.data.insights;
     }
 
-    if (Array.isArray(value.data.items)) {
+    if (
+      Array.isArray(
+        value.data.items
+      )
+    ) {
       return value.data.items;
     }
 
-    if (Array.isArray(value.data.results)) {
+    if (
+      Array.isArray(
+        value.data.results
+      )
+    ) {
       return value.data.results;
     }
   }
@@ -178,12 +230,15 @@ const resolveInsights = (value) => {
   return [];
 };
 
-/**
- * Normalize the hook response into one predictable
- * collection before anything reaches the UI.
- */
-const normalizeInsightCollection = (value) => {
-  const resolved = resolveInsights(value);
+/* =========================================================
+   NORMALIZATION
+========================================================= */
+
+const normalizeInsightCollection = (
+  value
+) => {
+  const resolved =
+    resolveInsights(value);
 
   if (!resolved.length) {
     return [];
@@ -191,35 +246,128 @@ const normalizeInsightCollection = (value) => {
 
   try {
     const normalized =
-      normalizeSavingsInsights(resolved);
+      normalizeSavingsInsights(
+        resolved
+      );
 
     return Array.isArray(normalized)
       ? normalized.filter(Boolean)
       : [];
   } catch {
     /*
-     * Normalization failure should never crash the
-     * entire SmartSave dashboard.
+     * A malformed insight should not crash
+     * the entire SmartSave UI.
      */
     return resolved.filter(Boolean);
   }
 };
 
-const resolveLimit = (value) => {
-  const number = Number(value);
+/* =========================================================
+   LIMIT
+========================================================= */
 
-  if (!Number.isFinite(number) || number <= 0) {
+const resolveLimit = (
+  value
+) => {
+  const numericValue = Number(value);
+
+  if (
+    !Number.isFinite(
+      numericValue
+    ) ||
+    numericValue <= 0
+  ) {
     return DEFAULT_LIMIT;
   }
 
   return Math.min(
-    Math.floor(number),
+    Math.floor(numericValue),
     MAX_LIMIT
   );
 };
 
 /* =========================================================
-   PAGE HEADER
+   ICON HELPERS
+========================================================= */
+
+/**
+ * Icons are resolved from static imports.
+ *
+ * We deliberately return React elements rather than
+ * assigning dynamically selected component types such as:
+ *
+ * const Icon = config.icon;
+ *
+ * inside the component render path.
+ *
+ * This keeps the render path compatible with React's
+ * static-components/compiler rules.
+ */
+
+const renderAlertIcon = ({
+  size = 17,
+  className,
+  strokeWidth = 2,
+} = {}) =>
+  createElement(AlertCircle, {
+    size,
+    className,
+    strokeWidth,
+  });
+
+const renderRefreshIcon = ({
+  size = 15,
+  className,
+  strokeWidth = 2,
+} = {}) =>
+  createElement(RefreshCw, {
+    size,
+    className,
+    strokeWidth,
+  });
+
+const renderBrainIcon = ({
+  size = 20,
+  strokeWidth = 1.9,
+} = {}) =>
+  createElement(BrainCircuit, {
+    size,
+    strokeWidth,
+  });
+
+const renderSparklesIcon = ({
+  size = 17,
+  strokeWidth = 2,
+} = {}) =>
+  createElement(Sparkles, {
+    size,
+    strokeWidth,
+  });
+
+const renderTrendingIcon = ({
+  size = 17,
+  className,
+  strokeWidth = 2,
+} = {}) =>
+  createElement(TrendingUp, {
+    size,
+    className,
+    strokeWidth,
+  });
+
+const renderCheckIcon = ({
+  size = 17,
+  className,
+  strokeWidth = 2,
+} = {}) =>
+  createElement(CheckCircle2, {
+    size,
+    className,
+    strokeWidth,
+  });
+
+/* =========================================================
+   HEADER
 ========================================================= */
 
 const InsightsHeader = memo(
@@ -255,10 +403,7 @@ const InsightsHeader = memo(
           "
           aria-hidden="true"
         >
-          <BrainCircuit
-            size={20}
-            strokeWidth={1.9}
-          />
+          {renderBrainIcon()}
         </div>
 
         <div
@@ -290,6 +435,7 @@ const InsightsHeader = memo(
                   bg-slate-100
                   rounded-full
                 "
+                aria-label={`${count} insights`}
               >
                 {count}
               </span>
@@ -333,14 +479,13 @@ const InsightsHeader = memo(
               : "Refresh savings insights"
           }
         >
-          <RefreshCw
-            size={15}
-            className={
+          {renderRefreshIcon({
+            size: 15,
+            className:
               refreshing
                 ? "animate-spin"
-                : undefined
-            }
-          />
+                : undefined,
+          })}
 
           {refreshing
             ? "Refreshing"
@@ -364,7 +509,7 @@ const IntelligenceSummary = memo(
     recommendations,
     analytical,
   }) => {
-    if (total === 0) {
+    if (total <= 0) {
       return null;
     }
 
@@ -376,6 +521,8 @@ const IntelligenceSummary = memo(
           gap-3
         "
       >
+        {/* Total insights */}
+
         <div
           className="
             p-4
@@ -418,11 +565,14 @@ const IntelligenceSummary = memo(
                 bg-slate-50
                 rounded-xl
               "
+              aria-hidden="true"
             >
-              <Sparkles size={17} />
+              {renderSparklesIcon()}
             </div>
           </div>
         </div>
+
+        {/* Recommendations */}
 
         <div
           className="
@@ -466,11 +616,14 @@ const IntelligenceSummary = memo(
                 bg-blue-50
                 rounded-xl
               "
+              aria-hidden="true"
             >
-              <TrendingUp size={17} />
+              {renderTrendingIcon()}
             </div>
           </div>
         </div>
+
+        {/* Analytical */}
 
         <div
           className="
@@ -515,8 +668,9 @@ const IntelligenceSummary = memo(
                 bg-emerald-50
                 rounded-xl
               "
+              aria-hidden="true"
             >
-              <CheckCircle2 size={17} />
+              {renderCheckIcon()}
             </div>
           </div>
         </div>
@@ -529,7 +683,7 @@ IntelligenceSummary.displayName =
   "IntelligenceSummary";
 
 /* =========================================================
-   COMPONENT
+   MAIN COMPONENT
 ========================================================= */
 
 const SavingsInsightsPage = ({
@@ -557,10 +711,6 @@ const SavingsInsightsPage = ({
       asOfDate,
     }) ?? {};
 
-  /*
-   * Support the established and common hook contracts
-   * without requiring the page to know which one is used.
-   */
   const {
     insights: hookInsights,
     data,
@@ -587,21 +737,19 @@ const SavingsInsightsPage = ({
     Boolean(isRefreshing);
 
   /* =======================================================
-     INSIGHTS
+     NORMALIZED INSIGHTS
   ======================================================= */
 
   const insights = useMemo(() => {
-    /*
-     * Prefer the explicit `insights` property when the hook
-     * exposes it.
-     */
     if (Array.isArray(hookInsights)) {
       return normalizeInsightCollection(
         hookInsights
       );
     }
 
-    return normalizeInsightCollection(data);
+    return normalizeInsightCollection(
+      data
+    );
   }, [
     hookInsights,
     data,
@@ -618,13 +766,17 @@ const SavingsInsightsPage = ({
     const recommendationsList = [];
     const analyticalList = [];
 
-    insights.forEach((insight) => {
+    for (const insight of insights) {
       if (isRecommendation(insight)) {
-        recommendationsList.push(insight);
+        recommendationsList.push(
+          insight
+        );
       } else {
-        analyticalList.push(insight);
+        analyticalList.push(
+          insight
+        );
       }
-    });
+    }
 
     return {
       recommendations:
@@ -635,7 +787,7 @@ const SavingsInsightsPage = ({
   }, [insights]);
 
   /* =======================================================
-     DISPLAY
+     DISPLAY LIMITS
   ======================================================= */
 
   const safeLimit = useMemo(
@@ -643,17 +795,18 @@ const SavingsInsightsPage = ({
     [limit]
   );
 
-  const visibleInsights = useMemo(
-    () =>
-      analyticalInsights.slice(
-        0,
-        safeLimit
-      ),
-    [
-      analyticalInsights,
-      safeLimit,
-    ]
-  );
+  const visibleInsights =
+    useMemo(
+      () =>
+        analyticalInsights.slice(
+          0,
+          safeLimit
+        ),
+      [
+        analyticalInsights,
+        safeLimit,
+      ]
+    );
 
   const visibleRecommendations =
     useMemo(
@@ -665,6 +818,10 @@ const SavingsInsightsPage = ({
       [recommendations]
     );
 
+  /* =======================================================
+     DISPLAY STATE
+  ======================================================= */
+
   const hasInsights =
     insights.length > 0;
 
@@ -672,10 +829,11 @@ const SavingsInsightsPage = ({
     visibleInsights.length > 0 ||
     visibleRecommendations.length > 0;
 
-  const errorMessage = useMemo(
-    () => getErrorMessage(error),
-    [error]
-  );
+  const errorMessage =
+    useMemo(
+      () => getErrorMessage(error),
+      [error]
+    );
 
   const canRefresh =
     typeof refresh === "function" ||
@@ -689,19 +847,24 @@ const SavingsInsightsPage = ({
   const handleRefresh =
     useCallback(async () => {
       if (refreshingState) {
-        return;
+        return undefined;
       }
 
-      if (typeof refresh === "function") {
+      if (
+        typeof refresh === "function"
+      ) {
         return refresh();
       }
 
-      if (typeof refetch === "function") {
+      if (
+        typeof refetch === "function"
+      ) {
         return refetch();
       }
 
       if (
-        typeof fetchInsights === "function"
+        typeof fetchInsights ===
+        "function"
       ) {
         return fetchInsights();
       }
@@ -715,7 +878,7 @@ const SavingsInsightsPage = ({
     ]);
 
   /* =======================================================
-     ACTIONS
+     USER ACTIONS
   ======================================================= */
 
   const handleCreateGoal =
@@ -736,7 +899,9 @@ const SavingsInsightsPage = ({
       ) {
         onExploreSavings();
       }
-    }, [onExploreSavings]);
+    }, [
+      onExploreSavings,
+    ]);
 
   const handleRecommendationAction =
     useCallback(
@@ -753,14 +918,19 @@ const SavingsInsightsPage = ({
           recommendation
         );
       },
-      [onRecommendationAction]
+      [
+        onRecommendationAction,
+      ]
     );
 
   /* =======================================================
      INITIAL LOADING
   ======================================================= */
 
-  if (loading && !hasInsights) {
+  if (
+    loading &&
+    !hasInsights
+  ) {
     return (
       <section
         className={`w-full ${className}`}
@@ -794,7 +964,8 @@ const SavingsInsightsPage = ({
                   rounded-xl
                   animate-pulse
                 "
-                /
+                aria-hidden="true"
+              /
               >
 
               <div
@@ -809,8 +980,10 @@ const SavingsInsightsPage = ({
                     rounded
                     animate-pulse
                   "
-                  /
+                  aria-hidden="true"
+                /
                 >
+
                 <div
                   className="
                     w-72 max-w-full h-3
@@ -818,7 +991,8 @@ const SavingsInsightsPage = ({
                     rounded
                     animate-pulse
                   "
-                  /
+                  aria-hidden="true"
+                /
                 >
               </div>
             </div>
@@ -857,14 +1031,16 @@ const SavingsInsightsPage = ({
               ? handleRefresh
               : undefined
           }
-          retrying={refreshingState}
+          retrying={
+            refreshingState
+          }
         />
       </section>
     );
   }
 
   /* =======================================================
-     EMPTY
+     EMPTY STATE
   ======================================================= */
 
   if (
@@ -920,7 +1096,6 @@ const SavingsInsightsPage = ({
           shadow-sm
         "
       >
-
         {/* =================================================
             HEADER
         ================================================= */}
@@ -936,8 +1111,12 @@ const SavingsInsightsPage = ({
             title={title}
             description={description}
             count={insights.length}
-            refreshing={refreshingState}
-            canRefresh={canRefresh}
+            refreshing={
+              refreshingState
+            }
+            canRefresh={
+              canRefresh
+            }
             onRefresh={() =>
               void handleRefresh()
             }
@@ -953,7 +1132,6 @@ const SavingsInsightsPage = ({
             p-5 sm:p-6
           "
         >
-
           {/* =================================================
               REFRESH ERROR
           ================================================= */}
@@ -970,15 +1148,18 @@ const SavingsInsightsPage = ({
               role="status"
               aria-live="polite"
             >
-              <AlertCircle
-                size={17}
+              <div
                 className="
                   mt-0.5
                   text-amber-700
                   shrink-0
                 "
-                /
+                aria-hidden="true"
               >
+                {renderAlertIcon({
+                  size: 17,
+                })}
+              </div>
 
               <div
                 className="
@@ -991,7 +1172,8 @@ const SavingsInsightsPage = ({
                     font-semibold text-amber-900 text-xs
                   "
                 >
-                  Some insights may be outdated
+                  Some insights may be
+                  outdated
                 </p>
 
                 <p
@@ -1010,8 +1192,10 @@ const SavingsInsightsPage = ({
                   onClick={() =>
                     void handleRefresh()
                   }
-                  disabled={refreshingState}
-                  className="disabled:opacity-50 font-semibold text-amber-800 text-xs underline underline-offset-2 shrink-0"
+                  disabled={
+                    refreshingState
+                  }
+                  className="disabled:opacity-50 font-semibold text-amber-800 text-xs underline underline-offset-2 disabled:cursor-not-allowed shrink-0"
                 >
                   Retry
                 </button>
@@ -1061,11 +1245,9 @@ const SavingsInsightsPage = ({
                     rounded-xl
                     shrink-0
                   "
+                  aria-hidden="true"
                 >
-                  <Sparkles
-                    size={17}
-                    strokeWidth={1.9}
-                  />
+                  {renderSparklesIcon()}
                 </div>
 
                 <div>
@@ -1084,8 +1266,8 @@ const SavingsInsightsPage = ({
                       text-slate-500 text-xs
                     "
                   >
-                    Actions that can improve your
-                    savings progress.
+                    Actions that can improve
+                    your savings progress.
                   </p>
                 </div>
               </div>
@@ -1126,7 +1308,8 @@ const SavingsInsightsPage = ({
               ANALYTICAL INSIGHTS
           ================================================= */}
 
-          {visibleInsights.length > 0 && (
+          {visibleInsights.length >
+            0 && (
             <section
               className={
                 visibleRecommendations.length >
@@ -1147,13 +1330,16 @@ const SavingsInsightsPage = ({
                     gap-2
                   "
                 >
-                  <TrendingUp
-                    size={16}
+                  <div
                     className="
                       text-slate-600
                     "
-                    /
+                    aria-hidden="true"
                   >
+                    {renderTrendingIcon({
+                      size: 16,
+                    })}
+                  </div>
 
                   <h3
                     id="financial-insights-heading"
@@ -1171,8 +1357,8 @@ const SavingsInsightsPage = ({
                     text-slate-500 text-xs
                   "
                 >
-                  Understand the patterns behind
-                  your savings activity.
+                  Understand the patterns
+                  behind your savings activity.
                 </p>
               </div>
 
@@ -1215,18 +1401,18 @@ const SavingsInsightsPage = ({
               role="status"
               aria-live="polite"
             >
-              <RefreshCw
-                size={13}
-                className="
-                  animate-spin
-                "
-                /
-              >
+              <span aria-hidden="true">
+                {renderRefreshIcon({
+                  size: 13,
+                  className:
+                    "animate-spin",
+                })}
+              </span>
 
-              Updating savings intelligence…
+              Updating savings
+              intelligence…
             </div>
           )}
-
         </div>
       </div>
     </section>
@@ -1234,11 +1420,15 @@ const SavingsInsightsPage = ({
 };
 
 /* =========================================================
-   MEMOIZATION
+   COMPONENT METADATA
 ========================================================= */
 
 SavingsInsightsPage.displayName =
   "SavingsInsightsPage";
+
+/* =========================================================
+   EXPORT
+========================================================= */
 
 export default memo(
   SavingsInsightsPage

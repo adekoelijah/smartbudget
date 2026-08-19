@@ -81,10 +81,6 @@ const STRATEGY_TYPES = Object.freeze({
    SAFE HELPERS
 ========================================================= */
 
-/**
- * Convert an arbitrary value into a safe user-facing
- * error message.
- */
 const getErrorMessage = (error) => {
   if (!error) {
     return DEFAULT_ERROR;
@@ -106,7 +102,7 @@ const getErrorMessage = (error) => {
 
   if (
     typeof message === "string" &&
-    message.trim()
+    message.trim().length > 0
   ) {
     return message.trim();
   }
@@ -114,66 +110,96 @@ const getErrorMessage = (error) => {
   return DEFAULT_ERROR;
 };
 
-/**
- * Resolve a stable strategy identifier.
- */
+/* =========================================================
+   ID RESOLUTION
+========================================================= */
+
 const getStrategyId = (strategy) => {
   if (!strategy) {
     return null;
   }
 
   if (typeof strategy === "string") {
-    return strategy;
+    const value = strategy.trim();
+
+    return value || null;
   }
 
-  return (
+  const id =
     strategy?._id ??
     strategy?.id ??
     strategy?.planId ??
-    strategy?.strategyId ??
-    null
-  );
+    strategy?.strategyId;
+
+  if (
+    id === null ||
+    id === undefined
+  ) {
+    return null;
+  }
+
+  const value = String(id).trim();
+
+  return value || null;
 };
 
-/**
- * Resolve an array from all supported SmartSave
- * response envelopes.
- */
+/* =========================================================
+   RESPONSE NORMALIZATION
+========================================================= */
+
 const resolveStrategies = (value) => {
   if (Array.isArray(value)) {
     return value;
   }
 
-  if (!value || typeof value !== "object") {
+  if (
+    !value ||
+    typeof value !== "object"
+  ) {
     return [];
   }
 
+  /*
+   * Prefer explicit strategy collections before
+   * generic data/results envelopes.
+   */
   const candidates = [
     value.strategies,
-    value.plans,
-    value.items,
-    value.results,
-    value.data,
     value.data?.strategies,
+
+    value.plans,
     value.data?.plans,
+
+    value.items,
     value.data?.items,
+
+    value.results,
     value.data?.results,
+
+    value.data,
   ];
 
-  for (const candidate of candidates) {
-    if (Array.isArray(candidate)) {
-      return candidate;
-    }
-  }
-
-  return [];
+  return (
+    candidates.find(
+      Array.isArray
+    ) ?? []
+  );
 };
 
-/**
- * Normalize strategy type into the canonical SmartSave
- * representation.
- */
-const normalizeStrategyType = (strategy) => {
+/* =========================================================
+   STRATEGY TYPE NORMALIZATION
+========================================================= */
+
+const normalizeStrategyType = (
+  strategy
+) => {
+  if (
+    !strategy ||
+    typeof strategy !== "object"
+  ) {
+    return null;
+  }
+
   const rawType =
     strategy?.strategyType ??
     strategy?.strategy ??
@@ -183,7 +209,7 @@ const normalizeStrategyType = (strategy) => {
 
   if (
     typeof rawType !== "string" ||
-    !rawType.trim()
+    rawType.trim().length === 0
   ) {
     return null;
   }
@@ -225,23 +251,33 @@ const normalizeStrategyType = (strategy) => {
   }
 };
 
-/**
- * Resolve strategy status.
- */
-const getStrategyStatus = (strategy) =>
-  String(
+/* =========================================================
+   STATUS NORMALIZATION
+========================================================= */
+
+const getStrategyStatus = (
+  strategy
+) => {
+  const status =
     strategy?.status ??
-      strategy?.state ??
-      ""
-  )
+    strategy?.state ??
+    "";
+
+  if (
+    typeof status !== "string"
+  ) {
+    return "";
+  }
+
+  return status
     .trim()
     .toLowerCase()
     .replace(/[\s-]+/g, "_");
+};
 
-/**
- * Active strategy states.
- */
-const isActiveStrategy = (strategy) => {
+const isActiveStrategy = (
+  strategy
+) => {
   const status =
     getStrategyStatus(strategy);
 
@@ -252,10 +288,9 @@ const isActiveStrategy = (strategy) => {
   );
 };
 
-/**
- * Paused strategy states.
- */
-const isPausedStrategy = (strategy) => {
+const isPausedStrategy = (
+  strategy
+) => {
   const status =
     getStrategyStatus(strategy);
 
@@ -265,9 +300,10 @@ const isPausedStrategy = (strategy) => {
   );
 };
 
-/**
- * Stable React key.
- */
+/* =========================================================
+   STABLE KEY
+========================================================= */
+
 const getStrategyKey = (
   strategy,
   index
@@ -275,53 +311,62 @@ const getStrategyKey = (
   const id =
     getStrategyId(strategy);
 
-  if (id !== null && id !== undefined) {
-    return `strategy-${String(id)}`;
-  }
-
-  return `strategy-fallback-${index}`;
+  return id
+    ? `strategy-${id}`
+    : `strategy-fallback-${index}`;
 };
 
-/**
- * Only render real strategy records.
- */
-const isRenderableStrategy = (strategy) =>
-  Boolean(
+/* =========================================================
+   RENDERABILITY
+========================================================= */
+
+const isRenderableStrategy = (
+  strategy
+) => {
+  return Boolean(
     strategy &&
+      typeof strategy === "object" &&
       getStrategyId(strategy)
   );
+};
 
 /* =========================================================
-   STRATEGY NORMALIZATION
+   NORMALIZE STRATEGY
 ========================================================= */
 
 const normalizeStrategyRecord = (
   strategy
 ) => {
-  if (!strategy) {
+  if (
+    !strategy ||
+    typeof strategy !== "object"
+  ) {
     return null;
   }
 
   try {
     const normalized =
-      typeof normalizeSavingsStrategy ===
-      "function"
-        ? normalizeSavingsStrategy(
-            strategy
-          )
-        : strategy;
+      normalizeSavingsStrategy(
+        strategy
+      );
 
-    if (!normalized) {
-      return null;
-    }
-
-    return normalized;
+    return (
+      normalized &&
+      typeof normalized === "object"
+        ? normalized
+        : null
+    );
   } catch {
     /*
-     * Do not allow one malformed strategy to
-     * destroy the entire SmartSave page.
+     * Keep the original record as a safe
+     * rendering fallback. The page must not
+     * crash because one record is malformed.
      */
-    return strategy;
+    return isRenderableStrategy(
+      strategy
+    )
+      ? strategy
+      : null;
   }
 };
 
@@ -339,7 +384,9 @@ const StrategyCard = memo(
     actionLoading,
   }) => {
     const type =
-      normalizeStrategyType(strategy);
+      normalizeStrategyType(
+        strategy
+      );
 
     const commonProps = {
       strategy,
@@ -401,87 +448,111 @@ StrategyCard.displayName =
   "StrategyCard";
 
 /* =========================================================
-   UNSUPPORTED STRATEGY FALLBACK
+   UNSUPPORTED STRATEGY
 ========================================================= */
 
 const UnsupportedStrategyCard = memo(
   ({
     strategy,
     onView,
-  }) => (
-    <div
-      className="
-        p-5
-        bg-white
-        border border-amber-200 rounded-2xl
-        shadow-sm
-      "
-    >
+  }) => {
+    const strategyId =
+      getStrategyId(strategy);
+
+    const handleView = () => {
+      if (
+        typeof onView !== "function"
+      ) {
+        return;
+      }
+
+      onView(
+        strategy,
+        strategyId
+      );
+    };
+
+    return (
       <div
         className="
-          flex items-start
-          gap-3
+          p-5
+          bg-white
+          border border-amber-200 rounded-2xl
+          shadow-sm
         "
       >
         <div
           className="
-            flex justify-center items-center
-            w-10 h-10
-            text-amber-700
-            bg-amber-50
-            rounded-xl
-            shrink-0
+            flex items-start
+            gap-3
           "
         >
-          <AlertCircle size={18} />
-        </div>
-
-        <div
-          className="
-            flex-1
-            min-w-0
-          "
-        >
-          <p
+          <div
             className="
-              font-semibold text-slate-900 text-sm
+              flex justify-center items-center
+              w-10 h-10
+              text-amber-700
+              bg-amber-50
+              rounded-xl
+              shrink-0
+            "
+            aria-hidden="true"
+          >
+            <AlertCircle
+              size={18}
+            />
+          </div>
+
+          <div
+            className="
+              flex-1
+              min-w-0
             "
           >
-            Strategy needs attention
-          </p>
-
-          <p
-            className="
-              mt-1
-              text-slate-500 text-xs leading-5
-            "
-          >
-            This strategy type is not currently
-            supported by this version of SmartSave.
-          </p>
-
-          {typeof onView ===
-            "function" && (
-            <button
-              type="button"
-              onClick={() =>
-                onView(
-                  strategy,
-                  getStrategyId(
-                    strategy
-                  )
-                )
-              }
-              className="inline-flex items-center gap-1 mt-3 font-semibold text-slate-700 hover:text-slate-950 text-xs"
+            <p
+              className="
+                font-semibold text-slate-900 text-sm
+              "
             >
-              View details
-              <ArrowRight size={13} />
-            </button>
-          )}
+              Strategy needs attention
+            </p>
+
+            <p
+              className="
+                mt-1
+                text-slate-500 text-xs leading-5
+              "
+            >
+              This strategy type is not
+              currently supported by this
+              version of SmartSave.
+            </p>
+
+            {typeof onView ===
+              "function" && (
+              <button
+                type="button"
+                onClick={handleView}
+                className="
+                  inline-flex items-center
+                  mt-3
+                  font-semibold text-slate-700 hover:text-slate-950 text-xs
+                  rounded focus:outline-none
+                  gap-1
+                  focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2
+                "
+              >
+                View details
+                <ArrowRight
+                  size={13}
+                />
+              </button>
+            )}
+          </div>
         </div>
       </div>
-    </div>
-  )
+    );
+  }
 );
 
 UnsupportedStrategyCard.displayName =
@@ -570,91 +641,93 @@ SummaryMetric.displayName =
    PAGE SKELETON
 ========================================================= */
 
-const PageSkeleton = memo(() => (
-  <main
-    className="
-      min-h-screen
-      px-4 sm:px-6 lg:px-8 py-6 sm:py-8
-      bg-slate-50
-    "
-    aria-busy="true"
-    aria-label="Loading savings strategies"
-  >
-    <div
+const PageSkeleton = memo(
+  () => (
+    <main
       className="
-        w-full max-w-7xl
-        mx-auto
+        min-h-screen
+        px-4 sm:px-6 lg:px-8 py-6 sm:py-8
+        bg-slate-50
       "
+      aria-busy="true"
+      aria-label="Loading savings strategies"
     >
       <div
         className="
-          flex justify-between items-start
-          gap-6
+          w-full max-w-7xl
+          mx-auto
         "
       >
         <div
           className="
-            flex items-start
-            gap-3
+            flex justify-between items-start
+            gap-6
           "
         >
           <div
             className="
-              w-12 h-12
+              flex items-start
+              gap-3
+            "
+          >
+            <div
+              className="
+                w-12 h-12
+                bg-slate-200
+                rounded-2xl
+                animate-pulse
+              "
+              /
+            >
+
+            <div>
+              <div
+                className="
+                  w-48 h-6
+                  bg-slate-200
+                  rounded
+                  animate-pulse
+                "
+                /
+              >
+
+              <div
+                className="
+                  w-80 max-w-full h-4
+                  mt-2
+                  bg-slate-100
+                  rounded
+                  animate-pulse
+                "
+                /
+              >
+            </div>
+          </div>
+
+          <div
+            className="
+              hidden sm:block
+              w-32 h-11
               bg-slate-200
-              rounded-2xl
+              rounded-xl
               animate-pulse
             "
             /
           >
-
-          <div>
-            <div
-              className="
-                w-48 h-6
-                bg-slate-200
-                rounded
-                animate-pulse
-              "
-              /
-            >
-
-            <div
-              className="
-                w-80 max-w-full h-4
-                mt-2
-                bg-slate-100
-                rounded
-                animate-pulse
-              "
-              /
-            >
-          </div>
         </div>
 
         <div
           className="
-            hidden sm:block
-            w-32 h-11
-            bg-slate-200
-            rounded-xl
-            animate-pulse
+            grid grid-cols-2 lg:grid-cols-4
+            mt-8
+            gap-3 sm:gap-4
           "
-          /
         >
-      </div>
-
-      <div
-        className="
-          grid grid-cols-2 lg:grid-cols-4
-          mt-8
-          gap-3 sm:gap-4
-        "
-      >
-        {Array.from({ length: 4 }).map(
-          (_, index) => (
+          {Array.from({
+            length: 4,
+          }).map((_, index) => (
             <div
-              key={index}
+              key={`metric-${index}`}
               className="
                 h-28
                 bg-white
@@ -663,21 +736,21 @@ const PageSkeleton = memo(() => (
               "
               /
             >
-          )
-        )}
-      </div>
+          ))}
+        </div>
 
-      <div
-        className="
-          grid grid-cols-1 xl:grid-cols-2
-          mt-8
-          gap-5
-        "
-      >
-        {Array.from({ length: 4 }).map(
-          (_, index) => (
+        <div
+          className="
+            grid grid-cols-1 xl:grid-cols-2
+            mt-8
+            gap-5
+          "
+        >
+          {Array.from({
+            length: 4,
+          }).map((_, index) => (
             <div
-              key={index}
+              key={`card-${index}`}
               className="
                 h-64
                 bg-white
@@ -686,12 +759,12 @@ const PageSkeleton = memo(() => (
               "
               /
             >
-          )
-        )}
+          ))}
+        </div>
       </div>
-    </div>
-  </main>
-));
+    </main>
+  )
+);
 
 PageSkeleton.displayName =
   "SavingsStrategiesPageSkeleton";
@@ -735,8 +808,11 @@ const PageErrorState = memo(
               bg-red-50
               border border-red-100 rounded-xl
             "
+            aria-hidden="true"
           >
-            <AlertCircle size={22} />
+            <AlertCircle
+              size={22}
+            />
           </div>
 
           <h1
@@ -745,7 +821,8 @@ const PageErrorState = memo(
               font-bold text-slate-950 text-xl
             "
           >
-            Unable to load your savings strategies
+            Unable to load your savings
+            strategies
           </h1>
 
           <p
@@ -770,10 +847,10 @@ const PageErrorState = memo(
                 font-semibold text-white text-sm
                 bg-slate-950 hover:bg-slate-800
                 rounded-xl focus:outline-none
-                focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
                 disabled:opacity-60 transition
                 disabled:cursor-not-allowed
                 gap-2
+                focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2
               "
             >
               <RefreshCw
@@ -804,75 +881,82 @@ PageErrorState.displayName =
 ========================================================= */
 
 const EmptyState = memo(
-  ({ onCreate }) => (
-    <div
-      className="
-        mt-8 p-8 sm:p-14
-        text-center
-        bg-white
-        border border-slate-200 border-dashed rounded-3xl
-        shadow-sm
-      "
-    >
+  ({ onCreate }) => {
+    const canCreate =
+      typeof onCreate ===
+      "function";
+
+    return (
       <div
         className="
-          flex justify-center items-center
-          w-16 h-16
-          mx-auto
-          text-slate-700
-          bg-slate-50
-          border border-slate-100 rounded-2xl
+          mt-8 p-8 sm:p-14
+          text-center
+          bg-white
+          border border-slate-200 border-dashed rounded-3xl
+          shadow-sm
         "
       >
-        <Target size={27} />
-      </div>
-
-      <h2
-        className="
-          mt-5
-          font-bold text-slate-950 text-xl tracking-tight
-        "
-      >
-        No savings strategies yet
-      </h2>
-
-      <p
-        className="
-          max-w-xl
-          mx-auto mt-2
-          text-slate-500 text-sm leading-6
-        "
-      >
-        Create a strategy to automate or structure
-        how you save toward your financial goals.
-        SmartSave can support fixed amounts,
-        percentages, income-based saving, round-ups
-        and custom strategies.
-      </p>
-
-      {typeof onCreate ===
-        "function" && (
-        <button
-          type="button"
-          onClick={onCreate}
+        <div
           className="
-            inline-flex justify-center items-center
-            min-h-11
-            mt-6 px-5
-            font-semibold text-white text-sm
-            bg-slate-950 hover:bg-slate-800
-            rounded-xl focus:outline-none
-            focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
-            transition
-            gap-2
+            flex justify-center items-center
+            w-16 h-16
+            mx-auto
+            text-slate-700
+            bg-slate-50
+            border border-slate-100 rounded-2xl
+          "
+          aria-hidden="true"
+        >
+          <Target size={27} />
+        </div>
+
+        <h2
+          className="
+            mt-5
+            font-bold text-slate-950 text-xl tracking-tight
           "
         >
-          <Plus size={17} />
-          Create your first strategy
-        </button>
-      )}
-    </div>
-  )
+          No savings strategies yet
+        </h2>
+
+        <p
+          className="
+            max-w-xl
+            mx-auto mt-2
+            text-slate-500 text-sm leading-6
+          "
+        >
+          Create a strategy to automate or
+          structure how you save toward your
+          financial goals. SmartSave supports
+          fixed amounts, percentages,
+          income-based saving, round-ups and
+          custom strategies.
+        </p>
+
+        {canCreate && (
+          <button
+            type="button"
+            onClick={onCreate}
+            className="
+              inline-flex justify-center items-center
+              min-h-11
+              mt-6 px-5
+              font-semibold text-white text-sm
+              bg-slate-950 hover:bg-slate-800
+              rounded-xl focus:outline-none
+              transition
+              gap-2
+              focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2
+            "
+          >
+            <Plus size={17} />
+            Create your first strategy
+          </button>
+        )}
+      </div>
+    );
+  }
 );
 
 EmptyState.displayName =
@@ -889,10 +973,6 @@ const SavingsStrategiesPage = ({
   description,
   className = "",
 }) => {
-  /* =======================================================
-     HOOK
-  ======================================================= */
-
   const savingsStrategies =
     useSavingsStrategies() ?? {};
 
@@ -918,35 +998,35 @@ const SavingsStrategiesPage = ({
     null;
 
   /* =======================================================
-     DATA
+     SERVER DATA
   ======================================================= */
 
+  const strategies = useMemo(() => {
   const rawData =
     savingsStrategies.strategies ??
     savingsStrategies.plans ??
     savingsStrategies.data ??
     [];
 
-  const strategies = useMemo(() => {
-    const collection =
-      resolveStrategies(rawData);
+  const collection =
+    resolveStrategies(rawData);
 
-    if (!collection.length) {
-      return [];
-    }
+  if (!collection.length) {
+    return [];
+  }
 
-    return collection
-      .slice(0, MAX_STRATEGIES)
-      .map(
-        normalizeStrategyRecord
-      )
-      .filter(
-        isRenderableStrategy
-      );
-  }, [rawData]);
+  return collection
+    .slice(0, MAX_STRATEGIES)
+    .map(normalizeStrategyRecord)
+    .filter(isRenderableStrategy);
+}, [
+  savingsStrategies.strategies,
+  savingsStrategies.plans,
+  savingsStrategies.data,
+]);
 
   /* =======================================================
-     API ACTIONS
+     HOOK ACTIONS
   ======================================================= */
 
   const fetchStrategies =
@@ -972,7 +1052,7 @@ const SavingsStrategiesPage = ({
     null;
 
   /* =======================================================
-     LOCAL ACTION STATE
+     LOCAL UI STATE
   ======================================================= */
 
   const [
@@ -991,14 +1071,12 @@ const SavingsStrategiesPage = ({
 
   const pageTitle =
     title ??
-    SMART_SAVE_STRATEGY_CONFIG
-      ?.sectionTitle ??
+    SMART_SAVE_STRATEGY_CONFIG?.sectionTitle ??
     DEFAULT_TITLE;
 
   const pageDescription =
     description ??
-    SMART_SAVE_STRATEGY_CONFIG
-      ?.sectionDescription ??
+    SMART_SAVE_STRATEGY_CONFIG?.sectionDescription ??
     DEFAULT_DESCRIPTION;
 
   /* =======================================================
@@ -1012,11 +1090,15 @@ const SavingsStrategiesPage = ({
     const types = new Set();
 
     for (const strategy of strategies) {
-      if (isActiveStrategy(strategy)) {
+      if (
+        isActiveStrategy(strategy)
+      ) {
         active += 1;
       }
 
-      if (isPausedStrategy(strategy)) {
+      if (
+        isPausedStrategy(strategy)
+      ) {
         paused += 1;
       }
 
@@ -1068,7 +1150,7 @@ const SavingsStrategiesPage = ({
           )
         );
 
-        throw refreshError;
+        return undefined;
       }
     }, [fetchStrategies]);
 
@@ -1108,6 +1190,10 @@ const SavingsStrategiesPage = ({
           strategyId ??
           getStrategyId(strategy);
 
+        if (!id) {
+          return;
+        }
+
         onView(
           strategy,
           id
@@ -1117,21 +1203,23 @@ const SavingsStrategiesPage = ({
     );
 
   /* =======================================================
-     ACTIVATE
+     GENERIC ACTION EXECUTOR
   ======================================================= */
 
-  const handleActivate =
+  const executeStrategyAction =
     useCallback(
-      async (
+      async ({
         strategy,
-        strategyId
-      ) => {
+        strategyId,
+        action,
+        unavailableMessage,
+      }) => {
         if (
-          typeof activateStrategy !==
+          typeof action !==
           "function"
         ) {
           setActionError(
-            "Activating this savings strategy is currently unavailable."
+            unavailableMessage
           );
 
           return undefined;
@@ -1153,22 +1241,49 @@ const SavingsStrategiesPage = ({
         setActionLoadingId(id);
 
         try {
-          return await activateStrategy(
-            id
-          );
-        } catch (activationError) {
+          return await action(id);
+        } catch (actionErrorValue) {
           setActionError(
             getErrorMessage(
-              activationError
+              actionErrorValue
             )
           );
 
-          throw activationError;
+          /*
+           * Do not rethrow here.
+           *
+           * The page already owns the user-facing
+           * error state. Re-throwing can create
+           * unnecessary unhandled promise errors
+           * when the card uses a click handler.
+           */
+          return undefined;
         } finally {
           setActionLoadingId(null);
         }
       },
-      [activateStrategy]
+      []
+    );
+
+  /* =======================================================
+     ACTIVATE
+  ======================================================= */
+
+  const handleActivate =
+    useCallback(
+      (strategy, strategyId) =>
+        executeStrategyAction({
+          strategy,
+          strategyId,
+          action:
+            activateStrategy,
+          unavailableMessage:
+            "Activating this savings strategy is currently unavailable.",
+        }),
+      [
+        executeStrategyAction,
+        activateStrategy,
+      ]
     );
 
   /* =======================================================
@@ -1177,53 +1292,18 @@ const SavingsStrategiesPage = ({
 
   const handlePause =
     useCallback(
-      async (
-        strategy,
-        strategyId
-      ) => {
-        if (
-          typeof pauseStrategy !==
-          "function"
-        ) {
-          setActionError(
-            "Pausing this savings strategy is currently unavailable."
-          );
-
-          return undefined;
-        }
-
-        const id =
-          strategyId ??
-          getStrategyId(strategy);
-
-        if (!id) {
-          setActionError(
-            "This savings strategy could not be identified."
-          );
-
-          return undefined;
-        }
-
-        setActionError(null);
-        setActionLoadingId(id);
-
-        try {
-          return await pauseStrategy(
-            id
-          );
-        } catch (pauseError) {
-          setActionError(
-            getErrorMessage(
-              pauseError
-            )
-          );
-
-          throw pauseError;
-        } finally {
-          setActionLoadingId(null);
-        }
-      },
-      [pauseStrategy]
+      (strategy, strategyId) =>
+        executeStrategyAction({
+          strategy,
+          strategyId,
+          action: pauseStrategy,
+          unavailableMessage:
+            "Pausing this savings strategy is currently unavailable.",
+        }),
+      [
+        executeStrategyAction,
+        pauseStrategy,
+      ]
     );
 
   /* =======================================================
@@ -1232,79 +1312,18 @@ const SavingsStrategiesPage = ({
 
   const handleResume =
     useCallback(
-      async (
-        strategy,
-        strategyId
-      ) => {
-        if (
-          typeof resumeStrategy !==
-          "function"
-        ) {
-          setActionError(
-            "Resuming this savings strategy is currently unavailable."
-          );
-
-          return undefined;
-        }
-
-        const id =
-          strategyId ??
-          getStrategyId(strategy);
-
-        if (!id) {
-          setActionError(
-            "This savings strategy could not be identified."
-          );
-
-          return undefined;
-        }
-
-        setActionError(null);
-        setActionLoadingId(id);
-
-        try {
-          return await resumeStrategy(
-            id
-          );
-        } catch (resumeError) {
-          setActionError(
-            getErrorMessage(
-              resumeError
-            )
-          );
-
-          throw resumeError;
-        } finally {
-          setActionLoadingId(null);
-        }
-      },
-      [resumeStrategy]
-    );
-
-  /* =======================================================
-     CARD HANDLERS
-  ======================================================= */
-
-  const cardHandlers =
-    useMemo(
-      () => ({
-        onView:
-          handleView,
-
-        onActivate:
-          handleActivate,
-
-        onPause:
-          handlePause,
-
-        onResume:
-          handleResume,
-      }),
+      (strategy, strategyId) =>
+        executeStrategyAction({
+          strategy,
+          strategyId,
+          action:
+            resumeStrategy,
+          unavailableMessage:
+            "Resuming this savings strategy is currently unavailable.",
+        }),
       [
-        handleView,
-        handleActivate,
-        handlePause,
-        handleResume,
+        executeStrategyAction,
+        resumeStrategy,
       ]
     );
 
@@ -1312,26 +1331,24 @@ const SavingsStrategiesPage = ({
      REQUEST STATES
   ======================================================= */
 
+  const hasStrategies =
+    strategies.length > 0;
+
   const initialLoading =
     loading &&
-    strategies.length === 0;
+    !hasStrategies;
 
   const initialError =
     Boolean(error) &&
     !loading &&
-    strategies.length === 0;
-
-  const hasStrategies =
-    strategies.length > 0;
+    !hasStrategies;
 
   /* =======================================================
      INITIAL LOADING
   ======================================================= */
 
   if (initialLoading) {
-    return (
-      <PageSkeleton />
-    );
+    return <PageSkeleton />;
   }
 
   /* =======================================================
@@ -1354,12 +1371,16 @@ const SavingsStrategiesPage = ({
   }
 
   /* =======================================================
-     MAIN PAGE
+     RENDER
   ======================================================= */
 
   return (
     <main
-      className={`bg-slate-50 min-h-screen ${className}`}
+      className={`
+        min-h-screen
+        bg-slate-50
+        ${className}
+      `}
       aria-labelledby="savings-strategies-page-title"
     >
       <div
@@ -1369,7 +1390,7 @@ const SavingsStrategiesPage = ({
         "
       >
         {/* =================================================
-            PAGE HEADER
+            HEADER
         ================================================= */}
 
         <header
@@ -1465,10 +1486,8 @@ const SavingsStrategiesPage = ({
                 onClick={() =>
                   void handleRefresh()
                 }
-                disabled={
-                  refreshing
-                }
-                className="inline-flex flex-1 lg:flex-none justify-center items-center gap-2 bg-white hover:bg-slate-50 disabled:opacity-60 shadow-sm px-4 border border-slate-200 hover:border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-400/40 focus:ring-offset-2 min-h-11 font-semibold text-slate-700 text-sm transition disabled:cursor-not-allowed"
+                disabled={refreshing}
+                className="inline-flex flex-1 lg:flex-none justify-center items-center gap-2 bg-white hover:bg-slate-50 disabled:opacity-60 shadow-sm px-4 border border-slate-200 hover:border-slate-300 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/40 focus-visible:ring-offset-2 min-h-11 font-semibold text-slate-700 text-sm transition disabled:cursor-not-allowed"
               >
                 <RefreshCw
                   size={16}
@@ -1489,9 +1508,7 @@ const SavingsStrategiesPage = ({
               "function" && (
               <button
                 type="button"
-                onClick={
-                  handleCreate
-                }
+                onClick={handleCreate}
                 className="
                   inline-flex flex-1 lg:flex-none justify-center items-center
                   min-h-11
@@ -1499,9 +1516,9 @@ const SavingsStrategiesPage = ({
                   font-semibold text-white text-sm
                   bg-slate-950 hover:bg-slate-800
                   rounded-xl focus:outline-none
-                  focus:ring-2 focus:ring-slate-950 focus:ring-offset-2
                   shadow-sm transition
                   gap-2
+                  focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2
                 "
               >
                 <Plus size={17} />
@@ -1535,10 +1552,9 @@ const SavingsStrategiesPage = ({
                 rounded-lg
                 shrink-0
               "
+              aria-hidden="true"
             >
-              <AlertCircle
-                size={16}
-              />
+              <AlertCircle size={16} />
             </div>
 
             <div
@@ -1568,11 +1584,9 @@ const SavingsStrategiesPage = ({
             <button
               type="button"
               onClick={() =>
-                setActionError(
-                  null
-                )
+                setActionError(null)
               }
-              className="font-semibold text-red-700 hover:text-red-900 text-xs"
+              className="rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2 font-semibold text-red-700 hover:text-red-900 text-xs"
             >
               Dismiss
             </button>
@@ -1604,10 +1618,9 @@ const SavingsStrategiesPage = ({
                 rounded-lg
                 shrink-0
               "
+              aria-hidden="true"
             >
-              <AlertCircle
-                size={16}
-              />
+              <AlertCircle size={16} />
             </div>
 
             <div
@@ -1621,7 +1634,8 @@ const SavingsStrategiesPage = ({
                   font-semibold text-amber-900 text-sm
                 "
               >
-                Your strategy data may be outdated
+                Your strategy data may be
+                outdated
               </p>
 
               <p
@@ -1641,15 +1655,11 @@ const SavingsStrategiesPage = ({
                 onClick={() =>
                   void handleRefresh()
                 }
-                disabled={
-                  refreshing
-                }
-                className="inline-flex items-center gap-1 disabled:opacity-50 font-semibold text-amber-800 text-xs underline underline-offset-2 shrink-0"
+                disabled={refreshing}
+                className="inline-flex items-center gap-1 disabled:opacity-50 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 font-semibold text-amber-800 text-xs underline underline-offset-2 shrink-0"
               >
                 Retry
-                <ArrowRight
-                  size={12}
-                />
+                <ArrowRight size={12} />
               </button>
             )}
           </div>
@@ -1670,42 +1680,34 @@ const SavingsStrategiesPage = ({
           <SummaryMetric
             icon={Target}
             label="Total strategies"
-            value={
-              summary.total
-            }
+            value={summary.total}
             description="Configured strategies"
           />
 
           <SummaryMetric
             icon={CheckCircle2}
             label="Active"
-            value={
-              summary.active
-            }
+            value={summary.active}
             description="Currently running"
           />
 
           <SummaryMetric
             icon={PauseCircle}
             label="Paused"
-            value={
-              summary.paused
-            }
+            value={summary.paused}
             description="Temporarily paused"
           />
 
           <SummaryMetric
             icon={TrendingUp}
             label="Strategy types"
-            value={
-              summary.types
-            }
+            value={summary.types}
             description="Different approaches"
           />
         </section>
 
         {/* =================================================
-            STRATEGIES
+            STRATEGY LIST
         ================================================= */}
 
         <section
@@ -1737,7 +1739,8 @@ const SavingsStrategiesPage = ({
                   text-slate-500 text-sm
                 "
               >
-                Manage how SmartSave helps you save.
+                Manage how SmartSave helps you
+                save.
               </p>
             </div>
 
@@ -1795,12 +1798,8 @@ const SavingsStrategiesPage = ({
                       "
                     >
                       <StrategyCard
-                        strategy={
-                          strategy
-                        }
-                        onView={
-                          handleView
-                        }
+                        strategy={strategy}
+                        onView={handleView}
                         onActivate={
                           handleActivate
                         }
@@ -1811,8 +1810,7 @@ const SavingsStrategiesPage = ({
                           handleResume
                         }
                         actionLoading={
-                          actionLoadingId ===
-                          id
+                          actionLoadingId === id
                         }
                       />
                     </article>
@@ -1847,7 +1845,8 @@ const SavingsStrategiesPage = ({
                 /
               >
 
-              Updating your savings strategies...
+              Updating your savings
+              strategies...
             </div>
           )}
       </div>
