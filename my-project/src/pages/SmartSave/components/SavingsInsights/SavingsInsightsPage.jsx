@@ -1,14 +1,17 @@
 import {
-  AlertCircle,
-  RefreshCw,
-  Sparkles,
-} from "lucide-react";
-
-import {
   memo,
   useCallback,
   useMemo,
 } from "react";
+
+import {
+  AlertCircle,
+  BrainCircuit,
+  CheckCircle2,
+  RefreshCw,
+  Sparkles,
+  TrendingUp,
+} from "lucide-react";
 
 import useSavingsInsights from "../../../../hooks/useSavingsInsights";
 
@@ -31,128 +34,22 @@ import {
    CONSTANTS
 ========================================================= */
 
-const DEFAULT_LIMIT = 5;
+const DEFAULT_LIMIT = 6;
+const MAX_LIMIT = 100;
 const MAX_RECOMMENDATIONS = 3;
 
-const DEFAULT_TITLE = "Savings insights";
+const DEFAULT_TITLE = "Savings intelligence";
 
 const DEFAULT_DESCRIPTION =
-  "SmartSave analyzes your savings activity and goals to surface useful financial intelligence.";
+  "Personalized insights and recommendations based on your savings activity.";
 
 const DEFAULT_ERROR =
-  "We could not load your savings insights.";
+  "We couldn't load your savings insights.";
 
 /* =========================================================
    SAFE HELPERS
 ========================================================= */
 
-/**
- * Resolve an array from the supported SmartSave response
- * shapes without allowing malformed API responses to
- * reach presentation components.
- */
-const resolveInsights = (value) => {
-  if (Array.isArray(value)) {
-    return value;
-  }
-
-  if (Array.isArray(value?.data)) {
-    return value.data;
-  }
-
-  if (Array.isArray(value?.insights)) {
-    return value.insights;
-  }
-
-  if (Array.isArray(value?.data?.insights)) {
-    return value.data.insights;
-  }
-
-  if (Array.isArray(value?.items)) {
-    return value.items;
-  }
-
-  if (Array.isArray(value?.data?.items)) {
-    return value.data.items;
-  }
-
-  return [];
-};
-
-/**
- * Resolve the canonical insight identifier.
- */
-const getInsightId = (insight) => {
-  if (!insight) {
-    return null;
-  }
-
-  return (
-    insight?._id ??
-    insight?.id ??
-    insight?.insightId ??
-    null
-  );
-};
-
-/**
- * Generate a stable React key.
- *
- * Backend identifiers are always preferred.
- * The index is only a final defensive fallback for malformed
- * records that somehow reach the UI.
- */
-const getInsightKey = (insight, index) => {
-  const id = getInsightId(insight);
-
-  if (id !== null && id !== undefined && id !== "") {
-    return `insight-${String(id)}`;
-  }
-
-  return `insight-fallback-${index}`;
-};
-
-/**
- * Resolve the insight type defensively.
- */
-const getInsightType = (insight) =>
-  String(
-    insight?.type ??
-      insight?.insightType ??
-      insight?.category ??
-      ""
-  )
-    .trim()
-    .toLowerCase();
-
-/**
- * Determine whether an insight is an actionable
- * recommendation.
- *
- * The canonical SmartSave constant remains the source
- * of truth, while the fallback protects the UI if the
- * constant is unavailable.
- */
-const isRecommendation = (insight) => {
-  const type = getInsightType(insight);
-
-  const recommendationType = String(
-    SAVINGS_INSIGHT_TYPES?.RECOMMENDATION ??
-      "recommendation"
-  )
-    .trim()
-    .toLowerCase();
-
-  return type === recommendationType;
-};
-
-/**
- * Convert any service/hook error into a safe presentation
- * message.
- *
- * Raw Axios/backend error objects never reach child UI
- * components.
- */
 const getErrorMessage = (error) => {
   if (!error) {
     return DEFAULT_ERROR;
@@ -163,41 +60,473 @@ const getErrorMessage = (error) => {
   }
 
   const message =
-    error?.message ||
-    error?.error ||
-    error?.response?.data?.message ||
-    error?.response?.data?.error ||
-    error?.data?.message ||
-    error?.data?.error;
+    error?.response?.data?.message ??
+    error?.response?.data?.error ??
+    error?.data?.message ??
+    error?.data?.error ??
+    error?.message ??
+    error?.error;
 
-  if (
-    typeof message === "string" &&
-    message.trim()
-  ) {
-    return message.trim();
+  return typeof message === "string" && message.trim()
+    ? message.trim()
+    : DEFAULT_ERROR;
+};
+
+const getInsightId = (insight) => {
+  if (!insight || typeof insight !== "object") {
+    return null;
   }
 
-  return DEFAULT_ERROR;
+  return (
+    insight._id ??
+    insight.id ??
+    insight.insightId ??
+    null
+  );
+};
+
+const getInsightKey = (insight, index) => {
+  const id = getInsightId(insight);
+
+  return id
+    ? `savings-insight-${String(id)}`
+    : `savings-insight-${index}`;
+};
+
+const getInsightType = (insight) =>
+  String(
+    insight?.type ??
+      insight?.insightType ??
+      insight?.category ??
+      ""
+  )
+    .trim()
+    .toLowerCase();
+
+const getRecommendationType = () =>
+  String(
+    SAVINGS_INSIGHT_TYPES?.RECOMMENDATION ??
+      "recommendation"
+  )
+    .trim()
+    .toLowerCase();
+
+const isRecommendation = (insight) =>
+  getInsightType(insight) ===
+  getRecommendationType();
+
+/* =========================================================
+   RESPONSE NORMALIZATION
+========================================================= */
+
+/**
+ * Resolve insights from all supported SmartSave
+ * response envelopes.
+ *
+ * Supported:
+ *
+ * []
+ * { insights: [] }
+ * { data: [] }
+ * { data: { insights: [] } }
+ * { items: [] }
+ * { data: { items: [] } }
+ * { results: [] }
+ */
+const resolveInsights = (value) => {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (!value || typeof value !== "object") {
+    return [];
+  }
+
+  if (Array.isArray(value.insights)) {
+    return value.insights;
+  }
+
+  if (Array.isArray(value.data)) {
+    return value.data;
+  }
+
+  if (Array.isArray(value.items)) {
+    return value.items;
+  }
+
+  if (Array.isArray(value.results)) {
+    return value.results;
+  }
+
+  if (
+    value.data &&
+    typeof value.data === "object"
+  ) {
+    if (Array.isArray(value.data.insights)) {
+      return value.data.insights;
+    }
+
+    if (Array.isArray(value.data.items)) {
+      return value.data.items;
+    }
+
+    if (Array.isArray(value.data.results)) {
+      return value.data.results;
+    }
+  }
+
+  return [];
 };
 
 /**
- * Resolve a safe positive display limit.
+ * Normalize the hook response into one predictable
+ * collection before anything reaches the UI.
  */
-const resolveLimit = (value) => {
-  const numericLimit = Number(value);
+const normalizeInsightCollection = (value) => {
+  const resolved = resolveInsights(value);
 
-  if (
-    !Number.isFinite(numericLimit) ||
-    numericLimit <= 0
-  ) {
+  if (!resolved.length) {
+    return [];
+  }
+
+  try {
+    const normalized =
+      normalizeSavingsInsights(resolved);
+
+    return Array.isArray(normalized)
+      ? normalized.filter(Boolean)
+      : [];
+  } catch {
+    /*
+     * Normalization failure should never crash the
+     * entire SmartSave dashboard.
+     */
+    return resolved.filter(Boolean);
+  }
+};
+
+const resolveLimit = (value) => {
+  const number = Number(value);
+
+  if (!Number.isFinite(number) || number <= 0) {
     return DEFAULT_LIMIT;
   }
 
   return Math.min(
-    Math.floor(numericLimit),
-    100
+    Math.floor(number),
+    MAX_LIMIT
   );
 };
+
+/* =========================================================
+   PAGE HEADER
+========================================================= */
+
+const InsightsHeader = memo(
+  ({
+    title,
+    description,
+    count,
+    refreshing,
+    canRefresh,
+    onRefresh,
+  }) => (
+    <header
+      className="
+        flex flex-col sm:flex-row sm:justify-between sm:items-start
+        gap-4
+      "
+    >
+      <div
+        className="
+          flex items-start
+          min-w-0
+          gap-3
+        "
+      >
+        <div
+          className="
+            flex justify-center items-center
+            w-11 h-11
+            text-white
+            bg-slate-950
+            rounded-xl
+            shrink-0
+          "
+          aria-hidden="true"
+        >
+          <BrainCircuit
+            size={20}
+            strokeWidth={1.9}
+          />
+        </div>
+
+        <div
+          className="
+            min-w-0
+          "
+        >
+          <div
+            className="
+              flex flex-wrap items-center
+              gap-2
+            "
+          >
+            <h2
+              id="savings-insights-heading"
+              className="
+                font-bold text-slate-950 text-base sm:text-lg tracking-tight
+              "
+            >
+              {title}
+            </h2>
+
+            {count > 0 && (
+              <span
+                className="
+                  inline-flex items-center
+                  px-2 py-0.5
+                  font-semibold text-[11px] text-slate-600
+                  bg-slate-100
+                  rounded-full
+                "
+              >
+                {count}
+              </span>
+            )}
+          </div>
+
+          {description && (
+            <p
+              className="
+                max-w-2xl
+                mt-1
+                text-slate-500 text-sm leading-5
+              "
+            >
+              {description}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {canRefresh && (
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={refreshing}
+          className="
+            inline-flex justify-center items-center
+            h-10
+            px-3.5
+            font-semibold text-slate-700 text-sm
+            bg-white hover:bg-slate-50
+            border border-slate-200 hover:border-slate-300 rounded-xl
+            focus:outline-none focus:ring-2 focus:ring-slate-400/30
+            disabled:opacity-60 shadow-sm transition
+            disabled:cursor-not-allowed
+            gap-2 shrink-0
+          "
+          aria-label={
+            refreshing
+              ? "Refreshing savings insights"
+              : "Refresh savings insights"
+          }
+        >
+          <RefreshCw
+            size={15}
+            className={
+              refreshing
+                ? "animate-spin"
+                : undefined
+            }
+          />
+
+          {refreshing
+            ? "Refreshing"
+            : "Refresh"}
+        </button>
+      )}
+    </header>
+  )
+);
+
+InsightsHeader.displayName =
+  "InsightsHeader";
+
+/* =========================================================
+   SUMMARY
+========================================================= */
+
+const IntelligenceSummary = memo(
+  ({
+    total,
+    recommendations,
+    analytical,
+  }) => {
+    if (total === 0) {
+      return null;
+    }
+
+    return (
+      <div
+        className="
+          grid grid-cols-2 lg:grid-cols-3
+          mt-5
+          gap-3
+        "
+      >
+        <div
+          className="
+            p-4
+            bg-white
+            border border-slate-200 rounded-2xl
+            shadow-sm
+          "
+        >
+          <div
+            className="
+              flex justify-between items-center
+              gap-3
+            "
+          >
+            <div>
+              <p
+                className="
+                  font-semibold text-[11px] text-slate-400 uppercase
+                  tracking-[0.08em]
+                "
+              >
+                Total insights
+              </p>
+
+              <p
+                className="
+                  mt-1
+                  font-bold text-slate-950 text-xl tracking-tight
+                "
+              >
+                {total}
+              </p>
+            </div>
+
+            <div
+              className="
+                flex justify-center items-center
+                w-9 h-9
+                text-slate-500
+                bg-slate-50
+                rounded-xl
+              "
+            >
+              <Sparkles size={17} />
+            </div>
+          </div>
+        </div>
+
+        <div
+          className="
+            p-4
+            bg-white
+            border border-slate-200 rounded-2xl
+            shadow-sm
+          "
+        >
+          <div
+            className="
+              flex justify-between items-center
+              gap-3
+            "
+          >
+            <div>
+              <p
+                className="
+                  font-semibold text-[11px] text-slate-400 uppercase
+                  tracking-[0.08em]
+                "
+              >
+                Recommendations
+              </p>
+
+              <p
+                className="
+                  mt-1
+                  font-bold text-slate-950 text-xl tracking-tight
+                "
+              >
+                {recommendations}
+              </p>
+            </div>
+
+            <div
+              className="
+                flex justify-center items-center
+                w-9 h-9
+                text-blue-600
+                bg-blue-50
+                rounded-xl
+              "
+            >
+              <TrendingUp size={17} />
+            </div>
+          </div>
+        </div>
+
+        <div
+          className="
+            p-4
+            bg-white
+            border border-slate-200 rounded-2xl
+            shadow-sm
+            col-span-2 lg:col-span-1
+          "
+        >
+          <div
+            className="
+              flex justify-between items-center
+              gap-3
+            "
+          >
+            <div>
+              <p
+                className="
+                  font-semibold text-[11px] text-slate-400 uppercase
+                  tracking-[0.08em]
+                "
+              >
+                Financial insights
+              </p>
+
+              <p
+                className="
+                  mt-1
+                  font-bold text-slate-950 text-xl tracking-tight
+                "
+              >
+                {analytical}
+              </p>
+            </div>
+
+            <div
+              className="
+                flex justify-center items-center
+                w-9 h-9
+                text-emerald-600
+                bg-emerald-50
+                rounded-xl
+              "
+            >
+              <CheckCircle2 size={17} />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+);
+
+IntelligenceSummary.displayName =
+  "IntelligenceSummary";
 
 /* =========================================================
    COMPONENT
@@ -205,140 +534,77 @@ const resolveLimit = (value) => {
 
 const SavingsInsightsPage = ({
   goalId = null,
-
   asOfDate = null,
 
   limit = DEFAULT_LIMIT,
 
   title = DEFAULT_TITLE,
-
   description = DEFAULT_DESCRIPTION,
 
   onCreateGoal,
-
   onExploreSavings,
-
   onRecommendationAction,
 
   className = "",
 }) => {
   /* =======================================================
-     SERVER STATE
+     HOOK
   ======================================================= */
 
+  const savingsInsights =
+    useSavingsInsights({
+      goalId,
+      asOfDate,
+    }) ?? {};
+
+  /*
+   * Support the established and common hook contracts
+   * without requiring the page to know which one is used.
+   */
   const {
     insights: hookInsights,
     data,
-
-    loading = false,
-    isLoading = false,
-
-    refreshing = false,
-    isRefreshing = false,
-
-    error = null,
-
+    loading: hookLoading,
+    isLoading,
+    refreshing,
+    isRefreshing,
+    error,
     refresh,
     refetch,
-  } = useSavingsInsights({
-    goalId,
-    asOfDate,
-  });
+    fetchInsights,
+  } = savingsInsights;
 
   /* =======================================================
      REQUEST STATE
   ======================================================= */
 
-  const isInitialLoading =
-    Boolean(loading) ||
+  const loading =
+    Boolean(hookLoading) ||
     Boolean(isLoading);
 
-  const isRefreshingInsights =
+  const refreshingState =
     Boolean(refreshing) ||
     Boolean(isRefreshing);
 
   /* =======================================================
-     REFRESH
+     INSIGHTS
   ======================================================= */
 
-  const handleRefresh = useCallback(async () => {
+  const insights = useMemo(() => {
     /*
-     * Prevent accidental duplicate requests if a refresh
-     * button is triggered multiple times before the hook
-     * updates its state.
+     * Prefer the explicit `insights` property when the hook
+     * exposes it.
      */
-    if (isRefreshingInsights) {
-      return undefined;
+    if (Array.isArray(hookInsights)) {
+      return normalizeInsightCollection(
+        hookInsights
+      );
     }
 
-    if (typeof refresh === "function") {
-      return refresh();
-    }
-
-    if (typeof refetch === "function") {
-      return refetch();
-    }
-
-    return undefined;
-  }, [
-    refresh,
-    refetch,
-    isRefreshingInsights,
-  ]);
-
-  /* =======================================================
-     RAW INSIGHT RESOLUTION
-  ======================================================= */
-
-  const rawInsights = useMemo(() => {
-    /*
-     * Prefer the explicit hook collection.
-     *
-     * Only fall back to `data` when the hook does not expose
-     * a usable collection.
-     */
-    if (
-      Array.isArray(hookInsights) &&
-      hookInsights.length >= 0
-    ) {
-      return hookInsights;
-    }
-
-    return resolveInsights(data);
+    return normalizeInsightCollection(data);
   }, [
     hookInsights,
     data,
-  ]);
-
-  /* =======================================================
-     NORMALIZATION
-  ======================================================= */
-
-  const normalizedInsights = useMemo(() => {
-    if (!rawInsights.length) {
-      return [];
-    }
-
-    try {
-      const normalized =
-        normalizeSavingsInsights(
-          rawInsights
-        );
-
-      if (!Array.isArray(normalized)) {
-        return [];
-      }
-
-      return normalized.filter(Boolean);
-    } catch {
-      /*
-       * A malformed insight must never crash the entire
-       * SmartSave page.
-       */
-      return [];
-    }
-  }, [
-    rawInsights,
   ]);
 
   /* =======================================================
@@ -346,34 +612,30 @@ const SavingsInsightsPage = ({
   ======================================================= */
 
   const {
-    analyticalInsights,
     recommendations,
+    analyticalInsights,
   } = useMemo(() => {
-    const analytical = [];
-    const actionable = [];
+    const recommendationsList = [];
+    const analyticalList = [];
 
-    for (
-      const insight of normalizedInsights
-    ) {
-      if (
-        isRecommendation(insight)
-      ) {
-        actionable.push(insight);
+    insights.forEach((insight) => {
+      if (isRecommendation(insight)) {
+        recommendationsList.push(insight);
       } else {
-        analytical.push(insight);
+        analyticalList.push(insight);
       }
-    }
+    });
 
     return {
-      analyticalInsights: analytical,
-      recommendations: actionable,
+      recommendations:
+        recommendationsList,
+      analyticalInsights:
+        analyticalList,
     };
-  }, [
-    normalizedInsights,
-  ]);
+  }, [insights]);
 
   /* =======================================================
-     DISPLAY LIMITS
+     DISPLAY
   ======================================================= */
 
   const safeLimit = useMemo(
@@ -393,11 +655,6 @@ const SavingsInsightsPage = ({
     ]
   );
 
-  /*
-   * Recommendations intentionally have their own limit.
-   * They should not be consumed by the analytical insight
-   * limit because they represent actionable intelligence.
-   */
   const visibleRecommendations =
     useMemo(
       () =>
@@ -408,80 +665,87 @@ const SavingsInsightsPage = ({
       [recommendations]
     );
 
-  /* =======================================================
-     DERIVED STATE
-  ======================================================= */
+  const hasInsights =
+    insights.length > 0;
 
-  const hasAnyInsights =
+  const hasVisibleContent =
     visibleInsights.length > 0 ||
     visibleRecommendations.length > 0;
 
-  const hasAnyNormalizedInsights =
-    normalizedInsights.length > 0;
-
-  const isEmpty =
-    !isInitialLoading &&
-    !error &&
-    !hasAnyInsights;
-
   const errorMessage = useMemo(
-    () =>
-      getErrorMessage(error),
+    () => getErrorMessage(error),
     [error]
   );
 
-  /*
-   * If a refresh fails while existing intelligence is
-   * available, keep the content visible and display a
-   * non-blocking warning.
-   */
-  const hasRecoverableError =
-    Boolean(error) &&
-    hasAnyNormalizedInsights;
+  const canRefresh =
+    typeof refresh === "function" ||
+    typeof refetch === "function" ||
+    typeof fetchInsights === "function";
 
   /* =======================================================
-     ACTION HANDLERS
+     REFRESH
+  ======================================================= */
+
+  const handleRefresh =
+    useCallback(async () => {
+      if (refreshingState) {
+        return;
+      }
+
+      if (typeof refresh === "function") {
+        return refresh();
+      }
+
+      if (typeof refetch === "function") {
+        return refetch();
+      }
+
+      if (
+        typeof fetchInsights === "function"
+      ) {
+        return fetchInsights();
+      }
+
+      return undefined;
+    }, [
+      refresh,
+      refetch,
+      fetchInsights,
+      refreshingState,
+    ]);
+
+  /* =======================================================
+     ACTIONS
   ======================================================= */
 
   const handleCreateGoal =
     useCallback(() => {
       if (
-        typeof onCreateGoal !==
+        typeof onCreateGoal ===
         "function"
       ) {
-        return;
+        onCreateGoal();
       }
-
-      onCreateGoal();
-    }, [
-      onCreateGoal,
-    ]);
+    }, [onCreateGoal]);
 
   const handleExploreSavings =
     useCallback(() => {
       if (
-        typeof onExploreSavings !==
+        typeof onExploreSavings ===
         "function"
       ) {
-        return;
+        onExploreSavings();
       }
-
-      onExploreSavings();
-    }, [
-      onExploreSavings,
-    ]);
+    }, [onExploreSavings]);
 
   const handleRecommendationAction =
     useCallback(
       (recommendation) => {
         if (
           typeof onRecommendationAction !==
-          "function"
+            "function" ||
+          !recommendation
         ) {
-          return;
-        }
-
-        if (!recommendation) {
           return;
         }
 
@@ -489,23 +753,18 @@ const SavingsInsightsPage = ({
           recommendation
         );
       },
-      [
-        onRecommendationAction,
-      ]
+      [onRecommendationAction]
     );
 
   /* =======================================================
-     INITIAL LOADING STATE
+     INITIAL LOADING
   ======================================================= */
 
-  if (
-    isInitialLoading &&
-    !hasAnyNormalizedInsights
-  ) {
+  if (loading && !hasInsights) {
     return (
       <section
         className={`w-full ${className}`}
-        aria-label="Savings insights"
+        aria-labelledby="savings-insights-heading"
         aria-busy="true"
       >
         <div
@@ -530,7 +789,7 @@ const SavingsInsightsPage = ({
             >
               <div
                 className="
-                  w-10 h-10
+                  w-11 h-11
                   bg-slate-100
                   rounded-xl
                   animate-pulse
@@ -545,17 +804,16 @@ const SavingsInsightsPage = ({
               >
                 <div
                   className="
-                    w-40 h-4
+                    w-44 h-5
                     bg-slate-100
                     rounded
                     animate-pulse
                   "
                   /
                 >
-
                 <div
                   className="
-                    w-64 sm:w-96 h-3
+                    w-72 max-w-full h-3
                     bg-slate-100
                     rounded
                     animate-pulse
@@ -579,48 +837,49 @@ const SavingsInsightsPage = ({
   }
 
   /* =======================================================
-     INITIAL ERROR STATE
+     INITIAL ERROR
   ======================================================= */
 
   if (
     error &&
-    !hasAnyNormalizedInsights
+    !hasInsights &&
+    !loading
   ) {
     return (
       <section
         className={`w-full ${className}`}
-        aria-label="Savings insights"
+        aria-label="Savings intelligence"
       >
         <SavingsErrorState
           error={errorMessage}
           onRetry={
-            typeof refresh === "function" ||
-            typeof refetch === "function"
+            canRefresh
               ? handleRefresh
               : undefined
           }
-          retrying={
-            isRefreshingInsights
-          }
+          retrying={refreshingState}
         />
       </section>
     );
   }
 
   /* =======================================================
-     EMPTY STATE
+     EMPTY
   ======================================================= */
 
-  if (isEmpty) {
+  if (
+    !loading &&
+    !error &&
+    !hasVisibleContent
+  ) {
     return (
       <section
         className={`w-full ${className}`}
-        aria-label="Savings insights"
+        aria-label="Savings intelligence"
       >
         <SavingsInsightEmptyState
           onRefresh={
-            typeof refresh === "function" ||
-            typeof refetch === "function"
+            canRefresh
               ? handleRefresh
               : undefined
           }
@@ -637,7 +896,7 @@ const SavingsInsightsPage = ({
               : undefined
           }
           isRefreshing={
-            isRefreshingInsights
+            refreshingState
           }
         />
       </section>
@@ -645,7 +904,7 @@ const SavingsInsightsPage = ({
   }
 
   /* =======================================================
-     MAIN PAGE
+     MAIN
   ======================================================= */
 
   return (
@@ -656,134 +915,34 @@ const SavingsInsightsPage = ({
       <div
         className="
           overflow-hidden
-          bg-white
+          bg-slate-50/50
           border border-slate-200 rounded-2xl
           shadow-sm
         "
       >
+
         {/* =================================================
             HEADER
         ================================================= */}
 
-        <header
+        <div
           className="
-            flex flex-col sm:flex-row sm:justify-between sm:items-start
             px-5 sm:px-6 py-5
+            bg-white
             border-slate-100 border-b
-            gap-4
           "
         >
-          <div
-            className="
-              flex items-start
-              min-w-0
-              gap-3
-            "
-          >
-            <div
-              className="
-                flex justify-center items-center
-                w-10 h-10
-                text-slate-700
-                bg-slate-100
-                rounded-xl
-                shrink-0
-              "
-              aria-hidden="true"
-            >
-              <Sparkles
-                size={19}
-                strokeWidth={1.9}
-              />
-            </div>
-
-            <div
-              className="
-                min-w-0
-              "
-            >
-              <div
-                className="
-                  flex flex-wrap items-center
-                  gap-2
-                "
-              >
-                <h2
-                  id="savings-insights-heading"
-                  className="
-                    font-bold text-slate-900 text-base sm:text-lg tracking-tight
-                  "
-                >
-                  {title}
-                </h2>
-
-                {normalizedInsights.length >
-                  0 && (
-                  <span
-                    className="
-                      inline-flex items-center
-                      px-2 py-0.5
-                      font-semibold text-[11px] text-slate-600
-                      bg-slate-100
-                      rounded-full
-                    "
-                    aria-label={`${normalizedInsights.length} savings insights`}
-                  >
-                    {normalizedInsights.length}
-                  </span>
-                )}
-              </div>
-
-              {description && (
-                <p
-                  className="
-                    max-w-2xl
-                    mt-1
-                    text-slate-500 text-xs sm:text-sm leading-5
-                  "
-                >
-                  {description}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* ===============================================
-              REFRESH
-          =============================================== */}
-
-          <button
-            type="button"
-            onClick={() =>
+          <InsightsHeader
+            title={title}
+            description={description}
+            count={insights.length}
+            refreshing={refreshingState}
+            canRefresh={canRefresh}
+            onRefresh={() =>
               void handleRefresh()
             }
-            disabled={
-              isRefreshingInsights
-            }
-            className="inline-flex justify-center items-center self-start gap-2 bg-white hover:bg-slate-50 disabled:bg-slate-50 disabled:opacity-60 px-3.5 border border-slate-200 hover:border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-400/30 min-h-10 font-medium text-slate-700 text-sm transition disabled:cursor-not-allowed shrink-0"
-            aria-label={
-              isRefreshingInsights
-                ? "Refreshing savings insights"
-                : "Refresh savings insights"
-            }
-          >
-            <RefreshCw
-              size={15}
-              className={
-                isRefreshingInsights
-                  ? "animate-spin"
-                  : ""
-              }
-              aria-hidden="true"
-            />
-
-            <span>
-              {isRefreshingInsights
-                ? "Refreshing..."
-                : "Refresh"}
-            </span>
-          </button>
-        </header>
+          />
+        </div>
 
         {/* =================================================
             CONTENT
@@ -794,11 +953,12 @@ const SavingsInsightsPage = ({
             p-5 sm:p-6
           "
         >
-          {/* ===============================================
-              NON-BLOCKING ERROR
-          =============================================== */}
 
-          {hasRecoverableError && (
+          {/* =================================================
+              REFRESH ERROR
+          ================================================= */}
+
+          {error && hasInsights && (
             <div
               className="
                 flex items-start
@@ -811,14 +971,13 @@ const SavingsInsightsPage = ({
               aria-live="polite"
             >
               <AlertCircle
-                size={16}
+                size={17}
                 className="
                   mt-0.5
                   text-amber-700
                   shrink-0
                 "
-                aria-hidden="true"
-              /
+                /
               >
 
               <div
@@ -832,13 +991,12 @@ const SavingsInsightsPage = ({
                     font-semibold text-amber-900 text-xs
                   "
                 >
-                  Your insights may be
-                  slightly outdated.
+                  Some insights may be outdated
                 </p>
 
                 <p
                   className="
-                    mt-0.5
+                    mt-1
                     text-amber-700 text-xs leading-5
                   "
                 >
@@ -846,19 +1004,14 @@ const SavingsInsightsPage = ({
                 </p>
               </div>
 
-              {(typeof refresh ===
-                "function" ||
-                typeof refetch ===
-                  "function") && (
+              {canRefresh && (
                 <button
                   type="button"
                   onClick={() =>
                     void handleRefresh()
                   }
-                  disabled={
-                    isRefreshingInsights
-                  }
-                  className="self-start disabled:opacity-50 px-1 font-semibold text-amber-800 text-xs underline underline-offset-2 hover:no-underline disabled:cursor-not-allowed shrink-0"
+                  disabled={refreshingState}
+                  className="disabled:opacity-50 font-semibold text-amber-800 text-xs underline underline-offset-2 shrink-0"
                 >
                   Retry
                 </button>
@@ -866,41 +1019,60 @@ const SavingsInsightsPage = ({
             </div>
           )}
 
-          {/* ===============================================
+          {/* =================================================
+              SUMMARY
+          ================================================= */}
+
+          <IntelligenceSummary
+            total={insights.length}
+            recommendations={
+              recommendations.length
+            }
+            analytical={
+              analyticalInsights.length
+            }
+          />
+
+          {/* =================================================
               RECOMMENDATIONS
-          =============================================== */}
+          ================================================= */}
 
           {visibleRecommendations.length >
             0 && (
             <section
+              className="
+                mt-5
+              "
               aria-labelledby="smart-recommendations-heading"
             >
               <div
                 className="
                   flex items-center
-                  mb-3
-                  gap-2.5
+                  mb-4
+                  gap-3
                 "
               >
                 <div
                   className="
                     flex justify-center items-center
-                    w-8 h-8
+                    w-9 h-9
                     text-blue-600
                     bg-blue-50
-                    rounded-lg
+                    rounded-xl
                     shrink-0
                   "
-                  aria-hidden="true"
                 >
-                  <Sparkles size={15} />
+                  <Sparkles
+                    size={17}
+                    strokeWidth={1.9}
+                  />
                 </div>
 
                 <div>
                   <h3
                     id="smart-recommendations-heading"
                     className="
-                      font-semibold text-slate-900 text-sm
+                      font-semibold text-slate-950 text-sm
                     "
                   >
                     Smart recommendations
@@ -912,8 +1084,8 @@ const SavingsInsightsPage = ({
                       text-slate-500 text-xs
                     "
                   >
-                    Practical actions based
-                    on your savings behavior.
+                    Actions that can improve your
+                    savings progress.
                   </p>
                 </div>
               </div>
@@ -950,43 +1122,57 @@ const SavingsInsightsPage = ({
             </section>
           )}
 
-          {/* ===============================================
+          {/* =================================================
               ANALYTICAL INSIGHTS
-          =============================================== */}
+          ================================================= */}
 
-          {visibleInsights.length >
-            0 && (
+          {visibleInsights.length > 0 && (
             <section
               className={
                 visibleRecommendations.length >
                 0
                   ? "mt-7"
-                  : ""
+                  : "mt-5"
               }
               aria-labelledby="financial-insights-heading"
             >
               <div
                 className="
-                  mb-3
+                  mb-4
                 "
               >
-                <h3
-                  id="financial-insights-heading"
+                <div
                   className="
-                    font-semibold text-slate-900 text-sm
+                    flex items-center
+                    gap-2
                   "
                 >
-                  Financial insights
-                </h3>
+                  <TrendingUp
+                    size={16}
+                    className="
+                      text-slate-600
+                    "
+                    /
+                  >
+
+                  <h3
+                    id="financial-insights-heading"
+                    className="
+                      font-semibold text-slate-950 text-sm
+                    "
+                  >
+                    Financial insights
+                  </h3>
+                </div>
 
                 <p
                   className="
-                    mt-0.5
+                    mt-1
                     text-slate-500 text-xs
                   "
                 >
-                  Understand what your
-                  savings data is telling you.
+                  Understand the patterns behind
+                  your savings activity.
                 </p>
               </div>
 
@@ -1014,11 +1200,11 @@ const SavingsInsightsPage = ({
             </section>
           )}
 
-          {/* ===============================================
+          {/* =================================================
               BACKGROUND REFRESH
-          =============================================== */}
+          ================================================= */}
 
-          {isRefreshingInsights && (
+          {refreshingState && (
             <div
               className="
                 flex justify-center items-center
@@ -1034,15 +1220,13 @@ const SavingsInsightsPage = ({
                 className="
                   animate-spin
                 "
-                aria-hidden="true"
-              /
+                /
               >
 
-              <span>
-                Updating savings intelligence...
-              </span>
+              Updating savings intelligence…
             </div>
           )}
+
         </div>
       </div>
     </section>
@@ -1052,6 +1236,9 @@ const SavingsInsightsPage = ({
 /* =========================================================
    MEMOIZATION
 ========================================================= */
+
+SavingsInsightsPage.displayName =
+  "SavingsInsightsPage";
 
 export default memo(
   SavingsInsightsPage

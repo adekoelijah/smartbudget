@@ -1,7 +1,9 @@
 import {
   memo,
   useCallback,
+  useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -42,15 +44,9 @@ const DEFAULT_MUTATION_ERROR =
 const MAX_DISPLAY_LIMIT = 100;
 
 /* =========================================================
-   SAFE HELPERS
+   HELPERS
 ========================================================= */
 
-/**
- * Safely convert a value to a finite number.
- *
- * This is intentionally limited to presentation-level
- * aggregation. Financial business rules remain backend-owned.
- */
 const toNumber = (value, fallback = 0) => {
   const number = Number(value);
 
@@ -59,9 +55,6 @@ const toNumber = (value, fallback = 0) => {
     : fallback;
 };
 
-/**
- * Resolve a stable goal identifier.
- */
 const getGoalId = (goal) => {
   if (!goal) {
     return null;
@@ -72,30 +65,24 @@ const getGoalId = (goal) => {
   }
 
   return (
-    goal?._id ??
-    goal?.id ??
-    goal?.goalId ??
+    goal._id ??
+    goal.id ??
+    goal.goalId ??
     null
   );
 };
 
-/**
- * Resolve a collection from supported API/hook envelopes.
- *
- * The hook should ideally already return a normalized array.
- * This boundary protects the page from an unexpected envelope.
- */
 const normalizeGoals = (value) => {
   if (Array.isArray(value)) {
     return value;
   }
 
-  if (Array.isArray(value?.data)) {
-    return value.data;
-  }
-
   if (Array.isArray(value?.goals)) {
     return value.goals;
+  }
+
+  if (Array.isArray(value?.data)) {
+    return value.data;
   }
 
   if (Array.isArray(value?.data?.goals)) {
@@ -113,9 +100,6 @@ const normalizeGoals = (value) => {
   return [];
 };
 
-/**
- * Normalize an error into a user-facing message.
- */
 const getErrorMessage = (
   error,
   fallback = DEFAULT_ERROR
@@ -131,28 +115,18 @@ const getErrorMessage = (
   return (
     error?.response?.data?.message ||
     error?.response?.data?.error ||
+    error?.data?.message ||
     error?.message ||
     error?.error ||
     fallback
   );
 };
 
-/**
- * Resolve a normalized goal status.
- */
 const getGoalStatus = (goal) =>
-  String(
-    goal?.status ??
-      ""
-  )
+  String(goal?.status ?? "")
     .trim()
     .toLowerCase();
 
-/**
- * Resolve the target amount for presentation.
- *
- * Backend remains the source of truth.
- */
 const getTargetAmount = (goal) =>
   toNumber(
     goal?.targetAmount ??
@@ -160,9 +134,6 @@ const getTargetAmount = (goal) =>
       goal?.amount
   );
 
-/**
- * Resolve the currently saved amount for presentation.
- */
 const getSavedAmount = (goal) =>
   toNumber(
     goal?.currentAmount ??
@@ -171,34 +142,19 @@ const getSavedAmount = (goal) =>
       goal?.progressAmount
   );
 
-/**
- * Ensure only valid entities reach child components.
- */
-const isRenderableGoal = (goal) =>
-  Boolean(
-    goal &&
-      getGoalId(goal)
-  );
+const isValidGoal = (goal) =>
+  Boolean(getGoalId(goal));
 
-/**
- * Safely clamp a display limit.
- */
 const resolveLimit = (limit) => {
-  if (
-    !Number.isInteger(limit) ||
-    limit <= 0
-  ) {
+  if (!Number.isInteger(limit) || limit <= 0) {
     return null;
   }
 
-  return Math.min(
-    limit,
-    MAX_DISPLAY_LIMIT
-  );
+  return Math.min(limit, MAX_DISPLAY_LIMIT);
 };
 
 /* =========================================================
-   SUMMARY STAT CARD
+   SUMMARY STAT
 ========================================================= */
 
 const SummaryStat = memo(
@@ -206,78 +162,48 @@ const SummaryStat = memo(
     label,
     value,
     icon: Icon,
-    subtle = false,
-  }) => (
-    <div
-      className="
-        min-w-0
-        px-4 py-4
-        bg-white
-        rounded-2xl border border-slate-200/80
-        shadow-sm
-      "
-    >
+  }) => {
+    return (
       <div
-        className="
-          flex items-start justify-between
-          gap-3
-        "
+        className="bg-white shadow-sm px-4 py-4 border border-slate-200/80 rounded-2xl min-w-0"
       >
         <div
-          className="
-            min-w-0
-          "
+          className="flex justify-between items-start gap-3"
         >
-          <p
-            className="
-              truncate text-[11px] text-slate-400 font-semibold uppercase
-              tracking-[0.08em]
-            "
-          >
-            {label}
-          </p>
-
-          <p
-            className={`
-              mt-1
-              truncate
-              text-xl font-bold
-              tracking-tight
-              ${
-                subtle
-                  ? "text-slate-700"
-                  : "text-slate-950"
-              }
-            `}
-          >
-            {value}
-          </p>
-        </div>
-
-        {Icon && (
           <div
-            className="
-              flex items-center justify-center
-              h-9 w-9
-              text-slate-500
-              bg-slate-50
-              rounded-xl
-              shrink-0
-            "
-            aria-hidden="true"
+            className="min-w-0"
           >
-            <Icon size={17} />
+            <p
+              className="font-semibold text-[11px] text-slate-400 truncate uppercase tracking-[0.08em]"
+            >
+              {label}
+            </p>
+
+            <p
+              className="mt-1 font-bold text-slate-950 text-xl truncate tracking-tight"
+            >
+              {value}
+            </p>
           </div>
-        )}
+
+          {Icon && (
+            <div
+              className="flex justify-center items-center bg-slate-50 rounded-xl w-9 h-9 text-slate-500 shrink-0"
+              aria-hidden="true"
+            >
+              <Icon size={17} />
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-  )
+    );
+  }
 );
 
 SummaryStat.displayName = "SummaryStat";
 
 /* =========================================================
-   PAGE HEADER
+   HEADER
 ========================================================= */
 
 const GoalsHeader = memo(
@@ -293,139 +219,68 @@ const GoalsHeader = memo(
   }) => {
     return (
       <header
-        className="
-          flex flex-col lg:flex-row lg:items-center lg:justify-between
-          gap-4
-        "
+        className="flex lg:flex-row flex-col lg:justify-between lg:items-center gap-4"
       >
         <div
-          className="
-            min-w-0
-          "
+          className="flex items-center gap-3 min-w-0"
         >
           <div
-            className="
-              flex items-center
-              gap-3
-            "
+            className="flex justify-center items-center bg-blue-50 rounded-xl w-10 h-10 text-blue-600 shrink-0"
+            aria-hidden="true"
+          >
+            <Target size={19} />
+          </div>
+
+          <div
+            className="min-w-0"
           >
             <div
-              className="
-                flex items-center justify-center
-                h-10 w-10
-                text-blue-600
-                bg-blue-50
-                rounded-xl
-                shrink-0
-              "
-              aria-hidden="true"
+              className="flex items-center gap-2"
             >
-              <Target
-                size={19}
-                strokeWidth={2}
-              />
-            </div>
-
-            <div
-              className="
-                min-w-0
-              "
-            >
-              <div
-                className="
-                  flex items-center
-                  gap-2
-                "
+              <h2
+                id="savings-goals-title"
+                className="font-bold text-slate-950 text-lg truncate tracking-tight"
               >
-                <h2
-                  id="savings-goals-title"
-                  className="
-                    truncate text-lg text-slate-950 font-bold tracking-tight
-                  "
-                >
-                  {title}
-                </h2>
+                {title}
+              </h2>
 
-                {typeof count === "number" && (
-                  <span
-                    className="
-                      px-2 py-0.5
-                      text-[11px] text-slate-600 font-semibold
-                      bg-slate-100
-                      rounded-full
-                      shrink-0
-                    "
-                    aria-label={`${count} savings goals`}
-                  >
-                    {count}
-                  </span>
-                )}
-              </div>
-
-              {description && (
-                <p
-                  className="
-                    max-w-2xl
-                    mt-1
-                    text-sm text-slate-500 leading-5
-                  "
-                >
-                  {description}
-                </p>
-              )}
+              <span
+                className="bg-slate-100 px-2 py-0.5 rounded-full font-semibold text-[11px] text-slate-600 shrink-0"
+              >
+                {count}
+              </span>
             </div>
+
+            {description && (
+              <p
+                className="mt-1 max-w-2xl text-slate-500 text-sm leading-5"
+              >
+                {description}
+              </p>
+            )}
           </div>
         </div>
 
         <div
-          className="
-            flex
-            w-full sm:w-auto
-            gap-2
-          "
+          className="flex gap-2 w-full sm:w-auto"
         >
           {canRefresh && (
             <button
               type="button"
               onClick={onRefresh}
               disabled={loading}
-              className="
-                inline-flex flex-1 sm:flex-none items-center justify-center
-                h-10
-                px-3
-                text-sm text-slate-700 font-semibold
-                bg-white hover:bg-slate-50
-                rounded-xl border border-slate-200 hover:border-slate-300
-                focus:outline-none
-                focus:ring-2 focus:ring-slate-400/40 focus:ring-offset-2
-                shadow-sm transition disabled:opacity-60
-                disabled:cursor-not-allowed
-                gap-2
-              "
-              aria-label={
-                loading
-                  ? "Refreshing savings goals"
-                  : "Refresh savings goals"
-              }
+              className="inline-flex flex-1 sm:flex-none justify-center items-center gap-2 bg-white hover:bg-slate-50 disabled:opacity-60 shadow-sm px-3 border border-slate-200 rounded-xl h-10 font-semibold text-slate-700 text-sm transition disabled:cursor-not-allowed"
             >
               <RefreshCw
                 size={15}
-                className={
-                  loading
-                    ? "animate-spin"
-                    : ""
-                }
+                className={loading ? "animate-spin" : ""}
                 aria-hidden="true"
               />
 
               <span
-                className="
-                  hidden sm:inline
-                "
+                className="hidden sm:inline"
               >
-                {loading
-                  ? "Refreshing"
-                  : "Refresh"}
+                {loading ? "Refreshing" : "Refresh"}
               </span>
             </button>
           )}
@@ -434,23 +289,10 @@ const GoalsHeader = memo(
             <button
               type="button"
               onClick={onCreate}
-              className="
-                inline-flex flex-1 sm:flex-none items-center justify-center
-                h-10
-                px-4
-                text-sm text-white font-semibold
-                bg-slate-950 hover:bg-slate-800
-                rounded-xl focus:outline-none
-                focus:ring-2 focus:ring-slate-950 focus:ring-offset-2
-                shadow-sm transition
-                gap-2
-              "
+              disabled={loading && false}
+              className="inline-flex flex-1 sm:flex-none justify-center items-center gap-2 bg-slate-950 hover:bg-slate-800 px-4 rounded-xl h-10 font-semibold text-white text-sm transition"
             >
-              <Plus
-                size={16}
-                aria-hidden="true"
-              />
-
+              <Plus size={16} aria-hidden="true" />
               New goal
             </button>
           )}
@@ -463,153 +305,146 @@ const GoalsHeader = memo(
 GoalsHeader.displayName = "GoalsHeader";
 
 /* =========================================================
-   INITIAL LOADING SKELETON
+   LOADING STATE
 ========================================================= */
 
-const GoalsLoadingState = memo(
-  ({
-    allowCreate,
-  }) => (
+const GoalsLoadingState = memo(() => {
+  return (
     <section
-      className="
-        w-full
-      "
+      className="w-full"
       aria-busy="true"
       aria-label="Loading savings goals"
     >
       <div
-        className="
-          flex flex-col sm:flex-row sm:items-center sm:justify-between
-          gap-4
-        "
+        className="flex sm:flex-row flex-col sm:justify-between sm:items-center gap-4"
       >
         <div>
           <div
-            className="
-              h-6 w-40
-              bg-slate-200
-              rounded-lg
-              animate-pulse
-            "
+            className="bg-slate-200 rounded-lg w-40 h-6 animate-pulse"
             /
           >
 
           <div
-            className="
-              h-4 w-72 max-w-full
-              mt-2
-              bg-slate-100
-              rounded
-              animate-pulse
-            "
+            className="bg-slate-100 mt-2 rounded w-72 max-w-full h-4 animate-pulse"
             /
           >
         </div>
 
-        {allowCreate && (
-          <div
-            className="
-              h-10 w-full sm:w-32
-              bg-slate-100
-              rounded-xl
-              animate-pulse
-            "
-            /
-          >
-        )}
+        <div
+          className="bg-slate-100 rounded-xl w-full sm:w-32 h-10 animate-pulse"
+          /
+        >
       </div>
 
       <div
-        className="
-          grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3
-          mt-5
-          gap-4
-        "
+        className="gap-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 mt-5"
       >
         {[1, 2, 3].map((item) => (
           <div
             key={item}
-            className="
-              min-h-[240px]
-              p-5
-              bg-white
-              rounded-2xl border border-slate-100
-              shadow-sm
-            "
+            className="bg-white shadow-sm p-5 border border-slate-100 rounded-2xl min-h-[240px]"
           >
             <div
-              className="
-                h-10 w-10
-                bg-slate-100
-                rounded-xl
-                animate-pulse
-              "
+              className="bg-slate-100 rounded-xl w-10 h-10 animate-pulse"
               /
             >
 
             <div
-              className="
-                h-5 w-2/3
-                mt-5
-                bg-slate-100
-                rounded
-                animate-pulse
-              "
+              className="bg-slate-100 mt-5 rounded w-2/3 h-5 animate-pulse"
               /
             >
 
             <div
-              className="
-                h-3 w-full
-                mt-3
-                bg-slate-100
-                rounded
-                animate-pulse
-              "
+              className="bg-slate-100 mt-3 rounded w-full h-3 animate-pulse"
               /
             >
 
             <div
-              className="
-                h-3 w-4/5
-                mt-2
-                bg-slate-100
-                rounded
-                animate-pulse
-              "
+              className="bg-slate-100 mt-2 rounded w-4/5 h-3 animate-pulse"
               /
             >
 
             <div
-              className="
-                h-2 w-full
-                mt-7
-                bg-slate-100
-                rounded-full
-                animate-pulse
-              "
+              className="bg-slate-100 mt-7 rounded-full w-full h-2 animate-pulse"
               /
             >
 
             <div
-              className="
-                h-10 w-full
-                mt-5
-                bg-slate-100
-                rounded-xl
-                animate-pulse
-              "
+              className="bg-slate-100 mt-5 rounded-xl w-full h-10 animate-pulse"
               /
             >
           </div>
         ))}
       </div>
     </section>
-  )
+  );
+});
+
+GoalsLoadingState.displayName = "GoalsLoadingState";
+
+/* =========================================================
+   ERROR STATE
+========================================================= */
+
+const ErrorState = memo(
+  ({
+    message,
+    onRetry,
+    loading,
+  }) => {
+    return (
+      <div
+        className="bg-red-50 mt-5 p-5 border border-red-200 rounded-2xl"
+        role="alert"
+      >
+        <div
+          className="flex items-start gap-3"
+        >
+          <AlertCircle
+            size={19}
+            className="mt-0.5 text-red-600 shrink-0"
+            aria-hidden="true"
+          /
+          >
+
+          <div
+            className="flex-1 min-w-0"
+          >
+            <p
+              className="font-semibold text-red-900 text-sm"
+            >
+              Unable to load savings goals
+            </p>
+
+            <p
+              className="mt-1 text-red-700 text-sm leading-5"
+            >
+              {message}
+            </p>
+
+            {onRetry && (
+              <button
+                type="button"
+                onClick={onRetry}
+                disabled={loading}
+                className="inline-flex items-center gap-2 disabled:opacity-50 mt-3 font-semibold text-red-800 text-sm underline underline-offset-2"
+              >
+                <RefreshCw
+                  size={14}
+                  className={loading ? "animate-spin" : ""}
+                />
+
+                Try again
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 );
 
-GoalsLoadingState.displayName =
-  "GoalsLoadingState";
+ErrorState.displayName = "ErrorState";
 
 /* =========================================================
    COMPONENT
@@ -617,497 +452,423 @@ GoalsLoadingState.displayName =
 
 const SavingsGoalsPage = ({
   title = DEFAULT_TITLE,
-
   description = DEFAULT_DESCRIPTION,
-
   limit,
-
   className = "",
-
   allowCreate = true,
-
   compact = false,
-
   onGoalSelect,
 }) => {
   /* =======================================================
      SERVER STATE
   ======================================================= */
 
-  const savingsGoalsState =
-    useSavingsGoals() ?? {};
+  const savingsGoals = useSavingsGoals();
 
   const {
-    goals: hookGoals = [],
-    loading = false,
-    error = null,
-
+    goals: hookGoals,
+    loading: hookLoading,
+    error: hookError,
     fetchGoals,
     refreshGoals,
-
     createGoal,
     updateGoal,
     deleteGoal,
-  } = savingsGoalsState;
+  } = savingsGoals || {};
 
   /* =======================================================
-     LOCAL UI STATE
+     LOCAL STATE
   ======================================================= */
 
-  const [
-    isCreateModalOpen,
-    setIsCreateModalOpen,
-  ] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
 
-  const [
-    editingGoal,
-    setEditingGoal,
-  ] = useState(null);
+  const [editingGoal, setEditingGoal] = useState(null);
 
-  const [
-    deletingGoal,
-    setDeletingGoal,
-  ] = useState(null);
+  const [deletingGoal, setDeletingGoal] = useState(null);
 
-  const [
-    actionLoading,
-    setActionLoading,
-  ] = useState(false);
+  const [action, setAction] = useState(null);
 
-  const [
-    mutationError,
-    setMutationError,
-  ] = useState(null);
+  const [mutationError, setMutationError] = useState(null);
+
+  /*
+   * Prevent the page from repeatedly calling fetchGoals
+   * when the hook returns a newly-created function reference.
+   */
+  const hasRequestedInitialFetch = useRef(false);
 
   /* =======================================================
-     NORMALIZED GOALS
+     NORMALIZED SERVER DATA
   ======================================================= */
 
-  const goals = useMemo(
-    () =>
-      normalizeGoals(
-        hookGoals
-      ).filter(
-        isRenderableGoal
-      ),
-    [hookGoals]
+  const goals = useMemo(() => {
+    return normalizeGoals(hookGoals).filter(isValidGoal);
+  }, [hookGoals]);
+
+  const resolvedLimit = useMemo(
+    () => resolveLimit(limit),
+    [limit]
   );
 
-  const resolvedLimit =
-    useMemo(
-      () =>
-        resolveLimit(limit),
-      [limit]
-    );
+  const visibleGoals = useMemo(() => {
+    if (!resolvedLimit) {
+      return goals;
+    }
 
-  const visibleGoals =
-    useMemo(() => {
-      if (!resolvedLimit) {
-        return goals;
+    return goals.slice(0, resolvedLimit);
+  }, [goals, resolvedLimit]);
+
+  /* =======================================================
+     INITIAL FETCH
+  ======================================================= */
+
+  useEffect(() => {
+    if (hasRequestedInitialFetch.current) {
+      return;
+    }
+
+    if (typeof fetchGoals !== "function") {
+      return;
+    }
+
+    hasRequestedInitialFetch.current = true;
+
+    Promise.resolve(fetchGoals()).catch(() => {
+      /*
+       * The hook owns the actual error state.
+       * We deliberately do not set local mutation state here.
+       */
+    });
+  }, [fetchGoals]);
+
+  /* =======================================================
+     DERIVED STATE
+  ======================================================= */
+
+  const loading = Boolean(hookLoading);
+
+  const loadErrorMessage = useMemo(
+    () => getErrorMessage(hookError),
+    [hookError]
+  );
+
+  const mutationErrorMessage = useMemo(
+    () =>
+      getErrorMessage(
+        mutationError,
+        DEFAULT_MUTATION_ERROR
+      ),
+    [mutationError]
+  );
+
+  const summary = useMemo(() => {
+    let active = 0;
+    let completed = 0;
+    let paused = 0;
+
+    let totalTarget = 0;
+    let totalSaved = 0;
+
+    for (const goal of goals) {
+      const status = getGoalStatus(goal);
+
+      if (status === "active") {
+        active += 1;
+      } else if (status === "completed") {
+        completed += 1;
+      } else if (status === "paused") {
+        paused += 1;
       }
 
-      return goals.slice(
-        0,
-        resolvedLimit
-      );
-    }, [
-      goals,
-      resolvedLimit,
-    ]);
+      totalTarget += getTargetAmount(goal);
+      totalSaved += getSavedAmount(goal);
+    }
 
-  /* =======================================================
-     SUMMARY
-  ======================================================= */
-
-  const goalSummary =
-    useMemo(() => {
-      let active = 0;
-      let completed = 0;
-      let paused = 0;
-
-      let totalTarget = 0;
-      let totalSaved = 0;
-
-      goals.forEach((goal) => {
-        const status =
-          getGoalStatus(goal);
-
-        if (status === "active") {
-          active += 1;
-        }
-
-        if (status === "completed") {
-          completed += 1;
-        }
-
-        if (status === "paused") {
-          paused += 1;
-        }
-
-        totalTarget +=
-          getTargetAmount(goal);
-
-        totalSaved +=
-          getSavedAmount(goal);
-      });
-
-      const progressPercentage =
-        totalTarget > 0
-          ? Math.min(
-              100,
-              Math.max(
-                0,
-                (totalSaved /
-                  totalTarget) *
-                  100
-              )
+    const progress =
+      totalTarget > 0
+        ? Math.min(
+            100,
+            Math.max(
+              0,
+              (totalSaved / totalTarget) * 100
             )
-          : 0;
+          )
+        : 0;
 
-      return {
-        total: goals.length,
-        active,
-        completed,
-        paused,
-        totalTarget,
-        totalSaved,
-        progressPercentage,
-      };
-    }, [goals]);
-
-  /* =======================================================
-     ERROR
-  ======================================================= */
-
-  const loadErrorMessage =
-    useMemo(
-      () =>
-        getErrorMessage(
-          error,
-          DEFAULT_ERROR
-        ),
-      [error]
-    );
-
-  const mutationErrorMessage =
-    useMemo(
-      () =>
-        getErrorMessage(
-          mutationError,
-          DEFAULT_MUTATION_ERROR
-        ),
-      [mutationError]
-    );
-
-  /* =======================================================
-     CAPABILITIES
-  ======================================================= */
+    return {
+      total: goals.length,
+      active,
+      completed,
+      paused,
+      totalTarget,
+      totalSaved,
+      progress,
+    };
+  }, [goals]);
 
   const canRefresh =
-    typeof refreshGoals ===
-      "function" ||
-    typeof fetchGoals ===
-      "function";
+    typeof refreshGoals === "function" ||
+    typeof fetchGoals === "function";
 
   /* =======================================================
      REFRESH
   ======================================================= */
 
-  const handleRefresh =
-    useCallback(async () => {
-      setMutationError(null);
+  const handleRefresh = useCallback(async () => {
+    setMutationError(null);
 
-      if (
-        typeof refreshGoals ===
-        "function"
-      ) {
-        return refreshGoals();
-      }
+    const refresh =
+      typeof refreshGoals === "function"
+        ? refreshGoals
+        : fetchGoals;
 
-      if (
-        typeof fetchGoals ===
-        "function"
-      ) {
-        return fetchGoals();
-      }
+    if (typeof refresh !== "function") {
+      return;
+    }
 
-      return undefined;
-    }, [
-      refreshGoals,
-      fetchGoals,
-    ]);
+    try {
+      await refresh();
+    } catch (error) {
+      /*
+       * Loading errors should remain owned by useSavingsGoals.
+       * We don't duplicate that state locally.
+       */
+      console.error(
+        "[SavingsGoalsPage] refresh failed:",
+        error
+      );
+    }
+  }, [refreshGoals, fetchGoals]);
 
   /* =======================================================
      CREATE
   ======================================================= */
 
-  const handleOpenCreate =
-    useCallback(() => {
-      if (actionLoading) {
-        return;
+  const handleOpenCreate = useCallback(() => {
+    if (action) {
+      return;
+    }
+
+    setMutationError(null);
+    setCreateOpen(true);
+  }, [action]);
+
+  const handleCloseCreate = useCallback(() => {
+    if (action === "create") {
+      return;
+    }
+
+    setCreateOpen(false);
+  }, [action]);
+
+  const handleCreate = useCallback(
+    async (payload) => {
+      if (typeof createGoal !== "function") {
+        const error = new Error(
+          "Creating savings goals is currently unavailable."
+        );
+
+        setMutationError(error);
+
+        throw error;
       }
 
       setMutationError(null);
-      setIsCreateModalOpen(true);
-    }, [actionLoading]);
+      setAction("create");
 
-  const handleCloseCreate =
-    useCallback(() => {
-      if (actionLoading) {
-        return;
+      try {
+        const result = await createGoal(payload);
+
+        setCreateOpen(false);
+
+        /*
+         * Some hooks update their local cache automatically.
+         * If yours does not, refresh after successful mutation.
+         */
+        if (typeof refreshGoals === "function") {
+          await refreshGoals();
+        }
+
+        return result;
+      } catch (error) {
+        setMutationError(error);
+        throw error;
+      } finally {
+        setAction(null);
       }
-
-      setIsCreateModalOpen(false);
-    }, [actionLoading]);
-
-  const handleCreate =
-    useCallback(
-      async (payload) => {
-        if (
-          typeof createGoal !==
-          "function"
-        ) {
-          setMutationError(
-            "Creating savings goals is currently unavailable."
-          );
-          return undefined;
-        }
-
-        setMutationError(null);
-        setActionLoading(true);
-
-        try {
-          const result =
-            await createGoal(
-              payload
-            );
-
-          setIsCreateModalOpen(
-            false
-          );
-
-          return result;
-        } catch (mutationError) {
-          setMutationError(
-            mutationError
-          );
-
-          throw mutationError;
-        } finally {
-          setActionLoading(
-            false
-          );
-        }
-      },
-      [createGoal]
-    );
+    },
+    [createGoal, refreshGoals]
+  );
 
   /* =======================================================
      EDIT
   ======================================================= */
 
-  const handleEdit =
-    useCallback(
-      (goal) => {
-        if (
-          !goal ||
-          actionLoading
-        ) {
-          return;
-        }
-
-        const goalId =
-          getGoalId(goal);
-
-        if (!goalId) {
-          setMutationError(
-            "This savings goal could not be identified."
-          );
-          return;
-        }
-
-        setMutationError(null);
-        setEditingGoal(goal);
-      },
-      [actionLoading]
-    );
-
-  const handleCloseEdit =
-    useCallback(() => {
-      if (actionLoading) {
+  const handleEdit = useCallback(
+    (goal) => {
+      if (!goal || action) {
         return;
       }
 
-      setEditingGoal(null);
-    }, [actionLoading]);
-
-  const handleUpdate =
-    useCallback(
-      async (payload) => {
-        const goalId =
-          getGoalId(
-            editingGoal
-          );
-
-        if (!goalId) {
-          setMutationError(
+      if (!getGoalId(goal)) {
+        setMutationError(
+          new Error(
             "This savings goal could not be identified."
-          );
-          return undefined;
+          )
+        );
+
+        return;
+      }
+
+      setMutationError(null);
+      setEditingGoal(goal);
+    },
+    [action]
+  );
+
+  const handleCloseEdit = useCallback(() => {
+    if (action === "update") {
+      return;
+    }
+
+    setEditingGoal(null);
+  }, [action]);
+
+  const handleUpdate = useCallback(
+    async (payload) => {
+      const goalId = getGoalId(editingGoal);
+
+      if (!goalId) {
+        const error = new Error(
+          "This savings goal could not be identified."
+        );
+
+        setMutationError(error);
+
+        throw error;
+      }
+
+      if (typeof updateGoal !== "function") {
+        const error = new Error(
+          "Updating savings goals is currently unavailable."
+        );
+
+        setMutationError(error);
+
+        throw error;
+      }
+
+      setMutationError(null);
+      setAction("update");
+
+      try {
+        const result = await updateGoal(
+          goalId,
+          payload
+        );
+
+        setEditingGoal(null);
+
+        if (typeof refreshGoals === "function") {
+          await refreshGoals();
         }
 
-        if (
-          typeof updateGoal !==
-          "function"
-        ) {
-          setMutationError(
-            "Updating savings goals is currently unavailable."
-          );
-          return undefined;
-        }
-
-        setMutationError(null);
-        setActionLoading(true);
-
-        try {
-          const result =
-            await updateGoal(
-              goalId,
-              payload
-            );
-
-          setEditingGoal(null);
-
-          return result;
-        } catch (mutationError) {
-          setMutationError(
-            mutationError
-          );
-
-          throw mutationError;
-        } finally {
-          setActionLoading(
-            false
-          );
-        }
-      },
-      [
-        editingGoal,
-        updateGoal,
-      ]
-    );
+        return result;
+      } catch (error) {
+        setMutationError(error);
+        throw error;
+      } finally {
+        setAction(null);
+      }
+    },
+    [editingGoal, updateGoal, refreshGoals]
+  );
 
   /* =======================================================
      DELETE
   ======================================================= */
 
-  const handleDeleteRequest =
-    useCallback(
-      (goal) => {
-        if (
-          !goal ||
-          actionLoading
-        ) {
-          return;
-        }
-
-        const goalId =
-          getGoalId(goal);
-
-        if (!goalId) {
-          setMutationError(
-            "This savings goal could not be identified."
-          );
-          return;
-        }
-
-        setMutationError(null);
-        setDeletingGoal(goal);
-      },
-      [actionLoading]
-    );
-
-  const handleCloseDelete =
-    useCallback(() => {
-      if (actionLoading) {
+  const handleDeleteRequest = useCallback(
+    (goal) => {
+      if (!goal || action) {
         return;
       }
 
-      setDeletingGoal(null);
-    }, [actionLoading]);
-
-  const handleDelete =
-    useCallback(
-      async () => {
-        const goalId =
-          getGoalId(
-            deletingGoal
-          );
-
-        if (!goalId) {
-          setMutationError(
+      if (!getGoalId(goal)) {
+        setMutationError(
+          new Error(
             "This savings goal could not be identified."
-          );
-          return undefined;
-        }
+          )
+        );
 
-        if (
-          typeof deleteGoal !==
-          "function"
-        ) {
-          setMutationError(
-            "Deleting savings goals is currently unavailable."
-          );
-          return undefined;
-        }
+        return;
+      }
 
-        setMutationError(null);
-        setActionLoading(true);
+      setMutationError(null);
+      setDeletingGoal(goal);
+    },
+    [action]
+  );
 
-        try {
-          const result =
-            await deleteGoal(
-              goalId
-            );
+  const handleCloseDelete = useCallback(() => {
+    if (action === "delete") {
+      return;
+    }
 
-          setDeletingGoal(null);
+    setDeletingGoal(null);
+  }, [action]);
 
-          return result;
-        } catch (mutationError) {
-          setMutationError(
-            mutationError
-          );
+  const handleDelete = useCallback(async () => {
+    const goalId = getGoalId(deletingGoal);
 
-          throw mutationError;
-        } finally {
-          setActionLoading(
-            false
-          );
-        }
-      },
-      [
-        deletingGoal,
-        deleteGoal,
-      ]
-    );
+    if (!goalId) {
+      const error = new Error(
+        "This savings goal could not be identified."
+      );
+
+      setMutationError(error);
+
+      throw error;
+    }
+
+    if (typeof deleteGoal !== "function") {
+      const error = new Error(
+        "Deleting savings goals is currently unavailable."
+      );
+
+      setMutationError(error);
+
+      throw error;
+    }
+
+    setMutationError(null);
+    setAction("delete");
+
+    try {
+      const result = await deleteGoal(goalId);
+
+      setDeletingGoal(null);
+
+      if (typeof refreshGoals === "function") {
+        await refreshGoals();
+      }
+
+      return result;
+    } catch (error) {
+      setMutationError(error);
+      throw error;
+    } finally {
+      setAction(null);
+    }
+  }, [deletingGoal, deleteGoal, refreshGoals]);
 
   /* =======================================================
-     INITIAL LOADING
+     LOADING
   ======================================================= */
 
-  if (
-    loading &&
-    goals.length === 0
-  ) {
+  if (loading && goals.length === 0 && !loadErrorMessage) {
     return (
-      <div
-        className={className}
-      >
-        <GoalsLoadingState
-          allowCreate={
-            allowCreate
-          }
-        />
+      <div className={className}>
+        <GoalsLoadingState />
       </div>
     );
   }
@@ -1119,84 +880,46 @@ const SavingsGoalsPage = ({
   return (
     <>
       <section
-        className={`
-          w-full
-          ${className}
-        `}
+        className={`w-full ${className}`}
         aria-labelledby="savings-goals-title"
       >
-        {/* =================================================
-            HEADER
-        ================================================= */}
+        {/* HEADER */}
 
         <GoalsHeader
           title={title}
-          description={
-            description
-          }
-          count={
-            goalSummary.total
-          }
+          description={description}
+          count={summary.total}
           loading={loading}
-          allowCreate={
-            allowCreate
-          }
-          canRefresh={
-            canRefresh
-          }
-          onRefresh={
-            handleRefresh
-          }
-          onCreate={
-            handleOpenCreate
-          }
+          allowCreate={allowCreate}
+          canRefresh={canRefresh}
+          onRefresh={handleRefresh}
+          onCreate={handleOpenCreate}
         />
 
-        {/* =================================================
-            MUTATION ERROR
-        ================================================= */}
+        {/* MUTATION ERROR */}
 
         {mutationErrorMessage && (
           <div
-            className="
-              flex items-start
-              mt-4 p-4
-              bg-red-50
-              rounded-2xl border border-red-200
-              gap-3
-            "
+            className="flex items-start gap-3 bg-red-50 mt-4 p-4 border border-red-200 rounded-2xl"
             role="alert"
           >
             <AlertCircle
               size={18}
-              className="
-                mt-0.5
-                text-red-600
-                shrink-0
-              "
-              aria-hidden="true"
-            /
+              className="mt-0.5 text-red-600 shrink-0"
+              /
             >
 
             <div
-              className="
-                flex-1
-                min-w-0
-              "
+              className="flex-1 min-w-0"
             >
               <p
-                className="
-                  text-sm text-red-900 font-semibold
-                "
+                className="font-semibold text-red-900 text-sm"
               >
                 Action could not be completed
               </p>
 
               <p
-                className="
-                  mt-1
-                  text-sm text-red-700 leading-5
-                "
+                className="mt-1 text-red-700 text-sm"
               >
                 {mutationErrorMessage}
               </p>
@@ -1204,328 +927,155 @@ const SavingsGoalsPage = ({
 
             <button
               type="button"
-              onClick={() =>
-                setMutationError(null)
-              }
-              className="
-                shrink-0
-                text-xs font-semibold
-                text-red-700
-                hover:text-red-900
-              "
-              aria-label="Dismiss error"
+              onClick={() => setMutationError(null)}
+              className="font-semibold text-red-700 hover:text-red-900 text-xs"
             >
               Dismiss
             </button>
           </div>
         )}
 
-        {/* =================================================
-            INITIAL LOAD ERROR
-        ================================================= */}
+        {/* LOAD ERROR */}
 
-        {loadErrorMessage &&
-          goals.length === 0 && (
+        {loadErrorMessage && goals.length === 0 && (
+          <ErrorState
+            message={loadErrorMessage}
+            onRetry={
+              canRefresh
+                ? handleRefresh
+                : undefined
+            }
+            loading={loading}
+          />
+        )}
+
+        {/* REFRESH ERROR */}
+
+        {loadErrorMessage && goals.length > 0 && (
+          <div
+            className="flex items-start gap-3 bg-amber-50 mt-4 p-4 border border-amber-200 rounded-2xl"
+            role="status"
+          >
+            <AlertCircle
+              size={17}
+              className="mt-0.5 text-amber-600 shrink-0"
+              /
+            >
+
             <div
-              className="
-                mt-4 p-4
-                bg-red-50
-                rounded-2xl border border-red-200
-              "
-              role="alert"
+              className="flex-1"
+            >
+              <p
+                className="font-semibold text-amber-900 text-sm"
+              >
+                Your goals may be out of date
+              </p>
+
+              <p
+                className="mt-1 text-amber-700 text-sm"
+              >
+                {loadErrorMessage}
+              </p>
+            </div>
+
+            {canRefresh && (
+              <button
+                type="button"
+                onClick={handleRefresh}
+                disabled={loading}
+                className="disabled:opacity-50 font-semibold text-amber-800 text-sm underline"
+              >
+                Retry
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* SUMMARY */}
+
+        {!compact && goals.length > 0 && (
+          <div
+            className="gap-3 grid grid-cols-2 lg:grid-cols-4 mt-5"
+          >
+            <SummaryStat
+              label="Total goals"
+              value={summary.total}
+              icon={Target}
+            />
+
+            <SummaryStat
+              label="Active"
+              value={summary.active}
+              icon={WalletCards}
+            />
+
+            <SummaryStat
+              label="Completed"
+              value={summary.completed}
+              icon={CheckCircle2}
+            />
+
+            <SummaryStat
+              label="Overall progress"
+              value={`${Math.round(summary.progress)}%`}
+              icon={Target}
+            />
+          </div>
+        )}
+
+        {/* OVERALL PROGRESS */}
+
+        {!compact && goals.length > 0 && (
+          <div
+            className="bg-white shadow-sm mt-4 p-4 border border-slate-200/80 rounded-2xl"
+          >
+            <div
+              className="flex justify-between items-center gap-3"
+            >
+              <div>
+                <p
+                  className="font-semibold text-slate-900 text-sm"
+                >
+                  Overall savings progress
+                </p>
+
+                <p
+                  className="mt-0.5 text-slate-500 text-xs"
+                >
+                  Across your current savings goals
+                </p>
+              </div>
+
+              <span
+                className="font-bold text-slate-900 text-sm"
+              >
+                {Math.round(summary.progress)}%
+              </span>
+            </div>
+
+            <div
+              className="bg-slate-100 mt-3 rounded-full h-2 overflow-hidden"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(summary.progress)}
             >
               <div
-                className="
-                  flex items-start
-                  gap-3
-                "
-              >
-                <AlertCircle
-                  size={18}
-                  className="
-                    mt-0.5
-                    text-red-600
-                    shrink-0
-                  "
-                  aria-hidden="true"
-                /
-                >
-
-                <div
-                  className="
-                    flex-1
-                    min-w-0
-                  "
-                >
-                  <p
-                    className="
-                      text-sm text-red-900 font-semibold
-                    "
-                  >
-                    Unable to load savings goals
-                  </p>
-
-                  <p
-                    className="
-                      mt-1
-                      text-sm text-red-700 leading-5
-                    "
-                  >
-                    {loadErrorMessage}
-                  </p>
-
-                  {canRefresh && (
-                    <button
-                      type="button"
-                      onClick={
-                        handleRefresh
-                      }
-                      disabled={
-                        loading
-                      }
-                      className="
-                        inline-flex items-center
-                        mt-3
-                        text-sm text-red-800 font-semibold
-                        underline underline-offset-2
-                        disabled:opacity-50
-                        disabled:cursor-not-allowed
-                        gap-2
-                      "
-                    >
-                      <RefreshCw
-                        size={14}
-                        className={
-                          loading
-                            ? "animate-spin"
-                            : ""
-                        }
-                        aria-hidden="true"
-                      />
-
-                      Try again
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-        {/* =================================================
-            NON-BLOCKING REFRESH ERROR
-        ================================================= */}
-
-        {loadErrorMessage &&
-          goals.length > 0 && (
-            <div
-              className="
-                flex items-start
-                mt-4 p-4
-                bg-amber-50
-                rounded-2xl border border-amber-200
-                gap-3
-              "
-              role="status"
-              aria-live="polite"
-            >
-              <AlertCircle
-                size={17}
-                className="
-                  mt-0.5
-                  text-amber-600
-                  shrink-0
-                "
-                aria-hidden="true"
+                className="bg-slate-900 rounded-full h-full transition-[width] duration-500"
+                style={{
+                  width: `${summary.progress}%`,
+                }}
               /
               >
-
-              <div
-                className="
-                  flex-1
-                  min-w-0
-                "
-              >
-                <p
-                  className="
-                    text-sm text-amber-900 font-semibold
-                  "
-                >
-                  Your goals may be out of date
-                </p>
-
-                <p
-                  className="
-                    mt-1
-                    text-sm text-amber-700 leading-5
-                  "
-                >
-                  {loadErrorMessage}
-                </p>
-              </div>
-
-              {canRefresh && (
-                <button
-                  type="button"
-                  onClick={
-                    handleRefresh
-                  }
-                  disabled={
-                    loading
-                  }
-                  className="
-                    text-sm text-amber-800 font-semibold
-                    underline underline-offset-2
-                    disabled:opacity-50
-                    shrink-0
-                  "
-                >
-                  Retry
-                </button>
-              )}
             </div>
-          )}
+          </div>
+        )}
 
-        {/* =================================================
-            SUMMARY
-        ================================================= */}
+        {/* EMPTY STATE */}
 
-        {!compact &&
-          goals.length > 0 && (
-            <div
-              className="
-                grid grid-cols-2 lg:grid-cols-4
-                mt-5
-                gap-3
-              "
-            >
-              <SummaryStat
-                label="Total goals"
-                value={
-                  goalSummary.total
-                }
-                icon={Target}
-              />
-
-              <SummaryStat
-                label="Active"
-                value={
-                  goalSummary.active
-                }
-                icon={WalletCards}
-              />
-
-              <SummaryStat
-                label="Completed"
-                value={
-                  goalSummary.completed
-                }
-                icon={CheckCircle2}
-              />
-
-              <SummaryStat
-                label="Overall progress"
-                value={`${Math.round(
-                  goalSummary.progressPercentage
-                )}%`}
-                icon={Target}
-                subtle
-              />
-            </div>
-          )}
-
-        {/* =================================================
-            OVERALL PROGRESS
-        ================================================= */}
-
-        {!compact &&
-          goals.length > 0 && (
-            <div
-              className="
-                mt-4 p-4
-                bg-white
-                rounded-2xl border border-slate-200/80
-                shadow-sm
-              "
-            >
-              <div
-                className="
-                  flex items-center justify-between
-                  gap-3
-                "
-              >
-                <div>
-                  <p
-                    className="
-                      text-sm text-slate-900 font-semibold
-                    "
-                  >
-                    Overall savings progress
-                  </p>
-
-                  <p
-                    className="
-                      mt-0.5
-                      text-xs text-slate-500
-                    "
-                  >
-                    Across your current savings goals
-                  </p>
-                </div>
-
-                <span
-                  className="
-                    text-sm text-slate-900 font-bold
-                  "
-                >
-                  {Math.round(
-                    goalSummary.progressPercentage
-                  )}
-                  %
-                </span>
-              </div>
-
-              <div
-                className="
-                  overflow-hidden
-                  h-2
-                  mt-3
-                  bg-slate-100
-                  rounded-full
-                "
-                role="progressbar"
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={Math.round(
-                  goalSummary.progressPercentage
-                )}
-                aria-label="Overall savings goal progress"
-              >
-                <div
-                  className="
-                    h-full
-                    bg-slate-900
-                    rounded-full
-                    transition-[width] duration-500
-                  "
-                  style={{
-                    width: `${goalSummary.progressPercentage}%`,
-                  }}
-                /
-                >
-              </div>
-            </div>
-          )}
-
-        {/* =================================================
-            EMPTY STATE
-        ================================================= */}
-
-        {goals.length === 0 &&
-        !loadErrorMessage ? (
+        {goals.length === 0 && !loadErrorMessage && !loading && (
           <div
-            className="
-              mt-5
-            "
+            className="mt-5"
           >
             <SavingsGoalEmptyState
               onCreate={
@@ -1535,197 +1085,104 @@ const SavingsGoalsPage = ({
               }
             />
           </div>
-        ) : (
-          <>
-            {/* =============================================
-                GOAL COLLECTION
-            ============================================= */}
-
-            <div
-              className="
-                grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3
-                mt-5
-                gap-4
-              "
-            >
-              {visibleGoals.map(
-                (goal) => {
-                  const goalId =
-                    getGoalId(
-                      goal
-                    );
-
-                  if (!goalId) {
-                    return null;
-                  }
-
-                  return (
-                    <article
-                      key={goalId}
-                      className="
-                        overflow-hidden
-                        min-w-0
-                        bg-white
-                        rounded-2xl
-                        border border-slate-200/80 hover:border-slate-300
-                        shadow-sm hover:shadow-md transition
-                      "
-                    >
-                      <SavingsGoalCard
-                        goal={goal}
-                        compact={
-                          compact
-                        }
-                        onSelect={
-                          onGoalSelect
-                        }
-                        onEdit={
-                          handleEdit
-                        }
-                        onDelete={
-                          handleDeleteRequest
-                        }
-                      />
-
-                      {/* =================================
-                          DEDICATED GOAL PROGRESS
-                      ================================= */}
-
-                      <div
-                        className="
-                          px-4 py-4
-                          border-t border-slate-100
-                        "
-                      >
-                        <SavingsGoalProgress
-                          goal={goal}
-                        />
-                      </div>
-                    </article>
-                  );
-                }
-              )}
-            </div>
-
-            {/* =============================================
-                LIMIT INDICATOR
-            ============================================= */}
-
-            {resolvedLimit &&
-              goals.length >
-                visibleGoals.length && (
-                <p
-                  className="
-                    mt-4
-                    text-center text-xs text-slate-400
-                  "
-                >
-                  Showing{" "}
-                  {visibleGoals.length}{" "}
-                  of{" "}
-                  {goals.length}{" "}
-                  savings goals.
-                </p>
-              )}
-          </>
         )}
 
-        {/* =================================================
-            BACKGROUND REFRESH
-        ================================================= */}
+        {/* GOALS */}
 
-        {loading &&
-          goals.length > 0 && (
-            <div
-              className="
-                flex items-center justify-center
-                mt-4
-                text-xs text-slate-400
-                gap-2
-              "
-              role="status"
-              aria-live="polite"
+        {visibleGoals.length > 0 && (
+          <div
+            className="gap-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 mt-5"
+          >
+            {visibleGoals.map((goal) => {
+              const goalId = getGoalId(goal);
+
+              return (
+                <article
+                  key={goalId}
+                  className="bg-white shadow-sm hover:shadow-md border border-slate-200/80 hover:border-slate-300 rounded-2xl min-w-0 overflow-hidden transition"
+                >
+                  <SavingsGoalCard
+                    goal={goal}
+                    compact={compact}
+                    onSelect={onGoalSelect}
+                    onEdit={handleEdit}
+                    onDelete={handleDeleteRequest}
+                  />
+
+                  <div
+                    className="px-4 py-4 border-slate-100 border-t"
+                  >
+                    <SavingsGoalProgress goal={goal} />
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+
+        {/* LIMIT */}
+
+        {resolvedLimit &&
+          goals.length > visibleGoals.length && (
+            <p
+              className="mt-4 text-slate-400 text-xs text-center"
             >
-              <RefreshCw
-                size={13}
-                className="
-                  animate-spin
-                "
-                aria-hidden="true"
-              /
-              >
-
-              Updating your savings goals…
-            </div>
+              Showing {visibleGoals.length} of{" "}
+              {goals.length} savings goals.
+            </p>
           )}
+
+        {/* BACKGROUND LOADING */}
+
+        {loading && goals.length > 0 && (
+          <div
+            className="flex justify-center items-center gap-2 mt-4 text-slate-400 text-xs"
+            role="status"
+            aria-live="polite"
+          >
+            <RefreshCw
+              size={13}
+              className="animate-spin"
+              /
+            >
+
+            Updating your savings goals…
+          </div>
+        )}
       </section>
 
-      {/* ===================================================
-          CREATE MODAL
-      =================================================== */}
+      {/* CREATE */}
 
-      {isCreateModalOpen && (
+      {createOpen && (
         <CreateSavingsGoalModal
-          open={
-            isCreateModalOpen
-          }
-          onClose={
-            handleCloseCreate
-          }
-          onSubmit={
-            handleCreate
-          }
-          loading={
-            actionLoading
-          }
+          open={createOpen}
+          onClose={handleCloseCreate}
+          onSubmit={handleCreate}
+          loading={action === "create"}
         />
       )}
 
-      {/* ===================================================
-          EDIT MODAL
-      =================================================== */}
+      {/* EDIT */}
 
       {editingGoal && (
         <EditSavingsGoalModal
-          open={
-            Boolean(editingGoal)
-          }
-          goal={
-            editingGoal
-          }
-          onClose={
-            handleCloseEdit
-          }
-          onSubmit={
-            handleUpdate
-          }
-          loading={
-            actionLoading
-          }
+          open={Boolean(editingGoal)}
+          goal={editingGoal}
+          onClose={handleCloseEdit}
+          onSubmit={handleUpdate}
+          loading={action === "update"}
         />
       )}
 
-      {/* ===================================================
-          DELETE MODAL
-      =================================================== */}
+      {/* DELETE */}
 
       {deletingGoal && (
         <DeleteSavingsGoalModal
-          open={
-            Boolean(deletingGoal)
-          }
-          goal={
-            deletingGoal
-          }
-          onClose={
-            handleCloseDelete
-          }
-          onConfirm={
-            handleDelete
-          }
-          loading={
-            actionLoading
-          }
+          open={Boolean(deletingGoal)}
+          goal={deletingGoal}
+          onClose={handleCloseDelete}
+          onConfirm={handleDelete}
+          loading={action === "delete"}
         />
       )}
     </>
@@ -1733,9 +1190,7 @@ const SavingsGoalsPage = ({
 };
 
 /* =========================================================
-   MEMOIZATION
+   EXPORT
 ========================================================= */
 
-export default memo(
-  SavingsGoalsPage
-);
+export default memo(SavingsGoalsPage);

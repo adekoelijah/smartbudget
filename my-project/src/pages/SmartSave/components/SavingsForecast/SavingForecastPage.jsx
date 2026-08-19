@@ -1,5 +1,6 @@
 import {
   AlertCircle,
+  ArrowRight,
   RefreshCw,
   TrendingUp,
 } from "lucide-react";
@@ -8,6 +9,7 @@ import {
   memo,
   useCallback,
   useMemo,
+  useRef,
 } from "react";
 
 import useSavingsForecast from "../../../../hooks/useSavingsForecast";
@@ -30,146 +32,235 @@ import {
 const DEFAULT_TITLE = "Savings Forecast";
 
 const DEFAULT_DESCRIPTION =
-  "Understand where your savings are heading and what it may take to reach your target.";
+  "See how your savings could grow over time and understand what it may take to reach your goals.";
 
 const DEFAULT_ERROR_MESSAGE =
-  "We couldn't load your savings forecast.";
+  "We couldn't load your savings forecast. Please try again.";
 
 const EMPTY_STRING = "";
 
+const MAX_PROJECTION_POINTS = 365;
+
 /* =========================================================
-   SAFE HELPERS
+   SAFE VALUE HELPERS
 ========================================================= */
 
-/**
- * Returns the first meaningful value.
- *
- * Important:
- * - 0 is considered valid.
- * - false is considered valid.
- * - null / undefined / empty string are ignored.
- */
-const firstDefined = (...values) => {
-  return values.find(
-    (value) =>
-      value !== undefined &&
-      value !== null &&
-      value !== EMPTY_STRING
-  );
-};
+const isObject = (value) =>
+  value !== null &&
+  typeof value === "object" &&
+  !Array.isArray(value);
 
-/**
- * Safely resolve an error into a user-facing message.
- *
- * Raw Axios/backend error objects should never be rendered
- * directly by presentation components.
- */
+const isMeaningful = (value) =>
+  value !== undefined &&
+  value !== null &&
+  value !== EMPTY_STRING;
+
+const firstDefined = (...values) =>
+  values.find(isMeaningful);
+
+/* =========================================================
+   ERROR NORMALIZATION
+========================================================= */
+
 const getErrorMessage = (error) => {
   if (!error) {
     return EMPTY_STRING;
   }
 
   if (typeof error === "string") {
-    return error;
+    return (
+      error.trim() ||
+      DEFAULT_ERROR_MESSAGE
+    );
   }
 
-  return (
-    error?.message ||
-    error?.error ||
-    error?.response?.data?.message ||
-    error?.response?.data?.error ||
-    DEFAULT_ERROR_MESSAGE
-  );
+  const message =
+    error?.response?.data?.message ??
+    error?.response?.data?.error ??
+    error?.data?.message ??
+    error?.data?.error ??
+    error?.message ??
+    error?.error;
+
+  if (
+    typeof message === "string" &&
+    message.trim()
+  ) {
+    return message.trim();
+  }
+
+  return DEFAULT_ERROR_MESSAGE;
 };
 
+/* =========================================================
+   RESPONSE RESOLUTION
+========================================================= */
+
 /**
- * Resolve the forecast from supported hook/service envelopes.
+ * Resolve the actual forecast object from the supported
+ * SmartSave service envelopes.
  *
- * The hook/service layer remains the source of truth.
- * This function only protects the presentation boundary
- * against inconsistent response wrappers.
+ * This is intentionally conservative.
+ *
+ * We do NOT blindly treat arbitrary `data` objects as
+ * forecasts because doing so can make an API envelope look
+ * like valid financial data.
  */
 const resolveForecast = ({
   suppliedForecast,
   hookForecast,
   data,
 }) => {
-  const resolved = firstDefined(
+  const candidates = [
     suppliedForecast,
     hookForecast,
     data?.forecast,
-    data
-  );
+    data?.data?.forecast,
+  ];
 
-  if (
-    !resolved ||
-    typeof resolved !== "object" ||
-    Array.isArray(resolved)
-  ) {
+  for (const candidate of candidates) {
+    if (isObject(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+};
+
+/* =========================================================
+   NORMALIZATION
+========================================================= */
+
+const safelyNormalizeForecast = (
+  rawForecast
+) => {
+  if (!isObject(rawForecast)) {
     return null;
   }
 
-  return resolved;
+  try {
+    const normalized =
+      normalizeForecast(
+        rawForecast
+      );
+
+    if (!isObject(normalized)) {
+      return null;
+    }
+
+    return normalized;
+  } catch (error) {
+    /*
+     * Never allow malformed backend financial data to crash
+     * the entire SmartSave page.
+     */
+    console.error(
+      "SMART_SAVE_FORECAST_NORMALIZATION_ERROR",
+      error
+    );
+
+    return null;
+  }
 };
 
-/**
- * Resolve a stable savings-goal identifier.
- */
+/* =========================================================
+   IDENTIFIERS
+========================================================= */
+
 const resolveGoalId = (
   forecast,
   fallback = null
-) => {
-  return firstDefined(
+) =>
+  firstDefined(
     forecast?.goalId,
     forecast?.goal?._id,
     forecast?.goal?.id,
     fallback
   ) ?? null;
-};
 
-/**
- * Resolve a stable savings-plan identifier.
- */
 const resolvePlanId = (
   forecast,
   fallback = null
-) => {
-  return firstDefined(
+) =>
+  firstDefined(
     forecast?.planId,
     forecast?.plan?._id,
     forecast?.plan?.id,
     fallback
   ) ?? null;
-};
+
+/* =========================================================
+   PROJECTION RESOLUTION
+========================================================= */
 
 /**
- * Resolve projection/timeline data.
+ * Projection data should ideally already be canonical after
+ * normalizeForecast().
  *
- * Chart-specific transformation remains inside
- * SavingsProjectionChart.
+ * The additional fallbacks are defensive only.
  */
 const resolveProjectionData = (
   forecast
 ) => {
-  if (!forecast) {
+  if (!isObject(forecast)) {
     return [];
   }
 
   const candidates = [
-    forecast?.projections,
-    forecast?.projection,
-    forecast?.timeline,
-    forecast?.forecast,
-    forecast?.data,
+    forecast.projections,
+    forecast.projection,
+    forecast.timeline,
   ];
 
-  for (const candidate of candidates) {
-    if (Array.isArray(candidate)) {
-      return candidate;
-    }
+  const projection =
+    candidates.find(
+      Array.isArray
+    );
+
+  if (!projection) {
+    return [];
   }
 
-  return [];
+  return projection
+    .filter(Boolean)
+    .slice(
+      0,
+      MAX_PROJECTION_POINTS
+    );
+};
+
+/* =========================================================
+   FORECAST VALIDATION
+========================================================= */
+
+/**
+ * A forecast object existing is not enough.
+ *
+ * We require at least one meaningful financial signal before
+ * considering it usable.
+ */
+const isUsableForecast = (
+  forecast
+) => {
+  if (!isObject(forecast)) {
+    return false;
+  }
+
+  const financialSignals = [
+    forecast.currentAmount,
+    forecast.currentBalance,
+    forecast.targetAmount,
+    forecast.projectedAmount,
+    forecast.projectedBalance,
+    forecast.monthlyContribution,
+    forecast.requiredContribution,
+    forecast.monthsToGoal,
+    forecast.projectedDate,
+  ];
+
+  return financialSignals.some(
+    isMeaningful
+  );
 };
 
 /* =========================================================
@@ -180,195 +271,220 @@ const ForecastHeader = memo(
   ({
     title,
     description,
-    showRefresh,
     refreshing,
     canRefresh,
     onRefresh,
-  }) => {
-    return (
-      <header
+  }) => (
+    <header
+      className="
+        flex flex-col sm:flex-row sm:justify-between sm:items-start
+        px-5 sm:px-6 py-5
+        border-slate-100 border-b
+        gap-4
+      "
+    >
+      <div
         className="
-          flex flex-col sm:flex-row sm:justify-between sm:items-start
-          px-5 sm:px-6 py-5
-          border-slate-100 border-b
-          gap-4
+          flex items-start
+          min-w-0
+          gap-3
         "
       >
         <div
           className="
-            flex items-start
+            flex justify-center items-center
+            w-11 h-11
+            text-white
+            bg-slate-900
+            rounded-xl
+            shrink-0
+          "
+          aria-hidden="true"
+        >
+          <TrendingUp
+            size={19}
+            strokeWidth={2}
+          />
+        </div>
+
+        <div
+          className="
             min-w-0
-            gap-3
           "
         >
           <div
             className="
-              flex justify-center items-center
-              w-10 h-10
-              text-slate-700
-              bg-slate-100
-              rounded-xl
-              shrink-0
-            "
-            aria-hidden="true"
-          >
-            <TrendingUp
-              size={19}
-              strokeWidth={1.9}
-            />
-          </div>
-
-          <div
-            className="
-              min-w-0
+              flex items-center
+              gap-2
             "
           >
-            <h2
+            <h1
               id="savings-forecast-title"
               className="
-                font-bold text-slate-900 text-base sm:text-lg tracking-tight
+                font-bold text-slate-950 text-lg sm:text-xl tracking-tight
               "
             >
               {title}
-            </h2>
-
-            {description ? (
-              <p
-                className="
-                  max-w-2xl
-                  mt-1
-                  text-slate-500 text-xs sm:text-sm leading-5
-                "
-              >
-                {description}
-              </p>
-            ) : null}
+            </h1>
           </div>
-        </div>
 
-        {showRefresh && canRefresh ? (
-          <button
-            type="button"
-            onClick={onRefresh}
-            disabled={refreshing}
-            className="
-              inline-flex justify-center items-center self-start
-              w-9 h-9
-              text-slate-500 hover:text-slate-900
-              bg-white hover:bg-slate-50
-              border border-slate-200 hover:border-slate-300 rounded-lg
-              focus:outline-none focus:ring-2 focus:ring-slate-400/30
-              disabled:opacity-50 transition
-              disabled:cursor-not-allowed
-              shrink-0
-            "
-            aria-label={
+          {description ? (
+            <p
+              className="
+                max-w-2xl
+                mt-1
+                text-slate-500 text-sm leading-6
+              "
+            >
+              {description}
+            </p>
+          ) : null}
+        </div>
+      </div>
+
+      {canRefresh ? (
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={refreshing}
+          className="
+            inline-flex justify-center items-center self-start
+            min-h-10
+            px-3.5
+            font-semibold text-slate-700 text-sm
+            bg-white hover:bg-slate-50
+            border border-slate-200 hover:border-slate-300 rounded-xl
+            focus:outline-none focus:ring-2 focus:ring-slate-400/30
+            disabled:opacity-50 shadow-sm transition
+            disabled:cursor-not-allowed
+            gap-2 shrink-0
+          "
+          aria-label={
+            refreshing
+              ? "Refreshing savings forecast"
+              : "Refresh savings forecast"
+          }
+        >
+          <RefreshCw
+            size={15}
+            className={
               refreshing
-                ? "Refreshing savings forecast"
-                : "Refresh savings forecast"
+                ? "animate-spin"
+                : ""
             }
-            title="Refresh forecast"
+            aria-hidden="true"
+          />
+
+          <span
+            className="
+              hidden sm:inline
+            "
           >
-            <RefreshCw
-              size={15}
-              className={
-                refreshing
-                  ? "animate-spin"
-                  : ""
-              }
-              aria-hidden="true"
-            />
-          </button>
-        ) : null}
-      </header>
-    );
-  }
+            {refreshing
+              ? "Refreshing..."
+              : "Refresh"}
+          </span>
+        </button>
+      ) : null}
+    </header>
+  )
 );
 
 ForecastHeader.displayName =
   "ForecastHeader";
 
 /* =========================================================
-   NON-BLOCKING ERROR
+   REFRESH WARNING
 ========================================================= */
 
-const ForecastRefreshWarning = memo(
-  ({
-    message,
-    refreshing,
-    canRefresh,
-    onRetry,
-  }) => {
-    return (
-      <div
-        className="
-          flex items-start
-          mx-5 sm:mx-6 mt-4 p-3
-          text-amber-800 text-xs
-          bg-amber-50
-          border border-amber-200 rounded-xl
-          gap-2
-        "
-        role="status"
-        aria-live="polite"
-      >
-        <AlertCircle
-          size={15}
-          className="
-            mt-0.5
-            shrink-0
-          "
-          aria-hidden="true"
-        /
-        >
+const ForecastRefreshWarning =
+  memo(
+    ({
+      message,
+      refreshing,
+      canRefresh,
+      onRetry,
+    }) => {
+      if (!message) {
+        return null;
+      }
 
+      return (
         <div
           className="
-            flex-1
-            min-w-0
+            flex items-start
+            mx-5 sm:mx-6 mt-4 p-3.5
+            bg-amber-50
+            border border-amber-200 rounded-xl
+            gap-3
           "
+          role="status"
+          aria-live="polite"
         >
-          <p
+          <div
             className="
-              font-medium
-            "
-          >
-            Forecast may be outdated.
-          </p>
-
-          {message ? (
-            <p
-              className="
-                mt-0.5
-                text-amber-700
-              "
-            >
-              {message}
-            </p>
-          ) : null}
-        </div>
-
-        {canRefresh ? (
-          <button
-            type="button"
-            onClick={onRetry}
-            disabled={refreshing}
-            className="
-              font-semibold underline underline-offset-2
-              disabled:opacity-50
-              disabled:cursor-not-allowed
+              flex justify-center items-center
+              w-8 h-8
+              text-amber-700
+              bg-amber-100
+              rounded-lg
               shrink-0
             "
           >
-            {refreshing
-              ? "Retrying..."
-              : "Retry"}
-          </button>
-        ) : null}
-      </div>
-    );
-  }
-);
+            <AlertCircle
+              size={16}
+              aria-hidden="true"
+            />
+          </div>
+
+          <div
+            className="
+              flex-1
+              min-w-0
+            "
+          >
+            <p
+              className="
+                font-semibold text-amber-900 text-sm
+              "
+            >
+              Forecast update failed
+            </p>
+
+            <p
+              className="
+                mt-0.5
+                text-amber-700 text-xs leading-5
+              "
+            >
+              Your previous forecast is still
+              displayed. {message}
+            </p>
+          </div>
+
+          {canRefresh ? (
+            <button
+              type="button"
+              onClick={onRetry}
+              disabled={refreshing}
+              className="
+                self-start
+                font-semibold text-amber-800 text-xs
+                underline underline-offset-2
+                disabled:opacity-50
+                disabled:cursor-not-allowed
+                shrink-0
+              "
+            >
+              {refreshing
+                ? "Retrying..."
+                : "Retry"}
+            </button>
+          ) : null}
+        </div>
+      );
+    }
+  );
 
 ForecastRefreshWarning.displayName =
   "ForecastRefreshWarning";
@@ -377,10 +493,8 @@ ForecastRefreshWarning.displayName =
    REFRESH STATUS
 ========================================================= */
 
-const ForecastRefreshStatus = memo(
-  ({
-    refreshing,
-  }) => {
+const ForecastRefreshStatus =
+  memo(({ refreshing }) => {
     if (!refreshing) {
       return null;
     }
@@ -408,11 +522,58 @@ const ForecastRefreshStatus = memo(
         Updating your savings forecast...
       </div>
     );
-  }
-);
+  });
 
 ForecastRefreshStatus.displayName =
   "ForecastRefreshStatus";
+
+/* =========================================================
+   FORECAST DATA STATUS
+========================================================= */
+
+const ForecastDataStatus = memo(
+  ({
+    projectionCount,
+    refreshing,
+  }) => {
+    if (refreshing) {
+      return null;
+    }
+
+    if (projectionCount <= 0) {
+      return null;
+    }
+
+    return (
+      <div
+        className="
+          flex justify-between items-center
+          pt-2
+          text-slate-400 text-xs
+        "
+      >
+        <span>
+          Projection updated from your
+          current savings data.
+        </span>
+
+        <span
+          className="
+            hidden sm:inline
+          "
+        >
+          {projectionCount}{" "}
+          {projectionCount === 1
+            ? "projection"
+            : "projections"}
+        </span>
+      </div>
+    );
+  }
+);
+
+ForecastDataStatus.displayName =
+  "ForecastDataStatus";
 
 /* =========================================================
    PAGE
@@ -422,51 +583,28 @@ const SavingForecastPage = ({
   goalId = null,
   planId = null,
 
-  /**
-   * Optional externally supplied forecast.
-   *
-   * When supplied, the page does not need to request
-   * forecast data again.
-   */
   forecast: suppliedForecast = null,
 
   title = DEFAULT_TITLE,
-
   description = DEFAULT_DESCRIPTION,
 
   className = "",
 
   showRefresh = true,
-
   showSummary = true,
-
   showGoalForecast = true,
-
   showProjectionChart = true,
 
   onViewGoal,
-
   onViewPlan,
 }) => {
   /* =======================================================
-     FORECAST DATA OWNER
+     REQUEST OWNERSHIP
   ======================================================= */
 
-  /**
-   * IMPORTANT ARCHITECTURAL RULE:
-   *
-   * This is the ONLY component in this forecast tree
-   * that owns useSavingsForecast().
-   *
-   * SavingsForecastSummary
-   * SavingsGoalForecast
-   * SavingsProjectionChart
-   * SavingsForecastSkeleton
-   * SavingsForecastEmptyState
-   * SavingsForecastErrorState
-   *
-   * must remain presentation components.
-   */
+  const requestInFlightRef =
+    useRef(false);
+
   const forecastState =
     useSavingsForecast({
       goalId,
@@ -477,26 +615,22 @@ const SavingForecastPage = ({
 
   const {
     forecast: hookForecast = null,
-
     data = null,
 
     loading = false,
-
     isLoading = false,
 
     refreshing = false,
-
     isRefreshing = false,
 
     error = null,
 
     refresh,
-
     refetch,
   } = forecastState;
 
   /* =======================================================
-     RESOLVE FORECAST
+     RAW FORECAST
   ======================================================= */
 
   const rawForecast =
@@ -515,24 +649,17 @@ const SavingForecastPage = ({
     );
 
   /* =======================================================
-     NORMALIZE FORECAST
+     NORMALIZED FORECAST
   ======================================================= */
 
   const forecast =
-    useMemo(() => {
-      if (!rawForecast) {
-        return null;
-      }
-
-      const normalized =
-        normalizeForecast(
+    useMemo(
+      () =>
+        safelyNormalizeForecast(
           rawForecast
-        );
-
-      return normalized || null;
-    }, [
-      rawForecast,
-    ]);
+        ),
+      [rawForecast]
+    );
 
   /* =======================================================
      REQUEST STATE
@@ -540,74 +667,70 @@ const SavingForecastPage = ({
 
   const isLoadingForecast =
     Boolean(
-      loading ||
-        isLoading
+      loading || isLoading
     );
 
   const isRefreshingForecast =
     Boolean(
-      refreshing ||
-        isRefreshing
+      refreshing || isRefreshing
     );
-
-  /* =======================================================
-     REFRESH CAPABILITY
-  ======================================================= */
-
-  const canRefresh =
-    typeof refresh ===
-      "function" ||
-    typeof refetch ===
-      "function";
 
   /* =======================================================
      REFRESH
   ======================================================= */
 
-  const refreshForecast =
-    useCallback(
-      async () => {
+  const canRefresh =
+    typeof refresh === "function" ||
+    typeof refetch === "function";
+
+  const handleRefresh =
+    useCallback(async () => {
+      if (
+        requestInFlightRef.current
+      ) {
+        return undefined;
+      }
+
+      if (
+        !canRefresh ||
+        suppliedForecast
+      ) {
+        return undefined;
+      }
+
+      requestInFlightRef.current =
+        true;
+
+      try {
         if (
           typeof refresh ===
           "function"
         ) {
-          return refresh();
+          return await refresh();
         }
 
         if (
           typeof refetch ===
           "function"
         ) {
-          return refetch();
+          return await refetch();
         }
 
         return undefined;
-      },
-      [
-        refresh,
-        refetch,
-      ]
-    );
-
-  const handleRefresh =
-    useCallback(() => {
-      void refreshForecast();
+      } finally {
+        requestInFlightRef.current =
+          false;
+      }
     }, [
-      refreshForecast,
+      canRefresh,
+      suppliedForecast,
+      refresh,
+      refetch,
     ]);
 
   /* =======================================================
      DERIVED DATA
   ======================================================= */
-
-  const projectionData =
-    useMemo(
-      () =>
-        resolveProjectionData(
-          forecast
-        ),
-      [forecast]
-    );
 
   const resolvedGoalId =
     useMemo(
@@ -635,20 +758,33 @@ const SavingForecastPage = ({
       ]
     );
 
-  const errorMessage =
+  const projectionData =
     useMemo(
       () =>
-        getErrorMessage(
-          error
+        resolveProjectionData(
+          forecast
         ),
-      [error]
+      [forecast]
     );
 
   const hasForecast =
-    Boolean(forecast);
+    isUsableForecast(
+      forecast
+    );
 
   const hasProjectionData =
     projectionData.length > 0;
+
+  const errorMessage =
+    useMemo(
+      () =>
+        getErrorMessage(error),
+      [error]
+    );
+
+  /* =======================================================
+     VIEW STATES
+  ======================================================= */
 
   const showInitialLoading =
     isLoadingForecast &&
@@ -656,6 +792,7 @@ const SavingForecastPage = ({
 
   const showInitialError =
     Boolean(error) &&
+    !isLoadingForecast &&
     !hasForecast;
 
   const showEmpty =
@@ -664,7 +801,7 @@ const SavingForecastPage = ({
     !hasForecast;
 
   /* =======================================================
-     VIEW GOAL
+     NAVIGATION
   ======================================================= */
 
   const handleViewGoal =
@@ -687,10 +824,6 @@ const SavingForecastPage = ({
       forecast,
     ]);
 
-  /* =======================================================
-     VIEW PLAN
-  ======================================================= */
-
   const handleViewPlan =
     useCallback(() => {
       if (
@@ -712,7 +845,7 @@ const SavingForecastPage = ({
     ]);
 
   /* =======================================================
-     SHARED SHELL
+     SHELL
   ======================================================= */
 
   const shellClassName = `
@@ -739,7 +872,6 @@ const SavingForecastPage = ({
         <ForecastHeader
           title={title}
           description={description}
-          showRefresh={false}
           refreshing={false}
           canRefresh={false}
         />
@@ -768,7 +900,6 @@ const SavingForecastPage = ({
         <ForecastHeader
           title={title}
           description={description}
-          showRefresh={false}
           refreshing={false}
           canRefresh={false}
         />
@@ -780,7 +911,8 @@ const SavingForecastPage = ({
         >
           <SavingsForecastErrorState
             message={
-              errorMessage
+              errorMessage ||
+              DEFAULT_ERROR_MESSAGE
             }
             onRetry={
               canRefresh
@@ -797,7 +929,7 @@ const SavingForecastPage = ({
   }
 
   /* =======================================================
-     EMPTY STATE
+     EMPTY
   ======================================================= */
 
   if (showEmpty) {
@@ -809,12 +941,13 @@ const SavingForecastPage = ({
         <ForecastHeader
           title={title}
           description={description}
-          showRefresh={showRefresh}
           refreshing={
             isRefreshingForecast
           }
           canRefresh={
-            canRefresh
+            showRefresh &&
+            canRefresh &&
+            !suppliedForecast
           }
           onRefresh={
             handleRefresh
@@ -828,7 +961,8 @@ const SavingForecastPage = ({
         >
           <SavingsForecastEmptyState
             onRetry={
-              canRefresh
+              canRefresh &&
+              !suppliedForecast
                 ? handleRefresh
                 : undefined
             }
@@ -842,7 +976,7 @@ const SavingForecastPage = ({
   }
 
   /* =======================================================
-     MAIN RENDER
+     MAIN
   ======================================================= */
 
   return (
@@ -853,21 +987,16 @@ const SavingForecastPage = ({
         isRefreshingForecast
       }
     >
-      {/* =================================================
-          HEADER
-      ================================================= */}
-
       <ForecastHeader
         title={title}
         description={description}
-        showRefresh={
-          showRefresh
-        }
         refreshing={
           isRefreshingForecast
         }
         canRefresh={
-          canRefresh
+          showRefresh &&
+          canRefresh &&
+          !suppliedForecast
         }
         onRefresh={
           handleRefresh
@@ -875,19 +1004,18 @@ const SavingForecastPage = ({
       />
 
       {/* =================================================
-          NON-BLOCKING REFRESH ERROR
+          REFRESH ERROR
       ================================================= */}
 
       {error && hasForecast ? (
         <ForecastRefreshWarning
-          message={
-            errorMessage
-          }
+          message={errorMessage}
           refreshing={
             isRefreshingForecast
           }
           canRefresh={
-            canRefresh
+            canRefresh &&
+            !suppliedForecast
           }
           onRetry={
             handleRefresh
@@ -896,84 +1024,153 @@ const SavingForecastPage = ({
       ) : null}
 
       {/* =================================================
-          FORECAST CONTENT
+          CONTENT
       ================================================= */}
 
       <div
         className="
-          space-y-5 p-5 sm:p-6
+          space-y-6 p-5 sm:p-6
         "
       >
-        {/* ===============================================
+        {/* =================================================
             SUMMARY
-        =============================================== */}
+        ================================================= */}
 
         {showSummary ? (
-          <SavingsForecastSummary
-            forecast={
-              forecast
-            }
-          />
+          <section
+            aria-label="Savings forecast summary"
+          >
+            <SavingsForecastSummary
+              forecast={forecast}
+            />
+          </section>
         ) : null}
 
-        {/* ===============================================
+        {/* =================================================
             GOAL FORECAST
-        =============================================== */}
+        ================================================= */}
 
         {showGoalForecast ? (
-          <SavingsGoalForecast
-            forecast={
-              forecast
-            }
-            goalId={
-              resolvedGoalId
-            }
-            onViewGoal={
-              typeof onViewGoal ===
-              "function"
-                ? handleViewGoal
-                : undefined
-            }
-          />
+          <section
+            aria-label="Savings goal forecast"
+          >
+            <SavingsGoalForecast
+              forecast={forecast}
+              goalId={resolvedGoalId}
+              onViewGoal={
+                typeof onViewGoal ===
+                "function"
+                  ? handleViewGoal
+                  : undefined
+              }
+            />
+          </section>
         ) : null}
 
-        {/* ===============================================
-            PROJECTION CHART
-        =============================================== */}
+        {/* =================================================
+            PROJECTION
+        ================================================= */}
 
         {showProjectionChart &&
         hasProjectionData ? (
-          <SavingsProjectionChart
-            forecast={
-              forecast
-            }
-            projections={
-              projectionData
-            }
-            goalId={
-              resolvedGoalId
-            }
-            planId={
-              resolvedPlanId
-            }
-            onViewGoal={
-              typeof onViewGoal ===
-              "function"
-                ? handleViewGoal
-                : undefined
-            }
-            onViewPlan={
-              typeof onViewPlan ===
-              "function"
-                ? handleViewPlan
-                : undefined
-            }
-          />
+          <section
+            aria-label="Savings projection"
+          >
+            <SavingsProjectionChart
+              forecast={forecast}
+              projections={
+                projectionData
+              }
+              goalId={
+                resolvedGoalId
+              }
+              planId={
+                resolvedPlanId
+              }
+              onViewGoal={
+                typeof onViewGoal ===
+                "function"
+                  ? handleViewGoal
+                  : undefined
+              }
+              onViewPlan={
+                typeof onViewPlan ===
+                "function"
+                  ? handleViewPlan
+                  : undefined
+              }
+            />
+          </section>
         ) : null}
 
-        {/* ===============================================
-            BACKGROUND REFRESH
-        =============================================== */}
+        {/* =================================================
+            NO PROJECTION FALLBACK
+        ================================================= */}
+
+        {showProjectionChart &&
+        hasForecast &&
+        !hasProjectionData ? (
+          <div
+            className="
+              flex items-start
+              p-4
+              bg-slate-50
+              border border-slate-200 rounded-xl
+              gap-3
+            "
+          >
+            <div
+              className="
+                flex justify-center items-center
+                w-8 h-8
+                text-slate-500
+                bg-white
+                border border-slate-200 rounded-lg
+                shrink-0
+              "
+            >
+              <TrendingUp
+                size={16}
+              />
+            </div>
+
+            <div>
+              <p
+                className="
+                  font-semibold text-slate-800 text-sm
+                "
+              >
+                Projection data is not
+                available yet
+              </p>
+
+              <p
+                className="
+                  mt-1
+                  text-slate-500 text-xs leading-5
+                "
+              >
+                Your current forecast is
+                available, but there isn't
+                enough projection data to
+                display the growth chart yet.
+              </p>
+            </div>
+          </div>
+        ) : null}
+
+        {/* =================================================
+            STATUS
+        ================================================= */}
+
+        <ForecastDataStatus
+          projectionCount={
+            projectionData.length
+          }
+          refreshing={
+            isRefreshingForecast
+          }
+        />
 
         <ForecastRefreshStatus
           refreshing={
@@ -993,7 +1190,7 @@ SavingForecastPage.displayName =
   "SavingForecastPage";
 
 /* =========================================================
-   MEMOIZATION
+   EXPORT
 ========================================================= */
 
 export default memo(

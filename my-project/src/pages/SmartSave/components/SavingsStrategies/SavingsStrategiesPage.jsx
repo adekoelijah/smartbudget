@@ -14,6 +14,7 @@ import {
   memo,
   useCallback,
   useMemo,
+  useState,
 } from "react";
 
 import useSavingsStrategies from "../../../../hooks/useSavingsStrategies";
@@ -34,15 +35,13 @@ import {
 
 import {
   normalizeSavingsStrategy,
-  normalizeSavingsStrategies,
 } from "../../../../utils/smartSave/savingsFormatters";
 
 /* =========================================================
    CONSTANTS
 ========================================================= */
 
-const DEFAULT_TITLE =
-  "Savings strategies";
+const DEFAULT_TITLE = "Savings strategies";
 
 const DEFAULT_DESCRIPTION =
   "Build consistent saving habits with strategies designed around your income, spending and financial goals.";
@@ -50,7 +49,13 @@ const DEFAULT_DESCRIPTION =
 const DEFAULT_ERROR =
   "We couldn't load your savings strategies.";
 
-const STRATEGY_TYPES = {
+const MAX_STRATEGIES = 100;
+
+/* =========================================================
+   STRATEGY TYPES
+========================================================= */
+
+const STRATEGY_TYPES = Object.freeze({
   FIXED_AMOUNT:
     SAVINGS_STRATEGIES?.FIXED_AMOUNT ??
     "fixed_amount",
@@ -70,34 +75,55 @@ const STRATEGY_TYPES = {
   CUSTOM:
     SAVINGS_STRATEGIES?.CUSTOM ??
     "custom",
-};
+});
 
 /* =========================================================
    SAFE HELPERS
 ========================================================= */
 
+/**
+ * Convert an arbitrary value into a safe user-facing
+ * error message.
+ */
 const getErrorMessage = (error) => {
   if (!error) {
     return DEFAULT_ERROR;
   }
 
   if (typeof error === "string") {
-    return error;
+    const message = error.trim();
+
+    return message || DEFAULT_ERROR;
   }
 
-  return (
-    error?.message ||
-    error?.error ||
-    error?.response?.data?.message ||
-    error?.response?.data?.error ||
-    error?.data?.message ||
-    DEFAULT_ERROR
-  );
+  const message =
+    error?.response?.data?.message ??
+    error?.response?.data?.error ??
+    error?.data?.message ??
+    error?.data?.error ??
+    error?.message ??
+    error?.error;
+
+  if (
+    typeof message === "string" &&
+    message.trim()
+  ) {
+    return message.trim();
+  }
+
+  return DEFAULT_ERROR;
 };
 
+/**
+ * Resolve a stable strategy identifier.
+ */
 const getStrategyId = (strategy) => {
   if (!strategy) {
     return null;
+  }
+
+  if (typeof strategy === "string") {
+    return strategy;
   }
 
   return (
@@ -109,46 +135,56 @@ const getStrategyId = (strategy) => {
   );
 };
 
-const getStrategiesArray = (value) => {
+/**
+ * Resolve an array from all supported SmartSave
+ * response envelopes.
+ */
+const resolveStrategies = (value) => {
   if (Array.isArray(value)) {
     return value;
   }
 
-  if (Array.isArray(value?.data)) {
-    return value.data;
+  if (!value || typeof value !== "object") {
+    return [];
   }
 
-  if (Array.isArray(value?.strategies)) {
-    return value.strategies;
-  }
+  const candidates = [
+    value.strategies,
+    value.plans,
+    value.items,
+    value.results,
+    value.data,
+    value.data?.strategies,
+    value.data?.plans,
+    value.data?.items,
+    value.data?.results,
+  ];
 
-  if (Array.isArray(value?.plans)) {
-    return value.plans;
-  }
-
-  if (Array.isArray(value?.data?.strategies)) {
-    return value.data.strategies;
-  }
-
-  if (Array.isArray(value?.data?.plans)) {
-    return value.data.plans;
-  }
-
-  if (Array.isArray(value?.items)) {
-    return value.items;
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      return candidate;
+    }
   }
 
   return [];
 };
 
+/**
+ * Normalize strategy type into the canonical SmartSave
+ * representation.
+ */
 const normalizeStrategyType = (strategy) => {
   const rawType =
     strategy?.strategyType ??
     strategy?.strategy ??
     strategy?.type ??
-    strategy?.method;
+    strategy?.method ??
+    strategy?.kind;
 
-  if (typeof rawType !== "string") {
+  if (
+    typeof rawType !== "string" ||
+    !rawType.trim()
+  ) {
     return null;
   }
 
@@ -166,6 +202,7 @@ const normalizeStrategyType = (strategy) => {
     case "percentage":
     case "percentage_based":
     case "percent":
+    case "percentage_saving":
       return STRATEGY_TYPES.PERCENTAGE;
 
     case "income":
@@ -176,6 +213,7 @@ const normalizeStrategyType = (strategy) => {
     case "roundup":
     case "round_up":
     case "round_up_saving":
+    case "roundup_saving":
       return STRATEGY_TYPES.ROUND_UP;
 
     case "custom":
@@ -187,6 +225,9 @@ const normalizeStrategyType = (strategy) => {
   }
 };
 
+/**
+ * Resolve strategy status.
+ */
 const getStrategyStatus = (strategy) =>
   String(
     strategy?.status ??
@@ -197,6 +238,9 @@ const getStrategyStatus = (strategy) =>
     .toLowerCase()
     .replace(/[\s-]+/g, "_");
 
+/**
+ * Active strategy states.
+ */
 const isActiveStrategy = (strategy) => {
   const status =
     getStrategyStatus(strategy);
@@ -208,6 +252,9 @@ const isActiveStrategy = (strategy) => {
   );
 };
 
+/**
+ * Paused strategy states.
+ */
 const isPausedStrategy = (strategy) => {
   const status =
     getStrategyStatus(strategy);
@@ -218,6 +265,9 @@ const isPausedStrategy = (strategy) => {
   );
 };
 
+/**
+ * Stable React key.
+ */
 const getStrategyKey = (
   strategy,
   index
@@ -225,439 +275,217 @@ const getStrategyKey = (
   const id =
     getStrategyId(strategy);
 
-  return id
-    ? `strategy-${String(id)}`
-    : `strategy-fallback-${index}`;
+  if (id !== null && id !== undefined) {
+    return `strategy-${String(id)}`;
+  }
+
+  return `strategy-fallback-${index}`;
 };
 
+/**
+ * Only render real strategy records.
+ */
+const isRenderableStrategy = (strategy) =>
+  Boolean(
+    strategy &&
+      getStrategyId(strategy)
+  );
+
 /* =========================================================
-   STRATEGY CARD RESOLVER
+   STRATEGY NORMALIZATION
 ========================================================= */
 
-const resolveStrategyCard = (
-  strategy,
-  handlers
+const normalizeStrategyRecord = (
+  strategy
 ) => {
-  const type =
-    normalizeStrategyType(strategy);
+  if (!strategy) {
+    return null;
+  }
 
-  const commonProps = {
-    strategy,
+  try {
+    const normalized =
+      typeof normalizeSavingsStrategy ===
+      "function"
+        ? normalizeSavingsStrategy(
+            strategy
+          )
+        : strategy;
 
-    onView:
-      handlers.onView,
-
-    onActivate:
-      handlers.onActivate,
-
-    onPause:
-      handlers.onPause,
-
-    onResume:
-      handlers.onResume,
-  };
-
-  switch (type) {
-    case STRATEGY_TYPES.FIXED_AMOUNT:
-      return (
-        <FixedAmountSavingCard
-          {...commonProps}
-        />
-      );
-
-    case STRATEGY_TYPES.PERCENTAGE:
-      return (
-        <PercentageSavingCard
-          {...commonProps}
-        />
-      );
-
-    case STRATEGY_TYPES.INCOME_BASED:
-      return (
-        <IncomeBasedSavingCard
-          {...commonProps}
-        />
-      );
-
-    case STRATEGY_TYPES.ROUND_UP:
-      return (
-        <RoundUpSavingCard
-          {...commonProps}
-        />
-      );
-
-    case STRATEGY_TYPES.CUSTOM:
-      return (
-        <CustomSavingStrategyCard
-          {...commonProps}
-        />
-      );
-
-    default:
+    if (!normalized) {
       return null;
+    }
+
+    return normalized;
+  } catch {
+    /*
+     * Do not allow one malformed strategy to
+     * destroy the entire SmartSave page.
+     */
+    return strategy;
   }
 };
 
 /* =========================================================
-   PAGE SKELETON
+   STRATEGY CARD
 ========================================================= */
 
-const PageSkeleton = memo(() => (
-  <div
-    className="
-      min-h-screen
-      px-4 sm:px-6 lg:px-8 py-6
-      bg-slate-50
-      animate-pulse
-    "
-    aria-busy="true"
-    aria-label="Loading savings strategies"
-  >
-    <div
-      className="
-        w-full max-w-7xl
-        mx-auto
-      "
-    >
-      <div
-        className="
-          flex justify-between
-          gap-6
-        "
-      >
-        <div
-          className="
-            flex
-            gap-3
-          "
-        >
-          <div
-            className="
-              w-12 h-12
-              bg-slate-200
-              rounded-2xl
-            "
-            /
-          >
+const StrategyCard = memo(
+  ({
+    strategy,
+    onView,
+    onActivate,
+    onPause,
+    onResume,
+    actionLoading,
+  }) => {
+    const type =
+      normalizeStrategyType(strategy);
 
-          <div>
-            <div
-              className="
-                w-48 h-6
-                bg-slate-200
-                rounded
-              "
-              /
-            >
+    const commonProps = {
+      strategy,
+      onView,
+      onActivate,
+      onPause,
+      onResume,
+      actionLoading,
+    };
 
-            <div
-              className="
-                w-80 h-4
-                mt-2
-                bg-slate-100
-                rounded
-              "
-              /
-            >
-          </div>
-        </div>
+    switch (type) {
+      case STRATEGY_TYPES.FIXED_AMOUNT:
+        return (
+          <FixedAmountSavingCard
+            {...commonProps}
+          />
+        );
 
-        <div
-          className="
-            hidden sm:block
-            w-32 h-10
-            bg-slate-200
-            rounded-xl
-          "
-          /
-        >
-      </div>
+      case STRATEGY_TYPES.PERCENTAGE:
+        return (
+          <PercentageSavingCard
+            {...commonProps}
+          />
+        );
 
-      <div
-        className="
-          grid grid-cols-2 lg:grid-cols-4
-          mt-8
-          gap-4
-        "
-      >
-        {Array.from({
-          length: 4,
-        }).map((_, index) => (
-          <div
-            key={index}
-            className="
-              h-24
-              bg-white
-              border border-slate-200 rounded-2xl
-            "
-            /
-          >
-        ))}
-      </div>
+      case STRATEGY_TYPES.INCOME_BASED:
+        return (
+          <IncomeBasedSavingCard
+            {...commonProps}
+          />
+        );
 
-      <div
-        className="
-          grid grid-cols-1 xl:grid-cols-2
-          mt-6
-          gap-5
-        "
-      >
-        {Array.from({
-          length: 4,
-        }).map((_, index) => (
-          <div
-            key={index}
-            className="
-              h-64
-              bg-white
-              border border-slate-200 rounded-2xl
-            "
-            /
-          >
-        ))}
-      </div>
-    </div>
-  </div>
-));
+      case STRATEGY_TYPES.ROUND_UP:
+        return (
+          <RoundUpSavingCard
+            {...commonProps}
+          />
+        );
 
-PageSkeleton.displayName =
-  "SavingsStrategiesPageSkeleton";
+      case STRATEGY_TYPES.CUSTOM:
+        return (
+          <CustomSavingStrategyCard
+            {...commonProps}
+          />
+        );
+
+      default:
+        return (
+          <UnsupportedStrategyCard
+            strategy={strategy}
+            onView={onView}
+          />
+        );
+    }
+  }
+);
+
+StrategyCard.displayName =
+  "StrategyCard";
 
 /* =========================================================
-   ERROR PAGE
+   UNSUPPORTED STRATEGY FALLBACK
 ========================================================= */
 
-const PageErrorState = memo(
+const UnsupportedStrategyCard = memo(
   ({
-    error,
-    onRetry,
-    retrying,
+    strategy,
+    onView,
   }) => (
-    <main
+    <div
       className="
-        flex justify-center items-center
-        min-h-screen
-        px-4 py-10
-        bg-slate-50
+        p-5
+        bg-white
+        border border-amber-200 rounded-2xl
+        shadow-sm
       "
     >
       <div
         className="
-          w-full max-w-lg
-          p-6 sm:p-8
-          bg-white
-          border border-slate-200 rounded-2xl
-          shadow-sm
+          flex items-start
+          gap-3
         "
       >
         <div
           className="
             flex justify-center items-center
-            w-12 h-12
-            text-red-700
-            bg-red-50
-            border border-red-100 rounded-xl
+            w-10 h-10
+            text-amber-700
+            bg-amber-50
+            rounded-xl
+            shrink-0
           "
         >
-          <AlertCircle size={22} />
+          <AlertCircle size={18} />
         </div>
-
-        <h1
-          className="
-            mt-5
-            font-bold text-slate-900 text-xl
-          "
-        >
-          Unable to load your strategies
-        </h1>
-
-        <p
-          className="
-            mt-2
-            text-slate-500 text-sm leading-6
-          "
-        >
-          {getErrorMessage(error)}
-        </p>
-
-        {typeof onRetry ===
-          "function" && (
-          <button
-            type="button"
-            onClick={onRetry}
-            disabled={retrying}
-            className="
-              inline-flex justify-center items-center
-              min-h-10
-              mt-6 px-4
-              font-semibold text-white text-sm
-              bg-slate-900 hover:bg-slate-800
-              rounded-xl focus:outline-none
-              focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
-              disabled:opacity-50 transition
-              disabled:cursor-not-allowed
-              gap-2
-            "
-          >
-            <RefreshCw
-              size={15}
-              className={
-                retrying
-                  ? "animate-spin"
-                  : ""
-              }
-            />
-
-            {retrying
-              ? "Retrying..."
-              : "Try again"}
-          </button>
-        )}
-      </div>
-    </main>
-  )
-);
-
-PageErrorState.displayName =
-  "SavingsStrategiesPageErrorState";
-
-/* =========================================================
-   EMPTY PAGE
-========================================================= */
-
-const EmptyPageState = memo(
-  ({ onCreate }) => (
-    <main
-      className="
-        min-h-screen
-        px-4 sm:px-6 lg:px-8 py-6
-        bg-slate-50
-      "
-    >
-      <div
-        className="
-          w-full max-w-7xl
-          mx-auto
-        "
-      >
-        <header>
-          <div
-            className="
-              flex items-center
-              gap-3
-            "
-          >
-            <div
-              className="
-                flex justify-center items-center
-                w-12 h-12
-                text-slate-700
-                bg-white
-                border border-slate-200 rounded-2xl
-                shadow-sm
-              "
-            >
-              <Sparkles size={21} />
-            </div>
-
-            <div>
-              <h1
-                className="
-                  font-bold text-slate-900 text-2xl tracking-tight
-                "
-              >
-                Savings strategies
-              </h1>
-
-              <p
-                className="
-                  mt-1
-                  text-slate-500 text-sm
-                "
-              >
-                Build a smarter and more consistent
-                saving habit.
-              </p>
-            </div>
-          </div>
-        </header>
 
         <div
           className="
-            flex flex-col justify-center items-center
-            mt-8 px-6 py-20
-            text-center
-            bg-white
-            border border-slate-200 border-dashed rounded-3xl
-            shadow-sm
+            flex-1
+            min-w-0
           "
         >
-          <div
+          <p
             className="
-              flex justify-center items-center
-              w-16 h-16
-              text-slate-700
-              bg-slate-100
-              rounded-2xl
+              font-semibold text-slate-900 text-sm
             "
           >
-            <Target size={27} />
-          </div>
-
-          <h2
-            className="
-              mt-5
-              font-bold text-slate-900 text-lg
-            "
-          >
-            Start building your saving strategy
-          </h2>
+            Strategy needs attention
+          </p>
 
           <p
             className="
-              max-w-lg
-              mt-2
-              text-slate-500 text-sm leading-6
+              mt-1
+              text-slate-500 text-xs leading-5
             "
           >
-            Choose how you want SmartSave to
-            help you build toward your goals.
-            You can save a fixed amount,
-            percentage of income, round up
-            transactions or create a custom
-            strategy.
+            This strategy type is not currently
+            supported by this version of SmartSave.
           </p>
 
-          {typeof onCreate ===
+          {typeof onView ===
             "function" && (
             <button
               type="button"
-              onClick={onCreate}
-              className="
-                inline-flex justify-center items-center
-                min-h-11
-                mt-6 px-5
-                font-semibold text-white text-sm
-                bg-slate-900 hover:bg-slate-800
-                rounded-xl focus:outline-none
-                focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
-                transition
-                gap-2
-              "
+              onClick={() =>
+                onView(
+                  strategy,
+                  getStrategyId(
+                    strategy
+                  )
+                )
+              }
+              className="inline-flex items-center gap-1 mt-3 font-semibold text-slate-700 hover:text-slate-950 text-xs"
             >
-              <Plus size={17} />
-
-              Create your first strategy
+              View details
+              <ArrowRight size={13} />
             </button>
           )}
         </div>
       </div>
-    </main>
+    </div>
   )
 );
 
-EmptyPageState.displayName =
-  "SavingsStrategiesPageEmptyState";
+UnsupportedStrategyCard.displayName =
+  "UnsupportedStrategyCard";
 
 /* =========================================================
    SUMMARY METRIC
@@ -674,7 +502,7 @@ const SummaryMetric = memo(
       className="
         p-4 sm:p-5
         bg-white
-        border border-slate-200 rounded-2xl
+        border border-slate-200/80 rounded-2xl
         shadow-sm
       "
     >
@@ -687,9 +515,9 @@ const SummaryMetric = memo(
         <div
           className="
             flex justify-center items-center
-            w-9 h-9
+            w-10 h-10
             text-slate-700
-            bg-slate-100
+            bg-slate-50
             rounded-xl
             shrink-0
           "
@@ -705,7 +533,8 @@ const SummaryMetric = memo(
         >
           <p
             className="
-              text-slate-500 text-xs font-medium
+              font-semibold text-[11px] text-slate-400 uppercase
+              tracking-[0.08em]
             "
           >
             {label}
@@ -714,7 +543,7 @@ const SummaryMetric = memo(
           <p
             className="
               mt-1
-              font-bold text-slate-900 text-xl tracking-tight
+              font-bold text-slate-950 text-xl tracking-tight
             "
           >
             {value}
@@ -723,7 +552,7 @@ const SummaryMetric = memo(
           <p
             className="
               mt-0.5
-              text-slate-400 text-[11px] leading-4
+              text-[11px] text-slate-400 leading-4
             "
           >
             {description}
@@ -735,7 +564,319 @@ const SummaryMetric = memo(
 );
 
 SummaryMetric.displayName =
-  "SavingsStrategySummaryMetric";
+  "SummaryMetric";
+
+/* =========================================================
+   PAGE SKELETON
+========================================================= */
+
+const PageSkeleton = memo(() => (
+  <main
+    className="
+      min-h-screen
+      px-4 sm:px-6 lg:px-8 py-6 sm:py-8
+      bg-slate-50
+    "
+    aria-busy="true"
+    aria-label="Loading savings strategies"
+  >
+    <div
+      className="
+        w-full max-w-7xl
+        mx-auto
+      "
+    >
+      <div
+        className="
+          flex justify-between items-start
+          gap-6
+        "
+      >
+        <div
+          className="
+            flex items-start
+            gap-3
+          "
+        >
+          <div
+            className="
+              w-12 h-12
+              bg-slate-200
+              rounded-2xl
+              animate-pulse
+            "
+            /
+          >
+
+          <div>
+            <div
+              className="
+                w-48 h-6
+                bg-slate-200
+                rounded
+                animate-pulse
+              "
+              /
+            >
+
+            <div
+              className="
+                w-80 max-w-full h-4
+                mt-2
+                bg-slate-100
+                rounded
+                animate-pulse
+              "
+              /
+            >
+          </div>
+        </div>
+
+        <div
+          className="
+            hidden sm:block
+            w-32 h-11
+            bg-slate-200
+            rounded-xl
+            animate-pulse
+          "
+          /
+        >
+      </div>
+
+      <div
+        className="
+          grid grid-cols-2 lg:grid-cols-4
+          mt-8
+          gap-3 sm:gap-4
+        "
+      >
+        {Array.from({ length: 4 }).map(
+          (_, index) => (
+            <div
+              key={index}
+              className="
+                h-28
+                bg-white
+                border border-slate-200 rounded-2xl
+                animate-pulse
+              "
+              /
+            >
+          )
+        )}
+      </div>
+
+      <div
+        className="
+          grid grid-cols-1 xl:grid-cols-2
+          mt-8
+          gap-5
+        "
+      >
+        {Array.from({ length: 4 }).map(
+          (_, index) => (
+            <div
+              key={index}
+              className="
+                h-64
+                bg-white
+                border border-slate-200 rounded-2xl
+                animate-pulse
+              "
+              /
+            >
+          )
+        )}
+      </div>
+    </div>
+  </main>
+));
+
+PageSkeleton.displayName =
+  "SavingsStrategiesPageSkeleton";
+
+/* =========================================================
+   ERROR STATE
+========================================================= */
+
+const PageErrorState = memo(
+  ({
+    error,
+    onRetry,
+    retrying,
+  }) => (
+    <main
+      className="
+        min-h-screen
+        px-4 sm:px-6 lg:px-8 py-8
+        bg-slate-50
+      "
+    >
+      <div
+        className="
+          w-full max-w-2xl
+          mx-auto
+        "
+      >
+        <div
+          className="
+            p-6 sm:p-8
+            bg-white
+            border border-slate-200 rounded-2xl
+            shadow-sm
+          "
+        >
+          <div
+            className="
+              flex justify-center items-center
+              w-12 h-12
+              text-red-700
+              bg-red-50
+              border border-red-100 rounded-xl
+            "
+          >
+            <AlertCircle size={22} />
+          </div>
+
+          <h1
+            className="
+              mt-5
+              font-bold text-slate-950 text-xl
+            "
+          >
+            Unable to load your savings strategies
+          </h1>
+
+          <p
+            className="
+              mt-2
+              text-slate-500 text-sm leading-6
+            "
+          >
+            {getErrorMessage(error)}
+          </p>
+
+          {typeof onRetry ===
+            "function" && (
+            <button
+              type="button"
+              onClick={onRetry}
+              disabled={retrying}
+              className="
+                inline-flex justify-center items-center
+                min-h-11
+                mt-6 px-4
+                font-semibold text-white text-sm
+                bg-slate-950 hover:bg-slate-800
+                rounded-xl focus:outline-none
+                focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
+                disabled:opacity-60 transition
+                disabled:cursor-not-allowed
+                gap-2
+              "
+            >
+              <RefreshCw
+                size={15}
+                className={
+                  retrying
+                    ? "animate-spin"
+                    : ""
+                }
+              />
+
+              {retrying
+                ? "Retrying..."
+                : "Try again"}
+            </button>
+          )}
+        </div>
+      </div>
+    </main>
+  )
+);
+
+PageErrorState.displayName =
+  "SavingsStrategiesPageErrorState";
+
+/* =========================================================
+   EMPTY STATE
+========================================================= */
+
+const EmptyState = memo(
+  ({ onCreate }) => (
+    <div
+      className="
+        mt-8 p-8 sm:p-14
+        text-center
+        bg-white
+        border border-slate-200 border-dashed rounded-3xl
+        shadow-sm
+      "
+    >
+      <div
+        className="
+          flex justify-center items-center
+          w-16 h-16
+          mx-auto
+          text-slate-700
+          bg-slate-50
+          border border-slate-100 rounded-2xl
+        "
+      >
+        <Target size={27} />
+      </div>
+
+      <h2
+        className="
+          mt-5
+          font-bold text-slate-950 text-xl tracking-tight
+        "
+      >
+        No savings strategies yet
+      </h2>
+
+      <p
+        className="
+          max-w-xl
+          mx-auto mt-2
+          text-slate-500 text-sm leading-6
+        "
+      >
+        Create a strategy to automate or structure
+        how you save toward your financial goals.
+        SmartSave can support fixed amounts,
+        percentages, income-based saving, round-ups
+        and custom strategies.
+      </p>
+
+      {typeof onCreate ===
+        "function" && (
+        <button
+          type="button"
+          onClick={onCreate}
+          className="
+            inline-flex justify-center items-center
+            min-h-11
+            mt-6 px-5
+            font-semibold text-white text-sm
+            bg-slate-950 hover:bg-slate-800
+            rounded-xl focus:outline-none
+            focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
+            transition
+            gap-2
+          "
+        >
+          <Plus size={17} />
+          Create your first strategy
+        </button>
+      )}
+    </div>
+  )
+);
+
+EmptyState.displayName =
+  "SavingsStrategiesEmptyState";
 
 /* =========================================================
    PAGE
@@ -744,10 +885,8 @@ SummaryMetric.displayName =
 const SavingsStrategiesPage = ({
   onCreate,
   onView,
-
   title,
   description,
-
   className = "",
 }) => {
   /* =======================================================
@@ -755,158 +894,96 @@ const SavingsStrategiesPage = ({
   ======================================================= */
 
   const savingsStrategies =
-    useSavingsStrategies();
+    useSavingsStrategies() ?? {};
 
   /* =======================================================
-     HOOK STATE
+     SERVER STATE
   ======================================================= */
 
-  const rawStrategies =
-    savingsStrategies?.strategies ??
-    savingsStrategies?.data ??
-    savingsStrategies?.plans ??
-    [];
-
   const loading = Boolean(
-    savingsStrategies?.loading ??
-      savingsStrategies?.isLoading ??
-      savingsStrategies?.fetching ??
+    savingsStrategies.loading ??
+      savingsStrategies.isLoading ??
       false
   );
 
   const refreshing = Boolean(
-    savingsStrategies?.refreshing ??
-      savingsStrategies?.isRefreshing ??
-      savingsStrategies?.isFetching ??
+    savingsStrategies.refreshing ??
+      savingsStrategies.isRefreshing ??
+      savingsStrategies.isFetching ??
       false
   );
 
   const error =
-    savingsStrategies?.error ??
+    savingsStrategies.error ??
     null;
 
+  /* =======================================================
+     DATA
+  ======================================================= */
+
+  const rawData =
+    savingsStrategies.strategies ??
+    savingsStrategies.plans ??
+    savingsStrategies.data ??
+    [];
+
+  const strategies = useMemo(() => {
+    const collection =
+      resolveStrategies(rawData);
+
+    if (!collection.length) {
+      return [];
+    }
+
+    return collection
+      .slice(0, MAX_STRATEGIES)
+      .map(
+        normalizeStrategyRecord
+      )
+      .filter(
+        isRenderableStrategy
+      );
+  }, [rawData]);
+
+  /* =======================================================
+     API ACTIONS
+  ======================================================= */
+
   const fetchStrategies =
-    savingsStrategies?.fetchStrategies ??
-    savingsStrategies?.refresh ??
-    savingsStrategies?.refetch ??
+    savingsStrategies.fetchStrategies ??
+    savingsStrategies.fetch ??
+    savingsStrategies.refresh ??
+    savingsStrategies.refetch ??
     null;
 
   const activateStrategy =
-    savingsStrategies?.activateStrategy ??
-    savingsStrategies?.activateSavingPlan ??
+    savingsStrategies.activateStrategy ??
+    savingsStrategies.activateSavingPlan ??
     null;
 
   const pauseStrategy =
-    savingsStrategies?.pauseStrategy ??
-    savingsStrategies?.pauseSavingPlan ??
+    savingsStrategies.pauseStrategy ??
+    savingsStrategies.pauseSavingPlan ??
     null;
 
   const resumeStrategy =
-    savingsStrategies?.resumeStrategy ??
-    savingsStrategies?.resumeSavingPlan ??
+    savingsStrategies.resumeStrategy ??
+    savingsStrategies.resumeSavingPlan ??
     null;
 
   /* =======================================================
-     NORMALIZE STRATEGIES
+     LOCAL ACTION STATE
   ======================================================= */
 
-  const strategies =
-    useMemo(() => {
-      const collection =
-        getStrategiesArray(
-          rawStrategies
-        );
+  const [
+    actionLoadingId,
+    setActionLoadingId,
+  ] = useState(null);
 
-      if (
-        collection.length === 0
-      ) {
-        return [];
-      }
-
-      const individuallyNormalized =
-        collection
-          .map((strategy) => {
-            if (
-              typeof normalizeSavingsStrategy !==
-              "function"
-            ) {
-              return strategy;
-            }
-
-            try {
-              return normalizeSavingsStrategy(
-                strategy
-              );
-            } catch {
-              return strategy;
-            }
-          })
-          .filter(Boolean);
-
-      if (
-        typeof normalizeSavingsStrategies !==
-        "function"
-      ) {
-        return individuallyNormalized;
-      }
-
-      try {
-        const normalized =
-          normalizeSavingsStrategies(
-            individuallyNormalized
-          );
-
-        return Array.isArray(normalized)
-          ? normalized.filter(Boolean)
-          : individuallyNormalized;
-      } catch {
-        return individuallyNormalized;
-      }
-    }, [rawStrategies]);
-
-  /* =======================================================
-     SUMMARY
-  ======================================================= */
-
-  const summary =
-    useMemo(() => {
-      const total =
-        strategies.length;
-
-      const active =
-        strategies.filter(
-          isActiveStrategy
-        ).length;
-
-      const paused =
-        strategies.filter(
-          isPausedStrategy
-        ).length;
-
-      const inactive =
-        Math.max(
-          total - active - paused,
-          0
-        );
-
-      const strategyTypes =
-        new Set(
-          strategies
-            .map(
-              normalizeStrategyType
-            )
-            .filter(Boolean)
-        );
-
-      return {
-        total,
-        active,
-        paused,
-        inactive,
-        types:
-          strategyTypes.size,
-      };
-    }, [strategies]);
+  const [
+    actionError,
+    setActionError,
+  ] = useState(null);
 
   /* =======================================================
      PAGE CONFIG
@@ -925,6 +1002,49 @@ const SavingsStrategiesPage = ({
     DEFAULT_DESCRIPTION;
 
   /* =======================================================
+     SUMMARY
+  ======================================================= */
+
+  const summary = useMemo(() => {
+    let active = 0;
+    let paused = 0;
+
+    const types = new Set();
+
+    for (const strategy of strategies) {
+      if (isActiveStrategy(strategy)) {
+        active += 1;
+      }
+
+      if (isPausedStrategy(strategy)) {
+        paused += 1;
+      }
+
+      const type =
+        normalizeStrategyType(
+          strategy
+        );
+
+      if (type) {
+        types.add(type);
+      }
+    }
+
+    return {
+      total: strategies.length,
+      active,
+      paused,
+      inactive: Math.max(
+        strategies.length -
+          active -
+          paused,
+        0
+      ),
+      types: types.size,
+    };
+  }, [strategies]);
+
+  /* =======================================================
      REFRESH
   ======================================================= */
 
@@ -937,7 +1057,19 @@ const SavingsStrategiesPage = ({
         return undefined;
       }
 
-      return fetchStrategies();
+      setActionError(null);
+
+      try {
+        return await fetchStrategies();
+      } catch (refreshError) {
+        setActionError(
+          getErrorMessage(
+            refreshError
+          )
+        );
+
+        throw refreshError;
+      }
     }, [fetchStrategies]);
 
   /* =======================================================
@@ -952,6 +1084,8 @@ const SavingsStrategiesPage = ({
       ) {
         return;
       }
+
+      setActionError(null);
 
       onCreate();
     }, [onCreate]);
@@ -970,10 +1104,13 @@ const SavingsStrategiesPage = ({
           return;
         }
 
+        const id =
+          strategyId ??
+          getStrategyId(strategy);
+
         onView(
           strategy,
-          strategyId ??
-            getStrategyId(strategy)
+          id
         );
       },
       [onView]
@@ -993,6 +1130,10 @@ const SavingsStrategiesPage = ({
           typeof activateStrategy !==
           "function"
         ) {
+          setActionError(
+            "Activating this savings strategy is currently unavailable."
+          );
+
           return undefined;
         }
 
@@ -1001,10 +1142,31 @@ const SavingsStrategiesPage = ({
           getStrategyId(strategy);
 
         if (!id) {
+          setActionError(
+            "This savings strategy could not be identified."
+          );
+
           return undefined;
         }
 
-        return activateStrategy(id);
+        setActionError(null);
+        setActionLoadingId(id);
+
+        try {
+          return await activateStrategy(
+            id
+          );
+        } catch (activationError) {
+          setActionError(
+            getErrorMessage(
+              activationError
+            )
+          );
+
+          throw activationError;
+        } finally {
+          setActionLoadingId(null);
+        }
       },
       [activateStrategy]
     );
@@ -1023,6 +1185,10 @@ const SavingsStrategiesPage = ({
           typeof pauseStrategy !==
           "function"
         ) {
+          setActionError(
+            "Pausing this savings strategy is currently unavailable."
+          );
+
           return undefined;
         }
 
@@ -1031,10 +1197,31 @@ const SavingsStrategiesPage = ({
           getStrategyId(strategy);
 
         if (!id) {
+          setActionError(
+            "This savings strategy could not be identified."
+          );
+
           return undefined;
         }
 
-        return pauseStrategy(id);
+        setActionError(null);
+        setActionLoadingId(id);
+
+        try {
+          return await pauseStrategy(
+            id
+          );
+        } catch (pauseError) {
+          setActionError(
+            getErrorMessage(
+              pauseError
+            )
+          );
+
+          throw pauseError;
+        } finally {
+          setActionLoadingId(null);
+        }
       },
       [pauseStrategy]
     );
@@ -1053,6 +1240,10 @@ const SavingsStrategiesPage = ({
           typeof resumeStrategy !==
           "function"
         ) {
+          setActionError(
+            "Resuming this savings strategy is currently unavailable."
+          );
+
           return undefined;
         }
 
@@ -1061,10 +1252,31 @@ const SavingsStrategiesPage = ({
           getStrategyId(strategy);
 
         if (!id) {
+          setActionError(
+            "This savings strategy could not be identified."
+          );
+
           return undefined;
         }
 
-        return resumeStrategy(id);
+        setActionError(null);
+        setActionLoadingId(id);
+
+        try {
+          return await resumeStrategy(
+            id
+          );
+        } catch (resumeError) {
+          setActionError(
+            getErrorMessage(
+              resumeError
+            )
+          );
+
+          throw resumeError;
+        } finally {
+          setActionLoadingId(null);
+        }
       },
       [resumeStrategy]
     );
@@ -1109,10 +1321,8 @@ const SavingsStrategiesPage = ({
     !loading &&
     strategies.length === 0;
 
-  const empty =
-    !loading &&
-    !error &&
-    strategies.length === 0;
+  const hasStrategies =
+    strategies.length > 0;
 
   /* =======================================================
      INITIAL LOADING
@@ -1132,25 +1342,13 @@ const SavingsStrategiesPage = ({
     return (
       <PageErrorState
         error={error}
-        onRetry={handleRefresh}
-        retrying={refreshing}
-      />
-    );
-  }
-
-  /* =======================================================
-     EMPTY
-  ======================================================= */
-
-  if (empty) {
-    return (
-      <EmptyPageState
-        onCreate={
-          typeof onCreate ===
+        onRetry={
+          typeof fetchStrategies ===
           "function"
-            ? handleCreate
+            ? handleRefresh
             : undefined
         }
+        retrying={refreshing}
       />
     );
   }
@@ -1161,11 +1359,7 @@ const SavingsStrategiesPage = ({
 
   return (
     <main
-      className={`
-        min-h-screen
-        bg-slate-50
-        ${className}
-      `}
+      className={`bg-slate-50 min-h-screen ${className}`}
       aria-labelledby="savings-strategies-page-title"
     >
       <div
@@ -1186,36 +1380,38 @@ const SavingsStrategiesPage = ({
         >
           <div
             className="
+              flex items-start
               min-w-0
+              gap-3
             "
           >
             <div
               className="
-                flex items-center
-                gap-3
+                flex justify-center items-center
+                w-12 h-12
+                text-slate-700
+                bg-white
+                border border-slate-200 rounded-2xl
+                shadow-sm
+                shrink-0
+              "
+              aria-hidden="true"
+            >
+              <Sparkles
+                size={21}
+                strokeWidth={1.8}
+              />
+            </div>
+
+            <div
+              className="
+                min-w-0
               "
             >
               <div
                 className="
-                  flex justify-center items-center
-                  w-12 h-12
-                  text-slate-700
-                  bg-white
-                  border border-slate-200 rounded-2xl
-                  shadow-sm
-                  shrink-0
-                "
-                aria-hidden="true"
-              >
-                <Sparkles
-                  size={21}
-                  strokeWidth={1.8}
-                />
-              </div>
-
-              <div
-                className="
-                  min-w-0
+                  flex flex-wrap items-center
+                  gap-2
                 "
               >
                 <h1
@@ -1227,107 +1423,237 @@ const SavingsStrategiesPage = ({
                   {pageTitle}
                 </h1>
 
-                <p
-                  className="
-                    max-w-2xl
-                    mt-1.5
-                    text-slate-500 text-sm sm:text-base leading-6
-                  "
-                >
-                  {pageDescription}
-                </p>
+                {hasStrategies && (
+                  <span
+                    className="
+                      inline-flex items-center
+                      min-h-6
+                      px-2.5
+                      font-semibold text-slate-600 text-xs
+                      bg-slate-100
+                      rounded-full
+                    "
+                  >
+                    {summary.total}
+                  </span>
+                )}
               </div>
+
+              <p
+                className="
+                  max-w-2xl
+                  mt-1.5
+                  text-slate-500 text-sm sm:text-base leading-6
+                "
+              >
+                {pageDescription}
+              </p>
             </div>
           </div>
 
           <div
             className="
-              flex items-center
+              flex
               w-full lg:w-auto
               gap-2
             "
           >
-            <button
-              type="button"
-              onClick={() =>
-                void handleRefresh()
-              }
-              disabled={
-                refreshing ||
-                typeof fetchStrategies !==
-                  "function"
-              }
-              className="
-                inline-flex
-                flex-1
-                lg:flex-none
-                justify-center
-                items-center
-                min-h-11
-                px-4
-                font-medium
-                text-slate-700
-                text-sm
-                bg-white
-                hover:bg-slate-50
-                border border-slate-200
-                rounded-xl
-                shadow-sm
-                focus:outline-none
-                focus:ring-2
-                focus:ring-slate-300
-                focus:ring-offset-2
-                disabled:opacity-50
-                disabled:cursor-not-allowed
-                transition
-                gap-2
-              "
-              aria-label={
-                refreshing
-                  ? "Refreshing savings strategies"
-                  : "Refresh savings strategies"
-              }
-            >
-              <RefreshCw
-                size={16}
-                className={
-                  refreshing
-                    ? "animate-spin"
-                    : ""
+            {typeof fetchStrategies ===
+              "function" && (
+              <button
+                type="button"
+                onClick={() =>
+                  void handleRefresh()
                 }
-              />
+                disabled={
+                  refreshing
+                }
+                className="inline-flex flex-1 lg:flex-none justify-center items-center gap-2 bg-white hover:bg-slate-50 disabled:opacity-60 shadow-sm px-4 border border-slate-200 hover:border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-400/40 focus:ring-offset-2 min-h-11 font-semibold text-slate-700 text-sm transition disabled:cursor-not-allowed"
+              >
+                <RefreshCw
+                  size={16}
+                  className={
+                    refreshing
+                      ? "animate-spin"
+                      : ""
+                  }
+                />
 
-              <span>
                 {refreshing
                   ? "Refreshing..."
                   : "Refresh"}
-              </span>
-            </button>
+              </button>
+            )}
 
             {typeof onCreate ===
               "function" && (
               <button
                 type="button"
-                onClick={handleCreate}
+                onClick={
+                  handleCreate
+                }
                 className="
                   inline-flex flex-1 lg:flex-none justify-center items-center
                   min-h-11
                   px-4
                   font-semibold text-white text-sm
-                  bg-slate-900 hover:bg-slate-800
+                  bg-slate-950 hover:bg-slate-800
                   rounded-xl focus:outline-none
-                  focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
+                  focus:ring-2 focus:ring-slate-950 focus:ring-offset-2
                   shadow-sm transition
                   gap-2
                 "
               >
                 <Plus size={17} />
-
                 New strategy
               </button>
             )}
           </div>
         </header>
+
+        {/* =================================================
+            ACTION ERROR
+        ================================================= */}
+
+        {actionError && (
+          <div
+            className="
+              flex items-start
+              mt-5 p-4
+              bg-red-50
+              border border-red-200 rounded-2xl
+              gap-3
+            "
+            role="alert"
+          >
+            <div
+              className="
+                flex justify-center items-center
+                w-8 h-8
+                text-red-700
+                bg-red-100
+                rounded-lg
+                shrink-0
+              "
+            >
+              <AlertCircle
+                size={16}
+              />
+            </div>
+
+            <div
+              className="
+                flex-1
+                min-w-0
+              "
+            >
+              <p
+                className="
+                  font-semibold text-red-900 text-sm
+                "
+              >
+                Action could not be completed
+              </p>
+
+              <p
+                className="
+                  mt-1
+                  text-red-700 text-xs leading-5
+                "
+              >
+                {actionError}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                setActionError(
+                  null
+                )
+              }
+              className="font-semibold text-red-700 hover:text-red-900 text-xs"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {/* =================================================
+            NON-BLOCKING SERVER ERROR
+        ================================================= */}
+
+        {error && hasStrategies && (
+          <div
+            className="
+              flex items-start
+              mt-5 p-4
+              bg-amber-50
+              border border-amber-200 rounded-2xl
+              gap-3
+            "
+            role="status"
+            aria-live="polite"
+          >
+            <div
+              className="
+                flex justify-center items-center
+                w-8 h-8
+                text-amber-700
+                bg-amber-100
+                rounded-lg
+                shrink-0
+              "
+            >
+              <AlertCircle
+                size={16}
+              />
+            </div>
+
+            <div
+              className="
+                flex-1
+                min-w-0
+              "
+            >
+              <p
+                className="
+                  font-semibold text-amber-900 text-sm
+                "
+              >
+                Your strategy data may be outdated
+              </p>
+
+              <p
+                className="
+                  mt-1
+                  text-amber-700 text-xs leading-5
+                "
+              >
+                {getErrorMessage(error)}
+              </p>
+            </div>
+
+            {typeof fetchStrategies ===
+              "function" && (
+              <button
+                type="button"
+                onClick={() =>
+                  void handleRefresh()
+                }
+                disabled={
+                  refreshing
+                }
+                className="inline-flex items-center gap-1 disabled:opacity-50 font-semibold text-amber-800 text-xs underline underline-offset-2 shrink-0"
+              >
+                Retry
+                <ArrowRight
+                  size={12}
+                />
+              </button>
+            )}
+          </div>
+        )}
 
         {/* =================================================
             SUMMARY
@@ -1336,7 +1662,7 @@ const SavingsStrategiesPage = ({
         <section
           className="
             grid grid-cols-2 lg:grid-cols-4
-            mt-8
+            mt-7
             gap-3 sm:gap-4
           "
           aria-label="Savings strategy summary"
@@ -1344,34 +1670,42 @@ const SavingsStrategiesPage = ({
           <SummaryMetric
             icon={Target}
             label="Total strategies"
-            value={summary.total}
+            value={
+              summary.total
+            }
             description="Configured strategies"
           />
 
           <SummaryMetric
             icon={CheckCircle2}
             label="Active"
-            value={summary.active}
+            value={
+              summary.active
+            }
             description="Currently running"
           />
 
           <SummaryMetric
             icon={PauseCircle}
             label="Paused"
-            value={summary.paused}
+            value={
+              summary.paused
+            }
             description="Temporarily paused"
           />
 
           <SummaryMetric
             icon={TrendingUp}
             label="Strategy types"
-            value={summary.types}
+            value={
+              summary.types
+            }
             description="Different approaches"
           />
         </section>
 
         {/* =================================================
-            CONTENT HEADER
+            STRATEGIES
         ================================================= */}
 
         <section
@@ -1391,7 +1725,7 @@ const SavingsStrategiesPage = ({
               <h2
                 id="strategy-list-heading"
                 className="
-                  font-bold text-slate-900 text-lg
+                  font-bold text-slate-950 text-lg tracking-tight
                 "
               >
                 Your strategies
@@ -1403,8 +1737,7 @@ const SavingsStrategiesPage = ({
                   text-slate-500 text-sm
                 "
               >
-                Manage how SmartSave helps
-                you save.
+                Manage how SmartSave helps you save.
               </p>
             </div>
 
@@ -1412,7 +1745,7 @@ const SavingsStrategiesPage = ({
               className="
                 inline-flex items-center self-start sm:self-auto
                 min-h-7
-                px-2.5
+                px-3
                 font-semibold text-slate-600 text-xs
                 bg-white
                 border border-slate-200 rounded-full
@@ -1425,159 +1758,98 @@ const SavingsStrategiesPage = ({
             </span>
           </div>
 
-          {/* ===============================================
-              NON-BLOCKING ERROR
-          =============================================== */}
-
-          {error && (
+          {!hasStrategies ? (
+            <EmptyState
+              onCreate={
+                typeof onCreate ===
+                "function"
+                  ? handleCreate
+                  : undefined
+              }
+            />
+          ) : (
             <div
               className="
-                flex items-start
-                mb-5 p-4
-                bg-amber-50
-                border border-amber-200 rounded-2xl
-                gap-3
+                grid grid-cols-1 xl:grid-cols-2
+                gap-5
               "
-              role="status"
-              aria-live="polite"
             >
-              <div
-                className="
-                  flex justify-center items-center
-                  w-8 h-8
-                  text-amber-700
-                  bg-amber-100
-                  rounded-lg
-                  shrink-0
-                "
-              >
-                <AlertCircle
-                  size={16}
-                />
-              </div>
+              {strategies.map(
+                (
+                  strategy,
+                  index
+                ) => {
+                  const id =
+                    getStrategyId(
+                      strategy
+                    );
 
-              <div
-                className="
-                  flex-1
-                  min-w-0
-                "
-              >
-                <p
-                  className="
-                    font-semibold text-amber-900 text-sm
-                  "
-                >
-                  Your strategy data may be outdated
-                </p>
-
-                <p
-                  className="
-                    mt-0.5
-                    text-amber-700 text-xs leading-5
-                  "
-                >
-                  We couldn't fully refresh
-                  your latest strategy information.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() =>
-                  void handleRefresh()
+                  return (
+                    <article
+                      key={getStrategyKey(
+                        strategy,
+                        index
+                      )}
+                      className="
+                        min-w-0
+                      "
+                    >
+                      <StrategyCard
+                        strategy={
+                          strategy
+                        }
+                        onView={
+                          handleView
+                        }
+                        onActivate={
+                          handleActivate
+                        }
+                        onPause={
+                          handlePause
+                        }
+                        onResume={
+                          handleResume
+                        }
+                        actionLoading={
+                          actionLoadingId ===
+                          id
+                        }
+                      />
+                    </article>
+                  );
                 }
-                disabled={refreshing}
-                className="
-                  inline-flex
-                  items-center
-                  font-semibold
-                  text-amber-800
-                  text-xs
-                  underline
-                  underline-offset-2
-                  disabled:opacity-50
-                  disabled:cursor-not-allowed
-                  gap-1
-                  shrink-0
-                "
-              >
-                Retry
-
-                <ArrowRight size={12} />
-              </button>
+              )}
             </div>
           )}
-
-          {/* ===============================================
-              STRATEGY GRID
-          =============================================== */}
-
-          <div
-            className="
-              grid grid-cols-1 xl:grid-cols-2
-              gap-5
-            "
-          >
-            {strategies.map(
-              (strategy, index) => {
-                const key =
-                  getStrategyKey(
-                    strategy,
-                    index
-                  );
-
-                const card =
-                  resolveStrategyCard(
-                    strategy,
-                    cardHandlers
-                  );
-
-                if (!card) {
-                  return null;
-                }
-
-                return (
-                  <article
-                    key={key}
-                    className="
-                      min-w-0
-                    "
-                  >
-                    {card}
-                  </article>
-                );
-              }
-            )}
-          </div>
         </section>
 
         {/* =================================================
             BACKGROUND REFRESH
         ================================================= */}
 
-        {refreshing && (
-          <div
-            className="
-              flex justify-center items-center
-              mt-5
-              text-slate-400 text-xs
-              gap-2
-            "
-            role="status"
-            aria-live="polite"
-          >
-            <RefreshCw
-              size={13}
+        {refreshing &&
+          hasStrategies && (
+            <div
               className="
-                animate-spin
+                flex justify-center items-center
+                mt-5
+                text-slate-400 text-xs
+                gap-2
               "
-              aria-hidden="true"
-            /
+              role="status"
+              aria-live="polite"
             >
+              <RefreshCw
+                size={13}
+                className="
+                  animate-spin
+                "
+                /
+              >
 
-            Updating your savings strategies...
-          </div>
-        )}
+              Updating your savings strategies...
+            </div>
+          )}
       </div>
     </main>
   );

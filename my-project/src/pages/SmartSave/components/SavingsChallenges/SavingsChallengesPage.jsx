@@ -1,18 +1,24 @@
 // pages/.../SavingsChallengesPage.jsx
 
 import {
-  memo,
-  useCallback,
-  useMemo,
-  useState,
-} from "react";
-
-import {
   AlertCircle,
+  CheckCircle2,
+  ChevronRight,
+  Clock3,
   Plus,
   RefreshCw,
   Target,
+  Trophy,
+  X,
 } from "lucide-react";
+
+import {
+  memo,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import SavingsChallengeCard from "./SavingsChallengeCard";
 import ChallengeEmptyState from "./ChallengeEmptyState";
@@ -42,49 +48,65 @@ const DEFAULT_DESCRIPTION =
   "Build consistent saving habits by completing structured challenges.";
 
 const DEFAULT_ERROR =
-  "Unable to load your savings challenges.";
+  "We couldn't load your savings challenges.";
 
 const DEFAULT_SKELETON_COUNT = 3;
 
 const COMPACT_SKELETON_COUNT = 2;
 
+const MAX_SAFE_LIMIT = 100;
+
+const STATUS = {
+  ACTIVE: String(
+    CHALLENGE_STATUS?.ACTIVE ?? "active"
+  ).toLowerCase(),
+
+  PAUSED: String(
+    CHALLENGE_STATUS?.PAUSED ?? "paused"
+  ).toLowerCase(),
+
+  COMPLETED: String(
+    CHALLENGE_STATUS?.COMPLETED ?? "completed"
+  ).toLowerCase(),
+
+  CANCELLED: String(
+    CHALLENGE_STATUS?.CANCELLED ?? "cancelled"
+  ).toLowerCase(),
+
+  DRAFT: String(
+    CHALLENGE_STATUS?.DRAFT ?? "draft"
+  ).toLowerCase(),
+};
+
 /* =========================================================
-   HELPERS
+   SAFE HELPERS
 ========================================================= */
 
-/**
- * Safely resolve an entity identifier.
- *
- * Supports:
- * - MongoDB _id
- * - normalized id
- * - challengeId
- */
 const getEntityId = (entity) => {
   if (!entity) {
     return null;
   }
 
-  if (typeof entity === "string") {
-    return entity;
+  if (
+    typeof entity === "string" ||
+    typeof entity === "number"
+  ) {
+    return String(entity);
   }
 
-  return (
+  const id =
     entity?._id ??
     entity?.id ??
     entity?.challengeId ??
-    null
-  );
+    null;
+
+  return id !== null &&
+    id !== undefined &&
+    id !== ""
+    ? String(id)
+    : null;
 };
 
-/**
- * Safely resolve a collection from supported API
- * response envelopes.
- *
- * The hook/service should ideally already expose a
- * normalized collection. This function is only a
- * defensive presentation boundary.
- */
 const resolveCollection = (value) => {
   if (Array.isArray(value)) {
     return value;
@@ -92,6 +114,10 @@ const resolveCollection = (value) => {
 
   if (Array.isArray(value?.data)) {
     return value.data;
+  }
+
+  if (Array.isArray(value?.data?.challenges)) {
+    return value.data.challenges;
   }
 
   if (Array.isArray(value?.challenges)) {
@@ -109,86 +135,88 @@ const resolveCollection = (value) => {
   return [];
 };
 
-/**
- * Convert an unknown error into a user-safe message.
- */
 const getErrorMessage = (error) => {
   if (!error) {
     return DEFAULT_ERROR;
   }
 
   if (typeof error === "string") {
-    return error;
+    return (
+      error.trim() ||
+      DEFAULT_ERROR
+    );
   }
 
-  return (
-    error?.message ||
-    error?.error ||
-    error?.response?.data?.message ||
-    error?.response?.data?.error ||
-    DEFAULT_ERROR
-  );
+  const message =
+    error?.response?.data?.message ??
+    error?.response?.data?.error ??
+    error?.data?.message ??
+    error?.data?.error ??
+    error?.message ??
+    error?.error;
+
+  return typeof message === "string" &&
+    message.trim()
+    ? message.trim()
+    : DEFAULT_ERROR;
 };
 
-/**
- * Normalize challenge status.
- */
+const normalizeStatus = (value) =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+
 const getChallengeStatus = (challenge) =>
-  String(
+  normalizeStatus(
     challenge?.status ??
-      CHALLENGE_STATUS?.DRAFT ??
-      "draft"
-  ).toLowerCase();
-
-/**
- * Filter challenges by status without mutating
- * the original collection.
- */
-const filterChallenges = (
-  challenges,
-  status
-) => {
-  if (!status) {
-    return challenges;
-  }
-
-  const normalizedStatus =
-    String(status).toLowerCase();
-
-  return challenges.filter(
-    (challenge) =>
-      getChallengeStatus(challenge) ===
-      normalizedStatus
+      challenge?.state ??
+      STATUS.DRAFT
   );
-};
 
-/**
- * Create a defensive React key.
- *
- * Prefer a real backend identifier.
- */
-const getChallengeKey = (challenge, index) => {
+const isActive = (challenge) =>
+  getChallengeStatus(challenge) ===
+  STATUS.ACTIVE;
+
+const isPaused = (challenge) =>
+  getChallengeStatus(challenge) ===
+  STATUS.PAUSED;
+
+const isCompleted = (challenge) =>
+  getChallengeStatus(challenge) ===
+  STATUS.COMPLETED;
+
+const getChallengeKey = (
+  challenge,
+  index
+) => {
   const id = getEntityId(challenge);
 
   if (id) {
-    return String(id);
+    return `challenge-${id}`;
   }
 
-  const name =
-    challenge?.name ??
-    challenge?.title ??
-    "challenge";
+  return `challenge-${index}`;
+};
 
-  const startDate =
-    challenge?.startDate ??
-    challenge?.createdAt ??
-    "";
+const sanitizeLimit = (value) => {
+  const numeric = Number(value);
 
-  return `${name}-${startDate}-${index}`;
+  if (
+    !Number.isFinite(numeric) ||
+    numeric <= 0
+  ) {
+    return null;
+  }
+
+  return Math.min(
+    Math.floor(numeric),
+    MAX_SAFE_LIMIT
+  );
 };
 
 /* =========================================================
-   SECTION HEADER
+   PAGE HEADER
 ========================================================= */
 
 const SectionHeader = memo(
@@ -196,23 +224,19 @@ const SectionHeader = memo(
     title,
     description,
     count,
-    showCreateButton,
-    showRefreshButton,
     onCreate,
     onRefresh,
+    canCreate,
+    canRefresh,
     refreshing,
   }) => {
     return (
       <header
         className="
-          flex flex-col sm:flex-row sm:justify-between sm:items-start
-          gap-4
+          flex flex-col lg:flex-row lg:justify-between lg:items-start
+          gap-5
         "
       >
-        {/* ---------------------------------------------
-            TITLE
-        --------------------------------------------- */}
-
         <div
           className="
             min-w-0
@@ -220,98 +244,105 @@ const SectionHeader = memo(
         >
           <div
             className="
-              flex items-center
-              min-w-0
-              gap-2
+              flex items-start
+              gap-3
             "
           >
             <div
               className="
                 flex justify-center items-center
-                w-9 h-9
-                text-blue-600
+                w-11 h-11
+                text-blue-700
                 bg-blue-50
-                rounded-xl
+                border border-blue-100 rounded-2xl
                 shrink-0
               "
               aria-hidden="true"
             >
-              <Target size={18} />
+              <Target
+                size={20}
+                strokeWidth={1.8}
+              />
             </div>
 
-            <h1
+            <div
               className="
                 min-w-0
-                font-bold text-slate-900 text-lg sm:text-xl truncate
-                tracking-tight
               "
             >
-              {title}
-            </h1>
-
-            {typeof count === "number" && (
-              <span
+              <div
                 className="
-                  inline-flex justify-center items-center
-                  min-w-6 h-6
-                  px-2
-                  font-semibold text-[11px] text-slate-600
-                  bg-slate-100
-                  rounded-full
-                  shrink-0
+                  flex flex-wrap items-center
+                  gap-2
                 "
-                aria-label={`${count} challenges`}
               >
-                {count}
-              </span>
-            )}
+                <h1
+                  id="savings-challenges-title"
+                  className="
+                    font-bold text-slate-950 text-2xl sm:text-3xl tracking-tight
+                  "
+                >
+                  {title}
+                </h1>
+
+                <span
+                  className="
+                    inline-flex justify-center items-center
+                    min-h-6
+                    px-2.5
+                    font-semibold text-slate-600 text-xs
+                    bg-slate-100
+                    border border-slate-200 rounded-full
+                  "
+                >
+                  {count}
+                </span>
+              </div>
+
+              {description ? (
+                <p
+                  className="
+                    max-w-2xl
+                    mt-1.5
+                    text-slate-500 text-sm leading-6
+                  "
+                >
+                  {description}
+                </p>
+              ) : null}
+            </div>
           </div>
-
-          {description && (
-            <p
-              className="
-                max-w-2xl
-                mt-2
-                text-slate-500 text-xs sm:text-sm leading-5
-              "
-            >
-              {description}
-            </p>
-          )}
         </div>
-
-        {/* ---------------------------------------------
-            ACTIONS
-        --------------------------------------------- */}
 
         <div
           className="
             flex items-center
-            gap-2 shrink-0
+            w-full lg:w-auto
+            gap-2
           "
         >
-          {showRefreshButton && (
+          {canRefresh ? (
             <button
               type="button"
               onClick={onRefresh}
               disabled={refreshing}
-              aria-label={
-                refreshing
-                  ? "Refreshing savings challenges"
-                  : "Refresh savings challenges"
-              }
-              title="Refresh challenges"
               className="
                 inline-flex justify-center items-center
-                w-10 h-10
-                text-slate-500 hover:text-slate-700
-                bg-white hover:bg-slate-50
+                min-h-11
+                px-4
+                font-medium text-slate-700 text-sm
+                bg-white hover:bg-slate-50 disabled:bg-slate-50
                 border border-slate-200 hover:border-slate-300 rounded-xl
-                focus:outline-none
-                focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
-                disabled:opacity-50 shadow-sm transition
+                focus:outline-none focus:ring-2 focus:ring-slate-400/30
+                disabled:opacity-60 shadow-sm transition
                 disabled:cursor-not-allowed
+                gap-2
               "
+              aria-label={
+                refreshing
+                  ? "Refreshing challenges"
+                  : "Refresh challenges"
+              }
             >
               <RefreshCw
                 size={16}
@@ -320,35 +351,41 @@ const SectionHeader = memo(
                     ? "animate-spin"
                     : undefined
                 }
-                aria-hidden="true"
               />
-            </button>
-          )}
 
-          {showCreateButton && (
+              <span
+                className="
+                  hidden sm:inline
+                "
+              >
+                {refreshing
+                  ? "Refreshing..."
+                  : "Refresh"}
+              </span>
+            </button>
+          ) : null}
+
+          {canCreate ? (
             <button
               type="button"
               onClick={onCreate}
               className="
-                inline-flex justify-center items-center
-                min-h-10
-                px-4 py-2
-                font-semibold text-white text-xs
-                bg-slate-900 hover:bg-slate-800
+                inline-flex flex-1 lg:flex-none justify-center items-center
+                min-h-11
+                px-4
+                font-semibold text-white text-sm
+                bg-slate-950 hover:bg-slate-800
                 rounded-xl focus:outline-none
-                focus:ring-2 focus:ring-slate-900 focus:ring-offset-2
+                focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
                 shadow-sm transition
                 gap-2
               "
             >
-              <Plus
-                size={15}
-                aria-hidden="true"
-              />
+              <Plus size={17} />
 
-              New Challenge
+              New challenge
             </button>
-          )}
+          ) : null}
         </div>
       </header>
     );
@@ -359,45 +396,191 @@ SectionHeader.displayName =
   "SavingsChallengesSectionHeader";
 
 /* =========================================================
+   SUMMARY METRIC
+========================================================= */
+
+const SummaryMetric = memo(
+  ({
+    icon: Icon,
+    label,
+    value,
+    description,
+  }) => (
+    <div
+      className="
+        p-4 sm:p-5
+        bg-white
+        border border-slate-200 rounded-2xl
+        shadow-sm
+      "
+    >
+      <div
+        className="
+          flex items-start
+          gap-3
+        "
+      >
+        <div
+          className="
+            flex justify-center items-center
+            w-9 h-9
+            text-slate-700
+            bg-slate-100
+            rounded-xl
+            shrink-0
+          "
+        >
+          <Icon size={17} />
+        </div>
+
+        <div
+          className="
+            min-w-0
+          "
+        >
+          <p
+            className="
+              font-medium text-slate-500 text-xs
+            "
+          >
+            {label}
+          </p>
+
+          <p
+            className="
+              mt-1
+              font-bold text-slate-950 text-xl tracking-tight
+            "
+          >
+            {value}
+          </p>
+
+          <p
+            className="
+              mt-0.5
+              text-[11px] text-slate-400
+            "
+          >
+            {description}
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+);
+
+SummaryMetric.displayName =
+  "SavingsChallengeSummaryMetric";
+
+/* =========================================================
+   NON-BLOCKING ERROR
+========================================================= */
+
+const RefreshWarning = memo(
+  ({
+    message,
+    refreshing,
+    onRetry,
+    canRetry,
+  }) => (
+    <div
+      className="
+        flex items-start
+        p-4
+        bg-amber-50
+        border border-amber-200 rounded-2xl
+        gap-3
+      "
+      role="status"
+      aria-live="polite"
+    >
+      <div
+        className="
+          flex justify-center items-center
+          w-8 h-8
+          text-amber-700
+          bg-amber-100
+          rounded-xl
+          shrink-0
+        "
+      >
+        <AlertCircle size={16} />
+      </div>
+
+      <div
+        className="
+          flex-1
+          min-w-0
+        "
+      >
+        <p
+          className="
+            font-semibold text-amber-900 text-sm
+          "
+        >
+          Your challenge data may be outdated.
+        </p>
+
+        <p
+          className="
+            mt-0.5
+            text-amber-700 text-xs leading-5
+          "
+        >
+          {message}
+        </p>
+      </div>
+
+      {canRetry ? (
+        <button
+          type="button"
+          onClick={onRetry}
+          disabled={refreshing}
+          className="
+            font-semibold text-amber-800 text-xs underline underline-offset-2
+            disabled:opacity-50
+            disabled:cursor-not-allowed
+            shrink-0
+          "
+        >
+          {refreshing
+            ? "Retrying..."
+            : "Retry"}
+        </button>
+      ) : null}
+    </div>
+  )
+);
+
+RefreshWarning.displayName =
+  "SavingsChallengesRefreshWarning";
+
+/* =========================================================
    PAGE
 ========================================================= */
 
 const SavingsChallengesPage = ({
   title = DEFAULT_TITLE,
-
   description = DEFAULT_DESCRIPTION,
 
   limit,
-
   status,
 
   showHeader = true,
-
   showCreateButton = true,
-
   showRefreshButton = true,
 
   compact = false,
 
   onCreate,
-
   onChallengeClick,
 
   className = "",
 }) => {
   /* =======================================================
-     DATA SOURCE
+     SERVER STATE
   ======================================================= */
 
-  /*
-   * IMPORTANT:
-   *
-   * This is the ONLY component in this feature that owns
-   * useSavingsChallenges().
-   *
-   * Child components must remain presentation/action
-   * components and must not independently call the hook.
-   */
   const challengeState =
     useSavingsChallenges() ?? {};
 
@@ -408,10 +591,10 @@ const SavingsChallengesPage = ({
     loading = false,
     isLoading = false,
 
-    error,
-
     refreshing = false,
-    isRefreshing: hookIsRefreshing = false,
+    isRefreshing = false,
+
+    error = null,
 
     fetchChallenges,
     refetch,
@@ -426,7 +609,21 @@ const SavingsChallengesPage = ({
   } = challengeState;
 
   /* =======================================================
-     NORMALIZE DATA
+     MUTATION LOCK
+  ======================================================= */
+
+  /*
+   * Prevents double-clicks and duplicate mutation requests.
+   *
+   * A ref is deliberately used instead of state so clicking
+   * an action twice in the same event loop cannot dispatch
+   * two requests before React re-renders.
+   */
+  const mutationLockRef =
+    useRef(false);
+
+  /* =======================================================
+     NORMALIZATION
   ======================================================= */
 
   const challenges = useMemo(() => {
@@ -435,15 +632,16 @@ const SavingsChallengesPage = ({
       data ??
       [];
 
-    const collection =
-      resolveCollection(source);
-
-    return collection
-      .map((challenge) =>
-        normalizeSavingsChallenge(
-          challenge
-        )
-      )
+    return resolveCollection(source)
+      .map((challenge) => {
+        try {
+          return normalizeSavingsChallenge(
+            challenge
+          );
+        } catch {
+          return null;
+        }
+      })
       .filter(Boolean);
   }, [
     hookChallenges,
@@ -451,78 +649,112 @@ const SavingsChallengesPage = ({
   ]);
 
   /* =======================================================
-     LOADING / REFRESHING
+     REQUEST STATE
   ======================================================= */
 
-  const isInitialLoading =
+  const initialLoading =
     Boolean(
       loading ||
         isLoading
     ) &&
     challenges.length === 0;
 
-  const isRefreshing =
+  const Refreshing =
     Boolean(
       refreshing ||
-        hookIsRefreshing
+        isRefreshing
     );
 
   /* =======================================================
      ERROR
   ======================================================= */
 
-  const normalizedError =
-    useMemo(
-      () =>
-        error
-          ? getErrorMessage(error)
-          : null,
-      [error]
-    );
-
-  const hasError =
-    Boolean(normalizedError);
+  const errorMessage = useMemo(
+    () =>
+      error
+        ? getErrorMessage(error)
+        : null,
+    [error]
+  );
 
   /* =======================================================
-     FILTERING
+     FILTER
   ======================================================= */
 
+  const normalizedStatus =
+    status
+      ? normalizeStatus(status)
+      : null;
+
   const filteredChallenges =
-    useMemo(
-      () =>
-        filterChallenges(
-          challenges,
-          status
-        ),
-      [
-        challenges,
-        status,
-      ]
-    );
+    useMemo(() => {
+      if (!normalizedStatus) {
+        return challenges;
+      }
+
+      return challenges.filter(
+        (challenge) =>
+          getChallengeStatus(
+            challenge
+          ) === normalizedStatus
+      );
+    }, [
+      challenges,
+      normalizedStatus,
+    ]);
+
+  const safeLimit = useMemo(
+    () => sanitizeLimit(limit),
+    [limit]
+  );
 
   const visibleChallenges =
     useMemo(() => {
-      if (
-        Number.isInteger(limit) &&
-        limit > 0
-      ) {
-        return filteredChallenges.slice(
-          0,
-          limit
-        );
+      if (!safeLimit) {
+        return filteredChallenges;
       }
 
-      return filteredChallenges;
+      return filteredChallenges.slice(
+        0,
+        safeLimit
+      );
     }, [
+      filteredChallenges,
+      safeLimit,
+    ]);
+
+  /* =======================================================
+     SUMMARY
+  ======================================================= */
+
+  const summary = useMemo(() => {
+    const total =
+      filteredChallenges.length;
+
+    const active =
+      filteredChallenges.filter(
+        isActive
+      ).length;
+
+    const paused =
+      filteredChallenges.filter(
+        isPaused
+      ).length;
+
+    const completed =
+      filteredChallenges.filter(
+        isCompleted
+      ).length;
+
+    return {
+      total,
+      active,
+      paused,
+      completed,
+    };
+  }, [
     filteredChallenges,
-    limit,
   ]);
-
-  const challengeCount =
-    filteredChallenges.length;
-
-  const hasChallenges =
-    visibleChallenges.length > 0;
 
   /* =======================================================
      MODAL STATE
@@ -534,226 +766,12 @@ const SavingsChallengesPage = ({
   ] = useState(null);
 
   const [
-    isCreateModalOpen,
-    setIsCreateModalOpen,
+    createModalOpen,
+    setCreateModalOpen,
   ] = useState(false);
 
   /* =======================================================
-     CREATE MODAL
-  ======================================================= */
-
-  const handleOpenCreate =
-    useCallback(() => {
-      if (typeof onCreate === "function") {
-        onCreate();
-        return;
-      }
-
-      setIsCreateModalOpen(true);
-    }, [
-      onCreate,
-    ]);
-
-  const handleCloseCreate =
-    useCallback(() => {
-      setIsCreateModalOpen(false);
-    }, []);
-
-  /* =======================================================
-     CREATE CHALLENGE
-  ======================================================= */
-
-  const handleCreateChallenge =
-    useCallback(
-      async (payload) => {
-        if (
-          typeof createChallenge !==
-          "function"
-        ) {
-          return undefined;
-        }
-
-        const result =
-          await createChallenge(payload);
-
-        /*
-         * Close only after successful mutation.
-         *
-         * If createChallenge throws, the modal remains
-         * open so the user can correct/retry the form.
-         */
-        setIsCreateModalOpen(false);
-
-        return result;
-      },
-      [
-        createChallenge,
-      ]
-    );
-
-  /* =======================================================
-     CHALLENGE DETAILS
-  ======================================================= */
-
-  const handleChallengeClick =
-    useCallback(
-      (challenge) => {
-        if (
-          typeof onChallengeClick ===
-          "function"
-        ) {
-          onChallengeClick(challenge);
-          return;
-        }
-
-        setSelectedChallenge(challenge);
-      },
-      [
-        onChallengeClick,
-      ]
-    );
-
-  const handleCloseDetails =
-    useCallback(() => {
-      setSelectedChallenge(null);
-    }, []);
-
-  /* =======================================================
-     REFRESH
-  ======================================================= */
-
-  const handleRefresh =
-    useCallback(() => {
-      if (
-        typeof refetch === "function"
-      ) {
-        return refetch();
-      }
-
-      if (
-        typeof fetchChallenges ===
-        "function"
-      ) {
-        return fetchChallenges();
-      }
-
-      return undefined;
-    }, [
-      refetch,
-      fetchChallenges,
-    ]);
-
-  /* =======================================================
-     MUTATION HELPERS
-  ======================================================= */
-
-  const handleActivate =
-    useCallback(
-      async (challenge) => {
-        const id =
-          getEntityId(challenge);
-
-        if (
-          !id ||
-          typeof activateChallenge !==
-            "function"
-        ) {
-          return undefined;
-        }
-
-        return activateChallenge(id);
-      },
-      [
-        activateChallenge,
-      ]
-    );
-
-  const handlePause =
-    useCallback(
-      async (challenge) => {
-        const id =
-          getEntityId(challenge);
-
-        if (
-          !id ||
-          typeof pauseChallenge !==
-            "function"
-        ) {
-          return undefined;
-        }
-
-        return pauseChallenge(id);
-      },
-      [
-        pauseChallenge,
-      ]
-    );
-
-  const handleResume =
-    useCallback(
-      async (challenge) => {
-        const id =
-          getEntityId(challenge);
-
-        if (
-          !id ||
-          typeof resumeChallenge !==
-            "function"
-        ) {
-          return undefined;
-        }
-
-        return resumeChallenge(id);
-      },
-      [
-        resumeChallenge,
-      ]
-    );
-
-  const handleComplete =
-    useCallback(
-      async (challenge) => {
-        const id =
-          getEntityId(challenge);
-
-        if (
-          !id ||
-          typeof completeChallenge !==
-            "function"
-        ) {
-          return undefined;
-        }
-
-        return completeChallenge(id);
-      },
-      [
-        completeChallenge,
-      ]
-    );
-
-  const handleCancel =
-    useCallback(
-      async (challenge) => {
-        const id =
-          getEntityId(challenge);
-
-        if (
-          !id ||
-          typeof cancelChallenge !==
-            "function"
-        ) {
-          return undefined;
-        }
-
-        return cancelChallenge(id);
-      },
-      [
-        cancelChallenge,
-      ]
-    );
-
-  /* =======================================================
-     ACTION AVAILABILITY
+     CAPABILITIES
   ======================================================= */
 
   const canRefresh =
@@ -786,27 +804,341 @@ const SavingsChallengesPage = ({
     "function";
 
   /* =======================================================
-     SHARED HEADER
+     REFRESH
+  ======================================================= */
+
+  const handleRefresh =
+    useCallback(async () => {
+      if (
+        mutationLockRef.current ||
+        isRefreshing
+      ) {
+        return undefined;
+      }
+
+      if (
+        typeof refetch === "function"
+      ) {
+        return refetch();
+      }
+
+      if (
+        typeof fetchChallenges ===
+        "function"
+      ) {
+        return fetchChallenges();
+      }
+
+      return undefined;
+    }, [
+      refetch,
+      fetchChallenges,
+      isRefreshing,
+    ]);
+
+  /* =======================================================
+     CREATE MODAL
+  ======================================================= */
+
+  const handleOpenCreate =
+    useCallback(() => {
+      if (
+        typeof onCreate ===
+        "function"
+      ) {
+        onCreate();
+        return;
+      }
+
+      if (canCreate) {
+        setCreateModalOpen(true);
+      }
+    }, [
+      onCreate,
+      canCreate,
+    ]);
+
+  const handleCloseCreate =
+    useCallback(() => {
+      if (
+        mutationLockRef.current
+      ) {
+        return;
+      }
+
+      setCreateModalOpen(false);
+    }, []);
+
+  /* =======================================================
+     CREATE
+  ======================================================= */
+
+  const handleCreateChallenge =
+    useCallback(
+      async (payload) => {
+        if (
+          !canCreate ||
+          mutationLockRef.current
+        ) {
+          return undefined;
+        }
+
+        mutationLockRef.current = true;
+
+        try {
+          const result =
+            await createChallenge(
+              payload
+            );
+
+          /*
+           * The hook should update its cache/state.
+           * We additionally reconcile from the server when
+           * a refetch function exists.
+           */
+          if (
+            typeof refetch ===
+            "function"
+          ) {
+            await refetch();
+          }
+
+          setCreateModalOpen(false);
+
+          return result;
+        } finally {
+          mutationLockRef.current =
+            false;
+        }
+      },
+      [
+        canCreate,
+        createChallenge,
+        refetch,
+      ]
+    );
+
+  /* =======================================================
+     DETAILS
+  ======================================================= */
+
+  const handleChallengeClick =
+    useCallback(
+      (challenge) => {
+        if (
+          typeof onChallengeClick ===
+          "function"
+        ) {
+          onChallengeClick(
+            challenge
+          );
+          return;
+        }
+
+        setSelectedChallenge(
+          challenge
+        );
+      },
+      [
+        onChallengeClick,
+      ]
+    );
+
+  const handleCloseDetails =
+    useCallback(() => {
+      if (
+        mutationLockRef.current
+      ) {
+        return;
+      }
+
+      setSelectedChallenge(null);
+    }, []);
+
+  /* =======================================================
+     GENERIC MUTATION EXECUTOR
+  ======================================================= */
+
+  const executeMutation =
+    useCallback(
+      async (
+        mutation,
+        challenge,
+        options = {}
+      ) => {
+        const id =
+          getEntityId(
+            challenge
+          );
+
+        if (
+          !id ||
+          typeof mutation !==
+            "function" ||
+          mutationLockRef.current
+        ) {
+          return undefined;
+        }
+
+        mutationLockRef.current =
+          true;
+
+        try {
+          const result =
+            await mutation(id);
+
+          /*
+           * Server remains authoritative.
+           * Re-fetch after every successful
+           * challenge state transition.
+           */
+          if (
+            typeof refetch ===
+            "function"
+          ) {
+            await refetch();
+          }
+
+          /*
+           * If the currently selected challenge was
+           * mutated, close the details modal so we do
+           * not keep presenting stale state.
+           */
+          if (
+            options.closeDetails
+          ) {
+            setSelectedChallenge(
+              null
+            );
+          }
+
+          return result;
+        } finally {
+          mutationLockRef.current =
+            false;
+        }
+      },
+      [refetch]
+    );
+
+  /* =======================================================
+     MUTATIONS
+  ======================================================= */
+
+  const handleActivate =
+    useCallback(
+      (challenge) =>
+        executeMutation(
+          activateChallenge,
+          challenge
+        ),
+      [
+        executeMutation,
+        activateChallenge,
+      ]
+    );
+
+  const handlePause =
+    useCallback(
+      (challenge) =>
+        executeMutation(
+          pauseChallenge,
+          challenge
+        ),
+      [
+        executeMutation,
+        pauseChallenge,
+      ]
+    );
+
+  const handleResume =
+    useCallback(
+      (challenge) =>
+        executeMutation(
+          resumeChallenge,
+          challenge
+        ),
+      [
+        executeMutation,
+        resumeChallenge,
+      ]
+    );
+
+  const handleComplete =
+    useCallback(
+      (challenge) =>
+        executeMutation(
+          completeChallenge,
+          challenge,
+          {
+            closeDetails: true,
+          }
+        ),
+      [
+        executeMutation,
+        completeChallenge,
+      ]
+    );
+
+  const handleCancel =
+    useCallback(
+      (challenge) =>
+        executeMutation(
+          cancelChallenge,
+          challenge,
+          {
+            closeDetails: true,
+          }
+        ),
+      [
+        executeMutation,
+        cancelChallenge,
+      ]
+    );
+
+  /* =======================================================
+     INITIAL STATES
+  ======================================================= */
+
+  const hasChallenges =
+    visibleChallenges.length > 0;
+
+  const showInitialError =
+    Boolean(error) &&
+    !initialLoading &&
+    challenges.length === 0;
+
+  const showEmpty =
+    !initialLoading &&
+    !showInitialError &&
+    !hasChallenges;
+
+  /* =======================================================
+     HEADER
   ======================================================= */
 
   const header = showHeader ? (
     <SectionHeader
       title={title}
       description={description}
-      count={challengeCount}
-      showCreateButton={
-        showCreateButton &&
-        (canCreate || typeof onCreate === "function")
-      }
-      showRefreshButton={
-        showRefreshButton &&
-        canRefresh
-      }
+      count={summary.total}
       onCreate={
         handleOpenCreate
       }
       onRefresh={
         handleRefresh
+      }
+      canCreate={
+        showCreateButton &&
+        (
+          canCreate ||
+          typeof onCreate ===
+            "function"
+        )
+      }
+      canRefresh={
+        showRefreshButton &&
+        canRefresh
       }
       refreshing={
         isRefreshing
@@ -815,47 +1147,47 @@ const SavingsChallengesPage = ({
   ) : null;
 
   /* =======================================================
-     INITIAL LOADING
+     LOADING
   ======================================================= */
 
-  if (isInitialLoading) {
+  if (initialLoading) {
     return (
-      <>
-        <section
-          className={`
-            w-full
-            space-y-5
-            ${className}
-          `}
-          aria-labelledby="savings-challenges-title"
-          aria-busy="true"
-        >
-          {header}
+      <section
+        className={`
+          w-full
+          space-y-5
+          ${className}
+        `}
+        aria-labelledby="savings-challenges-title"
+        aria-busy="true"
+      >
+        {header}
 
-          <div
-            className="
-              grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3
-              gap-4
-            "
-          >
-            <SavingsSkeleton
-              count={
-                compact
-                  ? COMPACT_SKELETON_COUNT
-                  : DEFAULT_SKELETON_COUNT
-              }
-            />
-          </div>
-        </section>
+        <div
+          className="
+            grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3
+            gap-4
+          "
+        >
+          <SavingsSkeleton
+            count={
+              compact
+                ? COMPACT_SKELETON_COUNT
+                : DEFAULT_SKELETON_COUNT
+            }
+          />
+        </div>
 
         <CreateChallengeModal
-          open={isCreateModalOpen}
-          onClose={handleCloseCreate}
+          open={createModalOpen}
+          onClose={
+            handleCloseCreate
+          }
           onSubmit={
             handleCreateChallenge
           }
         />
-      </>
+      </section>
     );
   }
 
@@ -863,10 +1195,7 @@ const SavingsChallengesPage = ({
      INITIAL ERROR
   ======================================================= */
 
-  if (
-    hasError &&
-    challenges.length === 0
-  ) {
+  if (showInitialError) {
     return (
       <>
         <section
@@ -880,15 +1209,23 @@ const SavingsChallengesPage = ({
           {header}
 
           <SavingsErrorState
-            error={normalizedError}
-            onRetry={handleRefresh}
-            retrying={isRefreshing}
+            error={errorMessage}
+            onRetry={
+              canRefresh
+                ? handleRefresh
+                : undefined
+            }
+            retrying={
+              isRefreshing
+            }
           />
         </section>
 
         <CreateChallengeModal
-          open={isCreateModalOpen}
-          onClose={handleCloseCreate}
+          open={createModalOpen}
+          onClose={
+            handleCloseCreate
+          }
           onSubmit={
             handleCreateChallenge
           }
@@ -898,10 +1235,10 @@ const SavingsChallengesPage = ({
   }
 
   /* =======================================================
-     EMPTY STATE
+     EMPTY
   ======================================================= */
 
-  if (!hasChallenges) {
+  if (showEmpty) {
     return (
       <>
         <section
@@ -916,7 +1253,12 @@ const SavingsChallengesPage = ({
 
           <ChallengeEmptyState
             onCreate={
-              showCreateButton
+              showCreateButton &&
+              (
+                canCreate ||
+                typeof onCreate ===
+                  "function"
+              )
                 ? handleOpenCreate
                 : undefined
             }
@@ -924,8 +1266,10 @@ const SavingsChallengesPage = ({
         </section>
 
         <CreateChallengeModal
-          open={isCreateModalOpen}
-          onClose={handleCloseCreate}
+          open={createModalOpen}
+          onClose={
+            handleCloseCreate
+          }
           onSubmit={
             handleCreateChallenge
           }
@@ -935,7 +1279,7 @@ const SavingsChallengesPage = ({
   }
 
   /* =======================================================
-     MAIN RENDER
+     MAIN PAGE
   ======================================================= */
 
   return (
@@ -943,93 +1287,158 @@ const SavingsChallengesPage = ({
       <section
         className={`
           w-full
-          space-y-5
+          space-y-6
           ${className}
         `}
         aria-labelledby="savings-challenges-title"
+        aria-busy={
+          isRefreshing
+        }
       >
-        {/* =============================================
-            HEADER
-        ============================================== */}
-
         {header}
 
-        {/* =============================================
+        {/* ===============================================
+            SUMMARY
+        =============================================== */}
+
+        <section
+          className="
+            grid grid-cols-2 lg:grid-cols-4
+            gap-3 sm:gap-4
+          "
+          aria-label="Savings challenge summary"
+        >
+          <SummaryMetric
+            icon={Target}
+            label="Total"
+            value={
+              summary.total
+            }
+            description="Available challenges"
+          />
+
+          <SummaryMetric
+            icon={CheckCircle2}
+            label="Active"
+            value={
+              summary.active
+            }
+            description="Currently running"
+          />
+
+          <SummaryMetric
+            icon={Clock3}
+            label="Paused"
+            value={
+              summary.paused
+            }
+            description="Temporarily paused"
+          />
+
+          <SummaryMetric
+            icon={Trophy}
+            label="Completed"
+            value={
+              summary.completed
+            }
+            description="Successfully finished"
+          />
+        </section>
+
+        {/* ===============================================
             NON-BLOCKING ERROR
-        ============================================== */}
+        =============================================== */}
 
-        {hasError && (
-          <div
-            className="
-              flex items-start
-              px-4 py-3
-              text-amber-800 text-xs
-              bg-amber-50
-              border border-amber-200 rounded-xl
-              gap-3
-            "
-            role="status"
-            aria-live="polite"
-          >
-            <AlertCircle
-              size={16}
+        {errorMessage ? (
+          <RefreshWarning
+            message={
+              errorMessage
+            }
+            refreshing={
+              isRefreshing
+            }
+            onRetry={
+              handleRefresh
+            }
+            canRetry={
+              canRefresh
+            }
+          />
+        ) : null}
+
+        {/* ===============================================
+            LIST HEADER
+        =============================================== */}
+
+        <div
+          className="
+            flex justify-between items-end
+            gap-4
+          "
+        >
+          <div>
+            <h2
               className="
-                mt-0.5
-                shrink-0
+                font-bold text-slate-950 text-lg
               "
-              aria-hidden="true"
-            /
             >
+              Your challenges
+            </h2>
 
-            <div
+            <p
               className="
-                flex-1
-                min-w-0
+                mt-1
+                text-slate-500 text-sm
               "
             >
-              <p
-                className="
-                  font-semibold
-                "
-              >
-                Challenges could not be fully refreshed.
-              </p>
-
-              <p
-                className="
-                  mt-0.5
-                  text-amber-700
-                "
-              >
-                {normalizedError}
-              </p>
-            </div>
-
-            {canRefresh && (
-              <button
-                type="button"
-                onClick={
-                  handleRefresh
-                }
-                disabled={
-                  isRefreshing
-                }
-                className="
-                  font-semibold underline underline-offset-2 hover:no-underline
-                  disabled:opacity-50
-                  disabled:cursor-not-allowed
-                  shrink-0
-                "
-              >
-                Retry
-              </button>
-            )}
+              Stay consistent and make progress
+              toward your savings goals.
+            </p>
           </div>
-        )}
 
-        {/* =============================================
+          <span
+            className="
+              hidden sm:inline-flex items-center
+              min-h-7
+              px-3
+              font-semibold text-slate-600 text-xs
+              bg-white
+              border border-slate-200 rounded-full
+              gap-1 shrink-0
+            "
+          >
+            {visibleChallenges.length}
+
+            <span
+              className="
+                text-slate-400
+              "
+            >
+              {visibleChallenges.length ===
+              1
+                ? "challenge"
+                : "challenges"}
+            </span>
+
+            {safeLimit &&
+            filteredChallenges.length >
+              safeLimit ? (
+              <>
+                <ChevronRight
+                  size={12}
+                />
+
+                <span>
+                  showing {safeLimit}
+                </span>
+              </>
+            ) : null}
+          </span>
+        </div>
+
+        {/* ===============================================
             CHALLENGE GRID
-        ============================================== */}
+        =============================================== */}
 
         <div
           className="
@@ -1042,55 +1451,61 @@ const SavingsChallengesPage = ({
               challenge,
               index
             ) => (
-              <SavingsChallengeCard
+              <article
                 key={getChallengeKey(
                   challenge,
                   index
                 )}
-                challenge={
-                  challenge
-                }
-                compact={
-                  compact
-                }
-                onView={
-                  handleChallengeClick
-                }
-                onActivate={
-                  canActivate
-                    ? handleActivate
-                    : undefined
-                }
-                onPause={
-                  canPause
-                    ? handlePause
-                    : undefined
-                }
-                onResume={
-                  canResume
-                    ? handleResume
-                    : undefined
-                }
-                onComplete={
-                  canComplete
-                    ? handleComplete
-                    : undefined
-                }
-                onCancel={
-                  canCancel
-                    ? handleCancel
-                    : undefined
-                }
-              />
+                className="
+                  min-w-0
+                "
+              >
+                <SavingsChallengeCard
+                  challenge={
+                    challenge
+                  }
+                  compact={
+                    compact
+                  }
+                  onView={
+                    handleChallengeClick
+                  }
+                  onActivate={
+                    canActivate
+                      ? handleActivate
+                      : undefined
+                  }
+                  onPause={
+                    canPause
+                      ? handlePause
+                      : undefined
+                  }
+                  onResume={
+                    canResume
+                      ? handleResume
+                      : undefined
+                  }
+                  onComplete={
+                    canComplete
+                      ? handleComplete
+                      : undefined
+                  }
+                  onCancel={
+                    canCancel
+                      ? handleCancel
+                      : undefined
+                  }
+                />
+              </article>
             )
           )}
         </div>
 
-        {/* =============================================
-            BACKGROUND REFRESH INDICATOR
-        ============================================== */}
+        {/* ===============================================
+            BACKGROUND REFRESH
+        =============================================== */}
 
-        {isRefreshing && (
+        {isRefreshing ? (
           <div
             className="
               flex justify-center items-center
@@ -1110,9 +1525,9 @@ const SavingsChallengesPage = ({
             /
             >
 
-            Updating challenges...
+            Updating your savings challenges...
           </div>
-        )}
+        ) : null}
       </section>
 
       {/* =================================================
@@ -1120,8 +1535,10 @@ const SavingsChallengesPage = ({
       ================================================= */}
 
       <CreateChallengeModal
-        open={isCreateModalOpen}
-        onClose={handleCloseCreate}
+        open={createModalOpen}
+        onClose={
+          handleCloseCreate
+        }
         onSubmit={
           handleCreateChallenge
         }
@@ -1178,9 +1595,8 @@ const SavingsChallengesPage = ({
   );
 };
 
-/* =========================================================
-   MEMOIZATION
-========================================================= */
+SavingsChallengesPage.displayName =
+  "SavingsChallengesPage";
 
 export default memo(
   SavingsChallengesPage

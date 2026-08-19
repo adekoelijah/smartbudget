@@ -1,4 +1,3 @@
-
 import {
   ArrowRight,
   CalendarDays,
@@ -11,98 +10,23 @@ import {
   WalletCards,
 } from "lucide-react";
 
-import {
-  useMemo,
-  useState,
-} from "react";
+import { memo, useState } from "react";
 
 import {
   formatSavingsCurrency,
   formatSavingsDate,
 } from "../../../../utils/smartSave/savingsFormatters";
 
-import {
-  normalizeSavingsGoal,
-} from "../../../../utils/smartSave/savingsNormalizers";
-
-import {
-  calculateSavingsProgress,
-} from "../../../../utils/smartSave/savingsProgress";
-
-import {
-  getSavingsHealthStatus,
-} from "../../../../utils/smartSave/savingsHealth";
-
-import {
-  SMART_SAVE_GOAL_STATUS,
-} from "../../../../constants/smartSaveConstants";
-
 /* =========================================================
-   HELPERS
+   CONSTANTS
 ========================================================= */
 
-const getGoalId = (goal) =>
-  goal?._id ||
-  goal?.id ||
-  goal?.goalId ||
-  null;
-
-const getGoalName = (goal) =>
-  goal?.name ||
-  goal?.title ||
-  "Savings Goal";
-
-const getGoalDescription = (goal) =>
-  goal?.description ||
-  "";
-
-const getCurrency = (goal) =>
-  goal?.currency ||
-  "NGN";
-
-const getTargetAmount = (goal) =>
-  Number(
-    goal?.targetAmount ??
-    goal?.target ??
-    0
-  );
-
-const getCurrentAmount = (goal) =>
-  Number(
-    goal?.currentAmount ??
-    goal?.savedAmount ??
-    goal?.amountSaved ??
-    goal?.progressAmount ??
-    0
-  );
-
-const getTargetDate = (goal) =>
-  goal?.targetDate ||
-  goal?.deadline ||
-  goal?.endDate ||
-  null;
-
-const getStatus = (goal) =>
-  String(
-    goal?.status ||
-    "active"
-  ).toLowerCase();
-
-const safePercentage = (value) => {
-  const number = Number(value);
-
-  if (!Number.isFinite(number)) {
-    return 0;
-  }
-
-  return Math.min(
-    100,
-    Math.max(0, number)
-  );
-};
+const DEFAULT_CURRENCY = "NGN";
+const DEFAULT_GOAL_NAME = "Savings Goal";
+const DEFAULT_STATUS = "active";
 
 /* =========================================================
-   STATUS CONFIG
+   STATUS CONFIGURATION
 ========================================================= */
 
 const STATUS_CONFIG = {
@@ -110,43 +34,150 @@ const STATUS_CONFIG = {
     label: "Active",
     icon: Clock3,
     className:
-      "bg-blue-50 text-blue-700 border-blue-200",
+      "border-blue-200 bg-blue-50 text-blue-700",
   },
 
   paused: {
     label: "Paused",
     icon: Clock3,
     className:
-      "bg-amber-50 text-amber-700 border-amber-200",
+      "border-amber-200 bg-amber-50 text-amber-700",
   },
 
   completed: {
     label: "Completed",
     icon: CheckCircle2,
     className:
-      "bg-emerald-50 text-emerald-700 border-emerald-200",
+      "border-emerald-200 bg-emerald-50 text-emerald-700",
   },
 
   cancelled: {
     label: "Cancelled",
     icon: Clock3,
     className:
-      "bg-slate-100 text-slate-600 border-slate-200",
+      "border-slate-200 bg-slate-100 text-slate-600",
   },
 
   failed: {
     label: "Failed",
     icon: Clock3,
     className:
-      "bg-red-50 text-red-700 border-red-200",
+      "border-red-200 bg-red-50 text-red-700",
   },
 
   draft: {
     label: "Draft",
     icon: Target,
     className:
-      "bg-slate-50 text-slate-600 border-slate-200",
+      "border-slate-200 bg-slate-50 text-slate-600",
   },
+};
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+/**
+ * Resolve the canonical goal ID.
+ *
+ * The page should normally provide `id`/`_id`,
+ * but these fallbacks make the card defensive.
+ */
+const getGoalId = (goal) =>
+  goal?._id ||
+  goal?.id ||
+  goal?.goalId ||
+  null;
+
+/**
+ * Resolve display name.
+ */
+const getGoalName = (goal) =>
+  goal?.name ||
+  goal?.title ||
+  DEFAULT_GOAL_NAME;
+
+/**
+ * Resolve currency.
+ */
+const getGoalCurrency = (goal) =>
+  goal?.currency ||
+  DEFAULT_CURRENCY;
+
+/**
+ * Safely resolve a numeric value.
+ */
+const getSafeNumber = (
+  value,
+  fallback = 0
+) => {
+  const number = Number(value);
+
+  return Number.isFinite(number)
+    ? number
+    : fallback;
+};
+
+/**
+ * Keep progress within the UI-safe range.
+ */
+const normalizeProgress = (value) => {
+  const progress = getSafeNumber(value);
+
+  return Math.min(
+    100,
+    Math.max(0, progress)
+  );
+};
+
+/**
+ * Resolve status.
+ */
+const getGoalStatus = (goal) =>
+  String(
+    goal?.status ||
+      DEFAULT_STATUS
+  ).toLowerCase();
+
+/**
+ * Resolve target date.
+ */
+const getGoalTargetDate = (goal) =>
+  goal?.targetDate ||
+  goal?.deadline ||
+  goal?.endDate ||
+  null;
+
+/**
+ * Safely format a savings date.
+ */
+const formatTargetDate = (date) => {
+  if (!date) {
+    return null;
+  }
+
+  try {
+    return formatSavingsDate(date);
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Safely format currency.
+ */
+const formatAmount = (
+  amount,
+  currency
+) => {
+  try {
+    return formatSavingsCurrency(
+      amount,
+      currency
+    );
+  } catch {
+    return `${currency} ${amount.toLocaleString()}`;
+  }
 };
 
 /* =========================================================
@@ -155,152 +186,89 @@ const STATUS_CONFIG = {
 
 const SavingsGoalCard = ({
   goal,
+
   onClick,
   onEdit,
   onDelete,
   onViewDetails,
+
   showMenu = true,
   compact = false,
+
   className = "",
 }) => {
-  const [
-    menuOpen,
-    setMenuOpen,
-  ] = useState(false);
+  const [menuOpen, setMenuOpen] =
+    useState(false);
 
   /* =======================================================
-     NORMALIZED GOAL
+     EMPTY SAFETY
   ======================================================= */
 
-  const normalizedGoal = useMemo(() => {
-    if (!goal) {
-      return null;
-    }
-
-    try {
-      return normalizeSavingsGoal(goal);
-    } catch {
-      return goal;
-    }
-  }, [goal]);
+  if (!goal) {
+    return null;
+  }
 
   /* =======================================================
-     CORE VALUES
+     CANONICAL DISPLAY VALUES
+     
+     IMPORTANT:
+     These values are expected to have already been
+     normalized/calculated by SavingsGoalsPage.
   ======================================================= */
 
-  const goalId = useMemo(
-    () => getGoalId(normalizedGoal),
-    [normalizedGoal]
-  );
+  const goalId =
+    getGoalId(goal);
 
-  const name = useMemo(
-    () => getGoalName(normalizedGoal),
-    [normalizedGoal]
-  );
+  const name =
+    getGoalName(goal);
 
-  const description = useMemo(
-    () => getGoalDescription(normalizedGoal),
-    [normalizedGoal]
-  );
+  const description =
+    goal.description || "";
 
-  const currency = useMemo(
-    () => getCurrency(normalizedGoal),
-    [normalizedGoal]
-  );
+  const currency =
+    getGoalCurrency(goal);
 
-  const targetAmount = useMemo(
-    () => getTargetAmount(normalizedGoal),
-    [normalizedGoal]
-  );
+  const currentAmount =
+    getSafeNumber(
+      goal.currentAmount ??
+        goal.savedAmount ??
+        goal.amountSaved
+    );
 
-  const currentAmount = useMemo(
-    () => getCurrentAmount(normalizedGoal),
-    [normalizedGoal]
-  );
+  const targetAmount =
+    getSafeNumber(
+      goal.targetAmount ??
+        goal.target
+    );
 
-  const targetDate = useMemo(
-    () => getTargetDate(normalizedGoal),
-    [normalizedGoal]
-  );
+  const remainingAmount =
+    getSafeNumber(
+      goal.remainingAmount ??
+        Math.max(
+          0,
+          targetAmount -
+            currentAmount
+        )
+    );
 
-  const status = useMemo(
-    () => getStatus(normalizedGoal),
-    [normalizedGoal]
-  );
+  const progress =
+    normalizeProgress(
+      goal.progress ??
+        goal.progressPercentage ??
+        goal.percentage
+    );
 
-  /* =======================================================
-     PROGRESS
-  ======================================================= */
+  const status =
+    getGoalStatus(goal);
 
-  const progress = useMemo(() => {
-    try {
-      const result =
-        calculateSavingsProgress({
-          currentAmount,
-          targetAmount,
-          goal: normalizedGoal,
-        });
-
-      if (typeof result === "number") {
-        return safePercentage(result);
-      }
-
-      return safePercentage(
-        result?.percentage ??
-        result?.progress ??
-        result?.percent ??
-        result?.value ??
-        0
-      );
-    } catch {
-      if (targetAmount <= 0) {
-        return 0;
-      }
-
-      return safePercentage(
-        (currentAmount / targetAmount) * 100
-      );
-    }
-  }, [
-    currentAmount,
-    targetAmount,
-    normalizedGoal,
-  ]);
-
-  /* =======================================================
-     REMAINING
-  ======================================================= */
-
-  const remainingAmount = useMemo(
-    () =>
-      Math.max(
-        0,
-        targetAmount - currentAmount
-      ),
-    [
-      targetAmount,
-      currentAmount,
-    ]
-  );
-
-  /* =======================================================
-     HEALTH
-  ======================================================= */
-
-  const health = useMemo(() => {
-    try {
-      return getSavingsHealthStatus(
-        normalizedGoal
-      );
-    } catch {
-      return null;
-    }
-  }, [normalizedGoal]);
+  const targetDate =
+    getGoalTargetDate(goal);
 
   const healthLabel =
-    health?.label ||
-    health?.status ||
-    health?.name ||
+    goal.healthLabel ||
+    goal.health?.label ||
+    goal.health?.status ||
+    goal.health?.name ||
     "";
 
   /* =======================================================
@@ -323,51 +291,43 @@ const SavingsGoalCard = ({
     progress >= 100;
 
   /* =======================================================
-     TARGET DATE
-  ======================================================= */
-
-  const formattedTargetDate = useMemo(() => {
-    if (!targetDate) {
-      return null;
-    }
-
-    try {
-      return formatSavingsDate(
-        targetDate
-      );
-    } catch {
-      return null;
-    }
-  }, [targetDate]);
-
-  /* =======================================================
-     CURRENCY FORMATTING
+     FORMATTING
   ======================================================= */
 
   const formattedCurrentAmount =
-    formatSavingsCurrency(
+    formatAmount(
       currentAmount,
       currency
     );
 
   const formattedTargetAmount =
-    formatSavingsCurrency(
+    formatAmount(
       targetAmount,
       currency
     );
 
   const formattedRemainingAmount =
-    formatSavingsCurrency(
+    formatAmount(
       remainingAmount,
       currency
     );
+
+  const formattedTargetDate =
+    formatTargetDate(targetDate);
+
+  const roundedProgress =
+    Math.round(progress);
 
   /* =======================================================
      ACTIONS
   ======================================================= */
 
+  const closeMenu = () => {
+    setMenuOpen(false);
+  };
+
   const handleCardClick = () => {
-    onClick?.(normalizedGoal);
+    onClick?.(goal);
   };
 
   const handleViewDetails = (
@@ -375,53 +335,59 @@ const SavingsGoalCard = ({
   ) => {
     event.stopPropagation();
 
-    setMenuOpen(false);
+    closeMenu();
 
     if (onViewDetails) {
-      onViewDetails(
-        normalizedGoal
-      );
+      onViewDetails(goal);
       return;
     }
 
-    onClick?.(normalizedGoal);
+    onClick?.(goal);
   };
 
-  const handleEdit = (event) => {
+  const handleEdit = (
+    event
+  ) => {
     event.stopPropagation();
 
-    setMenuOpen(false);
+    closeMenu();
 
-    onEdit?.(
-      normalizedGoal
-    );
+    onEdit?.(goal);
   };
 
-  const handleDelete = (event) => {
+  const handleDelete = (
+    event
+  ) => {
     event.stopPropagation();
 
-    setMenuOpen(false);
+    closeMenu();
 
-    onDelete?.(
-      normalizedGoal
+    onDelete?.(goal);
+  };
+
+  const handleMenuToggle = (
+    event
+  ) => {
+    event.stopPropagation();
+
+    setMenuOpen(
+      (current) => !current
     );
   };
 
   /* =======================================================
-     EMPTY SAFETY
+     RENDER
   ======================================================= */
-
-  if (!normalizedGoal) {
-    return null;
-  }
 
   return (
     <article
-      data-goal-id={goalId || undefined}
+      data-goal-id={
+        goalId || undefined
+      }
       className={`
         group
         relative
-        overflow-hidden
+        overflow-visible
         rounded-2xl
         border
         border-slate-200
@@ -457,6 +423,8 @@ const SavingsGoalCard = ({
           "
           aria-label={`View ${name}`}
         >
+          {/* Goal icon */}
+
           <div
             className="
               flex justify-center items-center
@@ -470,15 +438,19 @@ const SavingsGoalCard = ({
             {isCompleted ? (
               <CheckCircle2
                 size={21}
+                strokeWidth={2}
                 aria-hidden="true"
               />
             ) : (
               <Target
                 size={21}
+                strokeWidth={2}
                 aria-hidden="true"
               />
             )}
           </div>
+
+          {/* Goal information */}
 
           <div
             className="
@@ -507,6 +479,10 @@ const SavingsGoalCard = ({
           </div>
         </button>
 
+        {/* =================================================
+            ACTION MENU
+        ================================================= */}
+
         {showMenu && (
           <div
             className="
@@ -516,17 +492,23 @@ const SavingsGoalCard = ({
           >
             <button
               type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-
-                setMenuOpen(
-                  (current) =>
-                    !current
-                );
-              }}
+              onClick={
+                handleMenuToggle
+              }
               aria-label={`Actions for ${name}`}
-              aria-expanded={menuOpen}
-              className="flex justify-center items-center hover:bg-slate-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 w-9 h-9 text-slate-500 hover:text-slate-700 transition"
+              aria-expanded={
+                menuOpen
+              }
+              aria-haspopup="menu"
+              className="
+                flex justify-center items-center
+                w-9 h-9
+                text-slate-500 hover:text-slate-700
+                hover:bg-slate-100
+                rounded-lg focus:outline-none
+                focus:ring-2 focus:ring-blue-500/20
+                transition
+              "
             >
               <MoreHorizontal
                 size={19}
@@ -536,8 +518,9 @@ const SavingsGoalCard = ({
 
             {menuOpen && (
               <div
+                role="menu"
                 className="
-                  top-10 right-0 z-20 absolute overflow-hidden
+                  top-10 right-0 z-30 absolute overflow-hidden
                   w-44
                   py-1
                   bg-white
@@ -545,8 +528,11 @@ const SavingsGoalCard = ({
                   shadow-xl
                 "
               >
+                {/* View */}
+
                 <button
                   type="button"
+                  role="menuitem"
                   onClick={
                     handleViewDetails
                   }
@@ -556,6 +542,7 @@ const SavingsGoalCard = ({
                     px-3.5 py-2.5
                     text-slate-700 text-sm text-left
                     hover:bg-slate-50
+                    transition
                     gap-2.5
                   "
                 >
@@ -567,9 +554,12 @@ const SavingsGoalCard = ({
                   View details
                 </button>
 
+                {/* Edit */}
+
                 {onEdit && (
                   <button
                     type="button"
+                    role="menuitem"
                     onClick={
                       handleEdit
                     }
@@ -579,6 +569,7 @@ const SavingsGoalCard = ({
                       px-3.5 py-2.5
                       text-slate-700 text-sm text-left
                       hover:bg-slate-50
+                      transition
                       gap-2.5
                     "
                   >
@@ -591,9 +582,12 @@ const SavingsGoalCard = ({
                   </button>
                 )}
 
+                {/* Delete */}
+
                 {onDelete && (
                   <button
                     type="button"
+                    role="menuitem"
                     onClick={
                       handleDelete
                     }
@@ -603,6 +597,7 @@ const SavingsGoalCard = ({
                       px-3.5 py-2.5
                       text-red-600 text-sm text-left
                       hover:bg-red-50
+                      transition
                       gap-2.5
                     "
                   >
@@ -631,7 +626,8 @@ const SavingsGoalCard = ({
             gap-1.5
             rounded-full
             border
-            px-2.5 py-1
+            px-2.5
+            py-1
             text-xs
             font-medium
             ${statusConfig.className}
@@ -661,7 +657,7 @@ const SavingsGoalCard = ({
       </div>
 
       {/* ===================================================
-          AMOUNT
+          AMOUNTS
       =================================================== */}
 
       <div
@@ -675,7 +671,13 @@ const SavingsGoalCard = ({
             gap-4
           "
         >
-          <div>
+          {/* Saved */}
+
+          <div
+            className="
+              min-w-0
+            "
+          >
             <p
               className="
                 font-medium text-slate-500 text-xs uppercase tracking-wide
@@ -687,15 +689,18 @@ const SavingsGoalCard = ({
             <p
               className="
                 mt-1
-                font-bold text-slate-900 text-xl tracking-tight
+                font-bold text-slate-900 text-xl truncate tracking-tight
               "
             >
               {formattedCurrentAmount}
             </p>
           </div>
 
+          {/* Target */}
+
           <div
             className="
+              min-w-0
               text-right
             "
           >
@@ -710,7 +715,7 @@ const SavingsGoalCard = ({
             <p
               className="
                 mt-1
-                font-semibold text-slate-700 text-sm
+                font-semibold text-slate-700 text-sm truncate
               "
             >
               {formattedTargetAmount}
@@ -748,7 +753,7 @@ const SavingsGoalCard = ({
               font-semibold text-slate-900 text-sm
             "
           >
-            {Math.round(progress)}%
+            {roundedProgress}%
           </span>
         </div>
 
@@ -760,9 +765,11 @@ const SavingsGoalCard = ({
             rounded-full
           "
           role="progressbar"
-          aria-valuenow={Math.round(progress)}
-          aria-valuemin="0"
-          aria-valuemax="100"
+          aria-valuenow={
+            roundedProgress
+          }
+          aria-valuemin={0}
+          aria-valuemax={100}
           aria-label={`${name} progress`}
         >
           <div
@@ -770,7 +777,7 @@ const SavingsGoalCard = ({
               h-full
               bg-blue-600
               rounded-full
-              transition-all duration-500
+              transition-[width] duration-500 ease-out
             "
             style={{
               width: `${progress}%`,
@@ -792,8 +799,11 @@ const SavingsGoalCard = ({
             gap-3
           "
         >
+          {/* Remaining */}
+
           <div
             className="
+              min-w-0
               p-3
               bg-slate-50
               rounded-xl
@@ -824,8 +834,11 @@ const SavingsGoalCard = ({
             </p>
           </div>
 
+          {/* Target date */}
+
           <div
             className="
+              min-w-0
               p-3
               bg-slate-50
               rounded-xl
@@ -871,26 +884,43 @@ const SavingsGoalCard = ({
           gap-3
         "
       >
+        {/* Progress summary */}
+
         <div
           className="
             flex items-center
+            min-w-0
             text-slate-500 text-xs
             gap-1.5
           "
         >
           <TrendingUp
             size={14}
+            className="
+              shrink-0
+            "
             aria-hidden="true"
-          />
+          /
+          >
 
-          {isCompleted
-            ? "Goal completed"
-            : `${Math.round(progress)}% of target`}
+          <span
+            className="
+              truncate
+            "
+          >
+            {isCompleted
+              ? "Goal completed"
+              : `${roundedProgress}% of target`}
+          </span>
         </div>
+
+        {/* Details */}
 
         <button
           type="button"
-          onClick={handleViewDetails}
+          onClick={
+            handleViewDetails
+          }
           className="
             inline-flex items-center
             px-2.5 py-2
@@ -898,7 +928,7 @@ const SavingsGoalCard = ({
             hover:bg-blue-50
             rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20
             transition
-            gap-1.5
+            gap-1.5 shrink-0
           "
         >
           View details
@@ -913,4 +943,19 @@ const SavingsGoalCard = ({
   );
 };
 
-export default SavingsGoalCard;
+/* =========================================================
+   MEMOIZATION
+========================================================= */
+
+/**
+ * The card is presentation-only.
+ *
+ * React.memo prevents a card from rendering again when
+ * its goal reference and callback props have not changed.
+ *
+ * This is useful when SavingsGoalsPage renders a large
+ * collection of goals.
+ */
+export default memo(
+  SavingsGoalCard
+);
