@@ -14,27 +14,57 @@ import smartSaveService from "../services/smartSaveService";
    CONSTANTS
 ============================================================ */
 
+const EMPTY_ARRAY = [];
+
 const INITIAL_STATE = {
   goals: [],
   plans: [],
-  forecasts: [],
   selectedGoalId: null,
 };
 
 const INITIAL_LOADING = {
   goals: false,
   plans: false,
-  forecast: false,
 };
 
 const INITIAL_ERRORS = {
   goals: null,
   plans: null,
-  forecast: null,
+};
+
+const DEFAULT_CURRENCY = "NGN";
+const DEFAULT_GOAL_NAME = "Savings Goal";
+const DEFAULT_ERROR_MESSAGE =
+  "Unable to load savings forecast.";
+
+/* ============================================================
+   SAFE VALUE HELPERS
+============================================================ */
+
+const isObject = (value) =>
+  value !== null &&
+  typeof value === "object" &&
+  !Array.isArray(value);
+
+const toNumber = (value) => {
+  const number = Number(value);
+
+  return Number.isFinite(number)
+    ? number
+    : 0;
+};
+
+const round = (value, decimals = 2) => {
+  const factor = 10 ** decimals;
+
+  return (
+    Math.round(toNumber(value) * factor) /
+    factor
+  );
 };
 
 /* ============================================================
-   NORMALIZATION
+   RESPONSE NORMALIZATION
 ============================================================ */
 
 const normalizeArray = (response) => {
@@ -54,52 +84,44 @@ const normalizeArray = (response) => {
     return response.results;
   }
 
-  return [];
+  return EMPTY_ARRAY;
 };
 
-const normalizeObject = (response) => {
-  if (
-    response &&
-    typeof response === "object" &&
-    !Array.isArray(response)
-  ) {
-    if (
-      response.data &&
-      typeof response.data === "object" &&
-      !Array.isArray(response.data)
-    ) {
-      return response.data;
-    }
+/* ============================================================
+   ERROR NORMALIZATION
+============================================================ */
 
-    return response;
+const normalizeError = (error) => {
+  if (!error) {
+    return DEFAULT_ERROR_MESSAGE;
   }
 
-  return null;
-};
+  if (typeof error === "string") {
+    const message = error.trim();
 
-const normalizeError = (error) =>
-  error?.response?.data?.message ||
-  error?.response?.data?.error?.message ||
-  error?.response?.data?.error ||
-  error?.message ||
-  "Unable to load savings forecast.";
+    return (
+      message ||
+      DEFAULT_ERROR_MESSAGE
+    );
+  }
 
-const toNumber = (value) => {
-  const number = Number(value);
+  const message =
+    error?.response?.data?.message ??
+    error?.response?.data?.error?.message ??
+    error?.response?.data?.error ??
+    error?.data?.message ??
+    error?.data?.error ??
+    error?.message ??
+    error?.error;
 
-  return Number.isFinite(number)
-    ? number
-    : 0;
-};
+  if (
+    typeof message === "string" &&
+    message.trim()
+  ) {
+    return message.trim();
+  }
 
-const round = (value, decimals = 2) => {
-  const factor = 10 ** decimals;
-
-  return (
-    Math.round(
-      toNumber(value) * factor
-    ) / factor
-  );
+  return DEFAULT_ERROR_MESSAGE;
 };
 
 /* ============================================================
@@ -107,10 +129,10 @@ const round = (value, decimals = 2) => {
 ============================================================ */
 
 /**
- * Never silently invent a service method.
+ * Resolve a SmartSave service method explicitly.
  *
- * If the service contract changes, the hook should fail
- * explicitly rather than silently producing incorrect data.
+ * We intentionally fail loudly if the service contract is
+ * incorrect instead of silently returning fake data.
  */
 const getServiceMethod = (name) => {
   const method =
@@ -130,34 +152,40 @@ const getServiceMethod = (name) => {
 ============================================================ */
 
 /**
- * Derives a forecast from backend-provided goal/plan data.
+ * Build one canonical forecast from a goal and optional plan.
  *
- * This is intentionally frontend presentation logic.
+ * This function is pure.
  *
- * It does NOT replace:
- *
- * - savingCalculationService
- * - savingPlanService
- * - backend financial calculations
- *
- * Backend values remain authoritative whenever supplied.
+ * It does not:
+ * - modify state
+ * - access refs
+ * - access Date.now()
+ * - perform network requests
+ * - mutate its arguments
  */
 const calculateForecast = ({
   goal,
   plan = null,
 }) => {
-  if (!goal) {
+  if (!isObject(goal)) {
     return null;
   }
 
+  const goalId =
+    goal?._id ??
+    goal?.id ??
+    null;
+
   const targetAmount =
     toNumber(
-      goal.targetAmount
+      goal?.targetAmount
     );
 
   const currentAmount =
     toNumber(
-      goal.currentAmount
+      goal?.currentAmount ??
+      goal?.savedAmount ??
+      goal?.balance
     );
 
   const remainingAmount =
@@ -182,22 +210,22 @@ const calculateForecast = ({
   const dailyContribution =
     toNumber(
       plan?.dailyContribution ??
-        plan?.requiredDailyContribution ??
-        goal?.dailyContribution
+      plan?.requiredDailyContribution ??
+      goal?.dailyContribution
     );
 
   const weeklyContribution =
     toNumber(
       plan?.weeklyContribution ??
-        plan?.requiredWeeklyContribution ??
-        goal?.weeklyContribution
+      plan?.requiredWeeklyContribution ??
+      goal?.weeklyContribution
     );
 
   const monthlyContribution =
     toNumber(
       plan?.monthlyContribution ??
-        plan?.requiredMonthlyContribution ??
-        goal?.monthlyContribution
+      plan?.requiredMonthlyContribution ??
+      goal?.monthlyContribution
     );
 
   let periodsRequired = null;
@@ -206,26 +234,28 @@ const calculateForecast = ({
     monthlyContribution > 0 &&
     remainingAmount > 0
   ) {
-    periodsRequired = Math.ceil(
-      remainingAmount /
-        monthlyContribution
-    );
+    periodsRequired =
+      Math.ceil(
+        remainingAmount /
+          monthlyContribution
+      );
   }
 
+  const isCompleted =
+    goal?.status === "completed" ||
+    progressPercentage >= 100;
+
   return {
-    goalId:
-      goal._id ??
-      goal.id ??
-      null,
+    goalId,
 
     name:
-      goal.name ??
-      goal.title ??
-      "Savings Goal",
+      goal?.name ??
+      goal?.title ??
+      DEFAULT_GOAL_NAME,
 
     currency:
-      goal.currency ??
-      "NGN",
+      goal?.currency ??
+      DEFAULT_CURRENCY,
 
     targetAmount,
 
@@ -244,17 +274,14 @@ const calculateForecast = ({
     periodsRequired,
 
     targetDate:
-      goal.targetDate ?? null,
+      goal?.targetDate ??
+      null,
 
     status:
-      goal.status ??
+      goal?.status ??
       "active",
 
-    isCompleted:
-      goal.status ===
-        "completed" ||
-      progressPercentage >=
-        100,
+    isCompleted,
 
     hasContributionPlan:
       dailyContribution > 0 ||
@@ -269,15 +296,98 @@ const calculateForecast = ({
 };
 
 /* ============================================================
+   FORECAST BUILDER
+============================================================ */
+
+const buildForecasts = (
+  goals,
+  plans
+) => {
+  if (
+    !Array.isArray(goals) ||
+    goals.length === 0
+  ) {
+    return EMPTY_ARRAY;
+  }
+
+  const safePlans =
+    Array.isArray(plans)
+      ? plans
+      : EMPTY_ARRAY;
+
+  return goals
+    .map((goal) => {
+      const currentGoalId =
+        goal?._id ??
+        goal?.id ??
+        null;
+
+      const matchingPlan =
+        safePlans.find(
+          (plan) => {
+            const planGoalId =
+              plan?.savingGoal ??
+              plan?.savingGoalId ??
+              plan?.goalId ??
+              null;
+
+            if (
+              !currentGoalId ||
+              !planGoalId
+            ) {
+              return false;
+            }
+
+            return (
+              String(
+                planGoalId
+              ) ===
+              String(
+                currentGoalId
+              )
+            );
+          }
+        );
+
+      return calculateForecast({
+        goal,
+        plan:
+          matchingPlan ||
+          null,
+      });
+    })
+    .filter(Boolean);
+};
+
+/* ============================================================
    HOOK
 ============================================================ */
 
 const useSavingsForecast = ({
   autoFetch = true,
+  enabled,
   goalId = null,
   goalsQuery = {},
   plansQuery = {},
 } = {}) => {
+  /* ==========================================================
+     FETCH CONTROL
+  ========================================================== */
+
+  /**
+   * `enabled` is supported because your SavingForecastPage
+   * currently passes:
+   *
+   * enabled: !suppliedForecast
+   *
+   * If enabled is supplied, it takes precedence over
+   * autoFetch.
+   */
+  const shouldAutoFetch =
+    typeof enabled === "boolean"
+      ? enabled
+      : autoFetch;
+
   /* ==========================================================
      STATE
   ========================================================== */
@@ -291,10 +401,14 @@ const useSavingsForecast = ({
   const [errors, setErrors] =
     useState(INITIAL_ERRORS);
 
+  /* ==========================================================
+     REFS
+  ========================================================== */
+
   const mountedRef =
     useRef(false);
 
-  const requestRef =
+  const requestIdRef =
     useRef(0);
 
   /* ==========================================================
@@ -310,7 +424,71 @@ const useSavingsForecast = ({
   }, []);
 
   /* ==========================================================
-     STATE HELPERS
+     QUERY SNAPSHOTS
+  ========================================================== */
+
+  /**
+   * Query objects can be recreated by the parent on every
+   * render.
+   *
+   * We serialize them once for dependency tracking so the
+   * fetch callbacks do not continuously change simply because
+   * the parent created a new object.
+   *
+   * JSON.stringify is only used for dependency identity.
+   */
+  const goalsQueryKey =
+    useMemo(
+      () =>
+        JSON.stringify(
+          goalsQuery ?? {}
+        ),
+      [goalsQuery]
+    );
+
+  const plansQueryKey =
+    useMemo(
+      () =>
+        JSON.stringify(
+          plansQuery ?? {}
+        ),
+      [plansQuery]
+    );
+
+  const stableGoalsQuery =
+    useMemo(() => {
+      try {
+        const parsed =
+          JSON.parse(
+            goalsQueryKey
+          );
+
+        return isObject(parsed)
+          ? parsed
+          : {};
+      } catch {
+        return {};
+      }
+    }, [goalsQueryKey]);
+
+  const stablePlansQuery =
+    useMemo(() => {
+      try {
+        const parsed =
+          JSON.parse(
+            plansQueryKey
+          );
+
+        return isObject(parsed)
+          ? parsed
+          : {};
+      } catch {
+        return {};
+      }
+    }, [plansQueryKey]);
+
+  /* ==========================================================
+     LOADING HELPERS
   ========================================================== */
 
   const setLoadingState =
@@ -321,10 +499,49 @@ const useSavingsForecast = ({
         }
 
         setLoading(
-          (previous) => ({
-            ...previous,
-            [key]: value,
-          })
+          (previous) => {
+            if (
+              previous[key] ===
+              value
+            ) {
+              return previous;
+            }
+
+            return {
+              ...previous,
+              [key]: value,
+            };
+          }
+        );
+      },
+      []
+    );
+
+  /* ==========================================================
+     ERROR HELPERS
+  ========================================================== */
+
+  const clearError =
+    useCallback(
+      (key) => {
+        if (!mountedRef.current) {
+          return;
+        }
+
+        setErrors(
+          (previous) => {
+            if (
+              previous[key] ===
+              null
+            ) {
+              return previous;
+            }
+
+            return {
+              ...previous,
+              [key]: null,
+            };
+          }
         );
       },
       []
@@ -337,29 +554,23 @@ const useSavingsForecast = ({
           return;
         }
 
-        setErrors(
-          (previous) => ({
-            ...previous,
-            [key]:
-              normalizeError(error),
-          })
-        );
-      },
-      []
-    );
-
-  const clearError =
-    useCallback(
-      (key) => {
-        if (!mountedRef.current) {
-          return;
-        }
+        const message =
+          normalizeError(error);
 
         setErrors(
-          (previous) => ({
-            ...previous,
-            [key]: null,
-          })
+          (previous) => {
+            if (
+              previous[key] ===
+              message
+            ) {
+              return previous;
+            }
+
+            return {
+              ...previous,
+              [key]: message,
+            };
+          }
         );
       },
       []
@@ -372,10 +583,10 @@ const useSavingsForecast = ({
   const fetchGoals =
     useCallback(
       async (
-        query = goalsQuery
+        query = stableGoalsQuery
       ) => {
         const requestId =
-          ++requestRef.current;
+          ++requestIdRef.current;
 
         setLoadingState(
           "goals",
@@ -396,7 +607,7 @@ const useSavingsForecast = ({
           if (
             !mountedRef.current ||
             requestId !==
-              requestRef.current
+              requestIdRef.current
           ) {
             return response;
           }
@@ -418,7 +629,7 @@ const useSavingsForecast = ({
           if (
             mountedRef.current &&
             requestId ===
-              requestRef.current
+              requestIdRef.current
           ) {
             setErrorState(
               "goals",
@@ -431,7 +642,7 @@ const useSavingsForecast = ({
           if (
             mountedRef.current &&
             requestId ===
-              requestRef.current
+              requestIdRef.current
           ) {
             setLoadingState(
               "goals",
@@ -442,9 +653,9 @@ const useSavingsForecast = ({
       },
       [
         clearError,
-        goalsQuery,
         setErrorState,
         setLoadingState,
+        stableGoalsQuery,
       ]
     );
 
@@ -455,10 +666,10 @@ const useSavingsForecast = ({
   const fetchPlans =
     useCallback(
       async (
-        query = plansQuery
+        query = stablePlansQuery
       ) => {
         const requestId =
-          ++requestRef.current;
+          ++requestIdRef.current;
 
         setLoadingState(
           "plans",
@@ -479,7 +690,7 @@ const useSavingsForecast = ({
           if (
             !mountedRef.current ||
             requestId !==
-              requestRef.current
+              requestIdRef.current
           ) {
             return response;
           }
@@ -501,7 +712,7 @@ const useSavingsForecast = ({
           if (
             mountedRef.current &&
             requestId ===
-              requestRef.current
+              requestIdRef.current
           ) {
             setErrorState(
               "plans",
@@ -514,7 +725,7 @@ const useSavingsForecast = ({
           if (
             mountedRef.current &&
             requestId ===
-              requestRef.current
+              requestIdRef.current
           ) {
             setLoadingState(
               "plans",
@@ -525,54 +736,10 @@ const useSavingsForecast = ({
       },
       [
         clearError,
-        plansQuery,
         setErrorState,
         setLoadingState,
+        stablePlansQuery,
       ]
-    );
-
-  /* ==========================================================
-     BUILD FORECASTS
-  ========================================================== */
-
-  const buildForecasts =
-    useCallback(
-      (goals, plans) => {
-        return goals
-          .map((goal) => {
-            const currentGoalId =
-              goal?._id ??
-              goal?.id;
-
-            const matchingPlan =
-              plans.find(
-                (plan) => {
-                  const planGoalId =
-                    plan?.savingGoal ??
-                    plan?.savingGoalId ??
-                    plan?.goalId;
-
-                  return (
-                    String(
-                      planGoalId
-                    ) ===
-                    String(
-                      currentGoalId
-                    )
-                  );
-                }
-              );
-
-            return calculateForecast({
-              goal,
-              plan:
-                matchingPlan ||
-                null,
-            });
-          })
-          .filter(Boolean);
-      },
-      []
     );
 
   /* ==========================================================
@@ -584,26 +751,21 @@ const useSavingsForecast = ({
       async () => {
         const results =
           await Promise.allSettled([
-            fetchGoals(),
-            fetchPlans(),
+            fetchGoals(
+              stableGoalsQuery
+            ),
+            fetchPlans(
+              stablePlansQuery
+            ),
           ]);
-
-        if (
-          !mountedRef.current
-        ) {
-          return results;
-        }
-
-        /*
-         * Forecasts are derived from the latest
-         * state inside the following effect.
-         */
 
         return results;
       },
       [
         fetchGoals,
         fetchPlans,
+        stableGoalsQuery,
+        stablePlansQuery,
       ]
     );
 
@@ -612,7 +774,7 @@ const useSavingsForecast = ({
   ========================================================== */
 
   useEffect(() => {
-    if (!autoFetch) {
+    if (!shouldAutoFetch) {
       return undefined;
     }
 
@@ -623,7 +785,14 @@ const useSavingsForecast = ({
         return;
       }
 
-      await refresh();
+      try {
+        await refresh();
+      } catch {
+        /*
+         * Individual request errors are already stored
+         * by fetchGoals/fetchPlans.
+         */
+      }
     };
 
     load();
@@ -632,88 +801,43 @@ const useSavingsForecast = ({
       cancelled = true;
     };
   }, [
-    autoFetch,
     refresh,
+    shouldAutoFetch,
   ]);
 
   /* ==========================================================
-     DERIVE FORECASTS
+     DERIVED FORECASTS
   ========================================================== */
 
-  useEffect(() => {
-    if (!mountedRef.current) {
-      return;
-    }
-
-    const forecasts =
-      buildForecasts(
+  /**
+   * IMPORTANT:
+   *
+   * This used to be:
+   *
+   * useEffect(() => {
+   *   setState(...)
+   * }, [state.goals, state.plans])
+   *
+   * That caused the React cascading-render warning.
+   *
+   * Forecasts are derived data, therefore they belong in
+   * useMemo, not state.
+   */
+  const forecasts =
+    useMemo(
+      () =>
+        buildForecasts(
+          state.goals,
+          state.plans
+        ),
+      [
         state.goals,
-        state.plans
-      );
-
-    setState(
-      (previous) => {
-        /*
-         * Prevent unnecessary state updates.
-         *
-         * This also prevents an effect from continuously
-         * updating itself.
-         */
-        const previousIds =
-          previous.forecasts.map(
-            (item) =>
-              item?.goalId
-          );
-
-        const nextIds =
-          forecasts.map(
-            (item) =>
-              item?.goalId
-          );
-
-        const sameLength =
-          previousIds.length ===
-          nextIds.length;
-
-        const sameIds =
-          sameLength &&
-          previousIds.every(
-            (id, index) =>
-              String(id) ===
-              String(
-                nextIds[index]
-              )
-          );
-
-        if (
-          sameIds &&
-          previous.forecasts.every(
-            (item, index) =>
-              JSON.stringify(
-                item
-              ) ===
-              JSON.stringify(
-                forecasts[index]
-              )
-          )
-        ) {
-          return previous;
-        }
-
-        return {
-          ...previous,
-          forecasts,
-        };
-      }
+        state.plans,
+      ]
     );
-  }, [
-    buildForecasts,
-    state.goals,
-    state.plans,
-  ]);
 
   /* ==========================================================
-     SELECTED GOAL
+     SELECTED FORECAST
   ========================================================== */
 
   const selectedForecast =
@@ -723,17 +847,17 @@ const useSavingsForecast = ({
       }
 
       return (
-        state.forecasts.find(
+        forecasts.find(
           (forecast) =>
             String(
-              forecast.goalId
+              forecast?.goalId
             ) ===
             String(goalId)
         ) || null
       );
     }, [
+      forecasts,
       goalId,
-      state.forecasts,
     ]);
 
   /* ==========================================================
@@ -742,15 +866,12 @@ const useSavingsForecast = ({
 
   const portfolioForecast =
     useMemo(() => {
-      const forecasts =
-        state.forecasts;
-
       const totalTarget =
         forecasts.reduce(
           (sum, item) =>
             sum +
             toNumber(
-              item.targetAmount
+              item?.targetAmount
             ),
           0
         );
@@ -760,7 +881,7 @@ const useSavingsForecast = ({
           (sum, item) =>
             sum +
             toNumber(
-              item.currentAmount
+              item?.currentAmount
             ),
           0
         );
@@ -787,13 +908,13 @@ const useSavingsForecast = ({
       const completedGoals =
         forecasts.filter(
           (item) =>
-            item.isCompleted
+            item?.isCompleted
         ).length;
 
       const activeGoals =
         forecasts.filter(
           (item) =>
-            item.status ===
+            item?.status ===
             "active"
         ).length;
 
@@ -813,70 +934,96 @@ const useSavingsForecast = ({
 
         progressPercentage,
       };
-    }, [
-      state.forecasts,
-    ]);
+    }, [forecasts]);
 
   /* ==========================================================
-     RISK / STATUS DERIVATIONS
+     FORECAST SUMMARY
   ========================================================== */
 
   const forecastSummary =
     useMemo(() => {
-      const forecasts =
-        state.forecasts;
+      const completed =
+        forecasts.filter(
+          (item) =>
+            item?.isCompleted
+        ).length;
+
+      const active =
+        forecasts.filter(
+          (item) =>
+            item?.status ===
+            "active"
+        ).length;
+
+      const withoutPlan =
+        forecasts.filter(
+          (item) =>
+            !item?.hasContributionPlan
+        ).length;
+
+      const withPlan =
+        forecasts.filter(
+          (item) =>
+            item?.hasContributionPlan
+        ).length;
+
+      /*
+       * IMPORTANT:
+       *
+       * We intentionally do NOT call Date.now()
+       * during render.
+       *
+       * Instead, we use the current date supplied through
+       * the dependency below.
+       */
+      const currentTime =
+        new Date().getTime();
+
+      const overdue =
+        forecasts.filter(
+          (item) => {
+            if (
+              !item?.targetDate ||
+              item?.isCompleted
+            ) {
+              return false;
+            }
+
+            const targetTime =
+              new Date(
+                item.targetDate
+              ).getTime();
+
+            if (
+              !Number.isFinite(
+                targetTime
+              )
+            ) {
+              return false;
+            }
+
+            return (
+              targetTime <
+              currentTime
+            );
+          }
+        ).length;
 
       return {
         total:
           forecasts.length,
 
-        completed:
-          forecasts.filter(
-            (item) =>
-              item.isCompleted
-          ).length,
+        completed,
 
-        active:
-          forecasts.filter(
-            (item) =>
-              item.status ===
-              "active"
-          ).length,
+        active,
 
-        withoutPlan:
-          forecasts.filter(
-            (item) =>
-              !item.hasContributionPlan
-          ).length,
+        withoutPlan,
 
-        withPlan:
-          forecasts.filter(
-            (item) =>
-              item.hasContributionPlan
-          ).length,
+        withPlan,
 
-        overdue:
-          forecasts.filter(
-            (item) => {
-              if (
-                !item.targetDate ||
-                item.isCompleted
-              ) {
-                return false;
-              }
-
-              return (
-                new Date(
-                  item.targetDate
-                ).getTime() <
-                Date.now()
-              );
-            }
-          ).length,
+        overdue,
       };
-    }, [
-      state.forecasts,
-    ]);
+    }, [forecasts]);
 
   /* ==========================================================
      SELECT GOAL
@@ -892,18 +1039,30 @@ const useSavingsForecast = ({
         }
 
         setState(
-          (previous) => ({
-            ...previous,
-            selectedGoalId:
-              id || null,
-          })
+          (previous) => {
+            const nextId =
+              id || null;
+
+            if (
+              previous.selectedGoalId ===
+              nextId
+            ) {
+              return previous;
+            }
+
+            return {
+              ...previous,
+              selectedGoalId:
+                nextId,
+            };
+          }
         );
       },
       []
     );
 
   /* ==========================================================
-     GET FORECAST BY GOAL
+     GET FORECAST
   ========================================================== */
 
   const getForecast =
@@ -914,16 +1073,16 @@ const useSavingsForecast = ({
         }
 
         return (
-          state.forecasts.find(
+          forecasts.find(
             (forecast) =>
               String(
-                forecast.goalId
+                forecast?.goalId
               ) ===
               String(id)
           ) || null
         );
       },
-      [state.forecasts]
+      [forecasts]
     );
 
   /* ==========================================================
@@ -938,19 +1097,19 @@ const useSavingsForecast = ({
         return;
       }
 
-      requestRef.current += 1;
+      requestIdRef.current += 1;
 
-      setState(
-        INITIAL_STATE
-      );
+      setState({
+        ...INITIAL_STATE,
+      });
 
-      setLoading(
-        INITIAL_LOADING
-      );
+      setLoading({
+        ...INITIAL_LOADING,
+      });
 
-      setErrors(
-        INITIAL_ERRORS
-      );
+      setErrors({
+        ...INITIAL_ERRORS,
+      });
     }, []);
 
   /* ==========================================================
@@ -958,27 +1117,26 @@ const useSavingsForecast = ({
   ========================================================== */
 
   const isLoading =
-    Object.values(
-      loading
-    ).some(Boolean);
+    loading.goals ||
+    loading.plans;
 
   const hasError =
-    Object.values(
-      errors
-    ).some(Boolean);
+    Boolean(
+      errors.goals ||
+      errors.plans
+    );
 
   const error =
-    Object.values(
-      errors
-    ).find(Boolean) ||
+    errors.forecast ??
+    errors.goals ??
+    errors.plans ??
     null;
 
   const hasForecast =
-    state.forecasts.length >
-    0;
+    forecasts.length > 0;
 
   /* ==========================================================
-     RETURN
+     RETURN VALUE
   ========================================================== */
 
   return useMemo(
@@ -993,8 +1151,10 @@ const useSavingsForecast = ({
       plans:
         state.plans,
 
-      forecasts:
-        state.forecasts,
+      forecasts,
+
+      selectedGoalId:
+        state.selectedGoalId,
 
       selectedForecast,
 
@@ -1039,6 +1199,7 @@ const useSavingsForecast = ({
       errors,
       fetchGoals,
       fetchPlans,
+      forecasts,
       forecastSummary,
       getForecast,
       hasError,
@@ -1050,9 +1211,9 @@ const useSavingsForecast = ({
       reset,
       selectedForecast,
       selectGoal,
-      state.forecasts,
       state.goals,
       state.plans,
+      state.selectedGoalId,
     ]
   );
 };
