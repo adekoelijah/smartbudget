@@ -20,7 +20,6 @@ import {
 
 import SavingsActivityList from "./SavingsActivityList";
 import SavingsActivityEmptyState from "./SavingsActivityEmptyState";
-
 import SavingsSkeleton from "../shared/SavingsSkeleton";
 import SavingsErrorState from "../shared/SavingsErrorState";
 
@@ -45,43 +44,47 @@ const DEFAULT_ERROR_MESSAGE =
 const DEFAULT_PAGE = 1;
 
 /* =========================================================
-   SAFE HELPERS
+   HELPERS
 ========================================================= */
 
-/**
- * Resolve a stable backend/entity identifier.
- */
-const getEntityId = (entity) => {
-  if (!entity) {
-    return null;
-  }
+const normalizePage = (value) => {
+  const page = Number(value);
 
-  if (
-    typeof entity === "string" ||
-    typeof entity === "number"
-  ) {
-    return entity;
-  }
-
-  return (
-    entity.id ??
-    entity._id ??
-    entity.activityId ??
-    entity.executionId ??
-    entity.contributionId ??
-    entity.transactionId ??
-    null
-  );
+  return Number.isInteger(page) && page > 0
+    ? page
+    : DEFAULT_PAGE;
 };
 
-/**
- * Safely extract an activity collection from supported
- * response shapes.
- *
- * The hook/service should normally normalize this before
- * reaching the page. These fallbacks are intentionally kept
- * at the presentation boundary as defensive protection.
- */
+const normalizeLimit = (value) => {
+  const limit = Number(value);
+
+  return Number.isInteger(limit) && limit > 0
+    ? limit
+    : DEFAULT_LIMIT;
+};
+
+const buildQuery = (
+  incomingQuery,
+  limit
+) => {
+  const source =
+    incomingQuery &&
+    typeof incomingQuery === "object" &&
+    !Array.isArray(incomingQuery)
+      ? incomingQuery
+      : {};
+
+  return {
+    ...source,
+    page: normalizePage(source.page),
+    limit: normalizeLimit(limit),
+  };
+};
+
+/* =========================================================
+   ACTIVITY RESPONSE NORMALIZER
+========================================================= */
+
 const resolveActivities = (value) => {
   if (Array.isArray(value)) {
     return value;
@@ -122,18 +125,20 @@ const resolveActivities = (value) => {
   return [];
 };
 
-/**
- * Convert an unknown error into safe user-facing text.
- *
- * Never expose raw Axios/network internals directly.
- */
+/* =========================================================
+   ERROR NORMALIZER
+========================================================= */
+
 const getErrorMessage = (error) => {
   if (!error) {
     return null;
   }
 
   if (typeof error === "string") {
-    return error.trim() || DEFAULT_ERROR_MESSAGE;
+    return (
+      error.trim() ||
+      DEFAULT_ERROR_MESSAGE
+    );
   }
 
   const message =
@@ -152,13 +157,15 @@ const getErrorMessage = (error) => {
   return DEFAULT_ERROR_MESSAGE;
 };
 
-/**
- * Extract a display-only activity amount.
- *
- * No financial calculations are performed here.
- */
+/* =========================================================
+   ACTIVITY AMOUNT
+========================================================= */
+
 const getActivityAmount = (activity) => {
-  if (!activity || typeof activity !== "object") {
+  if (
+    !activity ||
+    typeof activity !== "object"
+  ) {
     return 0;
   }
 
@@ -177,55 +184,8 @@ const getActivityAmount = (activity) => {
     : 0;
 };
 
-/**
- * Normalize pagination.
- */
-const normalizePage = (value) => {
-  const page = Number(value);
-
-  return Number.isInteger(page) && page > 0
-    ? page
-    : DEFAULT_PAGE;
-};
-
-/**
- * Normalize activity limit.
- *
- * Keep this aligned with the SmartSave hook/service contract.
- */
-const normalizeLimit = (value) => {
-  const parsed = Number(value);
-
-  return Number.isInteger(parsed) && parsed > 0
-    ? parsed
-    : DEFAULT_LIMIT;
-};
-
-/**
- * Build the canonical query passed to useSavingsActivity.
- *
- * This function does not perform any API work.
- */
-const buildQuery = (
-  incomingQuery,
-  limit
-) => {
-  const source =
-    incomingQuery &&
-    typeof incomingQuery === "object" &&
-    !Array.isArray(incomingQuery)
-      ? incomingQuery
-      : {};
-
-  return {
-    ...source,
-    page: normalizePage(source.page),
-    limit: normalizeLimit(limit),
-  };
-};
-
 /* =========================================================
-   PAGE HEADER
+   HEADER
 ========================================================= */
 
 const PageHeader = memo(
@@ -647,28 +607,23 @@ BackgroundError.displayName =
 const SavingsActivityPage = ({
   title = DEFAULT_TITLE,
   description = DEFAULT_DESCRIPTION,
-
   query: incomingQuery = {},
-
   limit = DEFAULT_LIMIT,
-
   currency = DEFAULT_CURRENCY,
 
   onViewAll,
   onActivityClick,
-
   onCreateSaving,
 
   className = "",
   compact = false,
-
   showEmptyState = true,
   showSummary = true,
   showHeader = true,
   showRefresh = true,
 }) => {
   /* =======================================================
-     CANONICAL QUERY
+     QUERY
   ======================================================= */
 
   const query = useMemo(
@@ -684,7 +639,7 @@ const SavingsActivityPage = ({
   );
 
   /* =======================================================
-     DATA OWNER
+     HOOK
   ======================================================= */
 
   const activityState =
@@ -712,16 +667,18 @@ const SavingsActivityPage = ({
      REQUEST STATE
   ======================================================= */
 
-  const initialLoading = Boolean(
-    loading || isLoading
-  );
+  const initialLoading =
+    Boolean(
+      loading || isLoading
+    );
 
-  const refreshingActivity = Boolean(
-    refreshing || isRefreshing
-  );
+  const refreshingActivity =
+    Boolean(
+      refreshing || isRefreshing
+    );
 
   /* =======================================================
-     RESOLVE ACTIVITIES
+     ACTIVITIES
   ======================================================= */
 
   const activities = useMemo(() => {
@@ -734,7 +691,7 @@ const SavingsActivityPage = ({
     const collection =
       resolveActivities(source);
 
-    const normalized = collection
+    return collection
       .map((activity) => {
         try {
           return normalizeSavingsActivity(
@@ -744,12 +701,11 @@ const SavingsActivityPage = ({
           return null;
         }
       })
-      .filter(Boolean);
-
-    return normalized.slice(
-      0,
-      normalizeLimit(limit)
-    );
+      .filter(Boolean)
+      .slice(
+        0,
+        normalizeLimit(limit)
+      );
   }, [
     hookActivities,
     hookItems,
@@ -758,7 +714,7 @@ const SavingsActivityPage = ({
   ]);
 
   /* =======================================================
-     DERIVED STATE
+     DERIVED DATA
   ======================================================= */
 
   const activityCount =
@@ -772,16 +728,23 @@ const SavingsActivityPage = ({
       activities.reduce(
         (total, activity) =>
           total +
-          getActivityAmount(activity),
+          getActivityAmount(
+            activity
+          ),
         0
       ),
     [activities]
   );
 
   const errorMessage = useMemo(
-    () => getErrorMessage(error),
+    () =>
+      getErrorMessage(error),
     [error]
   );
+
+  /* =======================================================
+     REFRESH CAPABILITY
+  ======================================================= */
 
   const canRefresh =
     typeof refresh === "function" ||
@@ -811,7 +774,9 @@ const SavingsActivityPage = ({
         typeof fetchActivities ===
         "function"
       ) {
-        return fetchActivities(query);
+        return fetchActivities(
+          query
+        );
       }
 
       return undefined;
@@ -828,29 +793,62 @@ const SavingsActivityPage = ({
     }, [handleRefresh]);
 
   /* =======================================================
-     CALLBACKS
+     VIEW ALL
   ======================================================= */
 
   const handleViewAll =
     useCallback(() => {
-      onViewAll?.();
+      if (
+        typeof onViewAll === "function"
+      ) {
+        onViewAll();
+      }
     }, [onViewAll]);
+
+  /* =======================================================
+     ACTIVITY CLICK
+  ======================================================= */
 
   const handleActivityClick =
     useCallback(
       (activity) => {
-        onActivityClick?.(activity);
+        if (
+          typeof onActivityClick ===
+          "function"
+        ) {
+          onActivityClick(activity);
+        }
       },
       [onActivityClick]
     );
 
+  /* =======================================================
+     START SAVING
+  ======================================================= */
+
   const handleCreateSaving =
     useCallback(() => {
-      onCreateSaving?.();
+      /*
+       * This is deliberately a direct event-handler call.
+       *
+       * No state update.
+       * No effect.
+       * No API request.
+       * No navigation inside this component.
+       *
+       * The parent owns the actual "create saving"
+       * destination/modal/workflow.
+       */
+      if (
+        typeof onCreateSaving ===
+        "function"
+      ) {
+        onCreateSaving();
+      }
     }, [onCreateSaving]);
 
   /* =======================================================
-     CAPABILITIES
+     HANDLERS
   ======================================================= */
 
   const refreshHandler =
@@ -863,6 +861,12 @@ const SavingsActivityPage = ({
       ? handleViewAll
       : undefined;
 
+  /*
+   * IMPORTANT:
+   *
+   * We only pass the create handler when the parent
+   * actually supplied one.
+   */
   const createSavingHandler =
     typeof onCreateSaving ===
     "function"
@@ -877,7 +881,8 @@ const SavingsActivityPage = ({
     "w-full",
     "overflow-hidden",
     "rounded-3xl",
-    "border border-slate-200",
+    "border",
+    "border-slate-200",
     "bg-white",
     "shadow-sm",
     className,
@@ -918,7 +923,9 @@ const SavingsActivityPage = ({
           "
         >
           <SavingsSkeleton
-            count={compact ? 3 : 5}
+            count={
+              compact ? 3 : 5
+            }
           />
         </div>
       </section>
@@ -1042,7 +1049,7 @@ const SavingsActivityPage = ({
         showHeader
           ? "savings-activity-title"
           : undefined
-    }
+      }
     >
       <section
         className="
@@ -1053,8 +1060,6 @@ const SavingsActivityPage = ({
           shadow-sm
         "
       >
-        {/* HEADER */}
-
         {showHeader && (
           <PageHeader
             title={title}
@@ -1074,15 +1079,11 @@ const SavingsActivityPage = ({
           />
         )}
 
-        {/* CONTENT */}
-
         <div
           className="
             px-5 sm:px-6 py-5 sm:py-6
           "
         >
-          {/* SUMMARY */}
-
           {showSummary && (
             <div
               className="
@@ -1099,12 +1100,12 @@ const SavingsActivityPage = ({
             </div>
           )}
 
-          {/* BACKGROUND ERROR */}
-
           {errorMessage &&
             hasActivities && (
               <BackgroundError
-                message={errorMessage}
+                message={
+                  errorMessage
+                }
                 refreshing={
                   refreshingActivity
                 }
@@ -1116,15 +1117,11 @@ const SavingsActivityPage = ({
               />
             )}
 
-          {/* REFRESH STATUS */}
-
           <RefreshStatus
             refreshing={
               refreshingActivity
             }
           />
-
-          {/* ACTIVITY LIST */}
 
           <SavingsActivityList
             activities={activities}
@@ -1141,8 +1138,6 @@ const SavingsActivityPage = ({
             ariaLabel="Savings activity list"
           />
         </div>
-
-        {/* FOOTER */}
 
         <footer
           className="
