@@ -74,16 +74,7 @@ const RESOURCE_METHODS = Object.freeze({
 ============================================================ */
 
 /**
- * Safely convert API resource responses into arrays.
- *
- * Supported backend response shapes:
- *
- * []
- * { data: [] }
- * { items: [] }
- * { results: [] }
- * { data: { data: [] } }
- * { data: { items: [] } }
+ * Convert supported API response shapes into an array.
  */
 const asArray = (value) => {
   if (Array.isArray(value)) {
@@ -121,19 +112,6 @@ const asArray = (value) => {
    STABLE SERIALIZATION
 ============================================================ */
 
-/**
- * Stable serialization prevents this:
- *
- * useSmartSave({
- *   goalsQuery: {}
- * })
- *
- * from becoming a new dependency on every render.
- *
- * Unlike JSON.stringify(query, Object.keys(query).sort()),
- * this implementation correctly handles nested objects and
- * arrays.
- */
 const stableSerialize = (value) => {
   if (
     value === null ||
@@ -188,36 +166,41 @@ const normalizeQuery = (query) => {
    RESOURCE NORMALIZATION
 ============================================================ */
 
-const normalizeResources = (
-  resources
-) => {
-  /*
-   * Default:
-   *
-   * useSmartSave()
-   *
-   * fetches all SmartSave resources.
-   */
+/**
+ * IMPORTANT:
+ *
+ * Undefined resources now means:
+ *
+ *     fetch NOTHING automatically.
+ *
+ * This prevents:
+ *
+ *     /accounts
+ *     /goals
+ *     /plans
+ *     /schedules
+ *     /executions
+ *     /challenges
+ *     /insights
+ *
+ * from being requested by every consumer.
+ */
+const normalizeResources = (resources) => {
   if (
     resources === undefined ||
     resources === null
   ) {
-    return [...RESOURCE_KEYS];
+    return [];
   }
 
-  if (
-    !Array.isArray(resources)
-  ) {
-    return [...RESOURCE_KEYS];
+  if (!Array.isArray(resources)) {
+    return [];
   }
 
-  const uniqueResources = [
+  return [
     ...new Set(resources),
-  ];
-
-  return uniqueResources.filter(
-    (resource) =>
-      RESOURCE_KEYS.includes(resource)
+  ].filter((resource) =>
+    RESOURCE_KEYS.includes(resource)
   );
 };
 
@@ -225,9 +208,7 @@ const normalizeResources = (
    PAGINATION
 ============================================================ */
 
-const normalizePagination = (
-  value
-) => {
+const normalizePagination = (value) => {
   const source =
     value?.pagination ||
     value?.meta ||
@@ -250,7 +231,9 @@ const normalizePagination = (
   const pages = Number(
     source.pages ??
       (limit > 0
-        ? Math.ceil(total / limit)
+        ? Math.ceil(
+            total / limit
+          )
         : 0)
   );
 
@@ -298,9 +281,7 @@ const normalizePagination = (
    ERROR NORMALIZATION
 ============================================================ */
 
-const normalizeError = (
-  error
-) => {
+const normalizeError = (error) => {
   if (!error) {
     return null;
   }
@@ -343,11 +324,13 @@ const useSmartSave = ({
   autoFetch = true,
 
   /*
-   * Selective fetching.
+   * IMPORTANT:
+   *
+   * Resources MUST be explicitly supplied.
    *
    * Example:
    *
-   * resources={["goals"]}
+   * resources={["accounts"]}
    *
    * or:
    *
@@ -375,16 +358,6 @@ const useSmartSave = ({
     [resources]
   );
 
-  /*
-   * Stable resource signature.
-   *
-   * Prevents:
-   *
-   * resources={["goals"]}
-   *
-   * from causing repeated effects when the parent creates
-   * a new array on every render.
-   */
   const resourceKey = useMemo(
     () =>
       selectedResources.join("|"),
@@ -392,7 +365,7 @@ const useSmartSave = ({
   );
 
   /* ==========================================================
-     QUERY SIGNATURES
+     QUERY MAP
   ========================================================== */
 
   const queryMap = useMemo(
@@ -442,6 +415,10 @@ const useSmartSave = ({
       insightsQuery,
     ]
   );
+
+  /* ==========================================================
+     QUERY SIGNATURES
+  ========================================================== */
 
   const queryKeys = useMemo(
     () => ({
@@ -521,40 +498,34 @@ const useSmartSave = ({
   }, []);
 
   /* ==========================================================
-     GENERATION
+     REQUEST GENERATION
   ========================================================== */
 
+  /**
+   * One generation represents one complete request cycle.
+   *
+   * IMPORTANT:
+   *
+   * fetchResource() does NOT increment this.
+   *
+   * Only refresh()/reset()/configuration changes invalidate
+   * a previous generation.
+   */
   const generationRef =
     useRef(0);
-
-  /*
-   * Every request generation represents the latest valid
-   * request cycle.
-   *
-   * Older requests are ignored when they finish.
-   */
-
-  /* ==========================================================
-     INITIAL FETCH GUARD
-  ========================================================== */
-
-  const initializedRef =
-    useRef(false);
 
   /* ==========================================================
      IN-FLIGHT REQUESTS
   ========================================================== */
 
-  /*
-   * Prevent duplicate requests for the same resource.
+  /**
+   * Map:
    *
-   * Example:
+   * resource:querySignature
    *
-   * GET /goals
-   * GET /goals
-   * GET /goals
+   * -> Promise
    *
-   * triggered before the first request finishes.
+   * This prevents duplicate identical requests.
    */
   const inFlightRef =
     useRef(new Map());
@@ -567,73 +538,14 @@ const useSmartSave = ({
     useRef(new Map());
 
   /* ==========================================================
-     QUERY REFS
+     PREVIOUS CONFIGURATION
   ========================================================== */
 
-  const queryRefs =
-    useRef({
-      accounts:
-        normalizeQuery(
-          accountsQuery
-        ),
+  const previousResourceKeyRef =
+    useRef(null);
 
-      goals:
-        normalizeQuery(
-          goalsQuery
-        ),
-
-      plans:
-        normalizeQuery(
-          plansQuery
-        ),
-
-      schedules:
-        normalizeQuery(
-          schedulesQuery
-        ),
-
-      executions:
-        normalizeQuery(
-          executionsQuery
-        ),
-
-      challenges:
-        normalizeQuery(
-          challengesQuery
-        ),
-
-      insights:
-        normalizeQuery(
-          insightsQuery
-        ),
-    });
-
-  /*
-   * Keep the latest query values available without making
-   * callbacks depend on unstable object identities.
-   */
-  useEffect(() => {
-    queryRefs.current.accounts =
-      queryMap.accounts;
-
-    queryRefs.current.goals =
-      queryMap.goals;
-
-    queryRefs.current.plans =
-      queryMap.plans;
-
-    queryRefs.current.schedules =
-      queryMap.schedules;
-
-    queryRefs.current.executions =
-      queryMap.executions;
-
-    queryRefs.current.challenges =
-      queryMap.challenges;
-
-    queryRefs.current.insights =
-      queryMap.insights;
-  }, [queryMap]);
+  const previousQueryKeysRef =
+    useRef(null);
 
   /* ==========================================================
      STATE HELPERS
@@ -659,7 +571,8 @@ const useSmartSave = ({
 
             return {
               ...previous,
-              [resource]: value,
+              [resource]:
+                value,
             };
           }
         );
@@ -690,7 +603,8 @@ const useSmartSave = ({
 
             return {
               ...previous,
-              [resource]: message,
+              [resource]:
+                message,
             };
           }
         );
@@ -718,7 +632,8 @@ const useSmartSave = ({
 
             return {
               ...previous,
-              [resource]: null,
+              [resource]:
+                null,
             };
           }
         );
@@ -763,9 +678,9 @@ const useSmartSave = ({
             ? normalizeQuery(
                 queryOverride
               )
-            : queryRefs.current[
-                resource
-              ];
+            : normalizeQuery(
+                queryMap[resource]
+              );
 
         const queryKey =
           stableSerialize(query);
@@ -774,7 +689,7 @@ const useSmartSave = ({
           `${resource}:${queryKey}`;
 
         /*
-         * Reuse an existing identical request.
+         * Reuse an identical request already in flight.
          */
         const existingRequest =
           inFlightRef.current.get(
@@ -785,8 +700,13 @@ const useSmartSave = ({
           return existingRequest;
         }
 
-        const generation =
-          ++generationRef.current;
+        /*
+         * Capture the current generation.
+         *
+         * DO NOT increment generation here.
+         */
+        const requestGeneration =
+          generationRef.current;
 
         clearResourceError(
           resource
@@ -809,11 +729,12 @@ const useSmartSave = ({
                 await method(query);
 
               /*
-               * Ignore stale responses.
+               * Ignore a response that belongs to an
+               * invalidated request generation.
                */
               if (
                 !mountedRef.current ||
-                generation !==
+                requestGeneration !==
                   generationRef.current
               ) {
                 return response;
@@ -824,14 +745,11 @@ const useSmartSave = ({
 
               setData(
                 (previous) => {
-                  /*
-                   * Avoid a pointless render when the same
-                   * array reference is returned.
-                   */
                   if (
                     previous[
                       resource
-                    ] === normalized
+                    ] ===
+                    normalized
                   ) {
                     return previous;
                   }
@@ -853,7 +771,7 @@ const useSmartSave = ({
             } catch (error) {
               if (
                 mountedRef.current &&
-                generation ===
+                requestGeneration ===
                   generationRef.current
               ) {
                 setResourceError(
@@ -862,18 +780,27 @@ const useSmartSave = ({
                 );
               }
 
-              /*
-               * Keep the error available to callers.
-               */
               throw error;
             } finally {
-              inFlightRef.current.delete(
-                requestKey
-              );
+              /*
+               * Only delete THIS request.
+               *
+               * Do not clear the entire map.
+               */
+              if (
+                inFlightRef.current.get(
+                  requestKey
+                ) ===
+                requestPromise
+              ) {
+                inFlightRef.current.delete(
+                  requestKey
+                );
+              }
 
               if (
                 mountedRef.current &&
-                generation ===
+                requestGeneration ===
                   generationRef.current
               ) {
                 setResourceLoading(
@@ -893,6 +820,7 @@ const useSmartSave = ({
       },
       [
         clearResourceError,
+        queryMap,
         setResourceError,
         setResourceLoading,
       ]
@@ -973,45 +901,7 @@ const useSmartSave = ({
     );
 
   /* ==========================================================
-     RESOURCE FETCH MAP
-  ========================================================== */
-
-  const fetchers = useMemo(
-    () => ({
-      accounts:
-        fetchAccounts,
-
-      goals:
-        fetchGoals,
-
-      plans:
-        fetchPlans,
-
-      schedules:
-        fetchSchedules,
-
-      executions:
-        fetchExecutions,
-
-      challenges:
-        fetchChallenges,
-
-      insights:
-        fetchInsights,
-    }),
-    [
-      fetchAccounts,
-      fetchGoals,
-      fetchPlans,
-      fetchSchedules,
-      fetchExecutions,
-      fetchChallenges,
-      fetchInsights,
-    ]
-  );
-
-  /* ==========================================================
-     FETCH SELECTED RESOURCES
+     REFRESH
   ========================================================== */
 
   const refresh =
@@ -1026,41 +916,51 @@ const useSmartSave = ({
         }
 
         const resourcesToFetch =
-          normalizeResources(
-            resourcesOverride ??
-              selectedResources
-          );
+          resourcesOverride ===
+          undefined
+            ? selectedResources
+            : normalizeResources(
+                resourcesOverride
+              );
 
         if (
-          resourcesToFetch.length === 0
+          resourcesToFetch.length ===
+          0
         ) {
           return [];
         }
 
-        setRefreshing(true);
-
+        /*
+         * Start ONE new request generation.
+         */
         const generation =
           ++generationRef.current;
 
+        setRefreshing(true);
+
         /*
-         * Fetch resources in parallel.
+         * Do not clear inFlightRef.
          *
-         * Promise.allSettled guarantees that one failed
-         * resource does not cancel the others.
+         * Existing identical requests can safely be reused.
          */
+
         const results =
           await Promise.allSettled(
             resourcesToFetch.map(
               (resource) =>
                 fetchResource(
                   resource,
-                  queryRefs.current[
+                  queryMap[
                     resource
                   ]
                 )
             )
           );
 
+        /*
+         * Only the latest refresh operation may clear
+         * the refreshing state.
+         */
         if (
           mountedRef.current &&
           generation ===
@@ -1073,12 +973,13 @@ const useSmartSave = ({
       },
       [
         fetchResource,
+        queryMap,
         selectedResources,
       ]
     );
 
   /* ==========================================================
-     INITIAL FETCH
+     INITIAL / CONFIGURATION FETCH
   ========================================================== */
 
   useEffect(() => {
@@ -1086,48 +987,18 @@ const useSmartSave = ({
       return;
     }
 
-    if (
-      initializedRef.current
-    ) {
-      return;
-    }
-
-    initializedRef.current = true;
-
     /*
-     * Do not await inside the effect.
+     * No resources means:
      *
-     * refresh handles its own lifecycle.
-     */
-    void refresh(
-      selectedResources
-    );
-  }, [
-    autoFetch,
-    refresh,
-    resourceKey,
-    selectedResources,
-  ]);
-
-  /* ==========================================================
-     QUERY CHANGE FETCHING
-  ========================================================== */
-
-  const previousQueryKeysRef =
-    useRef(null);
-
-  useEffect(() => {
-    if (!autoFetch) {
-      return;
-    }
-
-    /*
-     * Initial fetch is already handled above.
+     * DO NOTHING.
      */
     if (
-      previousQueryKeysRef.current ===
-      null
+      selectedResources.length ===
+      0
     ) {
+      previousResourceKeyRef.current =
+        resourceKey;
+
       previousQueryKeysRef.current = {
         ...queryKeys,
       };
@@ -1135,14 +1006,95 @@ const useSmartSave = ({
       return;
     }
 
-    const previous =
+    const resourceConfigurationChanged =
+      previousResourceKeyRef.current !==
+      resourceKey;
+
+    /*
+     * First configuration.
+     */
+    if (
+      previousResourceKeyRef.current ===
+      null
+    ) {
+      previousResourceKeyRef.current =
+        resourceKey;
+
+      previousQueryKeysRef.current = {
+        ...queryKeys,
+      };
+
+      void refresh(
+        selectedResources
+      );
+
+      return;
+    }
+
+    /*
+     * Resource selection changed.
+     *
+     * Fetch only newly selected resources.
+     */
+    if (
+      resourceConfigurationChanged
+    ) {
+      const previousResources =
+        previousResourceKeyRef.current
+          ? previousResourceKeyRef.current
+              .split("|")
+              .filter(Boolean)
+          : [];
+
+      const addedResources =
+        selectedResources.filter(
+          (resource) =>
+            !previousResources.includes(
+              resource
+            )
+        );
+
+      previousResourceKeyRef.current =
+        resourceKey;
+
+      previousQueryKeysRef.current = {
+        ...queryKeys,
+      };
+
+      if (
+        addedResources.length > 0
+      ) {
+        void refresh(
+          addedResources
+        );
+      }
+
+      return;
+    }
+
+    /*
+     * Existing resources whose query changed.
+     */
+    const previousQueries =
       previousQueryKeysRef.current;
+
+    if (!previousQueries) {
+      previousQueryKeysRef.current = {
+        ...queryKeys,
+      };
+
+      return;
+    }
 
     const changedResources =
       selectedResources.filter(
         (resource) =>
-          previous[resource] !==
-          queryKeys[resource]
+          previousQueries[
+            resource
+          ] !==
+          queryKeys[
+            resource
+          ]
       );
 
     previousQueryKeysRef.current = {
@@ -1150,22 +1102,20 @@ const useSmartSave = ({
     };
 
     if (
-      changedResources.length === 0
+      changedResources.length ===
+      0
     ) {
       return;
     }
 
     /*
-     * Only fetch resources whose query actually changed.
-     *
-     * This is the key protection against unnecessary
-     * SmartSave request storms.
+     * Query changes only refetch the affected resources.
      */
     changedResources.forEach(
       (resource) => {
         void fetchResource(
           resource,
-          queryRefs.current[
+          queryMap[
             resource
           ]
         );
@@ -1173,9 +1123,12 @@ const useSmartSave = ({
     );
   }, [
     autoFetch,
-    queryKeys,
-    selectedResources,
     fetchResource,
+    queryKeys,
+    queryMap,
+    refresh,
+    resourceKey,
+    selectedResources,
   ]);
 
   /* ==========================================================
@@ -1209,7 +1162,8 @@ const useSmartSave = ({
         (total, goal) =>
           total +
           Number(
-            goal?.targetAmount ?? 0
+            goal?.targetAmount ??
+              0
           ),
         0
       );
@@ -1219,7 +1173,8 @@ const useSmartSave = ({
         (total, goal) =>
           total +
           Number(
-            goal?.currentAmount ?? 0
+            goal?.currentAmount ??
+              0
           ),
         0
       );
@@ -1371,7 +1326,7 @@ const useSmartSave = ({
     );
 
   /* ==========================================================
-     RESOURCE LOADING / ERROR HELPERS
+     RESOURCE HELPERS
   ========================================================== */
 
   const isResourceLoading =
@@ -1449,20 +1404,24 @@ const useSmartSave = ({
       }
 
       /*
-       * Invalidate all existing requests.
+       * Invalidate all currently running responses.
+       *
+       * This does NOT cancel HTTP requests.
+       * It simply prevents their responses from updating state.
        */
       generationRef.current += 1;
 
       /*
-       * Prevent old requests from being considered
-       * in-flight by the next initialization cycle.
+       * Forget currently tracked requests.
+       *
+       * We deliberately do not pretend this cancels Axios.
        */
       inFlightRef.current.clear();
 
       lastFetchKeyRef.current.clear();
 
-      initializedRef.current =
-        false;
+      previousResourceKeyRef.current =
+        null;
 
       previousQueryKeysRef.current =
         null;
@@ -1489,12 +1448,12 @@ const useSmartSave = ({
   return useMemo(
     () => ({
       /*
-       * Complete SmartSave data tree.
+       * Complete SmartSave data.
        */
       data,
 
       /*
-       * Convenient resource access.
+       * Resource shortcuts.
        */
       accounts:
         data.accounts,
@@ -1518,7 +1477,7 @@ const useSmartSave = ({
         data.insights,
 
       /*
-       * Loading state.
+       * Loading.
        */
       loading,
 
@@ -1527,7 +1486,7 @@ const useSmartSave = ({
       refreshing,
 
       /*
-       * Error state.
+       * Errors.
        */
       errors,
 
@@ -1537,14 +1496,14 @@ const useSmartSave = ({
       hasError,
 
       /*
-       * Resource helpers.
+       * Helpers.
        */
       isResourceLoading,
 
       getResourceError,
 
       /*
-       * Centralized derived metrics.
+       * Derived metrics.
        */
       metrics,
 
@@ -1554,7 +1513,7 @@ const useSmartSave = ({
       pagination,
 
       /*
-       * Resource fetchers.
+       * Explicit resource fetchers.
        */
       fetchAccounts,
       fetchGoals,
@@ -1565,18 +1524,17 @@ const useSmartSave = ({
       fetchInsights,
 
       /*
-       * Global refresh.
+       * Global/resource refresh.
        */
       refresh,
 
       /*
-       * Complete state reset.
+       * Reset.
        */
       reset,
 
       /*
-       * Useful for consumers that need to know what this
-       * hook is currently responsible for fetching.
+       * Resources currently managed by this hook.
        */
       resources:
         selectedResources,

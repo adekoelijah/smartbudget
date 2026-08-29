@@ -49,12 +49,12 @@ const SMART_SAVE_NAVIGATION = [
     path: "/app/smart-save/challenges",
     icon: Trophy,
   },
-  {
-    label: "Forecast",
-    description: "View future savings outlook",
-    path: "/app/smart-save/forecast",
-    icon: TrendingUp,
-  },
+  // {
+  //   label: "Forecast",
+  //   description: "View future savings outlook",
+  //   path: "/app/smart-save/forecast",
+  //   icon: TrendingUp,
+  // },
   {
     label: "Insights",
     description: "Financial intelligence",

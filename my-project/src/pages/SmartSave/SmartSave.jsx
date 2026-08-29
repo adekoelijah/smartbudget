@@ -37,7 +37,7 @@ const SMART_SAVE_ROUTES = Object.freeze({
   GOALS: "/app/smart-save/goals",
   ACTIVITY: "/app/smart-save/activity",
   CHALLENGES: "/app/smart-save/challenges",
-  FORECAST: "/app/smart-save/forecast",
+  // FORECAST: "/app/smart-save/forecast",
   INSIGHTS: "/app/smart-save/insights",
   STRATEGIES: "/app/smart-save/strategies",
   EMERGENCY_FUND: "/app/smart-save/emergency-fund",

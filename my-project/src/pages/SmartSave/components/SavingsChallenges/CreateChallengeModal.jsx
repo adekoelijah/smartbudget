@@ -164,11 +164,13 @@ const CreateChallengeModal = ({
 
   initialValues = {},
 }) => {
-  const {
-    createChallenge,
-    creating,
-    error: challengeError,
-  } = useSavingsChallenges();
+ const {
+  createChallenge,
+  creating,
+  error: challengeError,
+} = useSavingsChallenges({
+  autoFetch: false,
+});
 
   /* =======================================================
      LOCAL STATE
@@ -362,8 +364,12 @@ const CreateChallengeModal = ({
       }
 
       try {
-        const created =
-          await createChallenge(payload);
+        const created = await createChallenge(payload, {
+  refresh: false,
+  refreshSnapshot: false,
+  refreshSummary: false,
+  refreshLists: false,
+});
 
         /*
          * Notify parent before closing so the
@@ -508,27 +514,6 @@ const handleModalClick = useCallback((event) => {
   event.stopPropagation();
 }, []);
 
-  const handleBackdropMouseDown =
-    useCallback(
-      (event) => {
-        if (creating) {
-          return;
-        }
-
-        if (
-          event.target !==
-          event.currentTarget
-        ) {
-          return;
-        }
-
-        handleClose();
-      },
-      [
-        creating,
-        handleClose,
-      ]
-    );
 
   /* =======================================================
      CLOSED STATE

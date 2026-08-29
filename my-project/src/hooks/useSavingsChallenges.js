@@ -1167,16 +1167,20 @@ const useSavingsChallenges = ({
      CREATE
   ========================================================== */
 
-  const createChallenge =
-    useCallback(
-      async (payload) =>
-        executeMutation(() =>
-          smartSaveService.createSavingsChallenge(
-            payload
-          )
+  const createChallenge = useCallback(
+  async (
+    payload,
+    options = {}
+  ) =>
+    executeMutation(
+      () =>
+        smartSaveService.createSavingsChallenge(
+          payload
         ),
-      [executeMutation]
-    );
+      options
+    ),
+  [executeMutation]
+);
 
   /* ==========================================================
      UPDATE

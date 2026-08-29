@@ -117,12 +117,12 @@ const SavingsChallengesPage = lazy(
     )
 );
 
-const SavingsForecastPage = lazy(
-  () =>
-    import(
-      "./pages/SmartSave/components/SavingsForecast/SavingForecastPage.jsx"
-    )
-);
+// const SavingsForecastPage = lazy(
+//   () =>
+//     import(
+//       "./pages/SmartSave/components/SavingsForecast/SavingForecastPage.jsx"
+//     )
+// );
 
 const SavingsInsightsPage = lazy(
   () =>
@@ -396,10 +396,10 @@ const App = () => {
 
       /app/smart-save/forecast
   ----------------------------------------- */}
-  <Route
+  {/* <Route
     path="forecast"
     element={<SavingsForecastPage />}
-  />
+  /> */}
 
   {/* -----------------------------------------
       Savings Insights

@@ -1,3 +1,4 @@
+
 // pages/.../SavingsChallengesPage.jsx
 
 import {
@@ -37,9 +38,9 @@ import {
   normalizeSavingsChallenge,
 } from "../../../../utils/smartSave/savingsNormalizers";
 
-/* =========================================================
+/* ============================================================
    CONSTANTS
-========================================================= */
+============================================================ */
 
 const DEFAULT_TITLE = "Savings Challenges";
 
@@ -50,14 +51,12 @@ const DEFAULT_ERROR =
   "We couldn't load your savings challenges.";
 
 const DEFAULT_SKELETON_COUNT = 3;
-
 const COMPACT_SKELETON_COUNT = 2;
-
 const MAX_SAFE_LIMIT = 100;
 
-/* =========================================================
+/* ============================================================
    STATUS
-========================================================= */
+============================================================ */
 
 const STATUS = Object.freeze({
   ACTIVE: String(
@@ -91,9 +90,9 @@ const STATUS = Object.freeze({
     .toLowerCase(),
 });
 
-/* =========================================================
+/* ============================================================
    SAFE HELPERS
-========================================================= */
+============================================================ */
 
 const getEntityId = (entity) => {
   if (
@@ -129,37 +128,9 @@ const getEntityId = (entity) => {
   return String(value);
 };
 
-const resolveCollection = (value) => {
-  if (Array.isArray(value)) {
-    return value;
-  }
-
-  if (Array.isArray(value?.data)) {
-    return value.data;
-  }
-
-  if (
-    Array.isArray(
-      value?.data?.challenges
-    )
-  ) {
-    return value.data.challenges;
-  }
-
-  if (Array.isArray(value?.challenges)) {
-    return value.challenges;
-  }
-
-  if (Array.isArray(value?.items)) {
-    return value.items;
-  }
-
-  if (Array.isArray(value?.results)) {
-    return value.results;
-  }
-
-  return [];
-};
+/* ============================================================
+   ERROR MESSAGE
+============================================================ */
 
 const getErrorMessage = (error) => {
   if (!error) {
@@ -190,6 +161,10 @@ const getErrorMessage = (error) => {
   return DEFAULT_ERROR;
 };
 
+/* ============================================================
+   STATUS HELPERS
+============================================================ */
+
 const normalizeStatus = (value) =>
   String(value ?? "")
     .trim()
@@ -213,6 +188,10 @@ const getChallengeKey = (
     ? `challenge-${id}`
     : `challenge-${index}`;
 };
+
+/* ============================================================
+   LIMIT
+============================================================ */
 
 const sanitizeLimit = (value) => {
   if (
@@ -238,9 +217,9 @@ const sanitizeLimit = (value) => {
   );
 };
 
-/* =========================================================
+/* ============================================================
    SECTION HEADER
-========================================================= */
+============================================================ */
 
 const SectionHeader = memo(
   ({
@@ -421,9 +400,9 @@ const SectionHeader = memo(
 SectionHeader.displayName =
   "SavingsChallengesSectionHeader";
 
-/* =========================================================
+/* ============================================================
    SUMMARY METRIC
-========================================================= */
+============================================================ */
 
 const SummaryMetric = memo(
   ({
@@ -499,9 +478,9 @@ const SummaryMetric = memo(
 SummaryMetric.displayName =
   "SavingsChallengeSummaryMetric";
 
-/* =========================================================
+/* ============================================================
    REFRESH WARNING
-========================================================= */
+============================================================ */
 
 const RefreshWarning = memo(
   ({
@@ -583,9 +562,9 @@ const RefreshWarning = memo(
 RefreshWarning.displayName =
   "SavingsChallengesRefreshWarning";
 
-/* =========================================================
+/* ============================================================
    PAGE
-========================================================= */
+============================================================ */
 
 const SavingsChallengesPage = ({
   title = DEFAULT_TITLE,
@@ -605,46 +584,74 @@ const SavingsChallengesPage = ({
 
   className = "",
 }) => {
-  /* =======================================================
+  /* ==========================================================
      SERVER STATE
-  ======================================================= */
 
-  const challengeState =
-    useSavingsChallenges() ?? {};
+     IMPORTANT:
+     This now matches the actual useSavingsChallenges API.
+
+     The hook returns:
+       items
+       loading
+       error
+       mutating
+       refresh
+       fetchChallenges
+       createChallenge
+       activateChallenge
+       pauseChallenge
+       resumeChallenge
+       completeChallenge
+       cancelChallenge
+       query
+       updateQuery
+       ...
+  ========================================================== */
 
   const {
-    challenges: hookChallenges,
-    data,
-
+    items = [],
     loading = false,
-    isLoading = false,
-
-    refreshing = false,
-    isRefreshing = false,
-
     error = null,
+    mutating = false,
 
+    refresh,
     fetchChallenges,
-    refetch,
 
     createChallenge,
+
     activateChallenge,
     pauseChallenge,
     resumeChallenge,
     completeChallenge,
     cancelChallenge,
-  } = challengeState;
 
-  /* =======================================================
+    query,
+  
+  } = useSavingsChallenges({
+    autoFetch: true,
+
+    initialQuery: {
+      page: 1,
+      limit: sanitizeLimit(limit) ?? 20,
+
+      ...(status
+        ? {
+            status,
+          }
+        : {}),
+    },
+  });
+
+  /* ==========================================================
      MUTATION LOCK
-  ======================================================= */
+  ========================================================== */
 
   const mutationLockRef =
     useRef(false);
 
-  /* =======================================================
+  /* ==========================================================
      MODAL STATE
-  ======================================================= */
+  ========================================================== */
 
   const [
     selectedChallenge,
@@ -656,24 +663,23 @@ const SavingsChallengesPage = ({
     setCreateModalOpen,
   ] = useState(false);
 
-  /* =======================================================
-     NORMALIZED CHALLENGES
-  ======================================================= */
+  /* ==========================================================
+     NORMALIZE CHALLENGES
+
+     The hook already gives us `items`.
+
+     There is NO `challenges` and NO `data`
+     in the new hook contract.
+  ========================================================== */
 
   const challenges = useMemo(() => {
-    const source =
-      hookChallenges ?? data ?? [];
-
-    const collection =
-      resolveCollection(source);
-
-    if (collection.length === 0) {
+    if (!Array.isArray(items)) {
       return [];
     }
 
     const normalized = [];
 
-    for (const challenge of collection) {
+    for (const challenge of items) {
       try {
         const result =
           normalizeSavingsChallenge(
@@ -684,36 +690,38 @@ const SavingsChallengesPage = ({
           normalized.push(result);
         }
       } catch {
-        // Ignore malformed records.
-        // A single invalid challenge must not
-        // crash the entire page.
+        /*
+         * A malformed challenge must not
+         * crash the entire page.
+         */
       }
     }
 
     return normalized;
-  }, [
-    hookChallenges,
-    data,
-  ]);
+  }, [items]);
 
-  /* =======================================================
-     REQUEST STATE
-  ======================================================= */
+  /* ==========================================================
+     REFRESHING
+
+     The hook exposes `loading` and `mutating`.
+
+     There is no `refreshing` or `isRefreshing`.
+
+     We treat an existing-data fetch as a
+     background refresh.
+  ========================================================== */
 
   const initialLoading =
-    Boolean(
-      loading || isLoading
-    ) &&
+    loading &&
     challenges.length === 0;
 
   const isCurrentlyRefreshing =
-    Boolean(
-      refreshing || isRefreshing
-    );
+    loading &&
+    challenges.length > 0;
 
-  /* =======================================================
+  /* ==========================================================
      ERROR
-  ======================================================= */
+  ========================================================== */
 
   const errorMessage = useMemo(
     () =>
@@ -723,9 +731,15 @@ const SavingsChallengesPage = ({
     [error]
   );
 
-  /* =======================================================
-     FILTER
-  ======================================================= */
+  /* ==========================================================
+     STATUS
+
+     Status is normally sent to the backend through
+     initialQuery.
+
+     We also keep the client-side filter as a
+     defensive presentation layer.
+  ========================================================== */
 
   const normalizedStatus =
     status
@@ -749,9 +763,13 @@ const SavingsChallengesPage = ({
       normalizedStatus,
     ]);
 
-  /* =======================================================
+  /* ==========================================================
      LIMIT
-  ======================================================= */
+
+     The backend already receives the requested limit.
+
+     This second limit is only a UI safety guard.
+  ========================================================== */
 
   const safeLimit = useMemo(
     () => sanitizeLimit(limit),
@@ -773,19 +791,21 @@ const SavingsChallengesPage = ({
       safeLimit,
     ]);
 
-  /* =======================================================
+  /* ==========================================================
      SUMMARY
-  ======================================================= */
+
+     Prefer backend summary when available.
+
+     However, this page can safely calculate
+     presentation metrics from the current collection.
+  ========================================================== */
 
   const summary = useMemo(() => {
     let active = 0;
     let paused = 0;
     let completed = 0;
 
-    for (
-      const challenge
-      of filteredChallenges
-    ) {
+    for (const challenge of filteredChallenges) {
       const challengeStatus =
         getChallengeStatus(
           challenge
@@ -819,12 +839,12 @@ const SavingsChallengesPage = ({
     filteredChallenges,
   ]);
 
-  /* =======================================================
+  /* ==========================================================
      CAPABILITIES
-  ======================================================= */
+  ========================================================== */
 
   const canRefresh =
-    typeof refetch === "function" ||
+    typeof refresh === "function" ||
     typeof fetchChallenges ===
       "function";
 
@@ -852,43 +872,55 @@ const SavingsChallengesPage = ({
     typeof cancelChallenge ===
     "function";
 
-  /* =======================================================
+  /* ==========================================================
      REFRESH
-  ======================================================= */
+
+     Use the hook's `refresh()` first.
+
+     This is important because refresh()
+     knows how to refresh:
+       - collection
+       - summary
+       - selected challenge
+       - snapshot
+  ========================================================== */
 
   const handleRefresh =
     useCallback(async () => {
       if (
         mutationLockRef.current ||
-        isCurrentlyRefreshing
+        loading
       ) {
         return undefined;
       }
 
       if (
-        typeof refetch ===
+        typeof refresh ===
         "function"
       ) {
-        return refetch();
+        return refresh();
       }
 
       if (
         typeof fetchChallenges ===
         "function"
       ) {
-        return fetchChallenges();
+        return fetchChallenges(
+          query
+        );
       }
 
       return undefined;
     }, [
-      refetch,
+      refresh,
       fetchChallenges,
-      isCurrentlyRefreshing,
+      query,
+      loading,
     ]);
 
-  /* =======================================================
+  /* ==========================================================
      CREATE MODAL
-  ======================================================= */
+  ========================================================== */
 
   const handleOpenCreate =
     useCallback(() => {
@@ -919,9 +951,17 @@ const SavingsChallengesPage = ({
       setCreateModalOpen(false);
     }, []);
 
-  /* =======================================================
+  /* ==========================================================
      CREATE
-  ======================================================= */
+
+     IMPORTANT:
+
+     createChallenge() already uses the hook's
+     executeMutation(), which refreshes the
+     collection and summary.
+
+     Therefore we DO NOT call refresh() again here.
+  ========================================================== */
 
   const handleCreateChallenge =
     useCallback(
@@ -942,13 +982,6 @@ const SavingsChallengesPage = ({
               payload
             );
 
-          if (
-            typeof refetch ===
-            "function"
-          ) {
-            await refetch();
-          }
-
           setCreateModalOpen(false);
 
           return result;
@@ -960,13 +993,12 @@ const SavingsChallengesPage = ({
       [
         canCreate,
         createChallenge,
-        refetch,
       ]
     );
 
-  /* =======================================================
+  /* ==========================================================
      DETAILS
-  ======================================================= */
+  ========================================================== */
 
   const handleChallengeClick =
     useCallback(
@@ -978,6 +1010,7 @@ const SavingsChallengesPage = ({
           onChallengeClick(
             challenge
           );
+
           return;
         }
 
@@ -1001,9 +1034,22 @@ const SavingsChallengesPage = ({
       setSelectedChallenge(null);
     }, []);
 
-  /* =======================================================
+  /* ==========================================================
      MUTATION EXECUTOR
-  ======================================================= */
+
+     IMPORTANT:
+
+     The hook already handles:
+       - mutation state
+       - mutation error
+       - collection refresh
+       - summary refresh
+       - snapshot refresh
+       - status-list refresh
+
+     Therefore the page should ONLY invoke
+     the mutation.
+  ========================================================== */
 
   const executeMutation =
     useCallback(
@@ -1035,13 +1081,6 @@ const SavingsChallengesPage = ({
               challengeId
             );
 
-          if (
-            typeof refetch ===
-            "function"
-          ) {
-            await refetch();
-          }
-
           if (closeDetails) {
             setSelectedChallenge(
               null
@@ -1054,12 +1093,12 @@ const SavingsChallengesPage = ({
             false;
         }
       },
-      [refetch]
+      []
     );
 
-  /* =======================================================
+  /* ==========================================================
      MUTATION HANDLERS
-  ======================================================= */
+  ========================================================== */
 
   const handleActivate =
     useCallback(
@@ -1128,9 +1167,9 @@ const SavingsChallengesPage = ({
       ]
     );
 
-  /* =======================================================
+  /* ==========================================================
      VIEW STATE
-  ======================================================= */
+  ========================================================== */
 
   const hasChallenges =
     visibleChallenges.length > 0;
@@ -1145,9 +1184,9 @@ const SavingsChallengesPage = ({
     !showInitialError &&
     !hasChallenges;
 
-  /* =======================================================
+  /* ==========================================================
      HEADER
-  ======================================================= */
+  ========================================================== */
 
   const header = showHeader ? (
     <SectionHeader
@@ -1174,9 +1213,9 @@ const SavingsChallengesPage = ({
     />
   ) : null;
 
-  /* =======================================================
+  /* ==========================================================
      CREATE MODAL
-  ======================================================= */
+  ========================================================== */
 
   const createModal = (
     <CreateChallengeModal
@@ -1188,9 +1227,9 @@ const SavingsChallengesPage = ({
     />
   );
 
-  /* =======================================================
+  /* ==========================================================
      LOADING
-  ======================================================= */
+  ========================================================== */
 
   if (initialLoading) {
     return (
@@ -1227,9 +1266,9 @@ const SavingsChallengesPage = ({
     );
   }
 
-  /* =======================================================
+  /* ==========================================================
      INITIAL ERROR
-  ======================================================= */
+  ========================================================== */
 
   if (showInitialError) {
     return (
@@ -1262,9 +1301,9 @@ const SavingsChallengesPage = ({
     );
   }
 
-  /* =======================================================
+  /* ==========================================================
      EMPTY
-  ======================================================= */
+  ========================================================== */
 
   if (showEmpty) {
     return (
@@ -1298,9 +1337,9 @@ const SavingsChallengesPage = ({
     );
   }
 
-  /* =======================================================
+  /* ==========================================================
      MAIN PAGE
-  ======================================================= */
+  ========================================================== */
 
   return (
     <>
@@ -1317,9 +1356,9 @@ const SavingsChallengesPage = ({
       >
         {header}
 
-        {/* =================================================
+        {/* ==================================================
             SUMMARY
-        ================================================= */}
+        ================================================== */}
 
         <section
           className="
@@ -1357,9 +1396,9 @@ const SavingsChallengesPage = ({
           />
         </section>
 
-        {/* =================================================
+        {/* ==================================================
             NON-BLOCKING ERROR
-        ================================================= */}
+        ================================================== */}
 
         {errorMessage ? (
           <RefreshWarning
@@ -1376,9 +1415,9 @@ const SavingsChallengesPage = ({
           />
         ) : null}
 
-        {/* =================================================
+        {/* ==================================================
             LIST HEADER
-        ================================================= */}
+        ================================================== */}
 
         <div
           className="
@@ -1448,9 +1487,9 @@ const SavingsChallengesPage = ({
           </span>
         </div>
 
-        {/* =================================================
+        {/* ==================================================
             CHALLENGE GRID
-        ================================================= */}
+        ================================================== */}
 
         <div
           className="
@@ -1472,29 +1511,35 @@ const SavingsChallengesPage = ({
                 <SavingsChallengeCard
                   challenge={challenge}
                   compact={compact}
+
                   onView={
                     handleChallengeClick
                   }
+
                   onActivate={
                     canActivate
                       ? handleActivate
                       : undefined
                   }
+
                   onPause={
                     canPause
                       ? handlePause
                       : undefined
                   }
+
                   onResume={
                     canResume
                       ? handleResume
                       : undefined
                   }
+
                   onComplete={
                     canComplete
                       ? handleComplete
                       : undefined
                   }
+
                   onCancel={
                     canCancel
                       ? handleCancel
@@ -1506,9 +1551,9 @@ const SavingsChallengesPage = ({
           )}
         </div>
 
-        {/* =================================================
+        {/* ==================================================
             BACKGROUND REFRESH
-        ================================================= */}
+        ================================================== */}
 
         {isCurrentlyRefreshing ? (
           <div
@@ -1534,52 +1579,73 @@ const SavingsChallengesPage = ({
             challenges...
           </div>
         ) : null}
+
+        {/* ==================================================
+            MUTATION STATUS
+        ================================================== */}
+
+        {mutating ? (
+          <span
+            className="
+              sr-only
+            "
+          >
+            Updating savings challenge...
+          </span>
+        ) : null}
       </section>
 
-      {/* =================================================
+      {/* ====================================================
           CREATE MODAL
-      ================================================= */}
+      ==================================================== */}
 
       {createModal}
 
-      {/* =================================================
+      {/* ====================================================
           DETAILS MODAL
-      ================================================= */}
+      ==================================================== */}
 
       <ChallengeDetailsModal
         open={
           Boolean(selectedChallenge)
         }
+
         challenge={
           selectedChallenge
         }
+
         onClose={
           handleCloseDetails
         }
+
         onActivate={
           selectedChallenge &&
           canActivate
             ? handleActivate
             : undefined
         }
+
         onPause={
           selectedChallenge &&
           canPause
             ? handlePause
             : undefined
         }
+
         onResume={
           selectedChallenge &&
           canResume
             ? handleResume
             : undefined
         }
+
         onComplete={
           selectedChallenge &&
           canComplete
             ? handleComplete
             : undefined
         }
+
         onCancel={
           selectedChallenge &&
           canCancel
