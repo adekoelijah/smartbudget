@@ -258,43 +258,26 @@ const CreateChallengeModal = ({
      PAYLOAD
   ======================================================= */
 
-  const buildPayload = useCallback(() => {
-    const rawPayload = {
-      name: form.name.trim(),
+  const buildChallengePayload = (form) => {
+  const rawPayload = {
+    name: form.name.trim(),
+    description: form.description.trim(),
+    challengeType: form.challengeType,
+    difficulty: form.difficulty,
+    targetAmount:
+      form.targetAmount === ""
+        ? undefined
+        : Number(form.targetAmount),
+    startDate: form.startDate || undefined,
+    endDate: form.endDate || undefined,
+    savingPlan: getId(form.savingPlan) || undefined,
+    savingAccount: getId(form.savingAccount) || undefined,
+  };
 
-      description:
-        form.description.trim(),
+  return normalizeChallengePayload(rawPayload);
+};
 
-      challengeType:
-        form.challengeType,
 
-      difficulty:
-        form.difficulty,
-
-      targetAmount:
-        form.targetAmount === ""
-          ? undefined
-          : Number(form.targetAmount),
-
-      startDate:
-        form.startDate || undefined,
-
-      endDate:
-        form.endDate || undefined,
-
-      savingPlan:
-        getId(form.savingPlan) ||
-        undefined,
-
-      savingAccount:
-        getId(form.savingAccount) ||
-        undefined,
-    };
-
-    return normalizeChallengePayload(
-      rawPayload
-    );
-  }, [form]);
 
   /* =======================================================
      VALIDATION
@@ -349,7 +332,7 @@ const CreateChallengeModal = ({
 
       setSubmitError("");
 
-      const payload = buildPayload();
+      const payload = buildChallengePayload(form);
 
       const validationErrors =
         validateForm(payload);
@@ -404,8 +387,9 @@ const CreateChallengeModal = ({
       }
     },
     [
+      
       creating,
-      buildPayload,
+      buildChallengePayload,
       validateForm,
       createChallenge,
       onCreated,
@@ -529,76 +513,43 @@ const handleModalClick = useCallback((event) => {
 
   return (
     <div
-      className="
-        z-50 fixed inset-0 flex justify-center items-center
-        p-4
-        bg-black/50
-        backdrop-blur-sm
-      "
+      className="z-50 fixed inset-0 flex justify-center items-center bg-black/50 backdrop-blur-sm p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="create-challenge-title"
       onClick={handleBackdropClick}
     >
       <div
-        className="
-          relative flex flex-col overflow-hidden
-          w-full max-w-2xl max-h-[92vh]
-          bg-white
-          rounded-2xl
-          shadow-2xl
-        "
+        className="relative flex flex-col bg-white shadow-2xl rounded-2xl w-full max-w-2xl max-h-[92vh] overflow-hidden"
         onClick={handleModalClick}
       >
         {/* HEADER */}
 
         <div
-          className="
-            flex justify-between items-center
-            px-5 sm:px-6 py-4
-            border-slate-200 border-b
-          "
+          className="flex justify-between items-center px-5 sm:px-6 py-4 border-slate-200 border-b"
         >
           <div
-            className="
-              flex items-center
-              min-w-0
-              gap-3
-            "
+            className="flex items-center gap-3 min-w-0"
           >
             <div
-              className="
-                flex justify-center items-center
-                w-10 h-10
-                text-blue-600
-                bg-blue-50
-                rounded-xl
-                shrink-0
-              "
+              className="flex justify-center items-center bg-blue-50 rounded-xl w-10 h-10 text-blue-600 shrink-0"
               aria-hidden="true"
             >
               <Trophy size={20} />
             </div>
 
             <div
-              className="
-                min-w-0
-              "
+              className="min-w-0"
             >
               <h2
                 id="create-challenge-title"
-                className="
-                  font-semibold text-slate-900 text-base
-                "
+                className="font-semibold text-slate-900 text-base"
               >
                 Create Savings Challenge
               </h2>
 
               <p
-                className="
-                  mt-0.5
-                  text-slate-500 text-sm
-                "
+                className="mt-0.5 text-slate-500 text-sm"
               >
                 Set a measurable savings
                 target and build consistency.
@@ -610,15 +561,7 @@ const handleModalClick = useCallback((event) => {
             type="button"
             onClick={handleClose}
             disabled={creating}
-            className="
-              p-2
-              text-slate-400 hover:text-slate-700
-              hover:bg-slate-100
-              rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500
-              disabled:opacity-50 transition
-              disabled:cursor-not-allowed
-              shrink-0
-            "
+            className="hover:bg-slate-100 disabled:opacity-50 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-400 hover:text-slate-700 transition disabled:cursor-not-allowed shrink-0"
             aria-label="Close modal"
           >
             <X
@@ -633,35 +576,19 @@ const handleModalClick = useCallback((event) => {
         <form
           onSubmit={handleSubmit}
           noValidate
-          className="
-            flex flex-col flex-1
-            min-h-0
-          "
+          className="flex flex-col flex-1 min-h-0"
         >
           <div
-            className="
-              flex-1 overflow-y-auto
-              px-5 sm:px-6 py-5
-            "
+            className="flex-1 px-5 sm:px-6 py-5 overflow-y-auto"
           >
             {visibleError && (
               <div
-                className="
-                  flex items-start
-                  mb-5 px-4 py-3
-                  text-red-700 text-sm
-                  bg-red-50
-                  border border-red-200 rounded-xl
-                  gap-3
-                "
+                className="flex items-start gap-3 bg-red-50 mb-5 px-4 py-3 border border-red-200 rounded-xl text-red-700 text-sm"
                 role="alert"
               >
                 <AlertCircle
                   size={18}
-                  className="
-                    mt-0.5
-                    shrink-0
-                  "
+                  className="mt-0.5 shrink-0"
                   aria-hidden="true"
                 /
                 >
@@ -674,10 +601,7 @@ const handleModalClick = useCallback((event) => {
 
             {errors.form && (
               <p
-                className="
-                  mb-4
-                  text-red-600 text-xs
-                "
+                className="mb-4 text-red-600 text-xs"
                 role="alert"
               >
                 {errors.form}
@@ -685,20 +609,14 @@ const handleModalClick = useCallback((event) => {
             )}
 
             <div
-              className="
-                space-y-5
-              "
+              className="space-y-5"
             >
               {/* NAME */}
 
               <div>
                 <label
                   htmlFor="challenge-name"
-                  className="
-                    block
-                    mb-1.5
-                    font-medium text-slate-700 text-sm
-                  "
+                  className="block mb-1.5 font-medium text-slate-700 text-sm"
                 >
                   Challenge name
                 </label>
@@ -738,10 +656,7 @@ const handleModalClick = useCallback((event) => {
 
                 {errors.name && (
                   <p
-                    className="
-                      mt-1.5
-                      text-red-600 text-xs
-                    "
+                    className="mt-1.5 text-red-600 text-xs"
                     role="alert"
                   >
                     {errors.name}
@@ -754,11 +669,7 @@ const handleModalClick = useCallback((event) => {
               <div>
                 <label
                   htmlFor="challenge-description"
-                  className="
-                    block
-                    mb-1.5
-                    font-medium text-slate-700 text-sm
-                  "
+                  className="block mb-1.5 font-medium text-slate-700 text-sm"
                 >
                   Description
                 </label>
@@ -772,16 +683,7 @@ const handleModalClick = useCallback((event) => {
                   rows={3}
                   maxLength={500}
                   placeholder="What are you saving towards?"
-                  className="
-                    w-full
-                    px-3.5 py-2.5
-                    text-slate-900 placeholder:text-slate-400 text-sm
-                    disabled:bg-slate-50
-                    border border-slate-200 focus:border-blue-500 rounded-xl
-                    outline-none focus:ring-2 focus:ring-blue-100
-                    transition
-                    resize-none
-                  "
+                  className="disabled:bg-slate-50 px-3.5 py-2.5 border border-slate-200 focus:border-blue-500 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 w-full text-slate-900 placeholder:text-slate-400 text-sm transition resize-none"
                   /
                 >
               </div>
@@ -789,19 +691,12 @@ const handleModalClick = useCallback((event) => {
               {/* TYPE / DIFFICULTY */}
 
               <div
-                className="
-                  grid grid-cols-1 sm:grid-cols-2
-                  gap-4
-                "
+                className="gap-4 grid grid-cols-1 sm:grid-cols-2"
               >
                 <div>
                   <label
                     htmlFor="challenge-type"
-                    className="
-                      block
-                      mb-1.5
-                      font-medium text-slate-700 text-sm
-                    "
+                    className="block mb-1.5 font-medium text-slate-700 text-sm"
                   >
                     Challenge type
                   </label>
@@ -814,14 +709,7 @@ const handleModalClick = useCallback((event) => {
                     }
                     onChange={handleChange}
                     disabled={creating}
-                    className="
-                      w-full
-                      px-3.5 py-2.5
-                      text-slate-900 text-sm
-                      bg-white disabled:bg-slate-50
-                      border border-slate-200 focus:border-blue-500 rounded-xl
-                      outline-none focus:ring-2 focus:ring-blue-100
-                    "
+                    className="bg-white disabled:bg-slate-50 px-3.5 py-2.5 border border-slate-200 focus:border-blue-500 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 w-full text-slate-900 text-sm"
                   >
                     <option value="">
                       Select challenge type
@@ -841,10 +729,7 @@ const handleModalClick = useCallback((event) => {
 
                   {errors.challengeType && (
                     <p
-                      className="
-                        mt-1.5
-                        text-red-600 text-xs
-                      "
+                      className="mt-1.5 text-red-600 text-xs"
                       role="alert"
                     >
                       {
@@ -857,11 +742,7 @@ const handleModalClick = useCallback((event) => {
                 <div>
                   <label
                     htmlFor="challenge-difficulty"
-                    className="
-                      block
-                      mb-1.5
-                      font-medium text-slate-700 text-sm
-                    "
+                    className="block mb-1.5 font-medium text-slate-700 text-sm"
                   >
                     Difficulty
                   </label>
@@ -874,14 +755,7 @@ const handleModalClick = useCallback((event) => {
                     }
                     onChange={handleChange}
                     disabled={creating}
-                    className="
-                      w-full
-                      px-3.5 py-2.5
-                      text-slate-900 text-sm
-                      bg-white disabled:bg-slate-50
-                      border border-slate-200 focus:border-blue-500 rounded-xl
-                      outline-none focus:ring-2 focus:ring-blue-100
-                    "
+                    className="bg-white disabled:bg-slate-50 px-3.5 py-2.5 border border-slate-200 focus:border-blue-500 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 w-full text-slate-900 text-sm"
                   >
                     <option value="">
                       Select difficulty
@@ -901,10 +775,7 @@ const handleModalClick = useCallback((event) => {
 
                   {errors.difficulty && (
                     <p
-                      className="
-                        mt-1.5
-                        text-red-600 text-xs
-                      "
+                      className="mt-1.5 text-red-600 text-xs"
                       role="alert"
                     >
                       {errors.difficulty}
@@ -918,28 +789,17 @@ const handleModalClick = useCallback((event) => {
               <div>
                 <label
                   htmlFor="challenge-target"
-                  className="
-                    block
-                    mb-1.5
-                    font-medium text-slate-700 text-sm
-                  "
+                  className="block mb-1.5 font-medium text-slate-700 text-sm"
                 >
                   Target amount
                 </label>
 
                 <div
-                  className="
-                    relative
-                  "
+                  className="relative"
                 >
                   <Target
                     size={18}
-                    className="
-                      top-1/2 left-3 absolute
-                      text-slate-400
-                      pointer-events-none
-                      -translate-y-1/2
-                    "
+                    className="top-1/2 left-3 absolute text-slate-400 -translate-y-1/2 pointer-events-none"
                     aria-hidden="true"
                   /
                   >
@@ -987,10 +847,7 @@ const handleModalClick = useCallback((event) => {
 
                 {errors.targetAmount && (
                   <p
-                    className="
-                      mt-1.5
-                      text-red-600 text-xs
-                    "
+                    className="mt-1.5 text-red-600 text-xs"
                     role="alert"
                   >
                     {
@@ -1003,36 +860,22 @@ const handleModalClick = useCallback((event) => {
               {/* DATES */}
 
               <div
-                className="
-                  grid grid-cols-1 sm:grid-cols-2
-                  gap-4
-                "
+                className="gap-4 grid grid-cols-1 sm:grid-cols-2"
               >
                 <div>
                   <label
                     htmlFor="challenge-start-date"
-                    className="
-                      block
-                      mb-1.5
-                      font-medium text-slate-700 text-sm
-                    "
+                    className="block mb-1.5 font-medium text-slate-700 text-sm"
                   >
                     Start date
                   </label>
 
                   <div
-                    className="
-                      relative
-                    "
+                    className="relative"
                   >
                     <CalendarDays
                       size={18}
-                      className="
-                        top-1/2 left-3 absolute
-                        text-slate-400
-                        pointer-events-none
-                        -translate-y-1/2
-                      "
+                      className="top-1/2 left-3 absolute text-slate-400 -translate-y-1/2 pointer-events-none"
                       aria-hidden="true"
                     /
                     >
@@ -1048,24 +891,14 @@ const handleModalClick = useCallback((event) => {
                         handleChange
                       }
                       disabled={creating}
-                      className="
-                        w-full
-                        py-2.5 pr-3.5 pl-10
-                        text-slate-900 text-sm
-                        bg-white disabled:bg-slate-50
-                        border border-slate-200 focus:border-blue-500 rounded-xl
-                        outline-none focus:ring-2 focus:ring-blue-100
-                      "
+                      className="bg-white disabled:bg-slate-50 py-2.5 pr-3.5 pl-10 border border-slate-200 focus:border-blue-500 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 w-full text-slate-900 text-sm"
                       /
                     >
                   </div>
 
                   {errors.startDate && (
                     <p
-                      className="
-                        mt-1.5
-                        text-red-600 text-xs
-                      "
+                      className="mt-1.5 text-red-600 text-xs"
                       role="alert"
                     >
                       {errors.startDate}
@@ -1076,28 +909,17 @@ const handleModalClick = useCallback((event) => {
                 <div>
                   <label
                     htmlFor="challenge-end-date"
-                    className="
-                      block
-                      mb-1.5
-                      font-medium text-slate-700 text-sm
-                    "
+                    className="block mb-1.5 font-medium text-slate-700 text-sm"
                   >
                     End date
                   </label>
 
                   <div
-                    className="
-                      relative
-                    "
+                    className="relative"
                   >
                     <CalendarDays
                       size={18}
-                      className="
-                        top-1/2 left-3 absolute
-                        text-slate-400
-                        pointer-events-none
-                        -translate-y-1/2
-                      "
+                      className="top-1/2 left-3 absolute text-slate-400 -translate-y-1/2 pointer-events-none"
                       aria-hidden="true"
                     /
                     >
@@ -1113,24 +935,14 @@ const handleModalClick = useCallback((event) => {
                         handleChange
                       }
                       disabled={creating}
-                      className="
-                        w-full
-                        py-2.5 pr-3.5 pl-10
-                        text-slate-900 text-sm
-                        bg-white disabled:bg-slate-50
-                        border border-slate-200 focus:border-blue-500 rounded-xl
-                        outline-none focus:ring-2 focus:ring-blue-100
-                      "
+                      className="bg-white disabled:bg-slate-50 py-2.5 pr-3.5 pl-10 border border-slate-200 focus:border-blue-500 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 w-full text-slate-900 text-sm"
                       /
                     >
                   </div>
 
                   {errors.endDate && (
                     <p
-                      className="
-                        mt-1.5
-                        text-red-600 text-xs
-                      "
+                      className="mt-1.5 text-red-600 text-xs"
                       role="alert"
                     >
                       {errors.endDate}
@@ -1142,19 +954,12 @@ const handleModalClick = useCallback((event) => {
               {/* PLAN / ACCOUNT */}
 
               <div
-                className="
-                  grid grid-cols-1 sm:grid-cols-2
-                  gap-4
-                "
+                className="gap-4 grid grid-cols-1 sm:grid-cols-2"
               >
                 <div>
                   <label
                     htmlFor="challenge-plan"
-                    className="
-                      block
-                      mb-1.5
-                      font-medium text-slate-700 text-sm
-                    "
+                    className="block mb-1.5 font-medium text-slate-700 text-sm"
                   >
                     Saving plan
                   </label>
@@ -1169,14 +974,7 @@ const handleModalClick = useCallback((event) => {
                     }
                     onChange={handleChange}
                     disabled={creating}
-                    className="
-                      w-full
-                      px-3.5 py-2.5
-                      text-slate-900 text-sm
-                      bg-white disabled:bg-slate-50
-                      border border-slate-200 focus:border-blue-500 rounded-xl
-                      outline-none focus:ring-2 focus:ring-blue-100
-                    "
+                    className="bg-white disabled:bg-slate-50 px-3.5 py-2.5 border border-slate-200 focus:border-blue-500 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 w-full text-slate-900 text-sm"
                   >
                     <option value="">
                       No saving plan
@@ -1210,10 +1008,7 @@ const handleModalClick = useCallback((event) => {
 
                   {errors.savingPlan && (
                     <p
-                      className="
-                        mt-1.5
-                        text-red-600 text-xs
-                      "
+                      className="mt-1.5 text-red-600 text-xs"
                       role="alert"
                     >
                       {errors.savingPlan}
@@ -1224,11 +1019,7 @@ const handleModalClick = useCallback((event) => {
                 <div>
                   <label
                     htmlFor="challenge-account"
-                    className="
-                      block
-                      mb-1.5
-                      font-medium text-slate-700 text-sm
-                    "
+                    className="block mb-1.5 font-medium text-slate-700 text-sm"
                   >
                     Saving account
                   </label>
@@ -1243,14 +1034,7 @@ const handleModalClick = useCallback((event) => {
                     }
                     onChange={handleChange}
                     disabled={creating}
-                    className="
-                      w-full
-                      px-3.5 py-2.5
-                      text-slate-900 text-sm
-                      bg-white disabled:bg-slate-50
-                      border border-slate-200 focus:border-blue-500 rounded-xl
-                      outline-none focus:ring-2 focus:ring-blue-100
-                    "
+                    className="bg-white disabled:bg-slate-50 px-3.5 py-2.5 border border-slate-200 focus:border-blue-500 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 w-full text-slate-900 text-sm"
                   >
                     <option value="">
                       No saving account
@@ -1284,10 +1068,7 @@ const handleModalClick = useCallback((event) => {
 
                   {errors.savingAccount && (
                     <p
-                      className="
-                        mt-1.5
-                        text-red-600 text-xs
-                      "
+                      className="mt-1.5 text-red-600 text-xs"
                       role="alert"
                     >
                       {
@@ -1303,28 +1084,13 @@ const handleModalClick = useCallback((event) => {
           {/* FOOTER */}
 
           <div
-            className="
-              flex flex-col-reverse sm:flex-row sm:justify-end
-              px-5 sm:px-6 py-4
-              bg-slate-50
-              border-slate-200 border-t
-              gap-3
-            "
+            className="flex sm:flex-row flex-col-reverse sm:justify-end gap-3 bg-slate-50 px-5 sm:px-6 py-4 border-slate-200 border-t"
           >
             <button
               type="button"
               onClick={handleClose}
               disabled={creating}
-              className="
-                inline-flex justify-center items-center
-                px-4 py-2.5
-                font-medium text-slate-700 text-sm
-                bg-white hover:bg-slate-100
-                border border-slate-200 rounded-xl focus:outline-none
-                focus:ring-2 focus:ring-blue-500
-                disabled:opacity-50 transition
-                disabled:cursor-not-allowed
-              "
+              className="inline-flex justify-center items-center bg-white hover:bg-slate-100 disabled:opacity-50 px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-700 text-sm transition disabled:cursor-not-allowed"
             >
               Cancel
             </button>
@@ -1332,24 +1098,13 @@ const handleModalClick = useCallback((event) => {
             <button
               type="submit"
               disabled={creating}
-              className="
-                inline-flex justify-center items-center
-                px-5 py-2.5
-                font-semibold text-white text-sm
-                bg-slate-900 hover:bg-slate-800
-                rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500
-                disabled:opacity-60 shadow-sm transition
-                disabled:cursor-not-allowed
-                gap-2
-              "
+              className="inline-flex justify-center items-center gap-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-60 shadow-sm px-5 py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 font-semibold text-white text-sm transition disabled:cursor-not-allowed"
             >
               {creating ? (
                 <>
                   <Loader2
                     size={17}
-                    className="
-                      animate-spin
-                    "
+                    className="animate-spin"
                     aria-hidden="true"
                   /
                   >

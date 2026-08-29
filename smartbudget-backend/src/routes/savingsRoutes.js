@@ -7,6 +7,7 @@ import savingScheduleRoutes from "./savingScheduleRoutes.js";
 import savingExecutionRoutes from "./savingExecutionRoutes.js";
 import savingsChallengeRoutes from "./savingsChallengeRoutes.js";
 import savingsInsightRoutes from "./savingsInsightRoutes.js";
+import autoSaveRoutes from "./autoSaveRoutes.js";
 
 import protect  from "../middleware/authMiddleware.js";
 
@@ -153,6 +154,21 @@ router.use(
 router.use(
   "/insights",
   savingsInsightRoutes
+);
+
+/* =========================================================
+   AUTO SAVE
+========================================================= */
+
+/**
+ * /api/savings/auto-save
+ *
+ * Automatic savings configuration and lifecycle
+ * management.
+ */
+router.use(
+  "/auto-save",
+  autoSaveRoutes
 );
 
 

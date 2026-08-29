@@ -1,3 +1,4 @@
+
 import {
   AlertCircle,
   CalendarDays,
@@ -192,10 +193,10 @@ const getInitialForm = (goal) => {
 ========================================================= */
 
 /*
- * The source key identifies the exact goal snapshot that the
- * local draft belongs to.
+ * The source key identifies the exact goal snapshot that
+ * the local draft belongs to.
  *
- * We intentionally include the editable source values so that
+ * We intentionally include editable source values so that
  * if the parent supplies a refreshed goal with the same ID,
  * the modal can derive a fresh draft without setState().
  */
@@ -247,7 +248,8 @@ const normalizeValidationResult = (result) => {
     return {
       valid: false,
       errors: {
-        form: "Please review the savings goal details.",
+        form:
+          "Please review the savings goal details.",
       },
     };
   }
@@ -294,17 +296,25 @@ const Field = ({
   children,
 }) => (
   <div
-    className="space-y-2"
+    className="
+      space-y-2
+    "
   >
     <label
       htmlFor={name}
-      className="block font-medium text-slate-700 text-sm"
+      className="
+        block
+        font-medium text-slate-700 text-sm
+      "
     >
       {label}
 
       {required && (
         <span
-          className="ml-1 text-red-500"
+          className="
+            ml-1
+            text-red-500
+          "
           aria-hidden="true"
         >
           *
@@ -317,7 +327,11 @@ const Field = ({
     {error && (
       <p
         role="alert"
-        className="flex items-center gap-1.5 text-red-600 text-xs"
+        className="
+          flex items-center
+          text-red-600 text-xs
+          gap-1.5
+        "
       >
         <AlertCircle
           size={13}
@@ -344,27 +358,26 @@ const EditSavingsGoalModal = ({
 }) => {
   /* =======================================================
      SOURCE
+
+     IMPORTANT:
+     These are intentionally plain calculations.
+
+     There is no need to use useMemo for these helpers
+     because they are inexpensive synchronous operations.
   ======================================================= */
 
-  const sourceKey = useMemo(
-    () => getSourceKey(open, goal),
-    [open, goal]
+  const goalId = getGoalId(goal);
+
+  const sourceKey = getSourceKey(
+    open,
+    goal
   );
 
-  const initialForm = useMemo(
-    () => getInitialForm(goal),
-    [goal]
-  );
-
-  const goalId = useMemo(
-    () => getGoalId(goal),
-    [goal]
-  );
+  const initialForm = getInitialForm(goal);
 
   /* =======================================================
      FORM STATE
-     
-     IMPORTANT:
+
      No useEffect is used to copy goal into state.
   ======================================================= */
 
@@ -458,14 +471,10 @@ const EditSavingsGoalModal = ({
       const value = errors?.[field];
 
       if (Array.isArray(value)) {
-        return normalizeString(
-          value[0]
-        );
+        return normalizeString(value[0]);
       }
 
-      if (
-        typeof value === "string"
-      ) {
+      if (typeof value === "string") {
         return normalizeString(value);
       }
 
@@ -567,9 +576,7 @@ const EditSavingsGoalModal = ({
           values.targetAmount === null ||
           values.targetAmount === undefined
             ? ""
-            : Number(
-                values.targetAmount
-              ),
+            : Number(values.targetAmount),
 
         targetDate:
           values.targetDate || null,
@@ -582,9 +589,7 @@ const EditSavingsGoalModal = ({
 
       try {
         const result =
-          validateSavingsGoal(
-            payload
-          );
+          validateSavingsGoal(payload);
 
         return normalizeValidationResult(
           result
@@ -637,8 +642,7 @@ const EditSavingsGoalModal = ({
       }
 
       if (
-        typeof onSubmit !==
-        "function"
+        typeof onSubmit !== "function"
       ) {
         setSubmitErrorState({
           sourceKey,
@@ -898,7 +902,12 @@ const EditSavingsGoalModal = ({
 
   return (
     <div
-      className="z-[100] fixed inset-0 flex justify-center items-center bg-slate-950/50 backdrop-blur-sm p-4"
+      className="
+        z-[100] fixed inset-0 flex justify-center items-center
+        p-4
+        bg-slate-950/50
+        backdrop-blur-sm
+      "
       role="presentation"
       onMouseDown={
         handleBackdropMouseDown
@@ -908,7 +917,13 @@ const EditSavingsGoalModal = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby="edit-savings-goal-title"
-        className="bg-white shadow-2xl rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden"
+        className="
+          overflow-hidden
+          w-full max-w-lg max-h-[90vh]
+          bg-white
+          rounded-2xl
+          shadow-2xl
+        "
         onMouseDown={
           handleDialogMouseDown
         }
@@ -918,30 +933,52 @@ const EditSavingsGoalModal = ({
         ================================================= */}
 
         <div
-          className="flex justify-between items-start gap-4 px-5 sm:px-6 py-4 border-slate-200 border-b"
+          className="
+            flex justify-between items-start
+            px-5 sm:px-6 py-4
+            border-slate-200 border-b
+            gap-4
+          "
         >
           <div
-            className="flex items-center gap-3 min-w-0"
+            className="
+              flex items-center
+              min-w-0
+              gap-3
+            "
           >
             <div
-              className="flex justify-center items-center bg-blue-50 rounded-xl w-10 h-10 text-blue-600 shrink-0"
+              className="
+                flex justify-center items-center
+                w-10 h-10
+                text-blue-600
+                bg-blue-50
+                rounded-xl
+                shrink-0
+              "
               aria-hidden="true"
             >
               <Target size={20} />
             </div>
 
             <div
-              className="min-w-0"
+              className="
+                min-w-0
+              "
             >
               <h2
                 id="edit-savings-goal-title"
-                className="font-semibold text-slate-900 text-lg truncate"
+                className="
+                  font-semibold text-slate-900 text-lg truncate
+                "
               >
                 Edit Savings Goal
               </h2>
 
               <p
-                className="text-slate-500 text-sm"
+                className="
+                  text-slate-500 text-sm
+                "
               >
                 Update your goal details.
               </p>
@@ -953,7 +990,16 @@ const EditSavingsGoalModal = ({
             onClick={handleClose}
             disabled={saving}
             aria-label="Close edit savings goal"
-            className="flex justify-center items-center hover:bg-slate-100 disabled:opacity-50 rounded-lg focus:outline-none focus:ring-4 focus:ring-slate-500/10 w-9 h-9 text-slate-500 hover:text-slate-700 transition disabled:cursor-not-allowed shrink-0"
+            className="
+              flex justify-center items-center
+              w-9 h-9
+              text-slate-500 hover:text-slate-700
+              hover:bg-slate-100
+              rounded-lg focus:outline-none focus:ring-4 focus:ring-slate-500/10
+              disabled:opacity-50 transition
+              disabled:cursor-not-allowed
+              shrink-0
+            "
           >
             <X size={19} />
           </button>
@@ -966,21 +1012,37 @@ const EditSavingsGoalModal = ({
         <form
           onSubmit={handleSubmit}
           noValidate
-          className="flex flex-col max-h-[calc(90vh-73px)]"
+          className="
+            flex flex-col
+            max-h-[calc(90vh-73px)]
+          "
         >
           <div
-            className="space-y-5 px-5 sm:px-6 py-5 overflow-y-auto"
+            className="
+              overflow-y-auto
+              space-y-5 px-5 sm:px-6 py-5
+            "
           >
             {/* ERROR */}
 
             {displayError && (
               <div
                 role="alert"
-                className="flex items-start gap-3 bg-red-50 p-3.5 border border-red-200 rounded-xl text-red-700 text-sm"
+                className="
+                  flex items-start
+                  p-3.5
+                  text-red-700 text-sm
+                  bg-red-50
+                  border border-red-200 rounded-xl
+                  gap-3
+                "
               >
                 <AlertCircle
                   size={18}
-                  className="mt-0.5 shrink-0"
+                  className="
+                    mt-0.5
+                    shrink-0
+                  "
                   aria-hidden="true"
                 /
                 >
@@ -997,11 +1059,21 @@ const EditSavingsGoalModal = ({
               <div
                 role="status"
                 aria-live="polite"
-                className="flex items-start gap-3 bg-emerald-50 p-3.5 border border-emerald-200 rounded-xl text-emerald-700 text-sm"
+                className="
+                  flex items-start
+                  p-3.5
+                  text-emerald-700 text-sm
+                  bg-emerald-50
+                  border border-emerald-200 rounded-xl
+                  gap-3
+                "
               >
                 <CheckCircle2
                   size={18}
-                  className="mt-0.5 shrink-0"
+                  className="
+                    mt-0.5
+                    shrink-0
+                  "
                   aria-hidden="true"
                 /
                 >
@@ -1036,7 +1108,16 @@ const EditSavingsGoalModal = ({
                 aria-invalid={Boolean(
                   getFieldError("name")
                 )}
-                className="bg-white disabled:bg-slate-50 px-3.5 py-3 border border-slate-300 focus:border-blue-500 rounded-xl outline-none focus:ring-4 focus:ring-blue-500/10 w-full text-slate-900 placeholder:text-slate-400 text-sm transition disabled:cursor-not-allowed"
+                className="
+                  w-full
+                  px-3.5 py-3
+                  text-slate-900 placeholder:text-slate-400 text-sm
+                  bg-white disabled:bg-slate-50
+                  border border-slate-300 focus:border-blue-500 rounded-xl
+                  outline-none focus:ring-4 focus:ring-blue-500/10
+                  transition
+                  disabled:cursor-not-allowed
+                "
                 /
               >
             </Field>
@@ -1063,15 +1144,26 @@ const EditSavingsGoalModal = ({
                 }
                 rows={3}
                 placeholder="What are you saving for?"
-                className="bg-white disabled:bg-slate-50 px-3.5 py-3 border border-slate-300 focus:border-blue-500 rounded-xl outline-none focus:ring-4 focus:ring-blue-500/10 w-full text-slate-900 placeholder:text-slate-400 text-sm transition resize-none disabled:cursor-not-allowed"
+                className="
+                  w-full
+                  px-3.5 py-3
+                  text-slate-900 placeholder:text-slate-400 text-sm
+                  bg-white disabled:bg-slate-50
+                  border border-slate-300 focus:border-blue-500 rounded-xl
+                  outline-none focus:ring-4 focus:ring-blue-500/10
+                  transition
+                  resize-none disabled:cursor-not-allowed
+                "
                 /
               >
 
               <div
-                className="text-slate-400 text-xs text-right"
+                className="
+                  text-slate-400 text-xs text-right
+                "
               >
-                {form.description.length}
-                /{MAX_DESCRIPTION_LENGTH}
+                {form.description.length}/
+                {MAX_DESCRIPTION_LENGTH}
               </div>
             </Field>
 
@@ -1086,10 +1178,17 @@ const EditSavingsGoalModal = ({
               )}
             >
               <div
-                className="relative"
+                className="
+                  relative
+                "
               >
                 <span
-                  className="top-1/2 left-3.5 absolute font-medium text-slate-500 text-sm -translate-y-1/2 pointer-events-none"
+                  className="
+                    top-1/2 left-3.5 absolute
+                    font-medium text-slate-500 text-sm
+                    pointer-events-none
+                    -translate-y-1/2
+                  "
                 >
                   {form.currency ||
                     DEFAULT_CURRENCY}
@@ -1114,18 +1213,31 @@ const EditSavingsGoalModal = ({
                       "targetAmount"
                     )
                   )}
-                  className="bg-white disabled:bg-slate-50 py-3 pr-3.5 pl-14 border border-slate-300 focus:border-blue-500 rounded-xl outline-none focus:ring-4 focus:ring-blue-500/10 w-full text-slate-900 placeholder:text-slate-400 text-sm transition disabled:cursor-not-allowed"
+                  className="
+                    w-full
+                    py-3 pr-3.5 pl-14
+                    text-slate-900 placeholder:text-slate-400 text-sm
+                    bg-white disabled:bg-slate-50
+                    border border-slate-300 focus:border-blue-500 rounded-xl
+                    outline-none focus:ring-4 focus:ring-blue-500/10
+                    transition
+                    disabled:cursor-not-allowed
+                  "
                   /
                 >
               </div>
 
               {formattedTargetAmount && (
                 <p
-                  className="text-slate-500 text-xs"
+                  className="
+                    text-slate-500 text-xs
+                  "
                 >
                   Target:{" "}
                   <span
-                    className="font-medium"
+                    className="
+                      font-medium
+                    "
                   >
                     {formattedTargetAmount}
                   </span>
@@ -1153,13 +1265,24 @@ const EditSavingsGoalModal = ({
                 required
                 maxLength={3}
                 autoComplete="off"
-                placeholder={DEFAULT_CURRENCY}
+                placeholder={
+                  DEFAULT_CURRENCY
+                }
                 aria-invalid={Boolean(
                   getFieldError(
                     "currency"
                   )
                 )}
-                className="bg-white disabled:bg-slate-50 px-3.5 py-3 border border-slate-300 focus:border-blue-500 rounded-xl outline-none focus:ring-4 focus:ring-blue-500/10 w-full text-slate-900 text-sm uppercase transition disabled:cursor-not-allowed"
+                className="
+                  w-full
+                  px-3.5 py-3
+                  text-slate-900 text-sm uppercase
+                  bg-white disabled:bg-slate-50
+                  border border-slate-300 focus:border-blue-500 rounded-xl
+                  outline-none focus:ring-4 focus:ring-blue-500/10
+                  transition
+                  disabled:cursor-not-allowed
+                "
                 /
               >
             </Field>
@@ -1174,11 +1297,18 @@ const EditSavingsGoalModal = ({
               )}
             >
               <div
-                className="relative"
+                className="
+                  relative
+                "
               >
                 <CalendarDays
                   size={17}
-                  className="top-1/2 left-3.5 absolute text-slate-400 -translate-y-1/2 pointer-events-none"
+                  className="
+                    top-1/2 left-3.5 absolute
+                    text-slate-400
+                    pointer-events-none
+                    -translate-y-1/2
+                  "
                   aria-hidden="true"
                 /
                 >
@@ -1198,14 +1328,25 @@ const EditSavingsGoalModal = ({
                       "targetDate"
                     )
                   )}
-                  className="bg-white disabled:bg-slate-50 px-3.5 py-3 pl-11 border border-slate-300 focus:border-blue-500 rounded-xl outline-none focus:ring-4 focus:ring-blue-500/10 w-full text-slate-900 text-sm transition disabled:cursor-not-allowed"
+                  className="
+                    w-full
+                    px-3.5 py-3 pl-11
+                    text-slate-900 text-sm
+                    bg-white disabled:bg-slate-50
+                    border border-slate-300 focus:border-blue-500 rounded-xl
+                    outline-none focus:ring-4 focus:ring-blue-500/10
+                    transition
+                    disabled:cursor-not-allowed
+                  "
                   /
                 >
               </div>
 
               {form.targetDate && (
                 <p
-                  className="text-slate-500 text-xs"
+                  className="
+                    text-slate-500 text-xs
+                  "
                 >
                   Target date:{" "}
                   {formatSavingsDate(
@@ -1221,13 +1362,29 @@ const EditSavingsGoalModal = ({
           ================================================= */}
 
           <div
-            className="flex sm:flex-row flex-col-reverse sm:justify-end gap-3 bg-slate-50/80 px-5 sm:px-6 py-4 border-slate-200 border-t"
+            className="
+              flex flex-col-reverse sm:flex-row sm:justify-end
+              px-5 sm:px-6 py-4
+              bg-slate-50/80
+              border-slate-200 border-t
+              gap-3
+            "
           >
             <button
               type="button"
               onClick={handleClose}
               disabled={saving}
-              className="inline-flex justify-center items-center bg-white hover:bg-slate-100 disabled:opacity-50 px-5 border border-slate-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-slate-500/10 min-h-11 font-medium text-slate-700 text-sm transition disabled:cursor-not-allowed"
+              className="
+                inline-flex justify-center items-center
+                min-h-11
+                px-5
+                font-medium text-slate-700 text-sm
+                bg-white hover:bg-slate-100
+                border border-slate-300 rounded-xl focus:outline-none
+                focus:ring-4 focus:ring-slate-500/10
+                disabled:opacity-50 transition
+                disabled:cursor-not-allowed
+              "
             >
               Cancel
             </button>
@@ -1240,13 +1397,26 @@ const EditSavingsGoalModal = ({
                 typeof onSubmit !==
                   "function"
               }
-              className="inline-flex justify-center items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 shadow-sm px-5 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500/20 min-h-11 font-semibold text-white text-sm transition disabled:cursor-not-allowed"
+              className="
+                inline-flex justify-center items-center
+                min-h-11
+                px-5
+                font-semibold text-white text-sm
+                bg-blue-600 hover:bg-blue-700
+                rounded-xl focus:outline-none
+                focus:ring-4 focus:ring-blue-500/20
+                disabled:opacity-50 shadow-sm transition
+                disabled:cursor-not-allowed
+                gap-2
+              "
             >
               {saving ? (
                 <>
                   <Loader2
                     size={17}
-                    className="animate-spin"
+                    className="
+                      animate-spin
+                    "
                     aria-hidden="true"
                   /
                   >

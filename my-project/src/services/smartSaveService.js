@@ -563,41 +563,34 @@ const request = async ({
   endpoint,
   params,
   data,
+  signal,
 }) => {
   try {
     const config = {};
 
     if (params) {
-      config.params =
-        cleanQueryParams(
-          params
-        );
+      config.params = cleanQueryParams(params);
     }
 
-    if (
-      data !== undefined
-    ) {
-      config.data =
-        normalizeBody(data);
+    if (signal) {
+      config.signal = signal;
     }
 
-    const response =
-      await api[method](
-        endpoint,
-        config
-      );
+    if (data !== undefined) {
+      config.data = normalizeBody(data);
+    }
 
-    return normalizeResponse(
-      response
-    ).data;
-  } catch (error) {
-    throw normalizeError(
-      error,
-      {
-        endpoint,
-        method,
-      }
+    const response = await api[method](
+      endpoint,
+      config
     );
+
+    return normalizeResponse(response).data;
+  } catch (error) {
+    throw normalizeError(error, {
+      endpoint,
+      method,
+    });
   }
 };
 
@@ -908,18 +901,16 @@ export const createSavingPlan =
     });
 
 
-export const getSavingPlans =
-  (params = {}) =>
-    request({
-      method:
-        HTTP_METHODS.GET,
-      endpoint:
-        SMART_SAVE_ENDPOINTS.plans,
-      params:
-        normalizeListQuery(
-          params
-        ),
-    });
+export const getSavingPlans = ({
+  signal,
+  ...params
+} = {}) =>
+  request({
+    method: HTTP_METHODS.GET,
+    endpoint: SMART_SAVE_ENDPOINTS.plans,
+    params: normalizeListQuery(params),
+    signal,
+  });
 
 
 export const getSavingPlan =
@@ -1126,18 +1117,16 @@ export const createSavingSchedule =
     });
 
 
-export const getSavingSchedules =
-  (params = {}) =>
-    request({
-      method:
-        HTTP_METHODS.GET,
-      endpoint:
-        SMART_SAVE_ENDPOINTS.schedules,
-      params:
-        normalizeListQuery(
-          params
-        ),
-    });
+export const getSavingSchedules = ({
+  signal,
+  ...params
+} = {}) =>
+  request({
+    method: HTTP_METHODS.GET,
+    endpoint: SMART_SAVE_ENDPOINTS.schedules,
+    params: normalizeListQuery(params),
+    signal,
+  });
 
 
 export const getActiveSavingSchedules =
@@ -1761,18 +1750,16 @@ export const createAutoSave =
    LIST
 ------------------------------------------------------------ */
 
-export const getAutoSaves =
-  (params = {}) =>
-    request({
-      method:
-        HTTP_METHODS.GET,
-      endpoint:
-        SMART_SAVE_ENDPOINTS.autoSave,
-      params:
-        normalizeListQuery(
-          params
-        ),
-    });
+export const getAutoSaves = ({
+  signal,
+  ...params
+} = {}) =>
+  request({
+    method: HTTP_METHODS.GET,
+    endpoint: SMART_SAVE_ENDPOINTS.autoSave,
+    params: normalizeListQuery(params),
+    signal,
+  });
 
 
 /* ------------------------------------------------------------

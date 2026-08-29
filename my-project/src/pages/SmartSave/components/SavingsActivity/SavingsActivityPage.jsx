@@ -1,3 +1,4 @@
+
 // pages/SmartSave/SavingsActivityPage.jsx
 
 import {
@@ -185,7 +186,7 @@ const getActivityAmount = (activity) => {
 };
 
 /* =========================================================
-   HEADER
+   PAGE HEADER
 ========================================================= */
 
 const PageHeader = memo(
@@ -200,11 +201,9 @@ const PageHeader = memo(
     return (
       <header
         className="
-          flex flex-col
           px-5 sm:px-6 py-5
           bg-white
           border-slate-100 border-b
-          gap-4
         "
       >
         <div
@@ -213,6 +212,8 @@ const PageHeader = memo(
             gap-4
           "
         >
+          {/* Header information */}
+
           <div
             className="
               flex items-start
@@ -224,19 +225,14 @@ const PageHeader = memo(
               className="
                 flex justify-center items-center
                 w-11 h-11
-                bg-slate-100
-                border border-slate-200 rounded-xl
+                text-blue-600
+                bg-blue-50
+                border border-blue-100 rounded-xl
                 shrink-0
               "
               aria-hidden="true"
             >
-              <Activity
-                size={19}
-                className="
-                  text-slate-700
-                "
-                /
-              >
+              <Activity size={19} />
             </div>
 
             <div
@@ -253,7 +249,8 @@ const PageHeader = memo(
                 <h1
                   id="savings-activity-title"
                   className="
-                    font-bold text-slate-950 text-lg sm:text-xl tracking-tight
+                    font-bold text-slate-950 text-lg sm:text-xl truncate
+                    tracking-tight
                   "
                 >
                   {title}
@@ -267,7 +264,7 @@ const PageHeader = memo(
                       inline-flex items-center
                       px-2.5 py-1
                       font-semibold text-[11px] text-slate-600
-                      bg-slate-100
+                      bg-slate-50
                       border border-slate-200 rounded-full
                     "
                     aria-label={`${activityCount} activities`}
@@ -290,6 +287,8 @@ const PageHeader = memo(
               )}
             </div>
           </div>
+
+          {/* Header actions */}
 
           <div
             className="
@@ -406,7 +405,9 @@ const ActivitySummary = memo(
           }
         ).format(totalAmount);
     } catch {
-      formattedAmount = `${currency || DEFAULT_CURRENCY} ${Number(
+      formattedAmount = `${
+        currency || DEFAULT_CURRENCY
+      } ${Number(
         totalAmount || 0
       ).toFixed(2)}`;
     }
@@ -601,6 +602,26 @@ BackgroundError.displayName =
   "SavingsActivityBackgroundError";
 
 /* =========================================================
+   SHARED CONTAINER CLASS
+========================================================= */
+
+const buildContainerClass = (
+  className
+) =>
+  [
+    "w-full",
+    "overflow-hidden",
+    "rounded-3xl",
+    "border",
+    "border-slate-200",
+    "bg-white",
+    "shadow-sm",
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+/* =========================================================
    PAGE
 ========================================================= */
 
@@ -610,11 +631,9 @@ const SavingsActivityPage = ({
   query: incomingQuery = {},
   limit = DEFAULT_LIMIT,
   currency = DEFAULT_CURRENCY,
-
   onViewAll,
   onActivityClick,
   onCreateSaving,
-
   className = "",
   compact = false,
   showEmptyState = true,
@@ -649,15 +668,11 @@ const SavingsActivityPage = ({
     activities: hookActivities,
     items: hookItems,
     data,
-
     loading = false,
     isLoading = false,
-
     refreshing = false,
     isRefreshing = false,
-
     error = null,
-
     fetchActivities,
     refetch,
     refresh,
@@ -743,6 +758,19 @@ const SavingsActivityPage = ({
   );
 
   /* =======================================================
+     CONTAINER
+  ======================================================= */
+
+  const containerClassName =
+    useMemo(
+      () =>
+        buildContainerClass(
+          className
+        ),
+      [className]
+    );
+
+  /* =======================================================
      REFRESH CAPABILITY
   ======================================================= */
 
@@ -799,7 +827,8 @@ const SavingsActivityPage = ({
   const handleViewAll =
     useCallback(() => {
       if (
-        typeof onViewAll === "function"
+        typeof onViewAll ===
+        "function"
       ) {
         onViewAll();
       }
@@ -828,17 +857,6 @@ const SavingsActivityPage = ({
 
   const handleCreateSaving =
     useCallback(() => {
-      /*
-       * This is deliberately a direct event-handler call.
-       *
-       * No state update.
-       * No effect.
-       * No API request.
-       * No navigation inside this component.
-       *
-       * The parent owns the actual "create saving"
-       * destination/modal/workflow.
-       */
       if (
         typeof onCreateSaving ===
         "function"
@@ -861,34 +879,11 @@ const SavingsActivityPage = ({
       ? handleViewAll
       : undefined;
 
-  /*
-   * IMPORTANT:
-   *
-   * We only pass the create handler when the parent
-   * actually supplied one.
-   */
   const createSavingHandler =
     typeof onCreateSaving ===
     "function"
       ? handleCreateSaving
       : undefined;
-
-  /* =======================================================
-     CONTAINER
-  ======================================================= */
-
-  const containerClassName = [
-    "w-full",
-    "overflow-hidden",
-    "rounded-3xl",
-    "border",
-    "border-slate-200",
-    "bg-white",
-    "shadow-sm",
-    className,
-  ]
-    .filter(Boolean)
-    .join(" ");
 
   /* =======================================================
      INITIAL LOADING
@@ -919,7 +914,7 @@ const SavingsActivityPage = ({
 
         <div
           className="
-            px-5 sm:px-6 py-5 sm:py-6
+            px-5 sm:px-6 py-6
           "
         >
           <SavingsSkeleton
@@ -1044,7 +1039,9 @@ const SavingsActivityPage = ({
 
   return (
     <main
-      className={`w-full ${className}`}
+      className="
+        w-full
+      "
       aria-labelledby={
         showHeader
           ? "savings-activity-title"
@@ -1052,13 +1049,7 @@ const SavingsActivityPage = ({
       }
     >
       <section
-        className="
-          overflow-hidden
-          w-full
-          bg-white
-          border border-slate-200 rounded-3xl
-          shadow-sm
-        "
+        className={containerClassName}
       >
         {showHeader && (
           <PageHeader
@@ -1084,6 +1075,8 @@ const SavingsActivityPage = ({
             px-5 sm:px-6 py-5 sm:py-6
           "
         >
+          {/* Summary */}
+
           {showSummary && (
             <div
               className="
@@ -1091,14 +1084,20 @@ const SavingsActivityPage = ({
               "
             >
               <ActivitySummary
-                count={activityCount}
+                count={
+                  activityCount
+                }
                 totalAmount={
                   totalAmount
                 }
-                currency={currency}
+                currency={
+                  currency
+                }
               />
             </div>
           )}
+
+          {/* Background error */}
 
           {errorMessage &&
             hasActivities && (
@@ -1117,16 +1116,24 @@ const SavingsActivityPage = ({
               />
             )}
 
+          {/* Refresh status */}
+
           <RefreshStatus
             refreshing={
               refreshingActivity
             }
           />
 
+          {/* Activity list */}
+
           <SavingsActivityList
             activities={activities}
-            loading={initialLoading}
-            error={errorMessage}
+            loading={
+              initialLoading
+            }
+            error={
+              errorMessage
+            }
             onRetry={
               canRefresh
                 ? handleRetry
@@ -1138,6 +1145,8 @@ const SavingsActivityPage = ({
             ariaLabel="Savings activity list"
           />
         </div>
+
+        {/* Footer */}
 
         <footer
           className="

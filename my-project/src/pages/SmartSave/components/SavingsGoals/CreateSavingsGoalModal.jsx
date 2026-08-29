@@ -7,7 +7,6 @@ import {
   Wallet,
   X,
 } from "lucide-react";
-
 import {
   useCallback,
   useEffect,
@@ -16,17 +15,9 @@ import {
   useState,
 } from "react";
 
-import {
-  formatSavingsCurrency,
-} from "../../../../utils/smartSave/savingsFormatters";
-
-import {
-  validateSavingsGoal,
-} from "../../../../utils/smartSave/savingsValidators";
-
-import {
-  DEFAULT_CURRENCY,
-} from "../../../../config/smartSaveConfig";
+import { formatSavingsCurrency } from "../../../../utils/smartSave/savingsFormatters";
+import { validateSavingsGoal } from "../../../../utils/smartSave/savingsValidators";
+import { DEFAULT_CURRENCY } from "../../../../config/smartSaveConfig";
 
 /* =========================================================
    CONSTANTS
@@ -58,25 +49,21 @@ const isObject = (value) =>
   !Array.isArray(value);
 
 const normalizeString = (value) =>
-  typeof value === "string"
-    ? value.trim()
-    : "";
+  typeof value === "string" ? value.trim() : "";
 
 const normalizeCurrency = (
   value,
   fallback = DEFAULT_CURRENCY
 ) => {
-  const normalized = normalizeString(value)
-    .toUpperCase()
-    .replace(/[^A-Z]/g, "")
-    .slice(0, MAX_CURRENCY_LENGTH);
-
-  return (
-    normalized ||
-    normalizeString(fallback)
+  const normalize = (input) =>
+    normalizeString(input)
       .toUpperCase()
       .replace(/[^A-Z]/g, "")
-      .slice(0, MAX_CURRENCY_LENGTH) ||
+      .slice(0, MAX_CURRENCY_LENGTH);
+
+  return (
+    normalize(value) ||
+    normalize(fallback) ||
     DEFAULT_CURRENCY
   );
 };
@@ -104,14 +91,11 @@ const normalizeDate = (value) => {
 
   const stringValue = String(value);
 
-  const match =
-    stringValue.match(
-      /^(\d{4}-\d{2}-\d{2})/
-    );
+  const match = stringValue.match(
+    /^(\d{4}-\d{2}-\d{2})/
+  );
 
-  return match
-    ? match[1]
-    : "";
+  return match ? match[1] : "";
 };
 
 /* =========================================================
@@ -125,8 +109,7 @@ const getErrorMessage = (error) => {
 
   if (typeof error === "string") {
     return (
-      error.trim() ||
-      DEFAULT_ERROR_MESSAGE
+      error.trim() || DEFAULT_ERROR_MESSAGE
     );
   }
 
@@ -194,6 +177,13 @@ const buildInitialForm = (
 
 /* =========================================================
    SOURCE KEY
+
+   The source key identifies the logical form instance.
+
+   Example:
+   open:new:NGN
+   open:abc123:NGN
+   closed
 ========================================================= */
 
 const getSourceKey = (
@@ -242,9 +232,7 @@ const normalizeValidationResult = (
     };
   }
 
-  if (
-    isObject(result.errors)
-  ) {
+  if (isObject(result.errors)) {
     const errors = result.errors;
 
     return {
@@ -266,9 +254,7 @@ const normalizeValidationResult = (
     };
   }
 
-  if (
-    result.valid === true
-  ) {
+  if (result.valid === true) {
     return {
       valid: true,
       errors: EMPTY_ERRORS,
@@ -287,21 +273,13 @@ const normalizeValidationResult = (
 
 const CreateSavingsGoalModal = ({
   open = false,
-
   onClose,
-
   onSubmit,
-
   loading = false,
-
   initialValues = null,
-
   currency = DEFAULT_CURRENCY,
-
   title = "Create savings goal",
-
   submitLabel = "Create goal",
-
   className = "",
 }) => {
   /* =======================================================
@@ -335,7 +313,24 @@ const CreateSavingsGoalModal = ({
   );
 
   /* =======================================================
-     DRAFT STATE
+     FORM STATE
+
+     IMPORTANT:
+     We do NOT synchronize this state inside useEffect.
+
+     The initial value is calculated lazily when the
+     component mounts.
+
+     When the logical source changes, the rendered form
+     falls back to initialForm until the user edits it.
+
+     This avoids:
+
+       useEffect(() => {
+         setForm(...)
+       }, [...])
+
+     which was causing the React cascading-render warning.
   ======================================================= */
 
   const [
@@ -359,7 +354,7 @@ const CreateSavingsGoalModal = ({
       : initialForm;
 
   /* =======================================================
-     VALIDATION ERRORS
+     ERROR STATE
   ======================================================= */
 
   const [
@@ -380,7 +375,7 @@ const CreateSavingsGoalModal = ({
       : EMPTY_ERRORS;
 
   /* =======================================================
-     SUBMISSION STATE
+     SUBMITTED STATE
   ======================================================= */
 
   const [
@@ -425,17 +420,15 @@ const CreateSavingsGoalModal = ({
      REFS
   ======================================================= */
 
-  const mountedRef =
-    useRef(true);
-
-  const submissionIdRef =
-    useRef(0);
-
-  const nameInputRef =
-    useRef(null);
+  const mountedRef = useRef(true);
+  const submissionIdRef = useRef(0);
+  const nameInputRef = useRef(null);
 
   /* =======================================================
      MOUNT TRACKING
+
+     This effect only subscribes to component lifecycle.
+     It does not update React state.
   ======================================================= */
 
   useEffect(() => {
@@ -452,49 +445,42 @@ const CreateSavingsGoalModal = ({
 
   const updateField = useCallback(
     (field, value) => {
-      setDraftState(
-        (previous) => ({
-          sourceKey,
-          values: {
-            ...(previous.sourceKey ===
-            sourceKey
-              ? previous.values
-              : form),
+      setDraftState((previous) => ({
+        sourceKey,
+        values: {
+          ...(previous.sourceKey === sourceKey
+            ? previous.values
+            : form),
 
-            [field]: value,
-          },
-        })
-      );
+          [field]: value,
+        },
+      }));
 
-      setErrorState(
-        (previous) => {
-          if (
-            previous.sourceKey !==
-              sourceKey ||
-            !previous.values?.[field]
-          ) {
-            return {
-              sourceKey,
-              values:
-                previous.sourceKey ===
-                sourceKey
-                  ? previous.values
-                  : EMPTY_ERRORS,
-            };
-          }
-
-          const nextErrors = {
-            ...previous.values,
-          };
-
-          delete nextErrors[field];
-
+      setErrorState((previous) => {
+        if (
+          previous.sourceKey !== sourceKey ||
+          !previous.values?.[field]
+        ) {
           return {
             sourceKey,
-            values: nextErrors,
+            values:
+              previous.sourceKey === sourceKey
+                ? previous.values
+                : EMPTY_ERRORS,
           };
         }
-      );
+
+        const nextErrors = {
+          ...previous.values,
+        };
+
+        delete nextErrors[field];
+
+        return {
+          sourceKey,
+          values: nextErrors,
+        };
+      });
 
       setSubmitErrorState({
         sourceKey,
@@ -518,16 +504,13 @@ const CreateSavingsGoalModal = ({
 
   const getFieldError = useCallback(
     (field) => {
-      const value =
-        errors?.[field];
+      const value = errors?.[field];
 
       if (Array.isArray(value)) {
         return value[0] || "";
       }
 
-      if (
-        typeof value === "string"
-      ) {
+      if (typeof value === "string") {
         return value;
       }
 
@@ -540,38 +523,34 @@ const CreateSavingsGoalModal = ({
      NORMALIZED PAYLOAD
   ======================================================= */
 
-  const normalizedPayload =
-    useMemo(
-      () => ({
-        name: normalizeString(
-          form.name
-        ),
+  const normalizedPayload = useMemo(
+    () => ({
+      name: normalizeString(form.name),
 
-        targetAmount:
-          normalizeAmount(
-            form.targetAmount
-          ),
+      targetAmount: normalizeAmount(
+        form.targetAmount
+      ),
 
-        currency: normalizeCurrency(
-          form.currency,
-          currency
-        ),
+      currency: normalizeCurrency(
+        form.currency,
+        currency
+      ),
 
-        targetDate:
-          normalizeDate(
-            form.targetDate
-          ) || null,
+      targetDate:
+        normalizeDate(
+          form.targetDate
+        ) || null,
 
-        description:
-          normalizeString(
-            form.description
-          ) || undefined,
-      }),
-      [
-        form,
-        currency,
-      ]
-    );
+      description:
+        normalizeString(
+          form.description
+        ) || undefined,
+    }),
+    [
+      form,
+      currency,
+    ]
+  );
 
   /* =======================================================
      VALIDATION
@@ -587,10 +566,7 @@ const CreateSavingsGoalModal = ({
         return {
           valid: false,
           errors: {
-            form:
-              getErrorMessage(
-                error
-              ),
+            form: getErrorMessage(error),
           },
         };
       }
@@ -606,10 +582,7 @@ const CreateSavingsGoalModal = ({
     async (event) => {
       event.preventDefault();
 
-      if (
-        loading ||
-        !open
-      ) {
+      if (loading || !open) {
         return;
       }
 
@@ -644,10 +617,7 @@ const CreateSavingsGoalModal = ({
         values: EMPTY_ERRORS,
       });
 
-      if (
-        typeof onSubmit !==
-        "function"
-      ) {
+      if (typeof onSubmit !== "function") {
         setSubmitErrorState({
           sourceKey,
           value:
@@ -667,21 +637,17 @@ const CreateSavingsGoalModal = ({
           );
 
         /*
-         * Treat explicit false as a failed submission.
-         * This lets a parent deliberately prevent completion
-         * without throwing.
+         * Explicit false means the parent rejected
+         * the submission without throwing.
          */
-        if (
-          result === false
-        ) {
+        if (result === false) {
           throw new Error(
             DEFAULT_ERROR_MESSAGE
           );
         }
 
         /*
-         * Ignore late async results if the component has
-         * unmounted or another submission has started.
+         * Ignore stale asynchronous results.
          */
         if (
           !mountedRef.current ||
@@ -702,9 +668,7 @@ const CreateSavingsGoalModal = ({
         setSubmitErrorState({
           sourceKey,
           value:
-            getErrorMessage(
-              error
-            ),
+            getErrorMessage(error),
         });
       }
     },
@@ -777,12 +741,9 @@ const CreateSavingsGoalModal = ({
   ======================================================= */
 
   const handleModalMouseDown =
-    useCallback(
-      (event) => {
-        event.stopPropagation();
-      },
-      []
-    );
+    useCallback((event) => {
+      event.stopPropagation();
+    }, []);
 
   /* =======================================================
      ESCAPE
@@ -793,16 +754,12 @@ const CreateSavingsGoalModal = ({
       return undefined;
     }
 
-    const handleKeyDown =
-      (event) => {
-        if (
-          event.key ===
-          "Escape"
-        ) {
-          event.preventDefault();
-          handleClose();
-        }
-      };
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        handleClose();
+      }
+    };
 
     document.addEventListener(
       "keydown",
@@ -829,14 +786,11 @@ const CreateSavingsGoalModal = ({
       return undefined;
     }
 
-    const body =
-      document.body;
-
+    const body = document.body;
     const previousOverflow =
       body.style.overflow;
 
-    body.style.overflow =
-      "hidden";
+    body.style.overflow = "hidden";
 
     return () => {
       body.style.overflow =
@@ -846,6 +800,9 @@ const CreateSavingsGoalModal = ({
 
   /* =======================================================
      INITIAL FOCUS
+
+     This effect synchronizes with the DOM, which is
+     exactly what useEffect is intended for.
   ======================================================= */
 
   useEffect(() => {
@@ -853,26 +810,24 @@ const CreateSavingsGoalModal = ({
       return undefined;
     }
 
-    const timer =
-      window.setTimeout(() => {
-        nameInputRef.current?.focus();
-      }, 0);
+    const timer = window.setTimeout(() => {
+      nameInputRef.current?.focus();
+    }, 0);
 
     return () => {
-      window.clearTimeout(
-        timer
-      );
+      window.clearTimeout(timer);
     };
-  }, [open, sourceKey]);
+  }, [
+    open,
+    sourceKey,
+  ]);
 
   /* =======================================================
      DERIVED DISPLAY VALUES
   ======================================================= */
 
   const targetAmountNumber =
-    Number(
-      form.targetAmount
-    );
+    Number(form.targetAmount);
 
   const formattedTargetAmount =
     Number.isFinite(
@@ -886,57 +841,49 @@ const CreateSavingsGoalModal = ({
       : "";
 
   /*
-   * Use local calendar date instead of UTC-based
-   * toISOString(), avoiding timezone edge cases.
+   * Local calendar date instead of UTC-based
+   * toISOString(), avoiding timezone issues.
    */
   const today = useMemo(() => {
-    const date =
-      new Date();
+    const date = new Date();
 
     const year =
       date.getFullYear();
 
-    const month =
-      String(
-        date.getMonth() + 1
-      ).padStart(2, "0");
+    const month = String(
+      date.getMonth() + 1
+    ).padStart(2, "0");
 
-    const day =
-      String(
-        date.getDate()
-      ).padStart(2, "0");
+    const day = String(
+      date.getDate()
+    ).padStart(2, "0");
 
     return `${year}-${month}-${day}`;
   }, []);
+
+  /* =======================================================
+     FIELD ERRORS
+  ======================================================= */
 
   const nameError =
     getFieldError("name");
 
   const targetAmountError =
-    getFieldError(
-      "targetAmount"
-    );
+    getFieldError("targetAmount");
 
   const targetDateError =
-    getFieldError(
-      "targetDate"
-    );
+    getFieldError("targetDate");
 
   const currencyError =
-    getFieldError(
-      "currency"
-    );
+    getFieldError("currency");
 
   const descriptionError =
-    getFieldError(
-      "description"
-    );
+    getFieldError("description");
 
   const formError =
     getFieldError("form");
 
-  const isBusy =
-    Boolean(loading);
+  const isBusy = Boolean(loading);
 
   /* =======================================================
      RENDER
@@ -949,7 +896,7 @@ const CreateSavingsGoalModal = ({
   return (
     <div
       className="
-        fixed inset-0 z-[100] flex items-center justify-center
+        z-[100] fixed inset-0 flex justify-center items-center
         p-4 sm:p-6
       "
       role="presentation"
@@ -958,7 +905,6 @@ const CreateSavingsGoalModal = ({
       }
     >
       {/* Backdrop */}
-
       <div
         className="
           absolute inset-0
@@ -970,7 +916,6 @@ const CreateSavingsGoalModal = ({
       >
 
       {/* Modal */}
-
       <section
         role="dialog"
         aria-modal="true"
@@ -998,7 +943,7 @@ const CreateSavingsGoalModal = ({
 
         <div
           className="
-            flex items-start justify-between
+            flex justify-between items-start
             px-5 sm:px-6 py-4
             border-slate-200 border-b
             gap-4
@@ -1013,7 +958,7 @@ const CreateSavingsGoalModal = ({
           >
             <div
               className="
-                flex items-center justify-center
+                flex justify-center items-center
                 w-10 h-10
                 text-blue-600
                 bg-blue-50
@@ -1062,12 +1007,12 @@ const CreateSavingsGoalModal = ({
             disabled={isBusy}
             aria-label="Close savings goal dialog"
             className="
-              flex items-center justify-center
+              flex justify-center items-center
               w-9 h-9
               text-slate-500 hover:text-slate-700
               hover:bg-slate-100
               rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400/40
-              disabled:opacity-50
+              disabled:opacity-50 transition
               disabled:cursor-not-allowed
               shrink-0
             "
@@ -1091,9 +1036,7 @@ const CreateSavingsGoalModal = ({
           "
         >
           {/* General error */}
-
-          {(formError ||
-            submitError) && (
+          {(formError || submitError) && (
             <div
               role="alert"
               className="
@@ -1153,31 +1096,15 @@ const CreateSavingsGoalModal = ({
               autoComplete="off"
               disabled={isBusy}
               maxLength={100}
-              aria-invalid={
-                Boolean(nameError)
-              }
+              aria-invalid={Boolean(
+                nameError
+              )}
               aria-describedby={
                 nameError
                   ? "saving-goal-name-error"
                   : undefined
               }
-              className="
-                w-full
-                px-4 py-3
-                bg-white
-                border border-slate-300
-                rounded-xl
-                text-slate-900
-                text-sm
-                placeholder:text-slate-400
-                outline-none
-                focus:border-blue-500
-                focus:ring-4
-                focus:ring-blue-500/10
-                disabled:bg-slate-50
-                disabled:cursor-not-allowed
-                transition
-              "
+              className="bg-white disabled:bg-slate-50 px-4 py-3 border border-slate-300 focus:border-blue-500 rounded-xl outline-none focus:ring-4 focus:ring-blue-500/10 w-full text-slate-900 placeholder:text-slate-400 text-sm transition disabled:cursor-not-allowed"
             />
 
             {nameError && (
@@ -1204,7 +1131,6 @@ const CreateSavingsGoalModal = ({
             "
           >
             {/* Amount */}
-
             <div>
               <label
                 htmlFor="saving-goal-target"
@@ -1225,7 +1151,7 @@ const CreateSavingsGoalModal = ({
                 <Wallet
                   size={17}
                   className="
-                    absolute top-1/2 left-3
+                    top-1/2 left-3 absolute
                     text-slate-400
                     pointer-events-none
                     -translate-y-1/2
@@ -1251,11 +1177,9 @@ const CreateSavingsGoalModal = ({
                   }
                   placeholder="0.00"
                   disabled={isBusy}
-                  aria-invalid={
-                    Boolean(
-                      targetAmountError
-                    )
-                  }
+                  aria-invalid={Boolean(
+                    targetAmountError
+                  )}
                   aria-describedby={
                     targetAmountError
                       ? "saving-goal-target-error"
@@ -1263,23 +1187,7 @@ const CreateSavingsGoalModal = ({
                         ? "saving-goal-target-preview"
                         : undefined
                   }
-                  className="
-                    w-full
-                    py-3 pr-4 pl-10
-                    bg-white
-                    border border-slate-300
-                    rounded-xl
-                    text-slate-900
-                    text-sm
-                    placeholder:text-slate-400
-                    outline-none
-                    focus:border-blue-500
-                    focus:ring-4
-                    focus:ring-blue-500/10
-                    disabled:bg-slate-50
-                    disabled:cursor-not-allowed
-                    transition
-                  "
+                  className="bg-white disabled:bg-slate-50 py-3 pr-4 pl-10 border border-slate-300 focus:border-blue-500 rounded-xl outline-none focus:ring-4 focus:ring-blue-500/10 w-full text-slate-900 placeholder:text-slate-400 text-sm transition disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -1318,7 +1226,6 @@ const CreateSavingsGoalModal = ({
             </div>
 
             {/* Currency */}
-
             <div>
               <label
                 htmlFor="saving-goal-currency"
@@ -1355,34 +1262,15 @@ const CreateSavingsGoalModal = ({
                 }
                 autoComplete="off"
                 disabled={isBusy}
-                aria-invalid={
-                  Boolean(
-                    currencyError
-                  )
-                }
+                aria-invalid={Boolean(
+                  currencyError
+                )}
                 aria-describedby={
                   currencyError
                     ? "saving-goal-currency-error"
                     : undefined
                 }
-                className="
-                  w-full
-                  px-4 py-3
-                  bg-white
-                  border border-slate-300
-                  rounded-xl
-                  text-slate-900
-                  text-sm
-                  font-medium
-                  uppercase
-                  outline-none
-                  focus:border-blue-500
-                  focus:ring-4
-                  focus:ring-blue-500/10
-                  disabled:bg-slate-50
-                  disabled:cursor-not-allowed
-                  transition
-                "
+                className="bg-white disabled:bg-slate-50 px-4 py-3 border border-slate-300 focus:border-blue-500 rounded-xl outline-none focus:ring-4 focus:ring-blue-500/10 w-full font-medium text-slate-900 text-sm uppercase transition disabled:cursor-not-allowed"
               />
 
               {currencyError && (
@@ -1413,7 +1301,6 @@ const CreateSavingsGoalModal = ({
               "
             >
               Target date
-
               <span
                 className="
                   ml-1
@@ -1432,7 +1319,7 @@ const CreateSavingsGoalModal = ({
               <CalendarDays
                 size={17}
                 className="
-                  absolute top-1/2 left-3
+                  top-1/2 left-3 absolute
                   text-slate-400
                   pointer-events-none
                   -translate-y-1/2
@@ -1455,32 +1342,15 @@ const CreateSavingsGoalModal = ({
                 }
                 disabled={isBusy}
                 min={today}
-                aria-invalid={
-                  Boolean(
-                    targetDateError
-                  )
-                }
+                aria-invalid={Boolean(
+                  targetDateError
+                )}
                 aria-describedby={
                   targetDateError
                     ? "saving-goal-date-error"
                     : undefined
                 }
-                className="
-                  w-full
-                  py-3 pr-4 pl-10
-                  bg-white
-                  border border-slate-300
-                  rounded-xl
-                  text-slate-900
-                  text-sm
-                  outline-none
-                  focus:border-blue-500
-                  focus:ring-4
-                  focus:ring-blue-500/10
-                  disabled:bg-slate-50
-                  disabled:cursor-not-allowed
-                  transition
-                "
+                className="bg-white disabled:bg-slate-50 py-3 pr-4 pl-10 border border-slate-300 focus:border-blue-500 rounded-xl outline-none focus:ring-4 focus:ring-blue-500/10 w-full text-slate-900 text-sm transition disabled:cursor-not-allowed"
               />
             </div>
 
@@ -1511,7 +1381,6 @@ const CreateSavingsGoalModal = ({
               "
             >
               Description
-
               <span
                 className="
                   ml-1
@@ -1542,35 +1411,15 @@ const CreateSavingsGoalModal = ({
               }
               placeholder="What are you saving this money for?"
               disabled={isBusy}
-              aria-invalid={
-                Boolean(
-                  descriptionError
-                )
-              }
+              aria-invalid={Boolean(
+                descriptionError
+              )}
               aria-describedby={
                 descriptionError
                   ? "saving-goal-description-error"
                   : undefined
               }
-              className="
-                w-full
-                px-4 py-3
-                bg-white
-                border border-slate-300
-                rounded-xl
-                text-slate-900
-                text-sm
-                leading-5
-                placeholder:text-slate-400
-                outline-none
-                focus:border-blue-500
-                focus:ring-4
-                focus:ring-blue-500/10
-                disabled:bg-slate-50
-                disabled:cursor-not-allowed
-                transition
-                resize-none
-              "
+              className="bg-white disabled:bg-slate-50 px-4 py-3 border border-slate-300 focus:border-blue-500 rounded-xl outline-none focus:ring-4 focus:ring-blue-500/10 w-full text-slate-900 placeholder:text-slate-400 text-sm leading-5 transition resize-none disabled:cursor-not-allowed"
             />
 
             <div
@@ -1598,13 +1447,8 @@ const CreateSavingsGoalModal = ({
                 "
                 aria-label={`${form.description.length} of ${MAX_DESCRIPTION_LENGTH} characters`}
               >
-                {
-                  form.description.length
-                }
-                /
-                {
-                  MAX_DESCRIPTION_LENGTH
-                }
+                {form.description.length}/
+                {MAX_DESCRIPTION_LENGTH}
               </span>
             </div>
           </div>
@@ -1614,8 +1458,7 @@ const CreateSavingsGoalModal = ({
           ================================================= */}
 
           {submitted &&
-            Object.keys(errors).length ===
-              0 &&
+            Object.keys(errors).length === 0 &&
             !submitError &&
             !isBusy && (
               <div
@@ -1673,7 +1516,7 @@ const CreateSavingsGoalModal = ({
               type="submit"
               disabled={isBusy}
               className="
-                inline-flex items-center justify-center
+                inline-flex justify-center items-center
                 px-5 py-3
                 font-semibold text-white text-sm
                 bg-blue-600 hover:bg-blue-700

@@ -3,17 +3,18 @@ import express from "express";
 import {
   createAutoSave,
   getAutoSaves,
-  getAutoSaveById,
+getAutoSave,
   updateAutoSave,
   deleteAutoSave,
   activateAutoSave,
   pauseAutoSave,
   resumeAutoSave,
   cancelAutoSave,
-  getAutoSaveStats,
+  getAutoSaveStatistics,
+  
 } from "../config/controllers/autoSaveController.js";
 
-import { protect } from "../middleware/authMiddleware.js";
+import protect  from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -78,7 +79,7 @@ router.get(
  */
 router.get(
   "/:autoSaveId/stats",
-  getAutoSaveStats
+  getAutoSaveStatistics
 );
 
 /* =========================================================
@@ -91,8 +92,8 @@ router.get(
  * Get one AutoSave configuration belonging to the user.
  */
 router.get(
-  "/:autoSaveId",
-  getAutoSaveById
+   "/:autoSaveId",
+  getAutoSave
 );
 
 /* =========================================================
