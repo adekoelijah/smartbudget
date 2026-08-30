@@ -32,17 +32,16 @@ const DEFAULT_OPTIONS = {
 /**
  * Normalize an optional asOfDate value.
  *
- * The backend contract accepts:
+ * Supported examples:
  *
- * ?asOfDate=2026-08-13
- *
- * We intentionally do not create a date automatically here.
- * When omitted, the backend/service determines the current
- * date.
+ * null
+ * undefined
+ * ""
+ * Date
+ * "2026-08-30"
+ * "August 30, 2026"
  */
-const normalizeAsOfDate = (
-  value
-) => {
+const normalizeAsOfDate = (value) => {
   if (
     value === null ||
     value === undefined ||
@@ -51,14 +50,8 @@ const normalizeAsOfDate = (
     return null;
   }
 
-  if (
-    value instanceof Date
-  ) {
-    if (
-      Number.isNaN(
-        value.getTime()
-      )
-    ) {
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) {
       return null;
     }
 
@@ -67,17 +60,12 @@ const normalizeAsOfDate = (
       .slice(0, 10);
   }
 
-  const stringValue =
-    String(value).trim();
+  const stringValue = String(value).trim();
 
   if (!stringValue) {
     return null;
   }
 
-  /*
-   * Preserve an already normalized
-   * YYYY-MM-DD value.
-   */
   if (
     /^\d{4}-\d{2}-\d{2}$/.test(
       stringValue
@@ -86,14 +74,9 @@ const normalizeAsOfDate = (
     return stringValue;
   }
 
-  const date =
-    new Date(stringValue);
+  const date = new Date(stringValue);
 
-  if (
-    Number.isNaN(
-      date.getTime()
-    )
-  ) {
+  if (Number.isNaN(date.getTime())) {
     return null;
   }
 
@@ -102,42 +85,25 @@ const normalizeAsOfDate = (
     .slice(0, 10);
 };
 
+
 /* =========================================================
    RESPONSE NORMALIZATION
 ========================================================= */
 
-/**
- * Dashboard insight response.
- *
- * Expected backend service output is generally:
- *
- * {
- *   summary: {...},
- *   insights: [...],
- *   goals: [...]
- * }
- *
- * This helper keeps the hook resilient to the common
- * response wrapper used by the API layer.
- */
 const normalizeDashboardResponse = (
   response
 ) => {
   if (
     response?.data &&
-    typeof response.data ===
-      "object" &&
-    !Array.isArray(
-      response.data
-    )
+    typeof response.data === "object" &&
+    !Array.isArray(response.data)
   ) {
     return response.data;
   }
 
   if (
     response &&
-    typeof response ===
-      "object" &&
+    typeof response === "object" &&
     !Array.isArray(response)
   ) {
     return response;
@@ -150,9 +116,7 @@ const normalizeDashboardResponse = (
   };
 };
 
-/**
- * Normalize dashboard insights.
- */
+
 const normalizeInsights = (
   response
 ) => {
@@ -179,32 +143,27 @@ const normalizeInsights = (
   return [];
 };
 
-/**
- * Normalize summary response.
- */
+
 const normalizeSummary = (
   response
 ) => {
   if (
     response?.summary &&
-    typeof response.summary ===
-      "object"
+    typeof response.summary === "object"
   ) {
     return response.summary;
   }
 
   if (
     response?.data?.summary &&
-    typeof response.data.summary ===
-      "object"
+    typeof response.data.summary === "object"
   ) {
     return response.data.summary;
   }
 
   if (
     response?.data &&
-    typeof response.data ===
-      "object" &&
+    typeof response.data === "object" &&
     !Array.isArray(response.data)
   ) {
     return response.data;
@@ -212,8 +171,7 @@ const normalizeSummary = (
 
   if (
     response &&
-    typeof response ===
-      "object" &&
+    typeof response === "object" &&
     !Array.isArray(response)
   ) {
     return response;
@@ -222,32 +180,27 @@ const normalizeSummary = (
   return null;
 };
 
-/**
- * Normalize top insight response.
- */
+
 const normalizeTopInsight = (
   response
 ) => {
   if (
     response?.insight &&
-    typeof response.insight ===
-      "object"
+    typeof response.insight === "object"
   ) {
     return response.insight;
   }
 
   if (
     response?.data?.insight &&
-    typeof response.data.insight ===
-      "object"
+    typeof response.data.insight === "object"
   ) {
     return response.data.insight;
   }
 
   if (
     response?.data &&
-    typeof response.data ===
-      "object" &&
+    typeof response.data === "object" &&
     !Array.isArray(response.data)
   ) {
     return response.data;
@@ -255,8 +208,7 @@ const normalizeTopInsight = (
 
   if (
     response &&
-    typeof response ===
-      "object" &&
+    typeof response === "object" &&
     !Array.isArray(response)
   ) {
     return response;
@@ -265,9 +217,7 @@ const normalizeTopInsight = (
   return null;
 };
 
-/**
- * Normalize goal-level insight response.
- */
+
 const normalizeGoalInsights = (
   response
 ) => {
@@ -291,6 +241,7 @@ const normalizeGoalInsights = (
   };
 };
 
+
 /* =========================================================
    ERROR NORMALIZATION
 ========================================================= */
@@ -298,13 +249,15 @@ const normalizeGoalInsights = (
 const normalizeError = (
   error
 ) => {
-  const serviceError =
-    typeof smartSaveService
-      ?.normalizeError ===
+  const serviceNormalizeError =
+    typeof smartSaveService?.normalizeError ===
     "function"
-      ? smartSaveService.normalizeError(
-          error
-        )
+      ? smartSaveService.normalizeError
+      : null;
+
+  const serviceError =
+    serviceNormalizeError
+      ? serviceNormalizeError(error)
       : error;
 
   return {
@@ -316,7 +269,12 @@ const normalizeError = (
       serviceError?.code ||
       "SAVINGS_INSIGHTS_ERROR",
 
+    /*
+     * Your SmartSaveServiceError uses `status`,
+     * while Axios normally exposes `response.status`.
+     */
     statusCode:
+      serviceError?.status ??
       serviceError?.statusCode ??
       serviceError?.response?.status ??
       null,
@@ -326,28 +284,72 @@ const normalizeError = (
       null,
 
     originalError:
+      serviceError?.originalError ??
       error,
   };
 };
+
+
+/* =========================================================
+   TOP INSIGHT SORTING
+========================================================= */
+
+const getHighestPriorityInsight = (
+  insights
+) => {
+  if (!Array.isArray(insights)) {
+    return null;
+  }
+
+  if (insights.length === 0) {
+    return null;
+  }
+
+  return [...insights].sort(
+    (a, b) =>
+      Number(b?.priority ?? 0) -
+      Number(a?.priority ?? 0)
+  )[0] ?? null;
+};
+
 
 /* =========================================================
    HOOK
 ========================================================= */
 
 const useSavingsInsights = (
-  options = {}
+  options = DEFAULT_OPTIONS
 ) => {
-  const mountedRef =
-    useRef(false);
+  /* =======================================================
+     MOUNT STATE
+  ======================================================= */
+
+  const mountedRef = useRef(false);
 
   /*
-   * Every asynchronous operation gets an ID.
-   *
-   * This prevents an older request from overwriting
-   * a newer request when multiple requests are running.
+   * Used to invalidate old dashboard requests.
    */
-  const requestIdRef =
+  const dashboardRequestIdRef =
     useRef(0);
+
+  /*
+   * Each goal has its own request sequence.
+   *
+   * Example:
+   *
+   * goal A request 1
+   * goal A request 2
+   *
+   * Response from request 1 must not overwrite
+   * response from request 2.
+   */
+  const goalRequestIdsRef =
+    useRef({});
+
+
+  /* =======================================================
+     OPTIONS
+  ======================================================= */
 
   const normalizedOptions =
     useMemo(
@@ -360,12 +362,15 @@ const useSavingsInsights = (
       [options?.asOfDate]
     );
 
+
+  /* =======================================================
+     STATE
+  ======================================================= */
+
   const [
     state,
     setState,
-  ] = useState(
-    DEFAULT_STATE
-  );
+  ] = useState(DEFAULT_STATE);
 
   const [
     loading,
@@ -392,6 +397,7 @@ const useSavingsInsights = (
     setGoalErrors,
   ] = useState({});
 
+
   /* =======================================================
      MOUNT / UNMOUNT
   ======================================================= */
@@ -402,12 +408,12 @@ const useSavingsInsights = (
     return () => {
       mountedRef.current = false;
 
-      /*
-       * Invalidate all pending requests.
-       */
-      requestIdRef.current += 1;
+      dashboardRequestIdRef.current += 1;
+
+      goalRequestIdsRef.current = {};
     };
   }, []);
+
 
   /* =======================================================
      BUILD REQUEST OPTIONS
@@ -422,12 +428,17 @@ const useSavingsInsights = (
               normalizedOptions.asOfDate
           );
 
-        return asOfDate
-          ? { asOfDate }
-          : {};
+        if (!asOfDate) {
+          return {};
+        }
+
+        return {
+          asOfDate,
+        };
       },
       [normalizedOptions.asOfDate]
     );
+
 
   /* =======================================================
      FETCH DASHBOARD INSIGHTS
@@ -439,12 +450,29 @@ const useSavingsInsights = (
         overrideOptions = {},
         requestOptions = {}
       ) => {
-        const {
-          silent = false,
-        } = requestOptions;
+        const silent =
+          requestOptions?.silent === true;
 
         const requestId =
-          ++requestIdRef.current;
+          ++dashboardRequestIdRef.current;
+
+        /*
+         * IMPORTANT:
+         *
+         * The request is started BEFORE changing loading state.
+         *
+         * This keeps the request function asynchronous from
+         * the caller's perspective and avoids the problematic
+         * effect -> function -> synchronous setState chain.
+         */
+
+        const requestPromise =
+          smartSaveService
+            .getDashboardSavingInsights(
+              buildOptions(
+                overrideOptions
+              )
+            );
 
         if (mountedRef.current) {
           setError(null);
@@ -457,24 +485,15 @@ const useSavingsInsights = (
         }
 
         try {
-          /*
-           * Exact backend endpoint:
-           *
-           * GET /api/savings/insights
-           */
           const response =
-            await smartSaveService.getDashboardSavingInsights(
-              buildOptions(
-                overrideOptions
-              )
-            );
+            await requestPromise;
 
           /*
            * Ignore stale responses.
            */
           if (
             requestId !==
-            requestIdRef.current
+            dashboardRequestIdRef.current
           ) {
             return null;
           }
@@ -516,6 +535,10 @@ const useSavingsInsights = (
                 summary:
                   summary ??
                   previous.summary,
+                topInsight:
+                  getHighestPriorityInsight(
+                    insights
+                  ),
               })
             );
           }
@@ -524,7 +547,7 @@ const useSavingsInsights = (
         } catch (requestError) {
           if (
             requestId !==
-            requestIdRef.current
+            dashboardRequestIdRef.current
           ) {
             return null;
           }
@@ -542,7 +565,7 @@ const useSavingsInsights = (
         } finally {
           if (
             requestId ===
-              requestIdRef.current &&
+              dashboardRequestIdRef.current &&
             mountedRef.current
           ) {
             setLoading(false);
@@ -552,6 +575,55 @@ const useSavingsInsights = (
       },
       [buildOptions]
     );
+
+
+  /* =======================================================
+     INITIAL DASHBOARD LOAD
+  ======================================================= */
+
+  useEffect(() => {
+    let cancelled = false;
+
+    /*
+     * Do NOT directly execute:
+     *
+     * fetchDashboardInsights();
+     *
+     * inside the effect.
+     *
+     * Schedule it as a microtask so React finishes
+     * the effect phase before the request lifecycle
+     * starts updating state.
+     */
+    const scheduleInitialLoad = () => {
+      if (cancelled) {
+        return;
+      }
+
+      Promise.resolve().then(() => {
+        if (cancelled) {
+          return;
+        }
+
+        fetchDashboardInsights().catch(
+          () => {
+            /*
+             * Error is already stored in hook state.
+             */
+          }
+        );
+      });
+    };
+
+    scheduleInitialLoad();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    fetchDashboardInsights,
+  ]);
+
 
   /* =======================================================
      FETCH SUMMARY
@@ -563,26 +635,20 @@ const useSavingsInsights = (
         overrideOptions = {}
       ) => {
         try {
-          /*
-           * Exact endpoint:
-           *
-           * GET /api/savings/insights/summary
-           */
           const response =
-            await smartSaveService.getSavingInsightSummary(
-              buildOptions(
-                overrideOptions
-              )
-            );
+            await smartSaveService
+              .getSavingInsightSummary(
+                buildOptions(
+                  overrideOptions
+                )
+              );
 
           const summary =
             normalizeSummary(
               response
             );
 
-          if (
-            mountedRef.current
-          ) {
+          if (mountedRef.current) {
             setState(
               (previous) => ({
                 ...previous,
@@ -598,9 +664,7 @@ const useSavingsInsights = (
               requestError
             );
 
-          if (
-            mountedRef.current
-          ) {
+          if (mountedRef.current) {
             setError(normalized);
           }
 
@@ -609,6 +673,7 @@ const useSavingsInsights = (
       },
       [buildOptions]
     );
+
 
   /* =======================================================
      FETCH TOP INSIGHT
@@ -620,26 +685,20 @@ const useSavingsInsights = (
         overrideOptions = {}
       ) => {
         try {
-          /*
-           * Exact endpoint:
-           *
-           * GET /api/savings/insights/top
-           */
           const response =
-            await smartSaveService.getTopSavingInsight(
-              buildOptions(
-                overrideOptions
-              )
-            );
+            await smartSaveService
+              .getTopSavingInsight(
+                buildOptions(
+                  overrideOptions
+                )
+              );
 
           const topInsight =
             normalizeTopInsight(
               response
             );
 
-          if (
-            mountedRef.current
-          ) {
+          if (mountedRef.current) {
             setState(
               (previous) => ({
                 ...previous,
@@ -655,9 +714,7 @@ const useSavingsInsights = (
               requestError
             );
 
-          if (
-            mountedRef.current
-          ) {
+          if (mountedRef.current) {
             setError(normalized);
           }
 
@@ -666,6 +723,7 @@ const useSavingsInsights = (
       },
       [buildOptions]
     );
+
 
   /* =======================================================
      FETCH GOAL INSIGHTS
@@ -679,8 +737,7 @@ const useSavingsInsights = (
       ) => {
         if (
           !goalId ||
-          typeof goalId !==
-            "string"
+          typeof goalId !== "string"
         ) {
           const normalized = {
             message:
@@ -696,14 +753,27 @@ const useSavingsInsights = (
             originalError: null,
           };
 
-          if (
-            mountedRef.current
-          ) {
+          if (mountedRef.current) {
             setError(normalized);
           }
 
           throw normalized;
         }
+
+        /*
+         * Create a request sequence for this goal.
+         */
+        const previousRequestId =
+          goalRequestIdsRef.current[
+            goalId
+          ] ?? 0;
+
+        const requestId =
+          previousRequestId + 1;
+
+        goalRequestIdsRef.current[
+          goalId
+        ] = requestId;
 
         if (mountedRef.current) {
           setGoalErrors(
@@ -722,27 +792,32 @@ const useSavingsInsights = (
         }
 
         try {
-          /*
-           * Exact endpoint:
-           *
-           * GET /api/savings/insights/goals/:goalId
-           */
           const response =
-            await smartSaveService.getGoalSavingInsights(
-              goalId,
-              buildOptions(
-                overrideOptions
-              )
-            );
+            await smartSaveService
+              .getGoalSavingInsights(
+                goalId,
+                buildOptions(
+                  overrideOptions
+                )
+              );
+
+          /*
+           * Ignore stale goal response.
+           */
+          if (
+            goalRequestIdsRef.current[
+              goalId
+            ] !== requestId
+          ) {
+            return null;
+          }
 
           const goalResult =
             normalizeGoalInsights(
               response
             );
 
-          if (
-            mountedRef.current
-          ) {
+          if (mountedRef.current) {
             setState(
               (previous) => ({
                 ...previous,
@@ -757,14 +832,20 @@ const useSavingsInsights = (
 
           return goalResult;
         } catch (requestError) {
+          if (
+            goalRequestIdsRef.current[
+              goalId
+            ] !== requestId
+          ) {
+            return null;
+          }
+
           const normalized =
             normalizeError(
               requestError
             );
 
-          if (
-            mountedRef.current
-          ) {
+          if (mountedRef.current) {
             setGoalErrors(
               (previous) => ({
                 ...previous,
@@ -773,16 +854,15 @@ const useSavingsInsights = (
               })
             );
 
-            /*
-             * Also expose the most recent goal
-             * request error through the global error.
-             */
             setError(normalized);
           }
 
           throw normalized;
         } finally {
           if (
+            goalRequestIdsRef.current[
+              goalId
+            ] === requestId &&
             mountedRef.current
           ) {
             setGoalLoading(
@@ -797,75 +877,34 @@ const useSavingsInsights = (
       [buildOptions]
     );
 
-  /* =======================================================
-     INITIAL DASHBOARD LOAD
-  ======================================================= */
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadInsights =
-      async () => {
-        if (cancelled) {
-          return;
-        }
-
-        try {
-          await fetchDashboardInsights();
-        } catch {
-          /*
-           * The request error has already been
-           * normalized and stored in hook state.
-           */
-        }
-      };
-
-    loadInsights();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    fetchDashboardInsights,
-  ]);
 
   /* =======================================================
-     REFRESH ALL DASHBOARD INSIGHTS
+     REFRESH
   ======================================================= */
 
   const refresh =
-    useCallback(async () => {
-      try {
-        const dashboard =
-          await fetchDashboardInsights(
-            {},
-            {
-              silent: true,
-            }
-          );
+    useCallback(
+      async () => {
+        try {
+          const dashboard =
+            await fetchDashboardInsights(
+              {},
+              {
+                silent: true,
+              }
+            );
 
-        /*
-         * Refreshing the dashboard should also
-         * refresh the supporting summary and top
-         * insight from the same backend state.
-         */
-        if (
-          dashboard &&
-          mountedRef.current
-        ) {
+          if (
+            !dashboard ||
+            !mountedRef.current
+          ) {
+            return dashboard;
+          }
+
           const summary =
             dashboard.summary ??
             null;
 
-          /*
-           * We deliberately do not make extra
-           * requests here. The dashboard endpoint
-           * already returns its calculated summary
-           * and insight collection.
-           *
-           * The top insight is derived from the
-           * returned insight list when possible.
-           */
           const insights =
             Array.isArray(
               dashboard.insights
@@ -874,17 +913,9 @@ const useSavingsInsights = (
               : [];
 
           const topInsight =
-            insights.length > 0
-              ? [...insights].sort(
-                  (a, b) =>
-                    Number(
-                      b?.priority || 0
-                    ) -
-                    Number(
-                      a?.priority || 0
-                    )
-                )[0]
-              : null;
+            getHighestPriorityInsight(
+              insights
+            );
 
           setState(
             (previous) => ({
@@ -894,52 +925,61 @@ const useSavingsInsights = (
               topInsight,
             })
           );
-        }
 
-        return dashboard;
-      } catch {
-        return null;
-      }
-    }, [
-      fetchDashboardInsights,
-    ]);
+          return dashboard;
+        } catch {
+          return null;
+        }
+      },
+      [fetchDashboardInsights]
+    );
+
 
   /* =======================================================
-     CLEAR ERROR
+     CLEAR ERRORS
   ======================================================= */
 
   const clearError =
     useCallback(() => {
-      setError(null);
-    }, []);
-
-  const clearGoalError =
-    useCallback((goalId) => {
-      if (!goalId) {
+      if (!mountedRef.current) {
         return;
       }
 
-      setGoalErrors(
-        (previous) => {
-          if (
-            !Object.prototype.hasOwnProperty.call(
-              previous,
-              goalId
-            )
-          ) {
-            return previous;
-          }
-
-          const next = {
-            ...previous,
-          };
-
-          delete next[goalId];
-
-          return next;
-        }
-      );
+      setError(null);
     }, []);
+
+
+  const clearGoalError =
+    useCallback(
+      (goalId) => {
+        if (!goalId) {
+          return;
+        }
+
+        setGoalErrors(
+          (previous) => {
+            if (
+              !Object.prototype.hasOwnProperty.call(
+                previous,
+                goalId
+              )
+            ) {
+              return previous;
+            }
+
+            const next = {
+              ...previous,
+            };
+
+            delete next[goalId];
+
+            return next;
+          }
+        );
+      },
+      []
+    );
+
 
   /* =======================================================
      DERIVED DASHBOARD DATA
@@ -959,6 +999,7 @@ const useSavingsInsights = (
       [dashboard]
     );
 
+
   const goals =
     useMemo(
       () =>
@@ -970,21 +1011,25 @@ const useSavingsInsights = (
       [dashboard]
     );
 
+
   const dashboardSummary =
     dashboard?.summary ??
     state.summary ??
     null;
 
+
   const hasInsights =
     insights.length > 0;
+
 
   const isEmpty =
     !loading &&
     !refreshing &&
     !hasInsights;
 
+
   /* =======================================================
-     INSIGHT SEVERITY DERIVATIONS
+     SEVERITY GROUPS
   ======================================================= */
 
   const criticalInsights =
@@ -998,6 +1043,7 @@ const useSavingsInsights = (
       [insights]
     );
 
+
   const warningInsights =
     useMemo(
       () =>
@@ -1008,6 +1054,7 @@ const useSavingsInsights = (
         ),
       [insights]
     );
+
 
   const successInsights =
     useMemo(
@@ -1020,6 +1067,7 @@ const useSavingsInsights = (
       [insights]
     );
 
+
   const infoInsights =
     useMemo(
       () =>
@@ -1031,8 +1079,9 @@ const useSavingsInsights = (
       [insights]
     );
 
+
   /* =======================================================
-     INSIGHT TYPE DERIVATIONS
+     TYPE GROUPS
   ======================================================= */
 
   const riskInsights =
@@ -1040,11 +1089,11 @@ const useSavingsInsights = (
       () =>
         insights.filter(
           (insight) =>
-            insight?.type ===
-            "risk"
+            insight?.type === "risk"
         ),
       [insights]
     );
+
 
   const progressInsights =
     useMemo(
@@ -1057,16 +1106,17 @@ const useSavingsInsights = (
       [insights]
     );
 
+
   const paceInsights =
     useMemo(
       () =>
         insights.filter(
           (insight) =>
-            insight?.type ===
-            "pace"
+            insight?.type === "pace"
         ),
       [insights]
     );
+
 
   const milestoneInsights =
     useMemo(
@@ -1079,6 +1129,7 @@ const useSavingsInsights = (
       [insights]
     );
 
+
   const recommendationInsights =
     useMemo(
       () =>
@@ -1090,37 +1141,58 @@ const useSavingsInsights = (
       [insights]
     );
 
+
   /* =======================================================
-     TOP INSIGHT DERIVATION
+     TOP INSIGHT
   ======================================================= */
 
   const derivedTopInsight =
     useMemo(() => {
-      if (
-        state.topInsight
-      ) {
+      if (state.topInsight) {
         return state.topInsight;
       }
 
-      if (
-        insights.length === 0
-      ) {
-        return null;
-      }
-
-      return [...insights].sort(
-        (a, b) =>
-          Number(
-            b?.priority || 0
-          ) -
-          Number(
-            a?.priority || 0
-          )
-      )[0];
+      return getHighestPriorityInsight(
+        insights
+      );
     }, [
       state.topInsight,
       insights,
     ]);
+
+
+  /* =======================================================
+     STABLE GOAL ACCESSORS
+  ======================================================= */
+
+  const getGoalInsights =
+    useCallback(
+      (goalId) =>
+        state.goalInsights?.[
+          goalId
+        ] ?? null,
+      [state.goalInsights]
+    );
+
+
+  const isGoalLoading =
+    useCallback(
+      (goalId) =>
+        Boolean(
+          goalLoading?.[goalId]
+        ),
+      [goalLoading]
+    );
+
+
+  const getGoalError =
+    useCallback(
+      (goalId) =>
+        goalErrors?.[goalId] ??
+        null,
+      [goalErrors]
+    );
+
 
   /* =======================================================
      RETURN API
@@ -1146,6 +1218,7 @@ const useSavingsInsights = (
       topInsight:
         derivedTopInsight,
 
+
       /* -----------------------------
          SEVERITY GROUPS
       ----------------------------- */
@@ -1157,6 +1230,7 @@ const useSavingsInsights = (
       successInsights,
 
       infoInsights,
+
 
       /* -----------------------------
          TYPE GROUPS
@@ -1172,6 +1246,7 @@ const useSavingsInsights = (
 
       recommendationInsights,
 
+
       /* -----------------------------
          GOAL INSIGHTS
       ----------------------------- */
@@ -1179,26 +1254,16 @@ const useSavingsInsights = (
       goalInsights:
         state.goalInsights,
 
-      getGoalInsights:
-        (goalId) =>
-          state.goalInsights?.[
-            goalId
-          ] ?? null,
+      getGoalInsights,
 
       goalLoading,
 
       goalErrors,
 
-      isGoalLoading:
-        (goalId) =>
-          Boolean(
-            goalLoading?.[goalId]
-          ),
+      isGoalLoading,
 
-      getGoalError:
-        (goalId) =>
-          goalErrors?.[goalId] ??
-          null,
+      getGoalError,
+
 
       /* -----------------------------
          REQUEST STATE
@@ -1208,10 +1273,12 @@ const useSavingsInsights = (
 
       refreshing,
 
-      isLoading: loading,
+      isLoading:
+        loading,
 
       isRefreshing:
         refreshing,
+
 
       /* -----------------------------
          EMPTY / ERROR
@@ -1225,6 +1292,7 @@ const useSavingsInsights = (
 
       hasError:
         Boolean(error),
+
 
       /* -----------------------------
          REQUEST ACTIONS
@@ -1240,6 +1308,7 @@ const useSavingsInsights = (
 
       refresh,
 
+
       /* -----------------------------
          ERROR ACTIONS
       ----------------------------- */
@@ -1254,28 +1323,40 @@ const useSavingsInsights = (
       goals,
       dashboardSummary,
       derivedTopInsight,
+
       criticalInsights,
       warningInsights,
       successInsights,
       infoInsights,
+
       riskInsights,
       progressInsights,
       paceInsights,
       milestoneInsights,
       recommendationInsights,
+
       state.goalInsights,
+
+      getGoalInsights,
       goalLoading,
       goalErrors,
+      isGoalLoading,
+      getGoalError,
+
       loading,
       refreshing,
+
       hasInsights,
       isEmpty,
+
       error,
+
       fetchDashboardInsights,
       fetchSummary,
       fetchTopInsight,
       fetchGoalInsights,
       refresh,
+
       clearError,
       clearGoalError,
     ]

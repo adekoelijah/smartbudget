@@ -1567,16 +1567,12 @@ const useSavingsChallenges = ({
    * fetchChallenges does not depend on query.
    */
   useEffect(() => {
-    if (!autoFetch) {
-      return;
-    }
+  if (!autoFetch || !mountedRef.current) {
+    return;
+  }
 
-    fetchChallenges(query);
-  }, [
-    autoFetch,
-    query,
-    fetchChallenges,
-  ]);
+  void fetchChallenges(query);
+}, [autoFetch, query, fetchChallenges]);
 
   /* ==========================================================
      DERIVED STATE
