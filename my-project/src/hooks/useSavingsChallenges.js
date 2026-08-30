@@ -10,44 +10,6 @@ import {
 
 import smartSaveService from "../services/smartSaveService";
 
-/**
- * ============================================================
- * useSavingsChallenges
- * ============================================================
- *
- * Production-ready React hook for the SmartBudget
- * Savings Challenge module.
- *
- * Responsibilities:
- *
- * - Fetch user savings challenges
- * - Fetch filtered challenge collections
- * - Fetch individual challenges
- * - Fetch challenge snapshots
- * - Fetch challenge summaries
- * - Fetch active / paused / completed challenges
- * - Create challenges
- * - Update challenges
- * - Manage challenge lifecycle
- * - Apply confirmed contributions
- * - Register successful / missed periods
- * - Archive / restore challenges
- * - Maintain loading / error / mutation state
- * - Prevent stale requests from overwriting newer state
- * - Prevent state updates after unmount
- * - Keep query-driven fetching stable
- *
- * IMPORTANT:
- *
- * API endpoints and business logic belong to:
- *
- *   smartSaveService.js
- *
- * This hook must not duplicate backend URLs or
- * backend business rules.
- * ============================================================
- */
-
 /* ============================================================
    CONSTANTS
 ============================================================ */
@@ -55,30 +17,17 @@ import smartSaveService from "../services/smartSaveService";
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
 
-const DEFAULT_QUERY = {
+const DEFAULT_QUERY = Object.freeze({
   page: DEFAULT_PAGE,
   limit: DEFAULT_LIMIT,
-};
+});
 
-const INITIAL_COLLECTION = {
+const INITIAL_COLLECTION = Object.freeze({
   items: [],
   pagination: null,
   meta: null,
-};
+});
 
-const INITIAL_SUMMARY = null;
-const INITIAL_ERROR = null;
-
-/* ============================================================
-   ERROR NORMALIZATION
-============================================================ */
-
-/**
- * Keeps the hook's public error contract predictable.
- *
- * smartSaveService remains responsible for converting
- * Axios / backend failures into normalized service errors.
- */
 const normalizeHookError = (error) => {
   if (!error) {
     return null;
@@ -86,20 +35,22 @@ const normalizeHookError = (error) => {
 
   return {
     message:
-      error.message ||
+      error?.message ||
       "Unable to complete the savings challenge request.",
 
     code:
-      error.code ||
+      error?.code ||
       "SAVINGS_CHALLENGE_ERROR",
 
     status:
-      error.status ??
-      error.statusCode ??
+      error?.status ??
+      error?.statusCode ??
+      error?.response?.status ??
       null,
 
     details:
-      error.details ??
+      error?.details ??
+      error?.response?.data ??
       null,
 
     originalError: error,
@@ -110,73 +61,65 @@ const normalizeHookError = (error) => {
    QUERY NORMALIZATION
 ============================================================ */
 
-/**
- * Performs only frontend-level normalization.
- *
- * smartSaveService remains responsible for the final
- * request/query construction.
- */
-const normalizeQuery = (query = {}) => ({
-  page:
-    Number.isInteger(Number(query.page)) &&
-    Number(query.page) > 0
-      ? Number(query.page)
-      : DEFAULT_PAGE,
+const normalizeQuery = (query = {}) => {
+  const pageNumber = Number(query.page);
+  const limitNumber = Number(query.limit);
 
-  limit:
-    Number.isInteger(Number(query.limit)) &&
-    Number(query.limit) > 0
-      ? Number(query.limit)
-      : DEFAULT_LIMIT,
+  return {
+    page:
+      Number.isInteger(pageNumber) &&
+      pageNumber > 0
+        ? pageNumber
+        : DEFAULT_PAGE,
 
-  ...(query.status
-    ? {
-        status: query.status,
-      }
-    : {}),
+    limit:
+      Number.isInteger(limitNumber) &&
+      limitNumber > 0
+        ? limitNumber
+        : DEFAULT_LIMIT,
 
-  ...(query.challengeType
-    ? {
-        challengeType: query.challengeType,
-      }
-    : {}),
+    ...(query.status
+      ? { status: query.status }
+      : {}),
 
-  ...(query.difficulty
-    ? {
-        difficulty: query.difficulty,
-      }
-    : {}),
+    ...(query.challengeType
+      ? {
+          challengeType:
+            query.challengeType,
+        }
+      : {}),
 
-  ...(query.savingPlan
-    ? {
-        savingPlan: query.savingPlan,
-      }
-    : {}),
+    ...(query.difficulty
+      ? {
+          difficulty:
+            query.difficulty,
+        }
+      : {}),
 
-  ...(query.savingAccount
-    ? {
-        savingAccount: query.savingAccount,
-      }
-    : {}),
+    ...(query.savingPlan
+      ? {
+          savingPlan:
+            query.savingPlan,
+        }
+      : {}),
 
-  ...(typeof query.includeTemplates === "boolean"
-    ? {
-        includeTemplates:
-          query.includeTemplates,
-      }
-    : {}),
-});
+    ...(query.savingAccount
+      ? {
+          savingAccount:
+            query.savingAccount,
+        }
+      : {}),
 
-/* ============================================================
-   QUERY COMPARISON
-============================================================ */
+    ...(typeof query.includeTemplates ===
+    "boolean"
+      ? {
+          includeTemplates:
+            query.includeTemplates,
+        }
+      : {}),
+  };
+};
 
-/**
- * Performs a shallow comparison of normalized query objects.
- *
- * Because normalizeQuery() produces primitive query values,
- * Object.is() is sufficient here.
- */
 const areQueriesEqual = (
   first,
   second
@@ -215,7 +158,10 @@ const normalizeCollectionResponse = (
   response
 ) => {
   if (!response) {
-    return INITIAL_COLLECTION;
+    return {
+      ...INITIAL_COLLECTION,
+      items: [],
+    };
   }
 
   if (Array.isArray(response)) {
@@ -227,9 +173,9 @@ const normalizeCollectionResponse = (
   }
 
   const items =
-    response.items ??
-    response.challenges ??
-    response.data ??
+    response?.items ??
+    response?.challenges ??
+    response?.data ??
     [];
 
   return {
@@ -238,12 +184,12 @@ const normalizeCollectionResponse = (
       : [],
 
     pagination:
-      response.pagination ??
-      response.meta?.pagination ??
+      response?.pagination ??
+      response?.meta?.pagination ??
       null,
 
     meta:
-      response.meta ??
+      response?.meta ??
       null,
   };
 };
@@ -271,7 +217,7 @@ const useSavingsChallenges = ({
     useState(null);
 
   const [summary, setSummary] =
-    useState(INITIAL_SUMMARY);
+    useState(null);
 
   const [activeChallenges, setActiveChallenges] =
     useState([]);
@@ -312,20 +258,30 @@ const useSavingsChallenges = ({
     useState(false);
 
   const [error, setError] =
-    useState(INITIAL_ERROR);
+    useState(null);
 
   const [mutationError, setMutationError] =
-    useState(INITIAL_ERROR);
+    useState(null);
 
   const [lastUpdated, setLastUpdated] =
     useState(null);
 
   /* ==========================================================
-     MOUNT TRACKING
+     REFS
   ========================================================== */
 
   const mountedRef =
     useRef(false);
+
+  const queryRef =
+    useRef(query);
+
+  const challengeIdRef =
+    useRef(challengeId);
+
+  /* ==========================================================
+     MOUNT
+  ========================================================== */
 
   useEffect(() => {
     mountedRef.current = true;
@@ -336,34 +292,12 @@ const useSavingsChallenges = ({
   }, []);
 
   /* ==========================================================
-     QUERY REF
+     SYNC REFS
   ========================================================== */
-
-  /**
-   * query remains React state because it drives rendering.
-   *
-   * queryRef provides the latest query to stable callbacks
-   * without forcing those callbacks to depend directly on
-   * query.
-   *
-   * IMPORTANT:
-   *
-   * The ref is synchronized inside an effect rather than
-   * being read/written as part of render logic.
-   */
-  const queryRef =
-    useRef(query);
 
   useEffect(() => {
     queryRef.current = query;
   }, [query]);
-
-  /* ==========================================================
-     CHALLENGE ID REF
-  ========================================================== */
-
-  const challengeIdRef =
-    useRef(challengeId);
 
   useEffect(() => {
     challengeIdRef.current =
@@ -371,162 +305,48 @@ const useSavingsChallenges = ({
   }, [challengeId]);
 
   /* ==========================================================
-     REQUEST TRACKING
+     REQUEST SEQUENCES
   ========================================================== */
 
-  /**
-   * Each resource has its own request sequence.
-   *
-   * This is important because refresh() can intentionally
-   * execute several requests concurrently.
-   *
-   * A single global request ID would incorrectly invalidate
-   * otherwise valid responses.
-   */
+  const requestIdsRef =
+    useRef({
+      challenges: 0,
+      challenge: 0,
+      snapshot: 0,
+      summary: 0,
+      active: 0,
+      paused: 0,
+      completed: 0,
+    });
 
-  const challengesRequestIdRef =
-    useRef(0);
+  const nextRequestId = useCallback(
+    (resource) => {
+      requestIdsRef.current[
+        resource
+      ] += 1;
 
-  const challengeRequestIdRef =
-    useRef(0);
+      return requestIdsRef.current[
+        resource
+      ];
+    },
+    []
+  );
 
-  const snapshotRequestIdRef =
-    useRef(0);
-
-  const summaryRequestIdRef =
-    useRef(0);
-
-  const activeRequestIdRef =
-    useRef(0);
-
-  const pausedRequestIdRef =
-    useRef(0);
-
-  const completedRequestIdRef =
-    useRef(0);
-
-  /* ==========================================================
-     REQUEST ID HELPERS
-  ========================================================== */
-
-  const nextChallengesRequestId =
-    useCallback(() => {
-      challengesRequestIdRef.current += 1;
-
-      return challengesRequestIdRef.current;
-    }, []);
-
-  const nextChallengeRequestId =
-    useCallback(() => {
-      challengeRequestIdRef.current += 1;
-
-      return challengeRequestIdRef.current;
-    }, []);
-
-  const nextSnapshotRequestId =
-    useCallback(() => {
-      snapshotRequestIdRef.current += 1;
-
-      return snapshotRequestIdRef.current;
-    }, []);
-
-  const nextSummaryRequestId =
-    useCallback(() => {
-      summaryRequestIdRef.current += 1;
-
-      return summaryRequestIdRef.current;
-    }, []);
-
-  const nextActiveRequestId =
-    useCallback(() => {
-      activeRequestIdRef.current += 1;
-
-      return activeRequestIdRef.current;
-    }, []);
-
-  const nextPausedRequestId =
-    useCallback(() => {
-      pausedRequestIdRef.current += 1;
-
-      return pausedRequestIdRef.current;
-    }, []);
-
-  const nextCompletedRequestId =
-    useCallback(() => {
-      completedRequestIdRef.current += 1;
-
-      return completedRequestIdRef.current;
-    }, []);
-
-  /* ==========================================================
-     REQUEST VALIDATION HELPERS
-  ========================================================== */
-
-  const isCurrentChallengesRequest =
+  const isCurrentRequest =
     useCallback(
-      (requestId) =>
+      (
+        resource,
+        requestId
+      ) =>
         mountedRef.current &&
-        requestId ===
-          challengesRequestIdRef.current,
-      []
-    );
-
-  const isCurrentChallengeRequest =
-    useCallback(
-      (requestId) =>
-        mountedRef.current &&
-        requestId ===
-          challengeRequestIdRef.current,
-      []
-    );
-
-  const isCurrentSnapshotRequest =
-    useCallback(
-      (requestId) =>
-        mountedRef.current &&
-        requestId ===
-          snapshotRequestIdRef.current,
-      []
-    );
-
-  const isCurrentSummaryRequest =
-    useCallback(
-      (requestId) =>
-        mountedRef.current &&
-        requestId ===
-          summaryRequestIdRef.current,
-      []
-    );
-
-  const isCurrentActiveRequest =
-    useCallback(
-      (requestId) =>
-        mountedRef.current &&
-        requestId ===
-          activeRequestIdRef.current,
-      []
-    );
-
-  const isCurrentPausedRequest =
-    useCallback(
-      (requestId) =>
-        mountedRef.current &&
-        requestId ===
-          pausedRequestIdRef.current,
-      []
-    );
-
-  const isCurrentCompletedRequest =
-    useCallback(
-      (requestId) =>
-        mountedRef.current &&
-        requestId ===
-          completedRequestIdRef.current,
+        requestIdsRef.current[
+          resource
+        ] === requestId,
       []
     );
 
   /* ==========================================================
-     FETCH USER CHALLENGES
+     FETCH CHALLENGES
   ========================================================== */
 
   const fetchChallenges =
@@ -539,7 +359,9 @@ const useSavingsChallenges = ({
           );
 
         const requestId =
-          nextChallengesRequestId();
+          nextRequestId(
+            "challenges"
+          );
 
         if (!mountedRef.current) {
           return null;
@@ -555,20 +377,18 @@ const useSavingsChallenges = ({
             );
 
           if (
-            !isCurrentChallengesRequest(
+            !isCurrentRequest(
+              "challenges",
               requestId
             )
           ) {
             return response;
           }
 
-          const normalized =
+          setCollection(
             normalizeCollectionResponse(
               response
-            );
-
-          setCollection(
-            normalized
+            )
           );
 
           setLastUpdated(
@@ -577,25 +397,24 @@ const useSavingsChallenges = ({
 
           return response;
         } catch (requestError) {
-          const normalizedError =
-            normalizeHookError(
-              requestError
-            );
-
           if (
-            isCurrentChallengesRequest(
+            isCurrentRequest(
+              "challenges",
               requestId
             )
           ) {
             setError(
-              normalizedError
+              normalizeHookError(
+                requestError
+              )
             );
           }
 
           throw requestError;
         } finally {
           if (
-            isCurrentChallengesRequest(
+            isCurrentRequest(
+              "challenges",
               requestId
             )
           ) {
@@ -604,8 +423,8 @@ const useSavingsChallenges = ({
         }
       },
       [
-        nextChallengesRequestId,
-        isCurrentChallengesRequest,
+        nextRequestId,
+        isCurrentRequest,
       ]
     );
 
@@ -623,7 +442,9 @@ const useSavingsChallenges = ({
         }
 
         const requestId =
-          nextChallengeRequestId();
+          nextRequestId(
+            "challenge"
+          );
 
         if (!mountedRef.current) {
           return null;
@@ -639,7 +460,8 @@ const useSavingsChallenges = ({
             );
 
           if (
-            !isCurrentChallengeRequest(
+            !isCurrentRequest(
+              "challenge",
               requestId
             )
           ) {
@@ -653,37 +475,34 @@ const useSavingsChallenges = ({
 
           return response;
         } catch (requestError) {
-          const normalizedError =
-            normalizeHookError(
-              requestError
-            );
-
           if (
-            isCurrentChallengeRequest(
+            isCurrentRequest(
+              "challenge",
               requestId
             )
           ) {
             setError(
-              normalizedError
+              normalizeHookError(
+                requestError
+              )
             );
           }
 
           throw requestError;
         } finally {
           if (
-            isCurrentChallengeRequest(
+            isCurrentRequest(
+              "challenge",
               requestId
             )
           ) {
-            setLoadingChallenge(
-              false
-            );
+            setLoadingChallenge(false);
           }
         }
       },
       [
-        nextChallengeRequestId,
-        isCurrentChallengeRequest,
+        nextRequestId,
+        isCurrentRequest,
       ]
     );
 
@@ -701,7 +520,9 @@ const useSavingsChallenges = ({
         }
 
         const requestId =
-          nextSnapshotRequestId();
+          nextRequestId(
+            "snapshot"
+          );
 
         if (!mountedRef.current) {
           return null;
@@ -717,7 +538,8 @@ const useSavingsChallenges = ({
             );
 
           if (
-            !isCurrentSnapshotRequest(
+            !isCurrentRequest(
+              "snapshot",
               requestId
             )
           ) {
@@ -731,37 +553,34 @@ const useSavingsChallenges = ({
 
           return response;
         } catch (requestError) {
-          const normalizedError =
-            normalizeHookError(
-              requestError
-            );
-
           if (
-            isCurrentSnapshotRequest(
+            isCurrentRequest(
+              "snapshot",
               requestId
             )
           ) {
             setError(
-              normalizedError
+              normalizeHookError(
+                requestError
+              )
             );
           }
 
           throw requestError;
         } finally {
           if (
-            isCurrentSnapshotRequest(
+            isCurrentRequest(
+              "snapshot",
               requestId
             )
           ) {
-            setLoadingSnapshot(
-              false
-            );
+            setLoadingSnapshot(false);
           }
         }
       },
       [
-        nextSnapshotRequestId,
-        isCurrentSnapshotRequest,
+        nextRequestId,
+        isCurrentRequest,
       ]
     );
 
@@ -773,21 +592,23 @@ const useSavingsChallenges = ({
     useCallback(
       async () => {
         const requestId =
-          nextSummaryRequestId();
+          nextRequestId(
+            "summary"
+          );
 
         if (!mountedRef.current) {
           return null;
         }
 
         setLoadingSummary(true);
-        setError(null);
 
         try {
           const response =
             await smartSaveService.getSavingsChallengeSummary();
 
           if (
-            !isCurrentSummaryRequest(
+            !isCurrentRequest(
+              "summary",
               requestId
             )
           ) {
@@ -801,99 +622,92 @@ const useSavingsChallenges = ({
 
           return response;
         } catch (requestError) {
-          const normalizedError =
-            normalizeHookError(
-              requestError
-            );
-
           if (
-            isCurrentSummaryRequest(
+            isCurrentRequest(
+              "summary",
               requestId
             )
           ) {
             setError(
-              normalizedError
+              normalizeHookError(
+                requestError
+              )
             );
           }
 
           throw requestError;
         } finally {
           if (
-            isCurrentSummaryRequest(
+            isCurrentRequest(
+              "summary",
               requestId
             )
           ) {
-            setLoadingSummary(
-              false
-            );
+            setLoadingSummary(false);
           }
         }
       },
       [
-        nextSummaryRequestId,
-        isCurrentSummaryRequest,
+        nextRequestId,
+        isCurrentRequest,
       ]
     );
 
   /* ==========================================================
-     FETCH ACTIVE CHALLENGES
+     FETCH ACTIVE
   ========================================================== */
 
   const fetchActiveChallenges =
     useCallback(
       async () => {
         const requestId =
-          nextActiveRequestId();
+          nextRequestId("active");
 
         if (!mountedRef.current) {
           return null;
         }
 
         setLoadingActive(true);
-        setError(null);
 
         try {
           const response =
             await smartSaveService.getActiveSavingsChallenges();
 
           if (
-            !isCurrentActiveRequest(
+            !isCurrentRequest(
+              "active",
               requestId
             )
           ) {
             return response;
           }
 
-          const normalized =
+          setActiveChallenges(
             normalizeCollectionResponse(
               response
-            );
-
-          setActiveChallenges(
-            normalized.items
+            ).items
           );
 
           return response;
         } catch (requestError) {
-          const normalizedError =
-            normalizeHookError(
-              requestError
-            );
-
           if (
-            isCurrentActiveRequest(
+            isCurrentRequest(
+              "active",
               requestId
             )
           ) {
             setError(
-              normalizedError
+              normalizeHookError(
+                requestError
+              )
             );
           }
 
           throw requestError;
         } finally {
           if (
-            isCurrentActiveRequest(
+            isCurrentRequest(
+              "active",
               requestId
             )
           ) {
@@ -902,70 +716,66 @@ const useSavingsChallenges = ({
         }
       },
       [
-        nextActiveRequestId,
-        isCurrentActiveRequest,
+        nextRequestId,
+        isCurrentRequest,
       ]
     );
 
   /* ==========================================================
-     FETCH PAUSED CHALLENGES
+     FETCH PAUSED
   ========================================================== */
 
   const fetchPausedChallenges =
     useCallback(
       async () => {
         const requestId =
-          nextPausedRequestId();
+          nextRequestId("paused");
 
         if (!mountedRef.current) {
           return null;
         }
 
         setLoadingPaused(true);
-        setError(null);
 
         try {
           const response =
             await smartSaveService.getPausedSavingsChallenges();
 
           if (
-            !isCurrentPausedRequest(
+            !isCurrentRequest(
+              "paused",
               requestId
             )
           ) {
             return response;
           }
 
-          const normalized =
+          setPausedChallenges(
             normalizeCollectionResponse(
               response
-            );
-
-          setPausedChallenges(
-            normalized.items
+            ).items
           );
 
           return response;
         } catch (requestError) {
-          const normalizedError =
-            normalizeHookError(
-              requestError
-            );
-
           if (
-            isCurrentPausedRequest(
+            isCurrentRequest(
+              "paused",
               requestId
             )
           ) {
             setError(
-              normalizedError
+              normalizeHookError(
+                requestError
+              )
             );
           }
 
           throw requestError;
         } finally {
           if (
-            isCurrentPausedRequest(
+            isCurrentRequest(
+              "paused",
               requestId
             )
           ) {
@@ -974,87 +784,83 @@ const useSavingsChallenges = ({
         }
       },
       [
-        nextPausedRequestId,
-        isCurrentPausedRequest,
+        nextRequestId,
+        isCurrentRequest,
       ]
     );
 
   /* ==========================================================
-     FETCH COMPLETED CHALLENGES
+     FETCH COMPLETED
   ========================================================== */
 
   const fetchCompletedChallenges =
     useCallback(
       async () => {
         const requestId =
-          nextCompletedRequestId();
+          nextRequestId(
+            "completed"
+          );
 
         if (!mountedRef.current) {
           return null;
         }
 
         setLoadingCompleted(true);
-        setError(null);
 
         try {
           const response =
             await smartSaveService.getCompletedSavingsChallenges();
 
           if (
-            !isCurrentCompletedRequest(
+            !isCurrentRequest(
+              "completed",
               requestId
             )
           ) {
             return response;
           }
 
-          const normalized =
+          setCompletedChallenges(
             normalizeCollectionResponse(
               response
-            );
-
-          setCompletedChallenges(
-            normalized.items
+            ).items
           );
 
           return response;
         } catch (requestError) {
-          const normalizedError =
-            normalizeHookError(
-              requestError
-            );
-
           if (
-            isCurrentCompletedRequest(
+            isCurrentRequest(
+              "completed",
               requestId
             )
           ) {
             setError(
-              normalizedError
+              normalizeHookError(
+                requestError
+              )
             );
           }
 
           throw requestError;
         } finally {
           if (
-            isCurrentCompletedRequest(
+            isCurrentRequest(
+              "completed",
               requestId
             )
           ) {
-            setLoadingCompleted(
-              false
-            );
+            setLoadingCompleted(false);
           }
         }
       },
       [
-        nextCompletedRequestId,
-        isCurrentCompletedRequest,
+        nextRequestId,
+        isCurrentRequest,
       ]
     );
 
   /* ==========================================================
-     MUTATION WRAPPER
+     MUTATION ENGINE
   ========================================================== */
 
   const executeMutation =
@@ -1076,82 +882,95 @@ const useSavingsChallenges = ({
         setMutationError(null);
         setError(null);
 
+        let response;
+
+        /* ------------------------------------------------------
+           ACTUAL MUTATION
+        ------------------------------------------------------ */
+
         try {
-          const response =
+          response =
             await mutation();
-
-          if (!mountedRef.current) {
-            return response;
-          }
-
-          /*
-           * Refresh collection using the latest query.
-           */
-          if (refresh) {
-            await fetchChallenges(
-              queryRef.current
-            );
-          }
-
-          /*
-           * Refresh the currently selected challenge.
-           */
-          if (
-            refreshSnapshot &&
-            challengeIdRef.current
-          ) {
-            await fetchSnapshot(
-              challengeIdRef.current
-            );
-          }
-
-          /*
-           * Refresh summary.
-           */
-          if (refreshSummary) {
-            await fetchSummary();
-          }
-
-          /*
-           * Refresh status-specific collections.
-           *
-           * These are intentionally concurrent.
-           */
-          if (refreshLists) {
-            await Promise.allSettled([
-              fetchActiveChallenges(),
-              fetchPausedChallenges(),
-              fetchCompletedChallenges(),
-            ]);
-          }
-
-          if (mountedRef.current) {
-            setLastUpdated(
-              new Date()
-            );
-          }
-
-          return response;
-        } catch (
-          mutationRequestError
-        ) {
-          const normalizedError =
-            normalizeHookError(
-              mutationRequestError
-            );
-
+        } catch (mutationErrorValue) {
           if (mountedRef.current) {
             setMutationError(
-              normalizedError
+              normalizeHookError(
+                mutationErrorValue
+              )
             );
           }
 
-          throw mutationRequestError;
+          throw mutationErrorValue;
         } finally {
           if (mountedRef.current) {
             setMutating(false);
           }
         }
+
+        /* ------------------------------------------------------
+           MUTATION SUCCEEDED
+
+           Refreshes are deliberately separate from the
+           mutation itself.
+
+           A failed refresh must NOT turn a successful
+           creation/update into a failed mutation.
+        ------------------------------------------------------ */
+
+        if (!mountedRef.current) {
+          return response;
+        }
+
+        const refreshOperations = [];
+
+        if (refresh) {
+          refreshOperations.push(
+            fetchChallenges(
+              queryRef.current
+            )
+          );
+        }
+
+        if (
+          refreshSnapshot &&
+          challengeIdRef.current
+        ) {
+          refreshOperations.push(
+            fetchSnapshot(
+              challengeIdRef.current
+            )
+          );
+        }
+
+        if (refreshSummary) {
+          refreshOperations.push(
+            fetchSummary()
+          );
+        }
+
+        if (refreshLists) {
+          refreshOperations.push(
+            fetchActiveChallenges(),
+            fetchPausedChallenges(),
+            fetchCompletedChallenges()
+          );
+        }
+
+        if (
+          refreshOperations.length
+        ) {
+          await Promise.allSettled(
+            refreshOperations
+          );
+        }
+
+        if (mountedRef.current) {
+          setLastUpdated(
+            new Date()
+          );
+        }
+
+        return response;
       },
       [
         fetchChallenges,
@@ -1167,20 +986,27 @@ const useSavingsChallenges = ({
      CREATE
   ========================================================== */
 
-  const createChallenge = useCallback(
-  async (
-    payload,
-    options = {}
-  ) =>
-    executeMutation(
-      () =>
-        smartSaveService.createSavingsChallenge(
-          payload
+  const createChallenge =
+    useCallback(
+      async (
+        payload,
+        options = {}
+      ) =>
+        executeMutation(
+          () =>
+            smartSaveService.createSavingsChallenge(
+              payload
+            ),
+          {
+            refresh: true,
+            refreshSnapshot: false,
+            refreshSummary: true,
+            refreshLists: false,
+            ...options,
+          }
         ),
-      options
-    ),
-  [executeMutation]
-);
+      [executeMutation]
+    );
 
   /* ==========================================================
      UPDATE
@@ -1188,7 +1014,11 @@ const useSavingsChallenges = ({
 
   const updateChallenge =
     useCallback(
-      async (id, payload) =>
+      async (
+        id,
+        payload,
+        options = {}
+      ) =>
         executeMutation(
           () =>
             smartSaveService.updateSavingsChallenge(
@@ -1196,14 +1026,18 @@ const useSavingsChallenges = ({
               payload
             ),
           {
+            refresh: true,
             refreshSnapshot: true,
+            refreshSummary: true,
+            refreshLists: false,
+            ...options,
           }
         ),
       [executeMutation]
     );
 
   /* ==========================================================
-     ACTIVATE
+     LIFECYCLE OPERATIONS
   ========================================================== */
 
   const activateChallenge =
@@ -1222,10 +1056,6 @@ const useSavingsChallenges = ({
       [executeMutation]
     );
 
-  /* ==========================================================
-     PAUSE
-  ========================================================== */
-
   const pauseChallenge =
     useCallback(
       async (id) =>
@@ -1241,10 +1071,6 @@ const useSavingsChallenges = ({
         ),
       [executeMutation]
     );
-
-  /* ==========================================================
-     RESUME
-  ========================================================== */
 
   const resumeChallenge =
     useCallback(
@@ -1262,10 +1088,6 @@ const useSavingsChallenges = ({
       [executeMutation]
     );
 
-  /* ==========================================================
-     COMPLETE
-  ========================================================== */
-
   const completeChallenge =
     useCallback(
       async (id) =>
@@ -1281,10 +1103,6 @@ const useSavingsChallenges = ({
         ),
       [executeMutation]
     );
-
-  /* ==========================================================
-     CANCEL
-  ========================================================== */
 
   const cancelChallenge =
     useCallback(
@@ -1302,10 +1120,6 @@ const useSavingsChallenges = ({
       [executeMutation]
     );
 
-  /* ==========================================================
-     FAIL
-  ========================================================== */
-
   const failChallenge =
     useCallback(
       async (id) =>
@@ -1321,10 +1135,6 @@ const useSavingsChallenges = ({
         ),
       [executeMutation]
     );
-
-  /* ==========================================================
-     EXPIRE
-  ========================================================== */
 
   const expireChallenge =
     useCallback(
@@ -1343,7 +1153,7 @@ const useSavingsChallenges = ({
     );
 
   /* ==========================================================
-     APPLY CONTRIBUTION
+     CONTRIBUTIONS
   ========================================================== */
 
   const applyContribution =
@@ -1363,10 +1173,6 @@ const useSavingsChallenges = ({
       [executeMutation]
     );
 
-  /* ==========================================================
-     SUCCESSFUL PERIOD
-  ========================================================== */
-
   const registerSuccessfulPeriod =
     useCallback(
       async (id, payload) =>
@@ -1383,10 +1189,6 @@ const useSavingsChallenges = ({
         ),
       [executeMutation]
     );
-
-  /* ==========================================================
-     MISSED PERIOD
-  ========================================================== */
 
   const registerMissedPeriod =
     useCallback(
@@ -1406,7 +1208,7 @@ const useSavingsChallenges = ({
     );
 
   /* ==========================================================
-     ARCHIVE
+     ARCHIVE / RESTORE
   ========================================================== */
 
   const archiveChallenge =
@@ -1424,10 +1226,6 @@ const useSavingsChallenges = ({
         ),
       [executeMutation]
     );
-
-  /* ==========================================================
-     RESTORE
-  ========================================================== */
 
   const restoreChallenge =
     useCallback(
@@ -1459,16 +1257,12 @@ const useSavingsChallenges = ({
               ...updates,
             });
 
-          if (
-            areQueriesEqual(
-              previous,
-              next
-            )
-          ) {
-            return previous;
-          }
-
-          return next;
+          return areQueriesEqual(
+            previous,
+            next
+          )
+            ? previous
+            : next;
         });
       },
       []
@@ -1476,23 +1270,19 @@ const useSavingsChallenges = ({
 
   const resetQuery =
     useCallback(() => {
-      setQuery((previous) => {
-        const next =
-          normalizeQuery(
-            DEFAULT_QUERY
-          );
+      const next =
+        normalizeQuery(
+          DEFAULT_QUERY
+        );
 
-        if (
-          areQueriesEqual(
-            previous,
-            next
-          )
-        ) {
-          return previous;
-        }
-
-        return next;
-      });
+      setQuery((previous) =>
+        areQueriesEqual(
+          previous,
+          next
+        )
+          ? previous
+          : next
+      );
     }, []);
 
   /* ==========================================================
@@ -1506,7 +1296,6 @@ const useSavingsChallenges = ({
           fetchChallenges(
             queryRef.current
           ),
-
           fetchSummary(),
         ];
 
@@ -1517,7 +1306,6 @@ const useSavingsChallenges = ({
             fetchChallenge(
               challengeIdRef.current
             ),
-
             fetchSnapshot(
               challengeIdRef.current
             )
@@ -1539,7 +1327,7 @@ const useSavingsChallenges = ({
     );
 
   /* ==========================================================
-     CLEAR ERRORS
+     CLEAR ERROR
   ========================================================== */
 
   const clearError =
@@ -1553,29 +1341,23 @@ const useSavingsChallenges = ({
     }, []);
 
   /* ==========================================================
-     INITIAL / QUERY FETCH
+     AUTO FETCH
   ========================================================== */
 
-  /**
-   * fetchChallenges is intentionally stable.
-   *
-   * Query is included here because query changes should
-   * automatically fetch the corresponding collection.
-   *
-   * This does NOT create a render loop because:
-   *
-   * fetchChallenges does not depend on query.
-   */
   useEffect(() => {
-  if (!autoFetch || !mountedRef.current) {
-    return;
-  }
+    if (!autoFetch) {
+      return;
+    }
 
-  void fetchChallenges(query);
-}, [autoFetch, query, fetchChallenges]);
+    void fetchChallenges(query);
+  }, [
+    autoFetch,
+    query,
+    fetchChallenges,
+  ]);
 
   /* ==========================================================
-     DERIVED STATE
+     DERIVED VALUES
   ========================================================== */
 
   const items =
@@ -1592,14 +1374,14 @@ const useSavingsChallenges = ({
   const hasItems =
     items.length > 0;
 
+  const isEmpty =
+    !loading &&
+    !hasItems;
+
   const loadingLists =
     loadingActive ||
     loadingPaused ||
     loadingCompleted;
-
-  const isEmpty =
-    !loading &&
-    !hasItems;
 
   const hasNextPage =
     Boolean(
@@ -1622,60 +1404,43 @@ const useSavingsChallenges = ({
     );
 
   /* ==========================================================
-     STABLE STATE OBJECT
+     STABLE STATE
   ========================================================== */
 
   const state =
     useMemo(
       () => ({
         items,
-
         challenge,
-
         snapshot,
-
         summary,
 
         activeChallenges,
-
         pausedChallenges,
-
         completedChallenges,
 
         query,
-
         pagination,
-
         total,
 
         hasItems,
-
         isEmpty,
-
         hasNextPage,
-
         hasPreviousPage,
 
         loading,
-
         loadingChallenge,
-
         loadingSnapshot,
-
         loadingSummary,
 
         loadingLists,
-
         loadingActive,
-
         loadingPaused,
-
         loadingCompleted,
 
         mutating,
 
         error,
-
         mutationError,
 
         lastUpdated,
@@ -1711,16 +1476,13 @@ const useSavingsChallenges = ({
     );
 
   /* ==========================================================
-     RETURN API
+     PUBLIC API
   ========================================================== */
 
   return {
     ...state,
 
-    /* --------------------------------------------------------
-       Fetch
-    -------------------------------------------------------- */
-
+    /* Fetch */
     fetchChallenges,
     fetchChallenge,
     fetchSnapshot,
@@ -1730,17 +1492,11 @@ const useSavingsChallenges = ({
     fetchPausedChallenges,
     fetchCompletedChallenges,
 
-    /* --------------------------------------------------------
-       CRUD
-    -------------------------------------------------------- */
-
+    /* CRUD */
     createChallenge,
     updateChallenge,
 
-    /* --------------------------------------------------------
-       Lifecycle
-    -------------------------------------------------------- */
-
+    /* Lifecycle */
     activateChallenge,
     pauseChallenge,
     resumeChallenge,
@@ -1749,32 +1505,20 @@ const useSavingsChallenges = ({
     failChallenge,
     expireChallenge,
 
-    /* --------------------------------------------------------
-       Progress
-    -------------------------------------------------------- */
-
+    /* Progress */
     applyContribution,
     registerSuccessfulPeriod,
     registerMissedPeriod,
 
-    /* --------------------------------------------------------
-       Archive
-    -------------------------------------------------------- */
-
+    /* Archive */
     archiveChallenge,
     restoreChallenge,
 
-    /* --------------------------------------------------------
-       Query
-    -------------------------------------------------------- */
-
+    /* Query */
     updateQuery,
     resetQuery,
 
-    /* --------------------------------------------------------
-       General
-    -------------------------------------------------------- */
-
+    /* General */
     refresh,
     clearError,
   };

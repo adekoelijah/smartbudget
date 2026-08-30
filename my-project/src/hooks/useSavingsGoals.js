@@ -1,4 +1,3 @@
-
 // hooks/useSavingsGoals.js
 
 import {
@@ -28,7 +27,10 @@ const DEFAULT_FILTERS = Object.freeze({
    FILTER HELPERS
 ========================================================= */
 
-const normalizePositiveInteger = (value, fallback) => {
+const normalizePositiveInteger = (
+  value,
+  fallback
+) => {
   const number = Number(value);
 
   if (!Number.isInteger(number) || number <= 0) {
@@ -120,7 +122,8 @@ const normalizePagination = (
       : page < totalPages;
 
   const hasPreviousPage =
-    typeof source.hasPreviousPage === "boolean"
+    typeof source.hasPreviousPage ===
+    "boolean"
       ? source.hasPreviousPage
       : page > 1;
 
@@ -198,14 +201,14 @@ const normalizeError = (error) => {
     sourceError?.response?.data?.message ??
     sourceError?.response?.data?.error ??
     error?.message ??
-    "Unable to load savings goals.";
+    "Unable to process savings goal request.";
 
   return {
     message:
       typeof message === "string" &&
       message.trim()
         ? message.trim()
-        : "Unable to load savings goals.",
+        : "Unable to process savings goal request.",
 
     code:
       sourceError?.code ??
@@ -251,16 +254,6 @@ const useSavingsGoals = (
 ) => {
   /* =======================================================
      INITIAL FILTERS
-
-     IMPORTANT:
-     We intentionally DO NOT use a ref here.
-
-     Reading initialFiltersRef.current during render was
-     causing the React "Cannot access refs during render"
-     error.
-
-     The incoming filters are normalized once and then used
-     as the initial state.
   ======================================================= */
 
   const normalizedInitialFilters = useMemo(
@@ -282,9 +275,8 @@ const useSavingsGoals = (
 
   const [goals, setGoals] = useState([]);
 
-  const [pagination, setPagination] = useState(
-    createInitialPagination()
-  );
+  const [pagination, setPagination] =
+    useState(createInitialPagination());
 
   const [loading, setLoading] = useState(false);
 
@@ -302,6 +294,12 @@ const useSavingsGoals = (
   const requestIdRef = useRef(0);
 
   /* =======================================================
+     MUTATION CONTROL
+  ======================================================= */
+
+  const mutationIdRef = useRef(0);
+
+  /* =======================================================
      MOUNT
   ======================================================= */
 
@@ -311,10 +309,9 @@ const useSavingsGoals = (
     return () => {
       mountedRef.current = false;
 
-      /*
-       * Invalidate all pending requests.
-       */
       requestIdRef.current += 1;
+
+      mutationIdRef.current += 1;
     };
   }, []);
 
@@ -322,12 +319,6 @@ const useSavingsGoals = (
      FILTER KEY
   ======================================================= */
 
-  /*
-   * This is the only identity used by the automatic
-   * fetch effect.
-   *
-   * It is primitive and deterministic.
-   */
   const filterKey = useMemo(
     () => createFilterKey(filters),
     [filters]
@@ -354,9 +345,6 @@ const useSavingsGoals = (
       const requestId =
         ++requestIdRef.current;
 
-      /*
-       * Update request state.
-       */
       if (mountedRef.current) {
         setError(null);
 
@@ -378,10 +366,6 @@ const useSavingsGoals = (
             nextFilters
           );
 
-        /*
-         * A newer request has already started.
-         * Ignore this response completely.
-         */
         if (
           requestId !==
           requestIdRef.current
@@ -406,22 +390,12 @@ const useSavingsGoals = (
           };
         }
 
-        /*
-         * Commit server state.
-         */
         setGoals(nextGoals);
 
         setPagination(
           nextPagination
         );
 
-        /*
-         * Synchronize filters only when necessary.
-         *
-         * This does NOT trigger an infinite loop because
-         * the updater returns the existing object when the
-         * values are already identical.
-         */
         setFiltersState((previous) => {
           if (
             previous.status ===
@@ -443,9 +417,6 @@ const useSavingsGoals = (
           raw: response,
         };
       } catch (requestError) {
-        /*
-         * Ignore stale request errors.
-         */
         if (
           requestId !==
           requestIdRef.current
@@ -454,9 +425,7 @@ const useSavingsGoals = (
         }
 
         const normalized =
-          normalizeError(
-            requestError
-          );
+          normalizeError(requestError);
 
         if (mountedRef.current) {
           setError(normalized);
@@ -464,9 +433,6 @@ const useSavingsGoals = (
 
         throw normalized;
       } finally {
-        /*
-         * Only the latest request can clear the loading state.
-         */
         if (
           requestId ===
             requestIdRef.current &&
@@ -508,32 +474,203 @@ const useSavingsGoals = (
     };
   }, [filterKey, fetchGoals]);
 
-  /*
-   * NOTE:
-   *
-   * fetchGoals is intentionally included because React's
-   * effect dependency rules require every referenced value.
-   *
-   * The primitive filterKey makes the request identity clear,
-   * while fetchGoals changes only when the actual filter values
-   * change.
-   */
-
   /* =======================================================
      REFRESH
   ======================================================= */
 
   const refresh = useCallback(
-    async () => {
+  () =>
+    fetchGoals(
+      {},
+      {
+        silent: true,
+      }
+    ),
+  [fetchGoals]
+);
+
+  /*
+   * Alias used by SavingsGoalsPage.jsx.
+   */
+  const refreshGoals = refresh;
+
+  /* =======================================================
+     CREATE GOAL
+  ======================================================= */
+
+  const createGoal = useCallback(
+    async (payload) => {
+      const mutationId =
+        ++mutationIdRef.current;
+
       try {
-        return await fetchGoals(
+        const method =
+          getServiceMethod(
+            "createSavingGoal"
+          );
+
+        const response =
+          await method(payload);
+
+        /*
+         * Do not allow an old mutation to refresh
+         * state after a newer mutation has started.
+         */
+        if (
+          mutationId !==
+          mutationIdRef.current
+        ) {
+          return response;
+        }
+
+        /*
+         * The backend is the source of truth.
+         * Re-fetch after successful creation.
+         */
+        await fetchGoals(
           {},
           {
             silent: true,
           }
         );
-      } catch {
-        return null;
+
+        return response;
+      } catch (requestError) {
+        const normalized =
+          normalizeError(requestError);
+
+        if (mountedRef.current) {
+          setError(normalized);
+        }
+
+        throw normalized;
+      }
+    },
+    [fetchGoals]
+  );
+
+  /* =======================================================
+     UPDATE GOAL
+  ======================================================= */
+
+  const updateGoal = useCallback(
+    async (goalId, payload) => {
+      if (!goalId) {
+        const normalized =
+          normalizeError(
+            new Error(
+              "A savings goal ID is required."
+            )
+          );
+
+        if (mountedRef.current) {
+          setError(normalized);
+        }
+
+        throw normalized;
+      }
+
+      const mutationId =
+        ++mutationIdRef.current;
+
+      try {
+        const method =
+          getServiceMethod(
+            "updateSavingGoal"
+          );
+
+        const response =
+          await method(
+            goalId,
+            payload
+          );
+
+        if (
+          mutationId !==
+          mutationIdRef.current
+        ) {
+          return response;
+        }
+
+        await fetchGoals(
+          {},
+          {
+            silent: true,
+          }
+        );
+
+        return response;
+      } catch (requestError) {
+        const normalized =
+          normalizeError(requestError);
+
+        if (mountedRef.current) {
+          setError(normalized);
+        }
+
+        throw normalized;
+      }
+    },
+    [fetchGoals]
+  );
+
+  /* =======================================================
+     DELETE GOAL
+  ======================================================= */
+
+  const deleteGoal = useCallback(
+    async (goalId) => {
+      if (!goalId) {
+        const normalized =
+          normalizeError(
+            new Error(
+              "A savings goal ID is required."
+            )
+          );
+
+        if (mountedRef.current) {
+          setError(normalized);
+        }
+
+        throw normalized;
+      }
+
+      const mutationId =
+        ++mutationIdRef.current;
+
+      try {
+        const method =
+          getServiceMethod(
+            "deleteSavingGoal"
+          );
+
+        const response =
+          await method(goalId);
+
+        if (
+          mutationId !==
+          mutationIdRef.current
+        ) {
+          return response;
+        }
+
+        await fetchGoals(
+          {},
+          {
+            silent: true,
+          }
+        );
+
+        return response;
+      } catch (requestError) {
+        const normalized =
+          normalizeError(requestError);
+
+        if (mountedRef.current) {
+          setError(normalized);
+        }
+
+        throw normalized;
       }
     },
     [fetchGoals]
@@ -557,10 +694,6 @@ const useSavingsGoals = (
         const normalized =
           normalizeFilters(candidate);
 
-        /*
-         * Changing status or limit means we should return
-         * to the first page.
-         */
         const statusChanged =
           normalized.status !==
           previous.status;
@@ -724,9 +857,7 @@ const useSavingsGoals = (
         return await method(goalId);
       } catch (requestError) {
         const normalized =
-          normalizeError(
-            requestError
-          );
+          normalizeError(requestError);
 
         if (mountedRef.current) {
           setError(normalized);
@@ -754,9 +885,7 @@ const useSavingsGoals = (
           return await method(goalId);
         } catch (requestError) {
           const normalized =
-            normalizeError(
-              requestError
-            );
+            normalizeError(requestError);
 
           if (mountedRef.current) {
             setError(normalized);
@@ -790,9 +919,7 @@ const useSavingsGoals = (
           );
         } catch (requestError) {
           const normalized =
-            normalizeError(
-              requestError
-            );
+            normalizeError(requestError);
 
           if (mountedRef.current) {
             setError(normalized);
@@ -826,9 +953,7 @@ const useSavingsGoals = (
           );
         } catch (requestError) {
           const normalized =
-            normalizeError(
-              requestError
-            );
+            normalizeError(requestError);
 
           if (mountedRef.current) {
             setError(normalized);
@@ -864,9 +989,7 @@ const useSavingsGoals = (
           );
         } catch (requestError) {
           const normalized =
-            normalizeError(
-              requestError
-            );
+            normalizeError(requestError);
 
           if (mountedRef.current) {
             setError(normalized);
@@ -888,7 +1011,9 @@ const useSavingsGoals = (
         (goal) =>
           String(
             goal?.status ?? ""
-          ).toLowerCase() ===
+          )
+            .trim()
+            .toLowerCase() ===
           "active"
       ),
     [goals]
@@ -900,7 +1025,9 @@ const useSavingsGoals = (
         (goal) =>
           String(
             goal?.status ?? ""
-          ).toLowerCase() ===
+          )
+            .trim()
+            .toLowerCase() ===
           "completed"
       ),
     [goals]
@@ -912,7 +1039,9 @@ const useSavingsGoals = (
         (goal) =>
           String(
             goal?.status ?? ""
-          ).toLowerCase() ===
+          )
+            .trim()
+            .toLowerCase() ===
           "paused"
       ),
     [goals]
@@ -924,7 +1053,9 @@ const useSavingsGoals = (
         (goal) =>
           String(
             goal?.status ?? ""
-          ).toLowerCase() ===
+          )
+            .trim()
+            .toLowerCase() ===
           "cancelled"
       ),
     [goals]
@@ -934,13 +1065,17 @@ const useSavingsGoals = (
      DERIVED FLAGS
   ======================================================= */
 
-  const hasGoals = goals.length > 0;
+  const hasGoals =
+    goals.length > 0;
 
-  const isLoading = loading;
+  const isLoading =
+    loading;
 
-  const isRefreshing = refreshing;
+  const isRefreshing =
+    refreshing;
 
-  const hasError = Boolean(error);
+  const hasError =
+    Boolean(error);
 
   const isEmpty =
     !loading &&
@@ -954,6 +1089,8 @@ const useSavingsGoals = (
 
   const reset = useCallback(() => {
     requestIdRef.current += 1;
+
+    mutationIdRef.current += 1;
 
     if (!mountedRef.current) {
       return;
@@ -970,7 +1107,9 @@ const useSavingsGoals = (
     );
 
     setLoading(false);
+
     setRefreshing(false);
+
     setError(null);
   }, [normalizedInitialFilters]);
 
@@ -1039,7 +1178,7 @@ const useSavingsGoals = (
       previousPage,
 
       /* -----------------------------
-         GOAL OPERATIONS
+         READ OPERATIONS
       ----------------------------- */
 
       getGoal,
@@ -1053,12 +1192,24 @@ const useSavingsGoals = (
       checkEligibility,
 
       /* -----------------------------
+         WRITE OPERATIONS
+      ----------------------------- */
+
+      createGoal,
+
+      updateGoal,
+
+      deleteGoal,
+
+      /* -----------------------------
          FETCH
       ----------------------------- */
 
       fetchGoals,
 
       refresh,
+
+      refreshGoals,
 
       reset,
 
@@ -1096,28 +1247,42 @@ const useSavingsGoals = (
       completedGoals,
       pausedGoals,
       cancelledGoals,
+
       pagination,
+
       filters,
+
       setFilters,
       setStatus,
       clearFilters,
+
       goToPage,
       nextPage,
       previousPage,
+
       getGoal,
       getGoalSummary,
       getGoalContributions,
       getGoalHistory,
       checkEligibility,
+
+      createGoal,
+      updateGoal,
+      deleteGoal,
+
       fetchGoals,
       refresh,
+      refreshGoals,
       reset,
+
       loading,
       refreshing,
       isLoading,
       isRefreshing,
+
       error,
       hasError,
+
       hasGoals,
       isEmpty,
     ]

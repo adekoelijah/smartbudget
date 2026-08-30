@@ -1,3 +1,4 @@
+
 // hooks/useSavingsStrategies.js
 
 import {
@@ -18,13 +19,14 @@ const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
 
 const EMPTY_ARRAY = Object.freeze([]);
-
-const EMPTY_FILTERS = Object.freeze({});
+const EMPTY_OBJECT = Object.freeze({});
 
 const INITIAL_STATE = {
-  plans: [],
-  schedules: [],
-  autoSaves: [],
+  plans: EMPTY_ARRAY,
+  schedules: EMPTY_ARRAY,
+  autoSaves: EMPTY_ARRAY,
+
+  strategies: EMPTY_ARRAY,
 
   loading: false,
   refreshing: false,
@@ -37,7 +39,7 @@ const INITIAL_STATE = {
 };
 
 /* ============================================================
-   SAFE ERROR NORMALIZATION
+   ERROR NORMALIZATION
 ============================================================ */
 
 const normalizeError = (error) => {
@@ -46,46 +48,68 @@ const normalizeError = (error) => {
   }
 
   if (typeof error === "string") {
+    const message = error.trim();
+
     return {
       message:
-        error.trim() ||
-        "Unable to load savings strategies.",
+        message || "Unable to load savings strategies.",
       code: "SAVINGS_STRATEGY_ERROR",
       status: null,
       details: null,
     };
   }
 
+  const responseData = error?.response?.data;
+
+  const message =
+    responseData?.message ??
+    responseData?.error ??
+    error?.message ??
+    error?.error ??
+    "Unable to load savings strategies.";
+
   return {
     message:
-      error?.response?.data?.message ||
-      error?.response?.data?.error ||
-      error?.message ||
-      "Unable to load savings strategies.",
+      typeof message === "string" && message.trim()
+        ? message.trim()
+        : "Unable to load savings strategies.",
 
     code:
-      error?.response?.data?.code ||
-      error?.code ||
+      responseData?.code ??
+      error?.code ??
       "SAVINGS_STRATEGY_ERROR",
 
     status:
-      error?.response?.status ||
-      error?.statusCode ||
-      error?.status ||
+      error?.response?.status ??
+      error?.statusCode ??
+      error?.status ??
       null,
 
     details:
-      error?.response?.data?.details ||
-      error?.details ||
+      responseData?.details ??
+      error?.details ??
       null,
   };
 };
 
 /* ============================================================
-   SAFE ARRAY NORMALIZATION
+   ABORT DETECTION
 ============================================================ */
 
-const normalizeArray = (value) => {
+const isAbortError = (error) => {
+  return (
+    error?.name === "AbortError" ||
+    error?.code === "ERR_CANCELED" ||
+    error?.message === "canceled" ||
+    error?.message === "aborted"
+  );
+};
+
+/* ============================================================
+   SAFE ARRAY EXTRACTION
+============================================================ */
+
+const extractArray = (value) => {
   if (Array.isArray(value)) {
     return value;
   }
@@ -94,38 +118,30 @@ const normalizeArray = (value) => {
     return EMPTY_ARRAY;
   }
 
-  if (Array.isArray(value.data)) {
-    return value.data;
-  }
+  const candidates = [
+    value.data,
+    value.items,
+    value.results,
+    value.plans,
+    value.schedules,
+    value.autoSaves,
+    value.strategies,
+  ];
 
-  if (Array.isArray(value.items)) {
-    return value.items;
-  }
-
-  if (Array.isArray(value.results)) {
-    return value.results;
-  }
-
-  if (Array.isArray(value.plans)) {
-    return value.plans;
-  }
-
-  if (Array.isArray(value.schedules)) {
-    return value.schedules;
-  }
-
-  if (Array.isArray(value.autoSaves)) {
-    return value.autoSaves;
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      return candidate;
+    }
   }
 
   return EMPTY_ARRAY;
 };
 
 /* ============================================================
-   RESPONSE DATA HELPERS
+   RESPONSE DATA EXTRACTION
 ============================================================ */
 
-const extractData = (response) => {
+const extractResponseData = (response) => {
   if (response == null) {
     return null;
   }
@@ -143,30 +159,20 @@ const extractData = (response) => {
   return response;
 };
 
+/* ============================================================
+   PAGINATION EXTRACTION
+============================================================ */
+
 const extractPagination = (response) => {
   if (!response || typeof response !== "object") {
     return null;
   }
 
   return (
-    response.pagination ||
-    response.meta?.pagination ||
-    response.meta ||
+    response.pagination ??
+    response.meta?.pagination ??
+    response.meta ??
     null
-  );
-};
-
-/* ============================================================
-   ABORT ERROR DETECTION
-============================================================ */
-
-const isAbortError = (error) => {
-  return (
-    error?.name === "AbortError" ||
-    error?.code === "ERR_CANCELED" ||
-    error?.code === "ECONNABORTED" ||
-    error?.message === "canceled" ||
-    error?.message === "aborted"
   );
 };
 
@@ -176,10 +182,226 @@ const isAbortError = (error) => {
 
 const sanitizeFilters = (filters) => {
   if (!filters || typeof filters !== "object") {
-    return EMPTY_FILTERS;
+    return EMPTY_OBJECT;
   }
 
-  return filters;
+  const result = {};
+
+  for (const [key, value] of Object.entries(filters)) {
+    if (
+      value === undefined ||
+      value === null ||
+      value === ""
+    ) {
+      continue;
+    }
+
+    result[key] = value;
+  }
+
+  return Object.keys(result).length
+    ? result
+    : EMPTY_OBJECT;
+};
+
+/* ============================================================
+   ID RESOLUTION
+============================================================ */
+
+const getResourceId = (resource) => {
+  if (!resource) {
+    return null;
+  }
+
+  if (typeof resource === "string") {
+    const value = resource.trim();
+
+    return value || null;
+  }
+
+  const id =
+    resource?._id ??
+    resource?.id ??
+    resource?.planId ??
+    resource?.strategyId ??
+    resource?.scheduleId ??
+    resource?.autoSaveId;
+
+  if (id === undefined || id === null) {
+    return null;
+  }
+
+  const value = String(id).trim();
+
+  return value || null;
+};
+
+/* ============================================================
+   STATUS NORMALIZATION
+============================================================ */
+
+const normalizeStatus = (resource) => {
+  const status =
+    resource?.status ??
+    resource?.state ??
+    "";
+
+  if (typeof status !== "string") {
+    return "";
+  }
+
+  return status
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+};
+
+/* ============================================================
+   ACTIVE CHECK
+============================================================ */
+
+const isActive = (resource) => {
+  const status = normalizeStatus(resource);
+
+  return (
+    status === "active" ||
+    status === "running" ||
+    status === "enabled"
+  );
+};
+
+/* ============================================================
+   STRATEGY TYPE RESOLUTION
+============================================================ */
+
+const getStrategyType = (resource) => {
+  if (!resource || typeof resource !== "object") {
+    return "unknown";
+  }
+
+  const value =
+    resource?.strategyType ??
+    resource?.strategy ??
+    resource?.type ??
+    resource?.method ??
+    resource?.kind ??
+    resource?.planType ??
+    "";
+
+  if (typeof value !== "string") {
+    return "unknown";
+  }
+
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+};
+
+/* ============================================================
+   STRATEGY NORMALIZATION
+============================================================ */
+
+/*
+ * A strategy may come from:
+ *
+ *   plans
+ *   schedules
+ *   autoSaves
+ *
+ * We preserve the original resource while adding a small
+ * amount of metadata that makes it safe for the frontend.
+ */
+
+const normalizeStrategy = (
+  resource,
+  source
+) => {
+  if (
+    !resource ||
+    typeof resource !== "object"
+  ) {
+    return null;
+  }
+
+  const id = getResourceId(resource);
+
+  if (!id) {
+    return null;
+  }
+
+  return {
+    ...resource,
+
+    id,
+
+    strategyId:
+      resource.strategyId ??
+      id,
+
+    strategySource:
+      resource.strategySource ??
+      source,
+
+    strategyType:
+      resource.strategyType ??
+      getStrategyType(resource),
+
+    normalizedStatus:
+      normalizeStatus(resource),
+
+    isActive:
+      typeof resource.isActive === "boolean"
+        ? resource.isActive
+        : isActive(resource),
+  };
+};
+
+/* ============================================================
+   STRATEGY COLLECTION
+============================================================ */
+
+const buildStrategies = ({
+  plans,
+  schedules,
+  autoSaves,
+}) => {
+  const result = [];
+
+  for (const plan of plans) {
+    const normalized = normalizeStrategy(
+      plan,
+      "plan"
+    );
+
+    if (normalized) {
+      result.push(normalized);
+    }
+  }
+
+  for (const schedule of schedules) {
+    const normalized = normalizeStrategy(
+      schedule,
+      "schedule"
+    );
+
+    if (normalized) {
+      result.push(normalized);
+    }
+  }
+
+  for (const autoSave of autoSaves) {
+    const normalized = normalizeStrategy(
+      autoSave,
+      "autosave"
+    );
+
+    if (normalized) {
+      result.push(normalized);
+    }
+  }
+
+  return result;
 };
 
 /* ============================================================
@@ -190,31 +412,66 @@ const useSavingsStrategies = ({
   autoFetch = true,
   page = DEFAULT_PAGE,
   limit = DEFAULT_LIMIT,
-  planFilters = EMPTY_FILTERS,
-  scheduleFilters = EMPTY_FILTERS,
-  autoSaveFilters = EMPTY_FILTERS,
+  planFilters = EMPTY_OBJECT,
+  scheduleFilters = EMPTY_OBJECT,
+  autoSaveFilters = EMPTY_OBJECT,
 } = {}) => {
   /* ==========================================================
      STATE
   ========================================================== */
 
-  const [state, setState] = useState(INITIAL_STATE);
+  const [state, setState] =
+    useState(INITIAL_STATE);
 
   /* ==========================================================
-     LIFECYCLE REFS
+     LIFECYCLE
   ========================================================== */
 
-  const mountedRef = useRef(false);
+  const mountedRef =
+    useRef(false);
 
-  const requestIdRef = useRef(0);
+  const initialFetchRef =
+    useRef(false);
 
-  const abortControllerRef = useRef(null);
+  const requestIdRef =
+    useRef(0);
+
+  const abortControllerRef =
+    useRef(null);
 
   /*
-   * Prevents the automatic effect from issuing the same
-   * initial request repeatedly during the component lifecycle.
+   * Keeps the latest configuration available to stable
+   * callbacks without forcing those callbacks to change
+   * identity every render.
    */
-  const initialFetchStartedRef = useRef(false);
+  const configRef = useRef({
+    page,
+    limit,
+    planFilters,
+    scheduleFilters,
+    autoSaveFilters,
+  });
+
+  configRef.current = {
+    page,
+    limit,
+    planFilters: sanitizeFilters(
+      planFilters
+    ),
+    scheduleFilters: sanitizeFilters(
+      scheduleFilters
+    ),
+    autoSaveFilters: sanitizeFilters(
+      autoSaveFilters
+    ),
+  };
+
+  /*
+   * Keeps the latest state available to stable callbacks.
+   */
+  const stateRef = useRef(state);
+
+  stateRef.current = state;
 
   /* ==========================================================
      MOUNT / UNMOUNT
@@ -230,813 +487,936 @@ const useSavingsStrategies = ({
 
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
+
         abortControllerRef.current = null;
       }
     };
   }, []);
-
-  /* ==========================================================
-     SAFE FILTERS
-  ========================================================== */
-
-  const safePlanFilters = useMemo(() => {
-    return sanitizeFilters(planFilters);
-  }, [planFilters]);
-
-  const safeScheduleFilters = useMemo(() => {
-    return sanitizeFilters(scheduleFilters);
-  }, [scheduleFilters]);
-
-  const safeAutoSaveFilters = useMemo(() => {
-    return sanitizeFilters(autoSaveFilters);
-  }, [autoSaveFilters]);
 
   /* ==========================================================
      SAFE STATE UPDATE
   ========================================================== */
 
-  const updateState = useCallback((updater) => {
-    if (!mountedRef.current) {
-      return;
-    }
+  const updateState = useCallback(
+    (updater) => {
+      if (!mountedRef.current) {
+        return;
+      }
 
-    setState(updater);
-  }, []);
+      setState(updater);
+    },
+    []
+  );
 
   /* ==========================================================
-     START REQUEST
+     CANCEL ACTIVE FETCH
   ========================================================== */
 
-  const startRequest = useCallback(() => {
+  const cancelActiveFetch =
+    useCallback(() => {
+      if (!abortControllerRef.current) {
+        return;
+      }
+
+      abortControllerRef.current.abort();
+
+      abortControllerRef.current = null;
+    }, []);
+
+  /* ==========================================================
+     START COMBINED FETCH
+  ========================================================== */
+
+  const startFetch = useCallback(() => {
     requestIdRef.current += 1;
 
-    const requestId = requestIdRef.current;
+    const requestId =
+      requestIdRef.current;
 
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
+    cancelActiveFetch();
 
-    const controller = new AbortController();
+    const controller =
+      new AbortController();
 
-    abortControllerRef.current = controller;
+    abortControllerRef.current =
+      controller;
 
     return {
       requestId,
       signal: controller.signal,
     };
-  }, []);
+  }, [cancelActiveFetch]);
 
   /* ==========================================================
      REQUEST VALIDATION
   ========================================================== */
 
-  const isCurrentRequest = useCallback(
+  const isCurrentRequest =
+    useCallback(
+      (requestId) => {
+        return (
+          mountedRef.current &&
+          requestId ===
+            requestIdRef.current
+        );
+      },
+      []
+    );
+
+  /* ==========================================================
+     FINISH FETCH
+  ========================================================== */
+
+  const finishFetch = useCallback(
     (requestId) => {
-      return (
-        mountedRef.current &&
-        requestId === requestIdRef.current
-      );
+      if (
+        requestId ===
+          requestIdRef.current &&
+        abortControllerRef.current
+      ) {
+        abortControllerRef.current =
+          null;
+      }
     },
     []
   );
 
   /* ==========================================================
-     FINISH REQUEST
+     FETCH ALL STRATEGIES
   ========================================================== */
 
-  const finishRequest = useCallback(
-    (requestId) => {
-      if (
-        requestId === requestIdRef.current &&
-        abortControllerRef.current
-      ) {
-        abortControllerRef.current = null;
-      }
-    },
-    []
-  );
+  const fetchStrategies =
+    useCallback(
+      async ({
+        planOptions = EMPTY_OBJECT,
+        scheduleOptions = EMPTY_OBJECT,
+        autoSaveOptions = EMPTY_OBJECT,
+      } = {}) => {
+        if (!mountedRef.current) {
+          return null;
+        }
+
+        const {
+          page: currentPage,
+          limit: currentLimit,
+          planFilters: currentPlanFilters,
+          scheduleFilters:
+            currentScheduleFilters,
+          autoSaveFilters:
+            currentAutoSaveFilters,
+        } = configRef.current;
+
+        const previousState =
+          stateRef.current;
+
+        const hasExistingData =
+          previousState.plans.length > 0 ||
+          previousState.schedules.length > 0 ||
+          previousState.autoSaves.length > 0;
+
+        const {
+          requestId,
+          signal,
+        } = startFetch();
+
+        updateState((previous) => ({
+          ...previous,
+
+          loading: !hasExistingData,
+
+          refreshing: hasExistingData,
+
+          error: null,
+        }));
+
+        try {
+          const [
+            plansResponse,
+            schedulesResponse,
+            autoSavesResponse,
+          ] = await Promise.all([
+            smartSaveService.getSavingPlans({
+              page: currentPage,
+              limit: currentLimit,
+              ...currentPlanFilters,
+              ...planOptions,
+              signal,
+            }),
+
+            smartSaveService.getSavingSchedules({
+              page: currentPage,
+              limit: currentLimit,
+              ...currentScheduleFilters,
+              ...scheduleOptions,
+              signal,
+            }),
+
+            smartSaveService.getAutoSaves({
+              page: currentPage,
+              limit: currentLimit,
+              ...currentAutoSaveFilters,
+              ...autoSaveOptions,
+              signal,
+            }),
+          ]);
+
+          if (
+            !isCurrentRequest(requestId)
+          ) {
+            return null;
+          }
+
+          const plansData =
+            extractResponseData(
+              plansResponse
+            );
+
+          const schedulesData =
+            extractResponseData(
+              schedulesResponse
+            );
+
+          const autoSavesData =
+            extractResponseData(
+              autoSavesResponse
+            );
+
+          const plans =
+            extractArray(plansData);
+
+          const schedules =
+            extractArray(
+              schedulesData
+            );
+
+          const autoSaves =
+            extractArray(
+              autoSavesData
+            );
+
+          const strategies =
+            buildStrategies({
+              plans,
+              schedules,
+              autoSaves,
+            });
+
+          const plansPagination =
+            extractPagination(
+              plansResponse
+            ) ??
+            extractPagination(
+              plansData
+            );
+
+          const schedulesPagination =
+            extractPagination(
+              schedulesResponse
+            ) ??
+            extractPagination(
+              schedulesData
+            );
+
+          const autoSavesPagination =
+            extractPagination(
+              autoSavesResponse
+            ) ??
+            extractPagination(
+              autoSavesData
+            );
+
+          updateState((previous) => ({
+            ...previous,
+
+            plans,
+            schedules,
+            autoSaves,
+
+            strategies,
+
+            plansPagination,
+            schedulesPagination,
+            autoSavesPagination,
+
+            loading: false,
+            refreshing: false,
+
+            error: null,
+          }));
+
+          return {
+            plans: plansResponse,
+            schedules:
+              schedulesResponse,
+            autoSaves:
+              autoSavesResponse,
+            strategies,
+          };
+        } catch (error) {
+          if (
+            !isCurrentRequest(
+              requestId
+            ) ||
+            isAbortError(error)
+          ) {
+            return null;
+          }
+
+          const normalizedError =
+            normalizeError(error);
+
+          updateState((previous) => ({
+            ...previous,
+
+            loading: false,
+
+            refreshing: false,
+
+            error: normalizedError,
+          }));
+
+          return null;
+        } finally {
+          finishFetch(requestId);
+        }
+      },
+      [
+        startFetch,
+        isCurrentRequest,
+        finishFetch,
+        updateState,
+      ]
+    );
 
   /* ==========================================================
      FETCH PLANS
   ========================================================== */
 
-  const fetchPlans = useCallback(
-    async ({
-      page: requestedPage = page,
-      limit: requestedLimit = limit,
-      ...filters
-    } = {}) => {
-      const {
-        requestId,
-        signal,
-      } = startRequest();
+  const fetchPlans =
+    useCallback(
+      async ({
+        page: requestedPage,
+        limit: requestedLimit,
+        ...filters
+      } = {}) => {
+        if (!mountedRef.current) {
+          return null;
+        }
 
-      updateState((previous) => ({
-        ...previous,
+        const config =
+          configRef.current;
 
-        loading:
-          previous.plans.length === 0
-            ? true
-            : previous.loading,
+        try {
+          const response =
+            await smartSaveService.getSavingPlans(
+              {
+                page:
+                  requestedPage ??
+                  config.page,
 
-        error: null,
-      }));
+                limit:
+                  requestedLimit ??
+                  config.limit,
 
-      try {
-        const response =
-          await smartSaveService.getSavingPlans({
-            page: requestedPage,
-            limit: requestedLimit,
-            ...safePlanFilters,
-            ...filters,
-            signal,
+                ...config.planFilters,
+                ...filters,
+              }
+            );
+
+          if (!mountedRef.current) {
+            return null;
+          }
+
+          const data =
+            extractResponseData(
+              response
+            );
+
+          const plans =
+            extractArray(data);
+
+          const pagination =
+            extractPagination(
+              response
+            ) ??
+            extractPagination(data);
+
+          updateState((previous) => {
+            const strategies =
+              buildStrategies({
+                plans,
+                schedules:
+                  previous.schedules,
+                autoSaves:
+                  previous.autoSaves,
+              });
+
+            return {
+              ...previous,
+
+              plans,
+              plansPagination:
+                pagination,
+
+              strategies,
+
+              error: null,
+            };
           });
 
-        if (!isCurrentRequest(requestId)) {
+          return response;
+        } catch (error) {
+          if (
+            isAbortError(error)
+          ) {
+            return null;
+          }
+
+          updateState((previous) => ({
+            ...previous,
+
+            error:
+              normalizeError(error),
+          }));
+
           return null;
         }
-
-        const data = extractData(response);
-
-        const plans = normalizeArray(data);
-
-        const pagination =
-          extractPagination(response) ||
-          extractPagination(data);
-
-        updateState((previous) => ({
-          ...previous,
-
-          plans,
-
-          plansPagination: pagination,
-
-          loading: false,
-
-          error: null,
-        }));
-
-        return response;
-      } catch (error) {
-        if (
-          !isCurrentRequest(requestId) ||
-          isAbortError(error)
-        ) {
-          return null;
-        }
-
-        updateState((previous) => ({
-          ...previous,
-
-          loading: false,
-
-          error: normalizeError(error),
-        }));
-
-        return null;
-      } finally {
-        finishRequest(requestId);
-      }
-    },
-    [
-      page,
-      limit,
-      safePlanFilters,
-      startRequest,
-      isCurrentRequest,
-      finishRequest,
-      updateState,
-    ]
-  );
+      },
+      [updateState]
+    );
 
   /* ==========================================================
      FETCH SCHEDULES
   ========================================================== */
 
-  const fetchSchedules = useCallback(
-    async ({
-      page: requestedPage = page,
-      limit: requestedLimit = limit,
-      ...filters
-    } = {}) => {
-      const {
-        requestId,
-        signal,
-      } = startRequest();
+  const fetchSchedules =
+    useCallback(
+      async ({
+        page: requestedPage,
+        limit: requestedLimit,
+        ...filters
+      } = {}) => {
+        if (!mountedRef.current) {
+          return null;
+        }
 
-      updateState((previous) => ({
-        ...previous,
+        const config =
+          configRef.current;
 
-        loading:
-          previous.schedules.length === 0
-            ? true
-            : previous.loading,
+        try {
+          const response =
+            await smartSaveService.getSavingSchedules(
+              {
+                page:
+                  requestedPage ??
+                  config.page,
 
-        error: null,
-      }));
+                limit:
+                  requestedLimit ??
+                  config.limit,
 
-      try {
-        const response =
-          await smartSaveService.getSavingSchedules({
-            page: requestedPage,
-            limit: requestedLimit,
-            ...safeScheduleFilters,
-            ...filters,
-            signal,
+                ...config.scheduleFilters,
+                ...filters,
+              }
+            );
+
+          if (!mountedRef.current) {
+            return null;
+          }
+
+          const data =
+            extractResponseData(
+              response
+            );
+
+          const schedules =
+            extractArray(data);
+
+          const pagination =
+            extractPagination(
+              response
+            ) ??
+            extractPagination(data);
+
+          updateState((previous) => {
+            const strategies =
+              buildStrategies({
+                plans:
+                  previous.plans,
+                schedules,
+                autoSaves:
+                  previous.autoSaves,
+              });
+
+            return {
+              ...previous,
+
+              schedules,
+
+              schedulesPagination:
+                pagination,
+
+              strategies,
+
+              error: null,
+            };
           });
 
-        if (!isCurrentRequest(requestId)) {
+          return response;
+        } catch (error) {
+          if (
+            isAbortError(error)
+          ) {
+            return null;
+          }
+
+          updateState((previous) => ({
+            ...previous,
+
+            error:
+              normalizeError(error),
+          }));
+
           return null;
         }
-
-        const data = extractData(response);
-
-        const schedules = normalizeArray(data);
-
-        const pagination =
-          extractPagination(response) ||
-          extractPagination(data);
-
-        updateState((previous) => ({
-          ...previous,
-
-          schedules,
-
-          schedulesPagination: pagination,
-
-          loading: false,
-
-          error: null,
-        }));
-
-        return response;
-      } catch (error) {
-        if (
-          !isCurrentRequest(requestId) ||
-          isAbortError(error)
-        ) {
-          return null;
-        }
-
-        updateState((previous) => ({
-          ...previous,
-
-          loading: false,
-
-          error: normalizeError(error),
-        }));
-
-        return null;
-      } finally {
-        finishRequest(requestId);
-      }
-    },
-    [
-      page,
-      limit,
-      safeScheduleFilters,
-      startRequest,
-      isCurrentRequest,
-      finishRequest,
-      updateState,
-    ]
-  );
+      },
+      [updateState]
+    );
 
   /* ==========================================================
      FETCH AUTOSAVES
   ========================================================== */
 
-  const fetchAutoSaves = useCallback(
-    async ({
-      page: requestedPage = page,
-      limit: requestedLimit = limit,
-      ...filters
-    } = {}) => {
-      const {
-        requestId,
-        signal,
-      } = startRequest();
+  const fetchAutoSaves =
+    useCallback(
+      async ({
+        page: requestedPage,
+        limit: requestedLimit,
+        ...filters
+      } = {}) => {
+        if (!mountedRef.current) {
+          return null;
+        }
 
-      updateState((previous) => ({
-        ...previous,
+        const config =
+          configRef.current;
 
-        loading:
-          previous.autoSaves.length === 0
-            ? true
-            : previous.loading,
+        try {
+          const response =
+            await smartSaveService.getAutoSaves(
+              {
+                page:
+                  requestedPage ??
+                  config.page,
 
-        error: null,
-      }));
+                limit:
+                  requestedLimit ??
+                  config.limit,
 
-      try {
-        const response =
-          await smartSaveService.getAutoSaves({
-            page: requestedPage,
-            limit: requestedLimit,
-            ...safeAutoSaveFilters,
-            ...filters,
-            signal,
+                ...config.autoSaveFilters,
+                ...filters,
+              }
+            );
+
+          if (!mountedRef.current) {
+            return null;
+          }
+
+          const data =
+            extractResponseData(
+              response
+            );
+
+          const autoSaves =
+            extractArray(data);
+
+          const pagination =
+            extractPagination(
+              response
+            ) ??
+            extractPagination(data);
+
+          updateState((previous) => {
+            const strategies =
+              buildStrategies({
+                plans:
+                  previous.plans,
+                schedules:
+                  previous.schedules,
+                autoSaves,
+              });
+
+            return {
+              ...previous,
+
+              autoSaves,
+
+              autoSavesPagination:
+                pagination,
+
+              strategies,
+
+              error: null,
+            };
           });
 
-        if (!isCurrentRequest(requestId)) {
+          return response;
+        } catch (error) {
+          if (
+            isAbortError(error)
+          ) {
+            return null;
+          }
+
+          updateState((previous) => ({
+            ...previous,
+
+            error:
+              normalizeError(error),
+          }));
+
           return null;
         }
-
-        const data = extractData(response);
-
-        const autoSaves = normalizeArray(data);
-
-        const pagination =
-          extractPagination(response) ||
-          extractPagination(data);
-
-        updateState((previous) => ({
-          ...previous,
-
-          autoSaves,
-
-          autoSavesPagination: pagination,
-
-          loading: false,
-
-          error: null,
-        }));
-
-        return response;
-      } catch (error) {
-        if (
-          !isCurrentRequest(requestId) ||
-          isAbortError(error)
-        ) {
-          return null;
-        }
-
-        updateState((previous) => ({
-          ...previous,
-
-          loading: false,
-
-          error: normalizeError(error),
-        }));
-
-        return null;
-      } finally {
-        finishRequest(requestId);
-      }
-    },
-    [
-      page,
-      limit,
-      safeAutoSaveFilters,
-      startRequest,
-      isCurrentRequest,
-      finishRequest,
-      updateState,
-    ]
-  );
-
-  /* ==========================================================
-     FETCH ALL STRATEGIES
-     
-     IMPORTANT:
-     This is the ONLY function used by the automatic
-     strategy-page fetch.
-  ========================================================== */
-
-  const fetchStrategies = useCallback(
-    async ({
-      planOptions = {},
-      scheduleOptions = {},
-      autoSaveOptions = {},
-    } = {}) => {
-      const {
-        requestId,
-        signal,
-      } = startRequest();
-
-      const hasExistingData =
-        state.plans.length > 0 ||
-        state.schedules.length > 0 ||
-        state.autoSaves.length > 0;
-
-      updateState((previous) => ({
-        ...previous,
-
-        loading: !hasExistingData,
-
-        refreshing: hasExistingData,
-
-        error: null,
-      }));
-
-      try {
-        const [
-          plansResponse,
-          schedulesResponse,
-          autoSavesResponse,
-        ] = await Promise.all([
-          smartSaveService.getSavingPlans({
-            page,
-            limit,
-            ...safePlanFilters,
-            ...planOptions,
-            signal,
-          }),
-
-          smartSaveService.getSavingSchedules({
-            page,
-            limit,
-            ...safeScheduleFilters,
-            ...scheduleOptions,
-            signal,
-          }),
-
-          smartSaveService.getAutoSaves({
-            page,
-            limit,
-            ...safeAutoSaveFilters,
-            ...autoSaveOptions,
-            signal,
-          }),
-        ]);
-
-        if (!isCurrentRequest(requestId)) {
-          return null;
-        }
-
-        const plansData =
-          extractData(plansResponse);
-
-        const schedulesData =
-          extractData(schedulesResponse);
-
-        const autoSavesData =
-          extractData(autoSavesResponse);
-
-        updateState((previous) => ({
-          ...previous,
-
-          plans:
-            normalizeArray(plansData),
-
-          schedules:
-            normalizeArray(schedulesData),
-
-          autoSaves:
-            normalizeArray(autoSavesData),
-
-          plansPagination:
-            extractPagination(
-              plansResponse
-            ) ||
-            extractPagination(
-              plansData
-            ),
-
-          schedulesPagination:
-            extractPagination(
-              schedulesResponse
-            ) ||
-            extractPagination(
-              schedulesData
-            ),
-
-          autoSavesPagination:
-            extractPagination(
-              autoSavesResponse
-            ) ||
-            extractPagination(
-              autoSavesData
-            ),
-
-          loading: false,
-
-          refreshing: false,
-
-          error: null,
-        }));
-
-        return {
-          plans: plansResponse,
-          schedules: schedulesResponse,
-          autoSaves: autoSavesResponse,
-        };
-      } catch (error) {
-        if (
-          !isCurrentRequest(requestId) ||
-          isAbortError(error)
-        ) {
-          return null;
-        }
-
-        updateState((previous) => ({
-          ...previous,
-
-          loading: false,
-
-          refreshing: false,
-
-          error: normalizeError(error),
-        }));
-
-        return null;
-      } finally {
-        finishRequest(requestId);
-      }
-    },
-    [
-      page,
-      limit,
-      safePlanFilters,
-      safeScheduleFilters,
-      safeAutoSaveFilters,
-      state.plans.length,
-      state.schedules.length,
-      state.autoSaves.length,
-      startRequest,
-      isCurrentRequest,
-      finishRequest,
-      updateState,
-    ]
-  );
+      },
+      [updateState]
+    );
 
   /* ==========================================================
      REFRESH
   ========================================================== */
 
-  const refresh = useCallback(
-    async () => {
-      if (!mountedRef.current) {
-        return null;
-      }
-
+  const refresh =
+    useCallback(async () => {
       return fetchStrategies();
-    },
-    [fetchStrategies]
-  );
+    }, [fetchStrategies]);
 
   /* ==========================================================
      PLAN OPERATIONS
   ========================================================== */
 
-  const createPlan = useCallback(
-    (payload) =>
-      smartSaveService.createSavingPlan(payload),
-    []
-  );
+  const createPlan =
+    useCallback(
+      (payload) =>
+        smartSaveService.createSavingPlan(
+          payload
+        ),
+      []
+    );
 
-  const updatePlan = useCallback(
-    (planId, payload) =>
-      smartSaveService.updateSavingPlan(
-        planId,
-        payload
-      ),
-    []
-  );
+  const updatePlan =
+    useCallback(
+      (planId, payload) =>
+        smartSaveService.updateSavingPlan(
+          planId,
+          payload
+        ),
+      []
+    );
 
-  const activatePlan = useCallback(
-    (planId) =>
-      smartSaveService.activateSavingPlan(
-        planId
-      ),
-    []
-  );
+  const activatePlan =
+    useCallback(
+      (planId) =>
+        smartSaveService.activateSavingPlan(
+          planId
+        ),
+      []
+    );
 
-  const pausePlan = useCallback(
-    (planId, payload = {}) =>
-      smartSaveService.pauseSavingPlan(
-        planId,
-        payload
-      ),
-    []
-  );
+  const pausePlan =
+    useCallback(
+      (planId, payload = {}) =>
+        smartSaveService.pauseSavingPlan(
+          planId,
+          payload
+        ),
+      []
+    );
 
-  const resumePlan = useCallback(
-    (planId) =>
-      smartSaveService.resumeSavingPlan(
-        planId
-      ),
-    []
-  );
+  const resumePlan =
+    useCallback(
+      (planId) =>
+        smartSaveService.resumeSavingPlan(
+          planId
+        ),
+      []
+    );
 
-  const completePlan = useCallback(
-    (planId, payload = {}) =>
-      smartSaveService.completeSavingPlan(
-        planId,
-        payload
-      ),
-    []
-  );
+  const completePlan =
+    useCallback(
+      (planId, payload = {}) =>
+        smartSaveService.completeSavingPlan(
+          planId,
+          payload
+        ),
+      []
+    );
 
-  const cancelPlan = useCallback(
-    (planId, payload = {}) =>
-      smartSaveService.cancelSavingPlan(
-        planId,
-        payload
-      ),
-    []
-  );
+  const cancelPlan =
+    useCallback(
+      (planId, payload = {}) =>
+        smartSaveService.cancelSavingPlan(
+          planId,
+          payload
+        ),
+      []
+    );
 
-  const recalculatePlanMetrics = useCallback(
-    (planId) =>
-      smartSaveService.recalculateSavingPlanMetrics(
-        planId
-      ),
-    []
-  );
+  const recalculatePlanMetrics =
+    useCallback(
+      (planId) =>
+        smartSaveService.recalculateSavingPlanMetrics(
+          planId
+        ),
+      []
+    );
 
-  const refreshPlanProgress = useCallback(
-    (planId) =>
-      smartSaveService.refreshSavingPlanProgress(
-        planId
-      ),
-    []
-  );
+  const refreshPlanProgress =
+    useCallback(
+      (planId) =>
+        smartSaveService.refreshSavingPlanProgress(
+          planId
+        ),
+      []
+    );
 
-  const getPlanStats = useCallback(
-    (planId) =>
-      smartSaveService.getSavingPlanStatistics(
-        planId
-      ),
-    []
-  );
+  const getPlanStats =
+    useCallback(
+      (planId) =>
+        smartSaveService.getSavingPlanStatistics(
+          planId
+        ),
+      []
+    );
 
-  const checkPlanEligibility = useCallback(
-    (planId) =>
-      smartSaveService.checkSavingPlanEligibility(
-        planId
-      ),
-    []
-  );
+  const checkPlanEligibility =
+    useCallback(
+      (planId) =>
+        smartSaveService.checkSavingPlanEligibility(
+          planId
+        ),
+      []
+    );
 
   /* ==========================================================
      SCHEDULE OPERATIONS
   ========================================================== */
 
-  const createSchedule = useCallback(
-    (payload) =>
-      smartSaveService.createSavingSchedule(
-        payload
-      ),
-    []
-  );
+  const createSchedule =
+    useCallback(
+      (payload) =>
+        smartSaveService.createSavingSchedule(
+          payload
+        ),
+      []
+    );
 
-  const updateSchedule = useCallback(
-    (scheduleId, payload) =>
-      smartSaveService.updateSavingSchedule(
-        scheduleId,
-        payload
-      ),
-    []
-  );
+  const updateSchedule =
+    useCallback(
+      (scheduleId, payload) =>
+        smartSaveService.updateSavingSchedule(
+          scheduleId,
+          payload
+        ),
+      []
+    );
 
-  const activateSchedule = useCallback(
-    (scheduleId, payload = {}) =>
-      smartSaveService.activateSavingSchedule(
-        scheduleId,
-        payload
-      ),
-    []
-  );
+  const activateSchedule =
+    useCallback(
+      (scheduleId, payload = {}) =>
+        smartSaveService.activateSavingSchedule(
+          scheduleId,
+          payload
+        ),
+      []
+    );
 
-  const pauseSchedule = useCallback(
-    (scheduleId, payload = {}) =>
-      smartSaveService.pauseSavingSchedule(
-        scheduleId,
-        payload
-      ),
-    []
-  );
+  const pauseSchedule =
+    useCallback(
+      (scheduleId, payload = {}) =>
+        smartSaveService.pauseSavingSchedule(
+          scheduleId,
+          payload
+        ),
+      []
+    );
 
-  const resumeSchedule = useCallback(
-    (scheduleId, payload = {}) =>
-      smartSaveService.resumeSavingSchedule(
-        scheduleId,
-        payload
-      ),
-    []
-  );
+  const resumeSchedule =
+    useCallback(
+      (scheduleId, payload = {}) =>
+        smartSaveService.resumeSavingSchedule(
+          scheduleId,
+          payload
+        ),
+      []
+    );
 
-  const cancelSchedule = useCallback(
-    (scheduleId, payload = {}) =>
-      smartSaveService.cancelSavingSchedule(
-        scheduleId,
-        payload
-      ),
-    []
-  );
+  const cancelSchedule =
+    useCallback(
+      (scheduleId, payload = {}) =>
+        smartSaveService.cancelSavingSchedule(
+          scheduleId,
+          payload
+        ),
+      []
+    );
 
-  const completeSchedule = useCallback(
-    (scheduleId) =>
-      smartSaveService.completeSavingSchedule(
-        scheduleId
-      ),
-    []
-  );
+  const completeSchedule =
+    useCallback(
+      (scheduleId) =>
+        smartSaveService.completeSavingSchedule(
+          scheduleId
+        ),
+      []
+    );
 
-  const deleteSchedule = useCallback(
-    (scheduleId) =>
-      smartSaveService.deleteSavingSchedule(
-        scheduleId
-      ),
-    []
-  );
+  const deleteSchedule =
+    useCallback(
+      (scheduleId) =>
+        smartSaveService.deleteSavingSchedule(
+          scheduleId
+        ),
+      []
+    );
 
-  const getScheduleStats = useCallback(
-    (scheduleId) =>
-      smartSaveService.getSavingScheduleStats(
-        scheduleId
-      ),
-    []
-  );
+  const getScheduleStats =
+    useCallback(
+      (scheduleId) =>
+        smartSaveService.getSavingScheduleStats(
+          scheduleId
+        ),
+      []
+    );
 
   /* ==========================================================
      AUTOSAVE OPERATIONS
   ========================================================== */
 
-  const createAutoSave = useCallback(
-    (payload) =>
-      smartSaveService.createAutoSave(payload),
-    []
-  );
+  const createAutoSave =
+    useCallback(
+      (payload) =>
+        smartSaveService.createAutoSave(
+          payload
+        ),
+      []
+    );
 
-  const updateAutoSave = useCallback(
-    (autoSaveId, payload) =>
-      smartSaveService.updateAutoSave(
-        autoSaveId,
-        payload
-      ),
-    []
-  );
+  const updateAutoSave =
+    useCallback(
+      (autoSaveId, payload) =>
+        smartSaveService.updateAutoSave(
+          autoSaveId,
+          payload
+        ),
+      []
+    );
 
-  const activateAutoSave = useCallback(
-    (autoSaveId) =>
-      smartSaveService.activateAutoSave(
-        autoSaveId
-      ),
-    []
-  );
+  const activateAutoSave =
+    useCallback(
+      (autoSaveId) =>
+        smartSaveService.activateAutoSave(
+          autoSaveId
+        ),
+      []
+    );
 
-  const pauseAutoSave = useCallback(
-    (autoSaveId) =>
-      smartSaveService.pauseAutoSave(
-        autoSaveId
-      ),
-    []
-  );
+  const pauseAutoSave =
+    useCallback(
+      (autoSaveId) =>
+        smartSaveService.pauseAutoSave(
+          autoSaveId
+        ),
+      []
+    );
 
-  const resumeAutoSave = useCallback(
-    (autoSaveId) =>
-      smartSaveService.resumeAutoSave(
-        autoSaveId
-      ),
-    []
-  );
+  const resumeAutoSave =
+    useCallback(
+      (autoSaveId) =>
+        smartSaveService.resumeAutoSave(
+          autoSaveId
+        ),
+      []
+    );
 
-  const cancelAutoSave = useCallback(
-    (autoSaveId) =>
-      smartSaveService.cancelAutoSave(
-        autoSaveId
-      ),
-    []
-  );
+  const cancelAutoSave =
+    useCallback(
+      (autoSaveId) =>
+        smartSaveService.cancelAutoSave(
+          autoSaveId
+        ),
+      []
+    );
 
-  const deleteAutoSave = useCallback(
-    (autoSaveId) =>
-      smartSaveService.deleteAutoSave(
-        autoSaveId
-      ),
-    []
-  );
+  const deleteAutoSave =
+    useCallback(
+      (autoSaveId) =>
+        smartSaveService.deleteAutoSave(
+          autoSaveId
+        ),
+      []
+    );
 
-  const getAutoSaveStats = useCallback(
-    (autoSaveId) =>
-      smartSaveService.getAutoSaveStats(
-        autoSaveId
-      ),
-    []
-  );
+  const getAutoSaveStats =
+    useCallback(
+      (autoSaveId) =>
+        smartSaveService.getAutoSaveStats(
+          autoSaveId
+        ),
+      []
+    );
 
   /* ==========================================================
-     AUTOMATION HELPERS
+     AUTOMATION
   ========================================================== */
 
-  const attachAutomation = useCallback(
-    (planId, payload) =>
-      smartSaveService.attachSavingPlanAutomation(
-        planId,
-        payload
-      ),
-    []
-  );
+  const attachAutomation =
+    useCallback(
+      (planId, payload) =>
+        smartSaveService.attachSavingPlanAutomation(
+          planId,
+          payload
+        ),
+      []
+    );
 
-  const detachAutomation = useCallback(
-    (planId) =>
-      smartSaveService.detachSavingPlanAutomation(
-        planId
-      ),
-    []
-  );
+  const detachAutomation =
+    useCallback(
+      (planId) =>
+        smartSaveService.detachSavingPlanAutomation(
+          planId
+        ),
+      []
+    );
+
+  /* ==========================================================
+     STRATEGY ACTION ALIASES
+     
+     These aliases make the hook directly compatible with
+     SavingsStrategiesPage.
+  ========================================================== */
+
+  const activateStrategy =
+    useCallback(
+      (strategyId) =>
+        activatePlan(strategyId),
+      [activatePlan]
+    );
+
+  const pauseStrategy =
+    useCallback(
+      (strategyId, payload = {}) =>
+        pausePlan(
+          strategyId,
+          payload
+        ),
+      [pausePlan]
+    );
+
+  const resumeStrategy =
+    useCallback(
+      (strategyId) =>
+        resumePlan(strategyId),
+      [resumePlan]
+    );
 
   /* ==========================================================
      DERIVED DATA
@@ -1046,7 +1426,7 @@ const useSavingsStrategies = ({
     () =>
       state.plans.filter(
         (plan) =>
-          plan?.status === "active"
+          isActive(plan)
       ),
     [state.plans]
   );
@@ -1055,7 +1435,7 @@ const useSavingsStrategies = ({
     () =>
       state.schedules.filter(
         (schedule) =>
-          schedule?.status === "active"
+          isActive(schedule)
       ),
     [state.schedules]
   );
@@ -1064,47 +1444,49 @@ const useSavingsStrategies = ({
     () =>
       state.autoSaves.filter(
         (autoSave) =>
-          autoSave?.status === "active"
+          isActive(autoSave)
       ),
     [state.autoSaves]
   );
 
-  const strategyCount = useMemo(
-    () =>
-      state.plans.length +
-      state.schedules.length +
-      state.autoSaves.length,
-    [
-      state.plans.length,
-      state.schedules.length,
-      state.autoSaves.length,
-    ]
-  );
+  const strategyCount =
+    state.strategies.length;
 
   const hasStrategies =
     strategyCount > 0;
 
+  const activeStrategyCount =
+    useMemo(
+      () =>
+        state.strategies.filter(
+          (strategy) =>
+            strategy?.isActive === true
+        ).length,
+      [state.strategies]
+    );
+
   /* ==========================================================
-     AUTOMATIC INITIAL FETCH
+     INITIAL FETCH
      
-     CRITICAL:
-     We intentionally do NOT depend on fetchStrategies.
+     IMPORTANT:
      
-     Otherwise:
+     fetchStrategies has a stable identity.
      
+     The effect depends only on autoFetch.
+     
+     Therefore:
+     
+       render
+          ↓
+       effect
+          ↓
+       one request
+          ↓
        state update
           ↓
-       fetchStrategies identity changes
-          ↓
-       effect runs again
-          ↓
-       API request
-          ↓
-       state update
-          ↓
-       ...
+       render
      
-     Instead, the initial fetch is explicitly guarded.
+     does NOT create another request.
   ========================================================== */
 
   useEffect(() => {
@@ -1112,16 +1494,28 @@ const useSavingsStrategies = ({
       return undefined;
     }
 
-    if (initialFetchStartedRef.current) {
+    if (initialFetchRef.current) {
       return undefined;
     }
 
-    initialFetchStartedRef.current = true;
+    initialFetchRef.current = true;
 
     void fetchStrategies();
 
     return undefined;
   }, [autoFetch, fetchStrategies]);
+
+  /* ==========================================================
+     CLEAR ERROR
+  ========================================================== */
+
+  const clearError =
+    useCallback(() => {
+      updateState((previous) => ({
+        ...previous,
+        error: null,
+      }));
+    }, [updateState]);
 
   /* ==========================================================
      RETURN API
@@ -1143,20 +1537,30 @@ const useSavingsStrategies = ({
     activeAutoSaves,
 
     strategyCount,
+    activeStrategyCount,
     hasStrategies,
 
     /* ========================================================
        FETCHING
     ======================================================== */
 
+    fetchStrategies,
     fetchPlans,
     fetchSchedules,
     fetchAutoSaves,
-    fetchStrategies,
+
     refresh,
 
     /* ========================================================
-       PLANS
+       STRATEGY ACTIONS
+    ======================================================== */
+
+    activateStrategy,
+    pauseStrategy,
+    resumeStrategy,
+
+    /* ========================================================
+       PLAN OPERATIONS
     ======================================================== */
 
     createPlan,
@@ -1176,7 +1580,7 @@ const useSavingsStrategies = ({
     checkPlanEligibility,
 
     /* ========================================================
-       SCHEDULES
+       SCHEDULE OPERATIONS
     ======================================================== */
 
     createSchedule,
@@ -1193,7 +1597,7 @@ const useSavingsStrategies = ({
     getScheduleStats,
 
     /* ========================================================
-       AUTOSAVE
+       AUTOSAVE OPERATIONS
     ======================================================== */
 
     createAutoSave,
@@ -1219,13 +1623,15 @@ const useSavingsStrategies = ({
        ERROR
     ======================================================== */
 
-    clearError: () => {
-      updateState((previous) => ({
-        ...previous,
-        error: null,
-      }));
-    },
+    clearError,
+
+    /* ========================================================
+       REQUEST CONTROL
+    ======================================================== */
+
+    cancelActiveFetch,
   };
 };
 
 export default useSavingsStrategies;
+

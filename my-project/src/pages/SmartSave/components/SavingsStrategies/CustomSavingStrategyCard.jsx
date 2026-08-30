@@ -1,8 +1,9 @@
+
+import { memo } from "react";
 import {
   ArrowRight,
   CalendarClock,
   CheckCircle2,
-  ChevronRight,
   CirclePause,
   Clock3,
   PiggyBank,
@@ -12,19 +13,11 @@ import {
   Wallet,
 } from "lucide-react";
 
-/* =========================================================
-   SMARTSAVE CONSTANTS
-========================================================= */
-
 import {
   SAVINGS_PLAN_STATUS,
   SAVINGS_FREQUENCIES,
   SAVINGS_STRATEGIES,
 } from "../../../../constants/smartSaveConstants";
-
-/* =========================================================
-   SMARTSAVE UTILITIES
-========================================================= */
 
 import {
   formatCurrency,
@@ -36,7 +29,7 @@ import {
 } from "../../../../utils/smartSave/savingsProgress";
 
 /* =========================================================
-   DEFAULTS
+   CONSTANTS
 ========================================================= */
 
 const DEFAULT_CURRENCY = "NGN";
@@ -47,6 +40,18 @@ const DEFAULT_STATUS =
 const DEFAULT_FREQUENCY =
   SAVINGS_FREQUENCIES?.MONTHLY ?? "monthly";
 
+const FIXED_STRATEGY =
+  SAVINGS_STRATEGIES?.FIXED ?? "fixed";
+
+const PERCENTAGE_STRATEGY =
+  SAVINGS_STRATEGIES?.PERCENTAGE ?? "percentage";
+
+const ROUND_UP_STRATEGY =
+  SAVINGS_STRATEGIES?.ROUND_UP ?? "round_up";
+
+const GOAL_BASED_STRATEGY =
+  SAVINGS_STRATEGIES?.GOAL_BASED ?? "goal_based";
+
 /* =========================================================
    STATUS CONFIGURATION
 ========================================================= */
@@ -55,31 +60,31 @@ const STATUS_CONFIG = Object.freeze({
   active: {
     label: "Active",
     badge:
-      "bg-emerald-50 text-emerald-700 border-emerald-200",
+      "border-emerald-200 bg-emerald-50 text-emerald-700",
   },
 
   paused: {
     label: "Paused",
     badge:
-      "bg-amber-50 text-amber-700 border-amber-200",
+      "border-amber-200 bg-amber-50 text-amber-700",
   },
 
   completed: {
     label: "Completed",
     badge:
-      "bg-blue-50 text-blue-700 border-blue-200",
+      "border-blue-200 bg-blue-50 text-blue-700",
   },
 
   cancelled: {
     label: "Cancelled",
     badge:
-      "bg-red-50 text-red-700 border-red-200",
+      "border-red-200 bg-red-50 text-red-700",
   },
 
   draft: {
     label: "Draft",
     badge:
-      "bg-slate-50 text-slate-600 border-slate-200",
+      "border-slate-200 bg-slate-50 text-slate-600",
   },
 });
 
@@ -88,29 +93,35 @@ const STATUS_CONFIG = Object.freeze({
 ========================================================= */
 
 const STRATEGY_CONFIG = Object.freeze({
-  [SAVINGS_STRATEGIES?.FIXED ?? "fixed"]: {
+  [FIXED_STRATEGY]: {
     label: "Fixed amount",
     description:
       "Save a consistent amount on every contribution.",
   },
 
-  [SAVINGS_STRATEGIES?.PERCENTAGE ?? "percentage"]: {
+  [PERCENTAGE_STRATEGY]: {
     label: "Percentage",
     description:
-      "Automatically save a percentage of your available income.",
+      "Automatically save a percentage of available income.",
   },
 
-  [SAVINGS_STRATEGIES?.ROUND_UP ?? "round_up"]: {
+  [ROUND_UP_STRATEGY]: {
     label: "Round-up",
     description:
       "Build savings gradually through transaction round-ups.",
   },
 
-  [SAVINGS_STRATEGIES?.GOAL_BASED ?? "goal_based"]: {
+  [GOAL_BASED_STRATEGY]: {
     label: "Goal based",
     description:
       "Adjust contributions around a specific savings target.",
   },
+});
+
+const FALLBACK_STRATEGY_CONFIG = Object.freeze({
+  label: "Custom strategy",
+  description:
+    "Personalized savings strategy.",
 });
 
 /* =========================================================
@@ -127,30 +138,27 @@ const FREQUENCY_LABELS = Object.freeze({
 });
 
 /* =========================================================
-   FALLBACK CONFIGURATION
-========================================================= */
-
-const FALLBACK_STRATEGY_CONFIG = Object.freeze({
-  label: "Custom strategy",
-  description: "Personalized savings strategy.",
-});
-
-/* =========================================================
    SAFE VALUE HELPERS
 ========================================================= */
 
 const getText = (...values) => {
-  const value = values.find(
-    (item) =>
-      typeof item === "string" &&
-      item.trim().length > 0
-  );
+  for (const value of values) {
+    if (
+      typeof value === "string" &&
+      value.trim().length > 0
+    ) {
+      return value.trim();
+    }
+  }
 
-  return value?.trim() || "";
+  return "";
 };
 
 const getId = (strategy) => {
-  if (!strategy || typeof strategy !== "object") {
+  if (
+    !strategy ||
+    typeof strategy !== "object"
+  ) {
     return null;
   }
 
@@ -160,26 +168,35 @@ const getId = (strategy) => {
     strategy.planId ??
     strategy.strategyId;
 
-  return id !== null &&
-    id !== undefined &&
-    String(id).trim()
-    ? String(id)
-    : null;
+  if (
+    id === null ||
+    id === undefined ||
+    String(id).trim() === ""
+  ) {
+    return null;
+  }
+
+  return String(id);
 };
 
-const getNumericValue = (...values) => {
-  const value = values.find(
-    (item) =>
-      item !== null &&
-      item !== undefined &&
-      item !== ""
-  );
+const getNumber = (...values) => {
+  for (const value of values) {
+    if (
+      value === null ||
+      value === undefined ||
+      value === ""
+    ) {
+      continue;
+    }
 
-  const numericValue = Number(value);
+    const numericValue = Number(value);
 
-  return Number.isFinite(numericValue)
-    ? numericValue
-    : 0;
+    if (Number.isFinite(numericValue)) {
+      return numericValue;
+    }
+  }
+
+  return 0;
 };
 
 /* =========================================================
@@ -192,7 +209,10 @@ const normalizeStatus = (strategy) => {
     strategy?.state
   ).toLowerCase();
 
-  return STATUS_CONFIG[status]
+  return Object.prototype.hasOwnProperty.call(
+    STATUS_CONFIG,
+    status
+  )
     ? status
     : DEFAULT_STATUS;
 };
@@ -203,7 +223,10 @@ const normalizeFrequency = (strategy) => {
     strategy?.schedule?.frequency
   ).toLowerCase();
 
-  return FREQUENCY_LABELS[frequency]
+  return Object.prototype.hasOwnProperty.call(
+    FREQUENCY_LABELS,
+    frequency
+  )
     ? frequency
     : DEFAULT_FREQUENCY;
 };
@@ -217,11 +240,11 @@ const normalizeStrategyType = (strategy) =>
   ).toLowerCase();
 
 /* =========================================================
-   AMOUNT HELPERS
+   FINANCIAL VALUE HELPERS
 ========================================================= */
 
 const getCurrentAmount = (strategy) =>
-  getNumericValue(
+  getNumber(
     strategy?.currentAmount,
     strategy?.savedAmount,
     strategy?.progress?.current,
@@ -229,7 +252,7 @@ const getCurrentAmount = (strategy) =>
   );
 
 const getTargetAmount = (strategy) =>
-  getNumericValue(
+  getNumber(
     strategy?.targetAmount,
     strategy?.target,
     strategy?.goalAmount,
@@ -237,10 +260,11 @@ const getTargetAmount = (strategy) =>
   );
 
 const getContributionAmount = (strategy) =>
-  getNumericValue(
+  getNumber(
     strategy?.contributionAmount,
     strategy?.amount,
     strategy?.savingAmount,
+    strategy?.fixedAmount,
     strategy?.metrics?.contributionAmount
   );
 
@@ -248,7 +272,7 @@ const getContributionAmount = (strategy) =>
    PROGRESS
 ========================================================= */
 
-const clampPercentage = (value) => {
+const clampProgress = (value) => {
   const numericValue = Number(value);
 
   if (!Number.isFinite(numericValue)) {
@@ -261,7 +285,11 @@ const clampPercentage = (value) => {
   );
 };
 
-const getProgress = (strategy) => {
+const getProgress = (
+  strategy,
+  currentAmount,
+  targetAmount
+) => {
   const explicitProgress =
     strategy?.progressPercentage ??
     strategy?.progress?.percentage ??
@@ -272,41 +300,37 @@ const getProgress = (strategy) => {
     explicitProgress !== undefined &&
     explicitProgress !== ""
   ) {
-    return clampPercentage(
-      explicitProgress
-    );
+    return clampProgress(explicitProgress);
   }
-
-  const currentAmount =
-    getCurrentAmount(strategy);
-
-  const targetAmount =
-    getTargetAmount(strategy);
 
   if (targetAmount <= 0) {
     return 0;
   }
 
   try {
-    return clampPercentage(
+    return clampProgress(
       calculateProgressPercentage(
         currentAmount,
         targetAmount
       )
     );
   } catch {
-    return clampPercentage(
+    return clampProgress(
       (currentAmount / targetAmount) * 100
     );
   }
 };
 
 /* =========================================================
-   DATE FORMATTING
+   SAFE DATE FORMATTER
 ========================================================= */
 
 const safeFormatDate = (value) => {
-  if (!value) {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
     return null;
   }
 
@@ -320,7 +344,7 @@ const safeFormatDate = (value) => {
       return formatted.trim();
     }
   } catch {
-    // Fall through to native Date formatting.
+    // Continue to native Date fallback.
   }
 
   const date = new Date(value);
@@ -333,30 +357,26 @@ const safeFormatDate = (value) => {
 };
 
 /* =========================================================
-   CURRENCY FORMATTING
+   SAFE CURRENCY FORMATTER
 ========================================================= */
 
 const safeFormatCurrency = (
   amount,
   currency
 ) => {
-  if (!Number.isFinite(Number(amount))) {
+  const numericAmount = Number(amount);
+
+  if (!Number.isFinite(numericAmount)) {
     return null;
   }
 
   try {
     return formatCurrency(
-      Number(amount),
+      numericAmount,
       currency
     );
   } catch {
-    try {
-      return `${currency} ${Number(
-        amount
-      ).toLocaleString()}`;
-    } catch {
-      return null;
-    }
+    return `${currency} ${numericAmount.toLocaleString()}`;
   }
 };
 
@@ -364,18 +384,6 @@ const safeFormatCurrency = (
    STATUS ICON
 ========================================================= */
 
-/**
- * Stable component.
- *
- * Important:
- * We intentionally do NOT do this inside the card:
- *
- * const StatusIcon = statusConfig.icon;
- *
- * That pattern can trigger React's static-component
- * validation and causes unnecessary component identity
- * concerns during rendering.
- */
 const StatusIcon = ({
   status,
   size = 11,
@@ -429,20 +437,13 @@ const StatusIcon = ({
    STRATEGY ICON
 ========================================================= */
 
-/**
- * Stable component.
- *
- * The switch keeps all icon component references static
- * and avoids creating a component variable inside render.
- */
 const StrategyIcon = ({
   strategyType,
-  size = 20,
+  size = 21,
   strokeWidth = 2,
 }) => {
   switch (strategyType) {
-    case SAVINGS_STRATEGIES?.FIXED ??
-      "fixed":
+    case FIXED_STRATEGY:
       return (
         <PiggyBank
           size={size}
@@ -450,8 +451,7 @@ const StrategyIcon = ({
         />
       );
 
-    case SAVINGS_STRATEGIES?.PERCENTAGE ??
-      "percentage":
+    case PERCENTAGE_STRATEGY:
       return (
         <TrendingUp
           size={size}
@@ -459,8 +459,7 @@ const StrategyIcon = ({
         />
       );
 
-    case SAVINGS_STRATEGIES?.ROUND_UP ??
-      "round_up":
+    case ROUND_UP_STRATEGY:
       return (
         <Wallet
           size={size}
@@ -468,8 +467,7 @@ const StrategyIcon = ({
         />
       );
 
-    case SAVINGS_STRATEGIES?.GOAL_BASED ??
-      "goal_based":
+    case GOAL_BASED_STRATEGY:
       return (
         <Target
           size={size}
@@ -494,20 +492,15 @@ const StrategyIcon = ({
 const CustomSavingStrategyCard = ({
   strategy = null,
 
-  /**
-   * Parent-controlled lifecycle actions.
-   */
   onView,
   onActivate,
   onPause,
   onResume,
 
-  /**
-   * Optional display configuration.
-   */
   compact = false,
   showProgress = true,
   showActions = true,
+
   className = "",
 }) => {
   /* =======================================================
@@ -523,10 +516,14 @@ const CustomSavingStrategyCard = ({
   }
 
   /* =======================================================
-     NORMALIZED DATA
+     IDENTIFIER
   ======================================================= */
 
   const strategyId = getId(strategy);
+
+  /* =======================================================
+     BASIC INFORMATION
+  ======================================================= */
 
   const title =
     getText(
@@ -542,13 +539,20 @@ const CustomSavingStrategyCard = ({
     strategy.note
   );
 
-  const status = normalizeStatus(
-    strategy
-  );
+  /* =======================================================
+     STATUS
+  ======================================================= */
+
+  const status =
+    normalizeStatus(strategy);
 
   const statusConfig =
     STATUS_CONFIG[status] ??
     STATUS_CONFIG.draft;
+
+  /* =======================================================
+     STRATEGY TYPE
+  ======================================================= */
 
   const strategyType =
     normalizeStrategyType(strategy);
@@ -557,12 +561,9 @@ const CustomSavingStrategyCard = ({
     STRATEGY_CONFIG[strategyType] ??
     FALLBACK_STRATEGY_CONFIG;
 
-  const frequency =
-    normalizeFrequency(strategy);
-
-  const frequencyLabel =
-    FREQUENCY_LABELS[frequency] ??
-    frequency;
+  /* =======================================================
+     CURRENCY
+  ======================================================= */
 
   const currency =
     getText(
@@ -570,6 +571,10 @@ const CustomSavingStrategyCard = ({
       strategy.targetCurrency,
       strategy.savingAccount?.currency
     ) || DEFAULT_CURRENCY;
+
+  /* =======================================================
+     FINANCIAL VALUES
+  ======================================================= */
 
   const currentAmount =
     getCurrentAmount(strategy);
@@ -580,8 +585,34 @@ const CustomSavingStrategyCard = ({
   const contributionAmount =
     getContributionAmount(strategy);
 
+  /* =======================================================
+     PROGRESS
+  ======================================================= */
+
   const progress =
-    getProgress(strategy);
+    getProgress(
+      strategy,
+      currentAmount,
+      targetAmount
+    );
+
+  const roundedProgress =
+    Math.round(progress);
+
+  /* =======================================================
+     FREQUENCY
+  ======================================================= */
+
+  const frequency =
+    normalizeFrequency(strategy);
+
+  const frequencyLabel =
+    FREQUENCY_LABELS[frequency] ??
+    "Monthly";
+
+  /* =======================================================
+     NEXT EXECUTION
+  ======================================================= */
 
   const nextExecution =
     safeFormatDate(
@@ -616,83 +647,88 @@ const CustomSavingStrategyCard = ({
         )
       : null;
 
-  const roundedProgress =
-    Math.round(progress);
-
   /* =======================================================
      ACTION AVAILABILITY
   ======================================================= */
 
-  const hasViewAction =
+  const hasView =
     typeof onView === "function";
 
-  const canActivate =
-    status === "draft" ||
-    status === "cancelled";
-
-  const canPause =
-    status === "active";
-
-  const canResume =
-    status === "paused";
-
-  const hasActivateAction =
-    canActivate &&
+  const hasActivate =
+    (status === "draft" ||
+      status === "cancelled") &&
     typeof onActivate === "function";
 
-  const hasPauseAction =
-    canPause &&
+  const hasPause =
+    status === "active" &&
     typeof onPause === "function";
 
-  const hasResumeAction =
-    canResume &&
+  const hasResume =
+    status === "paused" &&
     typeof onResume === "function";
 
-  const hasLifecycleAction =
-    hasActivateAction ||
-    hasPauseAction ||
-    hasResumeAction;
-
-  const shouldShowActions =
+  const hasActions =
     showActions &&
-    (hasLifecycleAction ||
-      hasViewAction);
+    (
+      hasView ||
+      hasActivate ||
+      hasPause ||
+      hasResume
+    );
 
   /* =======================================================
-     ACTION HANDLERS
+     EVENT HANDLERS
+
+     These are intentionally local handlers.
+     They do not participate in effect dependencies,
+     therefore useCallback is unnecessary.
   ======================================================= */
 
   const handleView = () => {
-    if (!hasViewAction) {
-      return;
+    if (hasView) {
+      onView(strategy, strategyId);
     }
-
-    onView(strategy, strategyId);
   };
 
   const handleActivate = () => {
-    if (!hasActivateAction) {
-      return;
+    if (hasActivate) {
+      onActivate(strategy, strategyId);
     }
-
-    onActivate(strategy, strategyId);
   };
 
   const handlePause = () => {
-    if (!hasPauseAction) {
-      return;
+    if (hasPause) {
+      onPause(strategy, strategyId);
     }
-
-    onPause(strategy, strategyId);
   };
 
   const handleResume = () => {
-    if (!hasResumeAction) {
-      return;
+    if (hasResume) {
+      onResume(strategy, strategyId);
     }
-
-    onResume(strategy, strategyId);
   };
+
+  /* =======================================================
+     CARD CLASS
+  ======================================================= */
+
+  const cardClassName = [
+    "group",
+    "relative",
+    "overflow-hidden",
+    "rounded-2xl",
+    "border",
+    "border-slate-200",
+    "bg-white",
+    "shadow-sm",
+    "transition-all",
+    "duration-200",
+    "hover:shadow-md",
+    compact ? "p-4" : "p-5",
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   /* =======================================================
      RENDER
@@ -700,21 +736,10 @@ const CustomSavingStrategyCard = ({
 
   return (
     <article
-      className={`
-        group
-        relative
-        overflow-hidden
-        rounded-2xl
-        border
-        border-slate-200
-        bg-white
-        shadow-sm
-        transition-shadow
-        duration-200
-        hover:shadow-md
-        ${compact ? "p-4" : "p-5"}
-        ${className}
-      `}
+      className={cardClassName}
+      data-strategy-id={
+        strategyId ?? undefined
+      }
       aria-label={`${title} savings strategy`}
     >
       {/* ===================================================
@@ -722,80 +747,48 @@ const CustomSavingStrategyCard = ({
       =================================================== */}
 
       <header
-        className="
-          flex justify-between items-start
-          gap-4
-        "
+        className="flex justify-between items-start gap-4"
       >
         <div
-          className="
-            flex items-start
-            min-w-0
-            gap-3
-          "
+          className="flex items-start gap-3 min-w-0"
         >
           <div
-            className="
-              flex justify-center items-center
-              w-11 h-11
-              text-slate-700
-              bg-slate-100
-              rounded-xl
-              shrink-0
-            "
+            className="flex justify-center items-center bg-slate-100 rounded-xl w-11 h-11 text-slate-700 shrink-0"
             aria-hidden="true"
           >
             <StrategyIcon
               strategyType={strategyType}
-              size={20}
+              size={21}
               strokeWidth={2}
             />
           </div>
 
           <div
-            className="
-              min-w-0
-            "
+            className="min-w-0"
           >
             <h3
-              className="
-                font-semibold text-slate-900 text-sm line-clamp-2 leading-5
-              "
+              className="font-semibold text-slate-900 text-sm line-clamp-2 leading-5"
             >
               {title}
             </h3>
 
             <div
-              className="
-                flex flex-wrap items-center
-                mt-2
-                gap-1.5
-              "
+              className="flex flex-wrap items-center gap-1.5 mt-2"
             >
               <span
-                title={
-                  strategyConfig.description
-                }
-                className="
-                  inline-flex items-center
-                  px-2 py-0.5
-                  font-semibold text-[10px] text-slate-700
-                  bg-slate-100
-                  rounded-full
-                "
+                title={strategyConfig.description}
+                className="inline-flex items-center bg-slate-100 px-2 py-0.5 rounded-full font-semibold text-[10px] text-slate-700"
               >
                 {strategyConfig.label}
               </span>
 
               <span
                 className={`
-                  inline-flex
-                  items-center
+                  inline-flex items-center
                   gap-1
                   rounded-full
                   border
-                  px-2
-                  py-0.5
+                  px-2 py-0.5
                   text-[10px]
                   font-semibold
                   ${statusConfig.badge}
@@ -813,24 +806,17 @@ const CustomSavingStrategyCard = ({
           </div>
         </div>
 
-        {hasViewAction && (
+        {hasView && (
           <button
             type="button"
             onClick={handleView}
-            className="
-              inline-flex justify-center items-center
-              p-2
-              text-slate-400 hover:text-slate-700
-              hover:bg-slate-100
-              rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-300
-              transition
-              shrink-0
-            "
+            className="inline-flex justify-center items-center hover:bg-slate-100 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-300 text-slate-400 hover:text-slate-700 transition shrink-0"
             aria-label={`View ${title}`}
           >
-            <ChevronRight
-              size={18}
+            <ArrowRight
+              size={17}
               strokeWidth={2}
+              aria-hidden="true"
             />
           </button>
         )}
@@ -842,39 +828,24 @@ const CustomSavingStrategyCard = ({
 
       {description && (
         <p
-          className="
-            mt-4
-            text-slate-600 text-sm leading-6
-          "
+          className="mt-4 text-slate-600 text-sm leading-6"
         >
           {description}
         </p>
       )}
 
       {/* ===================================================
-          STRATEGY DETAILS
+          STRATEGY SUMMARY
       =================================================== */}
 
       <div
-        className="
-          grid grid-cols-2
-          mt-5
-          gap-3
-        "
+        className="gap-3 grid grid-cols-2 mt-5"
       >
         <div
-          className="
-            p-3
-            bg-slate-50/70
-            border border-slate-200 rounded-xl
-          "
+          className="bg-slate-50/70 p-3 border border-slate-200 rounded-xl min-w-0"
         >
           <div
-            className="
-              flex items-center
-              text-slate-500
-              gap-2
-            "
+            className="flex items-center gap-2 text-slate-500"
           >
             <PiggyBank
               size={14}
@@ -883,37 +854,25 @@ const CustomSavingStrategyCard = ({
             />
 
             <span
-              className="
-                font-medium text-[11px]
-              "
+              className="font-medium text-[11px]"
             >
               Current savings
             </span>
           </div>
 
           <p
-            className="
-              mt-1
-              font-bold text-slate-900 text-sm
-            "
+            className="mt-1 font-bold text-slate-900 text-sm truncate"
+            title={formattedCurrentAmount}
           >
             {formattedCurrentAmount}
           </p>
         </div>
 
         <div
-          className="
-            p-3
-            bg-slate-50/70
-            border border-slate-200 rounded-xl
-          "
+          className="bg-slate-50/70 p-3 border border-slate-200 rounded-xl min-w-0"
         >
           <div
-            className="
-              flex items-center
-              text-slate-500
-              gap-2
-            "
+            className="flex items-center gap-2 text-slate-500"
           >
             <Target
               size={14}
@@ -922,19 +881,18 @@ const CustomSavingStrategyCard = ({
             />
 
             <span
-              className="
-                font-medium text-[11px]
-              "
+              className="font-medium text-[11px]"
             >
               Target
             </span>
           </div>
 
           <p
-            className="
-              mt-1
-              font-bold text-slate-900 text-sm
-            "
+            className="mt-1 font-bold text-slate-900 text-sm truncate"
+            title={
+              formattedTargetAmount ??
+              "No target"
+            }
           >
             {formattedTargetAmount ??
               "No target"}
@@ -943,62 +901,77 @@ const CustomSavingStrategyCard = ({
       </div>
 
       {/* ===================================================
+          CONTRIBUTION
+      =================================================== */}
+
+      {formattedContributionAmount && (
+        <div
+          className="bg-white mt-4 p-3 border border-slate-200 rounded-xl"
+        >
+          <div
+            className="flex justify-between items-center gap-3"
+          >
+            <div
+              className="flex items-center gap-2 min-w-0 text-slate-500"
+            >
+              <Wallet
+                size={14}
+                strokeWidth={2}
+                aria-hidden="true"
+              />
+
+              <span
+                className="font-medium text-[11px]"
+              >
+                Contribution
+              </span>
+            </div>
+
+            <span
+              className="font-bold text-slate-900 text-sm truncate"
+              title={formattedContributionAmount}
+            >
+              {formattedContributionAmount}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================
           PROGRESS
       =================================================== */}
 
       {showProgress &&
         targetAmount > 0 && (
           <div
-            className="
-              mt-5
-            "
+            className="mt-5"
           >
             <div
-              className="
-                flex justify-between items-center
-                gap-3
-              "
+              className="flex justify-between items-center gap-3"
             >
               <span
-                className="
-                  font-medium text-slate-600 text-xs
-                "
+                className="font-medium text-slate-600 text-xs"
               >
-                Progress
+                Goal progress
               </span>
 
               <span
-                className="
-                  font-bold text-slate-900 text-xs
-                "
+                className="font-bold text-slate-900 text-xs"
               >
                 {roundedProgress}%
               </span>
             </div>
 
             <div
-              className="
-                overflow-hidden
-                h-2
-                mt-2
-                bg-slate-100
-                rounded-full
-              "
+              className="bg-slate-100 mt-2 rounded-full h-2 overflow-hidden"
               role="progressbar"
               aria-valuemin={0}
               aria-valuemax={100}
-              aria-valuenow={
-                roundedProgress
-              }
+              aria-valuenow={roundedProgress}
               aria-label={`${title} progress`}
             >
               <div
-                className="
-                  h-full
-                  bg-slate-900
-                  rounded-full
-                  transition-all duration-500
-                "
+                className="bg-slate-900 rounded-full h-full transition-[width] duration-500"
                 style={{
                   width: `${progress}%`,
                 }}
@@ -1009,30 +982,19 @@ const CustomSavingStrategyCard = ({
         )}
 
       {/* ===================================================
-          SCHEDULE INFORMATION
+          SCHEDULE
       =================================================== */}
 
       <div
-        className="
-          flex flex-wrap
-          mt-5 pt-4
-          border-slate-100 border-t
-          gap-3
-        "
+        className="flex flex-wrap gap-3 mt-5 pt-4 border-slate-100 border-t"
       >
         <div
-          className="
-            inline-flex items-center
-            text-slate-600 text-xs
-            gap-2
-          "
+          className="inline-flex items-center gap-2 text-slate-600 text-xs"
         >
           <CalendarClock
             size={14}
             strokeWidth={2}
-            className="
-              text-slate-400
-            "
+            className="text-slate-400"
             aria-hidden="true"
           /
           >
@@ -1042,50 +1004,25 @@ const CustomSavingStrategyCard = ({
           </span>
         </div>
 
-        {formattedContributionAmount && (
-          <div
-            className="
-              inline-flex items-center
-              text-slate-600 text-xs
-              gap-2
-            "
-          >
-            <PiggyBank
-              size={14}
-              strokeWidth={2}
-              className="
-                text-slate-400
-              "
-              aria-hidden="true"
-            /
-            >
-
-            <span>
-              {formattedContributionAmount}
-            </span>
-          </div>
-        )}
-
         {nextExecution && (
           <div
-            className="
-              inline-flex items-center
-              text-slate-600 text-xs
-              gap-2
-            "
+            className="inline-flex items-center gap-2 text-slate-600 text-xs"
           >
             <Clock3
               size={14}
               strokeWidth={2}
-              className="
-                text-slate-400
-              "
+              className="text-slate-400"
               aria-hidden="true"
             /
             >
 
             <span>
-              Next: {nextExecution}
+              Next:{" "}
+              <strong
+                className="font-semibold text-slate-800"
+              >
+                {nextExecution}
+              </strong>
             </span>
           </div>
         )}
@@ -1095,31 +1032,18 @@ const CustomSavingStrategyCard = ({
           ACTIONS
       =================================================== */}
 
-      {shouldShowActions && (
+      {hasActions && (
         <footer
-          className="
-            flex flex-col sm:flex-row sm:justify-between sm:items-center
-            mt-5 pt-4
-            border-slate-100 border-t
-            gap-2
-          "
+          className="flex sm:flex-row flex-col sm:justify-between sm:items-center gap-2 mt-5 pt-4 border-slate-100 border-t"
         >
-          <div>
-            {hasActivateAction && (
+          <div
+            className="flex flex-wrap items-center gap-2"
+          >
+            {hasActivate && (
               <button
                 type="button"
                 onClick={handleActivate}
-                className="
-                  inline-flex justify-center items-center
-                  min-h-9
-                  px-3.5 py-2
-                  font-semibold text-white text-sm
-                  bg-slate-900 hover:bg-slate-800
-                  rounded-lg focus:outline-none
-                  focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
-                  transition
-                  gap-2
-                "
+                className="inline-flex justify-center items-center gap-2 bg-slate-900 hover:bg-slate-800 px-3.5 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 min-h-9 font-semibold text-white text-sm transition"
               >
                 <Play
                   size={14}
@@ -1132,21 +1056,11 @@ const CustomSavingStrategyCard = ({
               </button>
             )}
 
-            {hasPauseAction && (
+            {hasPause && (
               <button
                 type="button"
                 onClick={handlePause}
-                className="
-                  inline-flex justify-center items-center
-                  min-h-9
-                  px-3.5 py-2
-                  font-semibold text-slate-700 text-sm
-                  bg-white hover:bg-slate-50
-                  border border-slate-200 rounded-lg focus:outline-none
-                  focus:ring-2 focus:ring-slate-300 focus:ring-offset-2
-                  transition
-                  gap-2
-                "
+                className="inline-flex justify-center items-center gap-2 bg-white hover:bg-slate-50 px-3.5 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2 min-h-9 font-semibold text-slate-700 text-sm transition"
               >
                 <CirclePause
                   size={14}
@@ -1158,21 +1072,11 @@ const CustomSavingStrategyCard = ({
               </button>
             )}
 
-            {hasResumeAction && (
+            {hasResume && (
               <button
                 type="button"
                 onClick={handleResume}
-                className="
-                  inline-flex justify-center items-center
-                  min-h-9
-                  px-3.5 py-2
-                  font-semibold text-white text-sm
-                  bg-slate-900 hover:bg-slate-800
-                  rounded-lg focus:outline-none
-                  focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
-                  transition
-                  gap-2
-                "
+                className="inline-flex justify-center items-center gap-2 bg-slate-900 hover:bg-slate-800 px-3.5 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 min-h-9 font-semibold text-white text-sm transition"
               >
                 <Play
                   size={14}
@@ -1186,21 +1090,11 @@ const CustomSavingStrategyCard = ({
             )}
           </div>
 
-          {hasViewAction && (
+          {hasView && (
             <button
               type="button"
               onClick={handleView}
-              className="
-                inline-flex justify-center items-center
-                min-h-9
-                px-3.5 py-2
-                font-semibold text-slate-700 text-sm
-                bg-white hover:bg-slate-50
-                border border-slate-200 rounded-lg focus:outline-none
-                focus:ring-2 focus:ring-slate-300 focus:ring-offset-2
-                transition
-                gap-2
-              "
+              className="inline-flex justify-center items-center gap-2 bg-white hover:bg-slate-50 px-3.5 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2 min-h-9 font-semibold text-slate-700 text-sm transition"
             >
               View strategy
 
@@ -1220,9 +1114,7 @@ const CustomSavingStrategyCard = ({
 
       {strategyId && (
         <span
-          className="
-            sr-only
-          "
+          className="sr-only"
         >
           Strategy ID: {strategyId}
         </span>
@@ -1231,7 +1123,13 @@ const CustomSavingStrategyCard = ({
   );
 };
 
+/* =========================================================
+   COMPONENT CONTRACT
+========================================================= */
+
 CustomSavingStrategyCard.displayName =
   "CustomSavingStrategyCard";
 
-export default CustomSavingStrategyCard;
+export default memo(
+  CustomSavingStrategyCard
+);

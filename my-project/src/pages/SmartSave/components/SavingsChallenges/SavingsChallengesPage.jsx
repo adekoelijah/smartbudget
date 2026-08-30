@@ -626,6 +626,9 @@ const SavingsChallengesPage = ({
     error = null,
     mutating = false,
 
+  
+  mutationError,
+
     refresh,
     fetchChallenges,
 
@@ -1139,10 +1142,13 @@ const SavingsChallengesPage = ({
 
   const createModal = (
     <CreateChallengeModal
-      open={createModalOpen}
-      onClose={handleCloseCreate}
-      onSubmit={handleCreateChallenge}
-    />
+  open={createModalOpen}
+  onClose={handleCloseCreate}
+  onSubmit={handleCreateChallenge}
+  creating={mutating}
+  error={mutationError}
+  
+/>
   );
 
   /* ==========================================================

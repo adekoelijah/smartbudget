@@ -1,16 +1,12 @@
+import { memo } from "react";
 import {
-  memo,
-  useCallback,
-  useMemo,
-} from "react";
-
-import {
-  Trophy,
-  Plus,
-  Sparkles,
   ArrowRight,
-  Target,
+  CheckCircle2,
+  Plus,
   ShieldCheck,
+  Sparkles,
+  Target,
+  Trophy,
 } from "lucide-react";
 
 /**
@@ -18,34 +14,20 @@ import {
  * ChallengeEmptyState
  * =========================================================
  *
- * Pure presentational component for the SmartSave
- * Savings Challenges page.
+ * Presentational empty state for SmartSave Challenges.
  *
  * Responsibilities:
  * - Display an empty state.
- * - Distinguish between:
- *   1. No challenges at all.
- *   2. No challenges matching current filters.
- * - Provide optional navigation/actions.
+ * - Support normal and filtered states.
+ * - Expose optional create/view actions.
  * - Remain independent of API/service/business logic.
  *
- * Architecture:
- *
- * ChallengeEmptyState
- *        ↓
- * Parent/Page
- *        ↓
- * useSavingsChallenges
- *        ↓
- * smartSaveService
- *
- * IMPORTANT:
- * This component does NOT:
- * - fetch data
- * - mutate application state
- * - call smartSaveService
- * - know backend endpoints
- * - contain challenge business rules
+ * No:
+ * - API calls
+ * - useEffect
+ * - data fetching
+ * - mutations
+ * - business logic
  * =========================================================
  */
 
@@ -55,21 +37,20 @@ import {
 
 const EMPTY_STATE_IDS = {
   title: "savings-challenge-empty-title",
-  description:
-    "savings-challenge-empty-description",
+  description: "savings-challenge-empty-description",
 };
 
-const DEFAULT_TITLE =
-  "Start your first savings challenge";
+const DEFAULT_CONTENT = {
+  title: "Start your first savings challenge",
+  description:
+    "Turn your savings goal into a structured plan and build momentum with consistent progress.",
+};
 
-const DEFAULT_DESCRIPTION =
-  "Turn your savings goal into a structured challenge and build momentum with consistent progress.";
-
-const FILTERED_TITLE =
-  "No challenges found";
-
-const FILTERED_DESCRIPTION =
-  "We couldn't find any challenges matching your current filters. Try adjusting your filters or view all challenges.";
+const FILTERED_CONTENT = {
+  title: "No challenges found",
+  description:
+    "There are no challenges matching your current filters. Adjust your filters or view all challenges.",
+};
 
 /* =========================================================
    CLASS NAME UTILITY
@@ -85,15 +66,11 @@ const cn = (...classes) =>
     .join(" ");
 
 /* =========================================================
-   SUPPORT ITEM
+   FEATURE ITEM
 ========================================================= */
 
-const SupportItem = memo(
-  ({
-    icon: Icon,
-    title,
-    description,
-  }) => {
+const FeatureItem = memo(
+  ({ icon: Icon, title, description }) => {
     if (
       typeof Icon !== "function" ||
       !title
@@ -112,16 +89,16 @@ const SupportItem = memo(
           className="
             flex justify-center items-center
             w-9 h-9
-            text-blue-600 dark:text-blue-400
-            bg-blue-50 dark:bg-blue-950/40
-            rounded-xl ring-1 ring-blue-100 dark:ring-blue-900/50
+            text-slate-700
+            bg-slate-50
+            border border-slate-200 rounded-xl
             shrink-0
           "
           aria-hidden="true"
         >
           <Icon
             size={17}
-            strokeWidth={2}
+            strokeWidth={1.8}
           />
         </div>
 
@@ -132,30 +109,29 @@ const SupportItem = memo(
         >
           <p
             className="
-              font-semibold text-slate-900 dark:text-white text-sm
+              font-semibold text-slate-900 text-sm
             "
           >
             {title}
           </p>
 
-          {description && (
+          {description ? (
             <p
               className="
                 mt-0.5
-                text-slate-500 dark:text-slate-400 text-xs leading-5
+                text-slate-500 text-xs leading-5
               "
             >
               {description}
             </p>
-          )}
+          ) : null}
         </div>
       </div>
     );
   }
 );
 
-SupportItem.displayName =
-  "SupportItem";
+FeatureItem.displayName = "ChallengeFeatureItem";
 
 /* =========================================================
    MAIN COMPONENT
@@ -168,92 +144,31 @@ const ChallengeEmptyState = ({
   filtered = false,
   className = "",
 }) => {
-  /* =======================================================
-     NORMALIZED FLAGS
-  ======================================================= */
-
-  const isLoading =
-    loading === true;
+  const isLoading = loading === true;
 
   const hasCreateHandler =
-    typeof onCreateChallenge ===
-    "function";
+    typeof onCreateChallenge === "function";
 
   const hasViewHandler =
-    typeof onViewChallenges ===
-    "function";
+    typeof onViewChallenges === "function";
 
-  /* =======================================================
-     CONTENT
-  ======================================================= */
+  const content = filtered
+    ? FILTERED_CONTENT
+    : DEFAULT_CONTENT;
 
-  const content = useMemo(
-    () => ({
-      title: filtered
-        ? FILTERED_TITLE
-        : DEFAULT_TITLE,
+  const EmptyIcon = filtered
+    ? Target
+    : Trophy;
 
-      description: filtered
-        ? FILTERED_DESCRIPTION
-        : DEFAULT_DESCRIPTION,
+  const handleCreate =
+    !isLoading && hasCreateHandler
+      ? onCreateChallenge
+      : undefined;
 
-      icon: filtered
-        ? Target
-        : Trophy,
-
-      primaryLabel: isLoading
-        ? "Please wait..."
-        : "Create a Challenge",
-
-      secondaryLabel: filtered
-        ? "View All Challenges"
-        : "Explore Challenges",
-    }),
-    [filtered, isLoading]
-  );
-
-  const EmptyStateIcon =
-    content.icon;
-
-  /* =======================================================
-     ACTIONS
-  ======================================================= */
-
-  const handleCreateChallenge =
-    useCallback(() => {
-      if (
-        isLoading ||
-        !hasCreateHandler
-      ) {
-        return;
-      }
-
-      onCreateChallenge();
-    }, [
-      isLoading,
-      hasCreateHandler,
-      onCreateChallenge,
-    ]);
-
-  const handleViewChallenges =
-    useCallback(() => {
-      if (
-        isLoading ||
-        !hasViewHandler
-      ) {
-        return;
-      }
-
-      onViewChallenges();
-    }, [
-      isLoading,
-      hasViewHandler,
-      onViewChallenges,
-    ]);
-
-  /* =======================================================
-     RENDER
-  ======================================================= */
+  const handleView =
+    !isLoading && hasViewHandler
+      ? onViewChallenges
+      : undefined;
 
   return (
     <section
@@ -273,25 +188,37 @@ const ChallengeEmptyState = ({
         className="
           relative overflow-hidden
           w-full
-          px-6 sm:px-10 py-10 sm:py-12
-          bg-white dark:bg-slate-950
-          border border-slate-200 dark:border-slate-800 rounded-3xl
+          bg-white
+          border border-slate-200 rounded-3xl
           shadow-sm
         "
       >
         {/* =================================================
-            DECORATIVE BACKGROUND
+            TOP ACCENT
+        ================================================= */}
+
+        <div
+          className="
+            w-full h-1
+            bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500
+          "
+          aria-hidden="true"
+        /
+        >
+
+        {/* =================================================
+            BACKGROUND DECORATION
         ================================================= */}
 
         <div
           className="
             absolute
-            w-40 h-40
-            bg-blue-100/60 dark:bg-blue-900/20
+            w-64 h-64
+            bg-blue-50
             rounded-full
             blur-3xl
             pointer-events-none
-            -top-16 -right-16
+            -top-24 -right-24
           "
           aria-hidden="true"
         /
@@ -300,246 +227,307 @@ const ChallengeEmptyState = ({
         <div
           className="
             absolute
-            w-40 h-40
-            bg-indigo-100/50 dark:bg-indigo-900/20
+            w-64 h-64
+            bg-indigo-50
             rounded-full
             blur-3xl
             pointer-events-none
-            -bottom-20 -left-10
+            -bottom-28 -left-20
           "
           aria-hidden="true"
         /
         >
 
         {/* =================================================
-            CONTENT
+            MAIN CONTENT
         ================================================= */}
 
         <div
           className="
             relative
-            max-w-2xl
-            mx-auto
-            text-center
+            px-5 sm:px-8 lg:px-12 py-8 sm:py-10 lg:py-12
           "
         >
-          {/* =================================================
-              ICON
-          ================================================= */}
-
           <div
             className="
-              flex justify-center items-center
-              w-16 h-16
+              max-w-3xl
               mx-auto
-              text-white
-              bg-gradient-to-br from-blue-600 to-indigo-600
-              rounded-2xl
-              shadow-blue-500/20 shadow-lg
-            "
-            aria-hidden="true"
-          >
-            <EmptyStateIcon
-              size={30}
-              strokeWidth={1.8}
-            />
-          </div>
-
-          {/* =================================================
-              BADGE
-          ================================================= */}
-
-          <div
-            className="
-              inline-flex items-center
-              mt-5 px-3 py-1
-              font-semibold text-blue-700 dark:text-blue-300 text-xs
-              bg-blue-50 dark:bg-blue-950/40
-              border border-blue-100 dark:border-blue-900/50 rounded-full
-              gap-1.5
+              text-center
             "
           >
-            <Sparkles
-              size={13}
-              strokeWidth={2}
-              aria-hidden="true"
-            />
+            {/* =================================================
+                ICON
+            ================================================= */}
 
-            <span>
-              SmartSave Challenges
-            </span>
-          </div>
-
-          {/* =================================================
-              HEADING
-          ================================================= */}
-
-          <h2
-            id={EMPTY_STATE_IDS.title}
-            className="
-              mt-4
-              font-bold text-slate-950 dark:text-white text-xl sm:text-2xl
-              tracking-tight
-            "
-          >
-            {content.title}
-          </h2>
-
-          {/* =================================================
-              DESCRIPTION
-          ================================================= */}
-
-          <p
-            id={
-              EMPTY_STATE_IDS.description
-            }
-            className="
-              max-w-xl
-              mx-auto mt-3
-              text-slate-500 dark:text-slate-400 text-sm sm:text-base leading-6
-            "
-          >
-            {content.description}
-          </p>
-
-          {/* =================================================
-              ACTIONS
-          ================================================= */}
-
-          {(hasCreateHandler ||
-            hasViewHandler) && (
             <div
               className="
-                flex flex-col sm:flex-row justify-center
-                items-stretch sm:items-center
-                mt-7
-                gap-3
+                relative
+                w-fit
+                mx-auto
               "
             >
-              {/* Primary action */}
+              <div
+                className="
+                  flex justify-center items-center
+                  w-16 h-16
+                  text-white
+                  bg-slate-950
+                  rounded-2xl ring-8 ring-slate-100
+                  shadow-lg shadow-slate-950/15
+                "
+                aria-hidden="true"
+              >
+                <EmptyIcon
+                  size={28}
+                  strokeWidth={1.7}
+                />
+              </div>
 
-              {!filtered &&
-                hasCreateHandler && (
+              {!filtered ? (
+                <span
+                  className="
+                    absolute flex justify-center items-center
+                    w-6 h-6
+                    text-white
+                    bg-blue-600
+                    rounded-full ring-4 ring-white
+                    -top-1 -right-1
+                  "
+                  aria-hidden="true"
+                >
+                  <Sparkles
+                    size={12}
+                    strokeWidth={2}
+                  />
+                </span>
+              ) : null}
+            </div>
+
+            {/* =================================================
+                PRODUCT LABEL
+            ================================================= */}
+
+            <div
+              className="
+                inline-flex items-center
+                mt-7 px-3 py-1.5
+                font-bold text-[11px] text-blue-700 uppercase tracking-wider
+                bg-blue-50
+                border border-blue-100 rounded-full
+                gap-1.5
+              "
+            >
+              <Sparkles
+                size={12}
+                strokeWidth={2}
+                aria-hidden="true"
+              />
+
+              <span>
+                SmartSave Challenges
+              </span>
+            </div>
+
+            {/* =================================================
+                TITLE
+            ================================================= */}
+
+            <h2
+              id={EMPTY_STATE_IDS.title}
+              className="
+                mt-5
+                font-bold text-slate-950 text-2xl sm:text-3xl tracking-tight
+              "
+            >
+              {content.title}
+            </h2>
+
+            {/* =================================================
+                DESCRIPTION
+            ================================================= */}
+
+            <p
+              id={
+                EMPTY_STATE_IDS.description
+              }
+              className="
+                max-w-2xl
+                mx-auto mt-3
+                text-slate-500 text-sm sm:text-base leading-7
+              "
+            >
+              {content.description}
+            </p>
+
+            {/* =================================================
+                ACTIONS
+            ================================================= */}
+
+            {(hasCreateHandler ||
+              hasViewHandler) && (
+              <div
+                className="
+                  flex flex-col sm:flex-row justify-center
+                  items-stretch sm:items-center
+                  mt-8
+                  gap-3
+                "
+              >
+                {!filtered &&
+                hasCreateHandler ? (
                   <button
                     type="button"
-                    onClick={
-                      handleCreateChallenge
-                    }
+                    onClick={handleCreate}
                     disabled={isLoading}
-                    aria-disabled={
-                      isLoading
-                    }
+                    aria-disabled={isLoading}
                     className="
                       inline-flex justify-center items-center
                       min-h-11
                       px-5 py-2.5
                       font-semibold text-white text-sm
-                      bg-blue-600 hover:bg-blue-700 disabled:hover:bg-blue-600
+                      bg-slate-950 hover:bg-slate-800 disabled:bg-slate-950
                       rounded-xl focus:outline-none
-                      focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-950
-                      disabled:opacity-60 shadow-blue-600/20 shadow-sm
-                      transition
+                      focus:ring-2 focus:ring-slate-950/20 focus:ring-offset-2
+                      disabled:opacity-60 shadow-lg shadow-slate-950/10
+                      transition-all duration-200
                       disabled:cursor-not-allowed
-                      gap-2
+                      group gap-2 hover:-translate-y-0.5
                     "
-                    aria-label="Create a new savings challenge"
                   >
                     <Plus
-                      size={18}
+                      size={17}
                       strokeWidth={2}
                       aria-hidden="true"
-                    />
+                      className="
+                        transition-transform duration-200
+                        group-hover:rotate-90
+                      "
+                      /
+                    >
 
                     <span>
-                      {content.primaryLabel}
+                      {isLoading
+                        ? "Please wait..."
+                        : "Create a Challenge"}
                     </span>
                   </button>
-                )}
+                ) : null}
 
-              {/* Secondary action */}
+                {hasViewHandler ? (
+                  <button
+                    type="button"
+                    onClick={handleView}
+                    disabled={isLoading}
+                    aria-disabled={isLoading}
+                    className="
+                      inline-flex justify-center items-center
+                      min-h-11
+                      px-5 py-2.5
+                      font-semibold text-slate-700 text-sm
+                      bg-white hover:bg-slate-50
+                      border border-slate-200 hover:border-slate-300 rounded-xl
+                      focus:outline-none
+                      focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-2
+                      disabled:opacity-60 transition-all duration-200
+                      disabled:cursor-not-allowed
+                      group gap-2
+                    "
+                  >
+                    <span>
+                      {filtered
+                        ? "View All Challenges"
+                        : "Explore Challenges"}
+                    </span>
 
-              {hasViewHandler && (
-                <button
-                  type="button"
-                  onClick={
-                    handleViewChallenges
-                  }
-                  disabled={isLoading}
-                  aria-disabled={
-                    isLoading
-                  }
-                  className="
-                    inline-flex justify-center items-center
-                    min-h-11
-                    px-5 py-2.5
-                    font-semibold text-slate-700 dark:text-slate-200 text-sm
-                    bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800
-                    border border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600
-                    rounded-xl focus:outline-none
-                    focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-950
-                    disabled:opacity-60 transition
-                    disabled:cursor-not-allowed
-                    gap-2
-                  "
-                >
-                  <span>
-                    {content.secondaryLabel}
-                  </span>
-
-                  <ArrowRight
-                    size={17}
-                    strokeWidth={2}
-                    aria-hidden="true"
-                  />
-                </button>
-              )}
-            </div>
-          )}
+                    <ArrowRight
+                      size={16}
+                      strokeWidth={2}
+                      aria-hidden="true"
+                      className="
+                        transition-transform duration-200
+                        group-hover:translate-x-0.5
+                      "
+                      /
+                    >
+                  </button>
+                ) : null}
+              </div>
+            )}
+          </div>
 
           {/* =================================================
-              VALUE PROPOSITIONS
+              VALUE PROPOSITION
           ================================================= */}
 
-          {!filtered && (
+          {!filtered ? (
             <div
               className="
-                grid grid-cols-1 sm:grid-cols-2
-                max-w-xl
+                max-w-3xl
                 mx-auto mt-10 pt-7
-                text-left
-                border-slate-100 dark:border-slate-800 border-t
-                gap-5
+                border-slate-100 border-t
               "
             >
-              <SupportItem
-                icon={Target}
-                title="Stay goal-focused"
-                description="Turn a savings target into measurable milestones."
-              />
+              <div
+                className="
+                  grid grid-cols-1 sm:grid-cols-3
+                  gap-5
+                "
+              >
+                <FeatureItem
+                  icon={Target}
+                  title="Goal focused"
+                  description="Turn targets into measurable milestones."
+                />
 
-              <SupportItem
-                icon={ShieldCheck}
-                title="Build consistency"
-                description="Track progress and maintain your savings momentum."
-              />
+                <FeatureItem
+                  icon={CheckCircle2}
+                  title="Track progress"
+                  description="See how consistently you're saving."
+                />
+
+                <FeatureItem
+                  icon={ShieldCheck}
+                  title="Stay consistent"
+                  description="Build habits that strengthen your finances."
+                />
+              </div>
             </div>
-          )}
+          ) : null}
         </div>
+
+        {/* =================================================
+            TRUST FOOTER
+        ================================================= */}
+
+        {!filtered ? (
+          <div
+            className="
+              relative flex justify-center items-center
+              px-5 py-3
+              font-medium text-[11px] text-slate-400
+              bg-slate-50
+              border-slate-100 border-t
+              gap-2
+            "
+          >
+            <ShieldCheck
+              size={13}
+              strokeWidth={1.8}
+              aria-hidden="true"
+            />
+
+            <span>
+              Designed to help you save with structure and consistency
+            </span>
+          </div>
+        ) : null}
       </div>
     </section>
   );
 };
 
-/* =========================================================
-   DISPLAY NAME
-========================================================= */
-
 ChallengeEmptyState.displayName =
   "ChallengeEmptyState";
-
-/* =========================================================
-   EXPORT
-========================================================= */
 
 export default memo(
   ChallengeEmptyState

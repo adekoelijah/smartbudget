@@ -1,3 +1,4 @@
+
 import {
   useCallback,
   useEffect,
@@ -14,8 +15,6 @@ import {
   Trophy,
   X,
 } from "lucide-react";
-
-import useSavingsChallenges from "../../../../hooks/useSavingsChallenges";
 
 import {
   CHALLENGE_TYPES,
@@ -50,27 +49,43 @@ const INITIAL_FORM = Object.freeze({
    HELPERS
 ========================================================= */
 
+/**
+ * Safely extract an ID from:
+ * - string
+ * - number
+ * - object containing _id
+ * - object containing id
+ * - object containing value
+ */
 const getId = (value) => {
   if (value == null) {
     return "";
   }
 
-  if (typeof value === "string") {
-    return value;
+  if (
+    typeof value === "string" ||
+    typeof value === "number"
+  ) {
+    return String(value);
   }
 
   if (typeof value === "object") {
-    return (
-      value._id ??
-      value.id ??
-      value.value ??
-      ""
+    return String(
+      value?._id ??
+        value?.id ??
+        value?.value ??
+        ""
     );
   }
 
   return "";
 };
 
+/**
+ * Create a fresh form object.
+ *
+ * This function deliberately returns a new object every time.
+ */
 const createInitialForm = (values = {}) => ({
   ...INITIAL_FORM,
 
@@ -106,48 +121,116 @@ const createInitialForm = (values = {}) => ({
     getId(values.savingAccount),
 });
 
+/**
+ * Convert constants/options into a predictable
+ * [{ value, label }] structure.
+ */
 const normalizeOptions = (source) => {
   if (Array.isArray(source)) {
-    return source.map((option) => {
-      if (
-        option &&
-        typeof option === "object"
-      ) {
-        return {
-          value:
+    return source
+      .map((option) => {
+        if (
+          option &&
+          typeof option === "object"
+        ) {
+          const value =
             option.value ??
             option.id ??
             option._id ??
-            "",
-          label:
+            "";
+
+          const label =
             option.label ??
             option.name ??
             option.title ??
             option.value ??
-            "",
-        };
-      }
+            "";
 
-      return {
-        value: option,
-        label: String(option),
-      };
-    });
+          if (!value) {
+            return null;
+          }
+
+          return {
+            value: String(value),
+            label: String(label),
+          };
+        }
+
+        if (
+          option === null ||
+          option === undefined ||
+          option === ""
+        ) {
+          return null;
+        }
+
+        return {
+          value: String(option),
+          label: String(option),
+        };
+      })
+      .filter(Boolean);
   }
 
   if (
     source &&
     typeof source === "object"
   ) {
-    return Object.entries(source).map(
-      ([value, label]) => ({
-        value,
+    return Object.entries(source)
+      .map(([value, label]) => ({
+        value: String(value),
         label: String(label),
-      })
-    );
+      }))
+      .filter(
+        (option) => option.value
+      );
   }
 
   return [];
+};
+
+/**
+ * Convert the form into the backend payload.
+ *
+ * Financial/business validation remains in the
+ * existing normalizer/validator utilities.
+ */
+const buildChallengePayload = (form) => {
+  const rawPayload = {
+    name: form.name.trim(),
+
+    description:
+      form.description.trim(),
+
+    challengeType:
+      form.challengeType,
+
+    difficulty:
+      form.difficulty,
+
+    targetAmount:
+      form.targetAmount === ""
+        ? undefined
+        : Number(form.targetAmount),
+
+    startDate:
+      form.startDate || undefined,
+
+    endDate:
+      form.endDate || undefined,
+
+    savingPlan:
+      getId(form.savingPlan) ||
+      undefined,
+
+    savingAccount:
+      getId(form.savingAccount) ||
+      undefined,
+  };
+
+  return normalizeChallengePayload(
+    rawPayload
+  );
 };
 
 /* =========================================================
@@ -155,25 +238,22 @@ const normalizeOptions = (source) => {
 ========================================================= */
 
 const CreateChallengeModal = ({
-  isOpen,
+  open = false,
   onClose,
-  onCreated,
-
+  onSubmit,
+  creating = false,
+  error = null,
   savingPlans = [],
   savingAccounts = [],
-
   initialValues = {},
 }) => {
- const {
-  createChallenge,
-  creating,
-  error: challengeError,
-} = useSavingsChallenges({
-  autoFetch: false,
-});
-
   /* =======================================================
-     LOCAL STATE
+     FORM STATE
+
+     IMPORTANT:
+     There is NO useEffect here.
+
+     The form is initialized once when the component mounts.
   ======================================================= */
 
   const [form, setForm] = useState(() =>
@@ -181,6 +261,7 @@ const CreateChallengeModal = ({
   );
 
   const [errors, setErrors] = useState({});
+
   const [submitError, setSubmitError] =
     useState("");
 
@@ -189,7 +270,10 @@ const CreateChallengeModal = ({
   ======================================================= */
 
   const challengeTypeOptions = useMemo(
-    () => normalizeOptions(CHALLENGE_TYPES),
+    () =>
+      normalizeOptions(
+        CHALLENGE_TYPES
+      ),
     []
   );
 
@@ -248,6 +332,15 @@ const CreateChallengeModal = ({
     setErrors({});
     setSubmitError("");
 
+    /*
+     * Reset the temporary form state when the modal
+     * is explicitly closed.
+     *
+     * This is an event-driven state update, not an
+     * effect-driven synchronous update.
+     */
+    setForm(createInitialForm());
+
     onClose?.();
   }, [
     creating,
@@ -255,29 +348,39 @@ const CreateChallengeModal = ({
   ]);
 
   /* =======================================================
-     PAYLOAD
+     BACKDROP
   ======================================================= */
 
-  const buildChallengePayload = (form) => {
-  const rawPayload = {
-    name: form.name.trim(),
-    description: form.description.trim(),
-    challengeType: form.challengeType,
-    difficulty: form.difficulty,
-    targetAmount:
-      form.targetAmount === ""
-        ? undefined
-        : Number(form.targetAmount),
-    startDate: form.startDate || undefined,
-    endDate: form.endDate || undefined,
-    savingPlan: getId(form.savingPlan) || undefined,
-    savingAccount: getId(form.savingAccount) || undefined,
-  };
+  const handleBackdropClick =
+    useCallback(
+      (event) => {
+        if (creating) {
+          return;
+        }
 
-  return normalizeChallengePayload(rawPayload);
-};
+        if (
+          event.target !==
+          event.currentTarget
+        ) {
+          return;
+        }
 
+        handleClose();
+      },
+      [
+        creating,
+        handleClose,
+      ]
+    );
 
+  /* =======================================================
+     MODAL CLICK
+  ======================================================= */
+
+  const handleModalClick =
+    useCallback((event) => {
+      event.stopPropagation();
+    }, []);
 
   /* =======================================================
      VALIDATION
@@ -303,10 +406,10 @@ const CreateChallengeModal = ({
         }
 
         return {};
-      } catch (error) {
+      } catch (validationError) {
         console.error(
-          "CREATE_CHALLENGE_VALIDATION_ERROR:",
-          error
+          "[CreateChallengeModal] Validation failed:",
+          validationError
         );
 
         return {
@@ -330,9 +433,26 @@ const CreateChallengeModal = ({
         return;
       }
 
+      if (
+        typeof onSubmit !== "function"
+      ) {
+        const message =
+          "Challenge creation is not available right now.";
+
+        console.error(
+          "[CreateChallengeModal]",
+          message
+        );
+
+        setSubmitError(message);
+
+        return;
+      }
+
       setSubmitError("");
 
-      const payload = buildChallengePayload(form);
+      const payload =
+        buildChallengePayload(form);
 
       const validationErrors =
         validateForm(payload);
@@ -347,75 +467,59 @@ const CreateChallengeModal = ({
       }
 
       try {
-        const created = await createChallenge(payload, {
-  refresh: false,
-  refreshSnapshot: false,
-  refreshSummary: false,
-  refreshLists: false,
-});
+        await onSubmit(payload);
 
         /*
-         * Notify parent before closing so the
-         * parent can update its collection.
+         * Submission succeeded.
+         *
+         * These state updates happen because of a user
+         * submit event, so they are not the problematic
+         * synchronous effect updates.
          */
-        onCreated?.(created);
-
-        /*
-         * Explicitly reset local state.
-         * No reset callback is required.
-         */
-        setForm(
-          createInitialForm(
-            initialValues
-          )
-        );
-
+        setForm(createInitialForm());
         setErrors({});
         setSubmitError("");
-
-        onClose?.();
-      } catch (error) {
+      } catch (submitErrorValue) {
         console.error(
-          "CREATE_CHALLENGE_ERROR:",
-          error
+          "[CreateChallengeModal] Failed to submit challenge:",
+          submitErrorValue
         );
 
         setSubmitError(
-          error?.message ||
+          submitErrorValue?.response
+            ?.data?.message ??
+            submitErrorValue?.message ??
             "Unable to create the savings challenge. Please try again."
         );
       }
     },
     [
-      
       creating,
-      buildChallengePayload,
+      onSubmit,
+      form,
       validateForm,
-      createChallenge,
-      onCreated,
-      initialValues,
-      onClose,
     ]
   );
 
   /* =======================================================
      ESCAPE KEY
+
+     This effect is legitimate because it synchronizes
+     React state with the browser's external event system.
   ======================================================= */
 
   useEffect(() => {
-    if (!isOpen) {
+    if (!open) {
       return undefined;
     }
 
     const handleKeyDown = (event) => {
       if (
-        event.key !== "Escape" ||
-        creating
+        event.key === "Escape" &&
+        !creating
       ) {
-        return;
+        handleClose();
       }
-
-      handleClose();
     };
 
     window.addEventListener(
@@ -430,17 +534,20 @@ const CreateChallengeModal = ({
       );
     };
   }, [
-    isOpen,
+    open,
     creating,
     handleClose,
   ]);
 
   /* =======================================================
      BODY SCROLL LOCK
+
+     This effect is also legitimate because it synchronizes
+     React with the browser DOM.
   ======================================================= */
 
   useEffect(() => {
-    if (!isOpen) {
+    if (!open) {
       return undefined;
     }
 
@@ -454,56 +561,23 @@ const CreateChallengeModal = ({
       document.body.style.overflow =
         previousOverflow;
     };
-  }, [isOpen]);
+  }, [open]);
 
   /* =======================================================
-     ERROR RESOLUTION
+     ERROR
   ======================================================= */
 
   const visibleError =
     submitError ||
-    (
-      typeof challengeError ===
-      "string"
-        ? challengeError
-        : challengeError?.message || ""
-    );
-
-  /* =======================================================
-     BACKDROP
-  ======================================================= */
-
-
-
-  /* =========================================================
-   MODAL INTERACTION HANDLERS
-========================================================= */
-
-const handleBackdropClick = useCallback(
-  (event) => {
-    if (creating) {
-      return;
-    }
-
-    if (event.target !== event.currentTarget) {
-      return;
-    }
-
-    handleClose();
-  },
-  [creating, handleClose]
-);
-
-const handleModalClick = useCallback((event) => {
-  event.stopPropagation();
-}, []);
-
+    (typeof error === "string"
+      ? error
+      : error?.message || "");
 
   /* =======================================================
      CLOSED STATE
   ======================================================= */
 
-  if (!isOpen) {
+  if (!open) {
     return null;
   }
 
@@ -513,43 +587,76 @@ const handleModalClick = useCallback((event) => {
 
   return (
     <div
-      className="z-50 fixed inset-0 flex justify-center items-center bg-black/50 backdrop-blur-sm p-4"
+      className="
+        fixed inset-0 z-50 flex items-center justify-center
+        p-4
+        bg-black/50
+        backdrop-blur-sm
+      "
       role="dialog"
       aria-modal="true"
       aria-labelledby="create-challenge-title"
       onClick={handleBackdropClick}
     >
       <div
-        className="relative flex flex-col bg-white shadow-2xl rounded-2xl w-full max-w-2xl max-h-[92vh] overflow-hidden"
+        className="
+          relative flex flex-col overflow-hidden
+          w-full max-w-2xl max-h-[92vh]
+          bg-white
+          rounded-2xl
+          shadow-2xl
+        "
         onClick={handleModalClick}
       >
         {/* HEADER */}
 
         <div
-          className="flex justify-between items-center px-5 sm:px-6 py-4 border-slate-200 border-b"
+          className="
+            flex items-center justify-between
+            px-5 sm:px-6 py-4
+            border-b border-slate-200
+          "
         >
           <div
-            className="flex items-center gap-3 min-w-0"
+            className="
+              flex items-center
+              min-w-0
+              gap-3
+            "
           >
             <div
-              className="flex justify-center items-center bg-blue-50 rounded-xl w-10 h-10 text-blue-600 shrink-0"
+              className="
+                flex items-center justify-center
+                w-10 h-10
+                text-blue-600
+                bg-blue-50
+                rounded-xl
+                shrink-0
+              "
               aria-hidden="true"
             >
               <Trophy size={20} />
             </div>
 
             <div
-              className="min-w-0"
+              className="
+                min-w-0
+              "
             >
               <h2
                 id="create-challenge-title"
-                className="font-semibold text-slate-900 text-base"
+                className="
+                  font-semibold text-slate-900 text-base
+                "
               >
                 Create Savings Challenge
               </h2>
 
               <p
-                className="mt-0.5 text-slate-500 text-sm"
+                className="
+                  mt-0.5
+                  text-slate-500 text-sm
+                "
               >
                 Set a measurable savings
                 target and build consistency.
@@ -561,7 +668,15 @@ const handleModalClick = useCallback((event) => {
             type="button"
             onClick={handleClose}
             disabled={creating}
-            className="hover:bg-slate-100 disabled:opacity-50 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-400 hover:text-slate-700 transition disabled:cursor-not-allowed shrink-0"
+            className="
+              p-2
+              text-slate-400 hover:text-slate-700
+              hover:bg-slate-100
+              rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500
+              disabled:opacity-50 transition
+              disabled:cursor-not-allowed
+              shrink-0
+            "
             aria-label="Close modal"
           >
             <X
@@ -576,19 +691,37 @@ const handleModalClick = useCallback((event) => {
         <form
           onSubmit={handleSubmit}
           noValidate
-          className="flex flex-col flex-1 min-h-0"
+          className="
+            flex flex-col flex-1
+            min-h-0
+          "
         >
           <div
-            className="flex-1 px-5 sm:px-6 py-5 overflow-y-auto"
+            className="
+              flex-1 overflow-y-auto
+              px-5 sm:px-6 py-5
+            "
           >
-            {visibleError && (
+            {/* GENERAL ERROR */}
+
+            {visibleError ? (
               <div
-                className="flex items-start gap-3 bg-red-50 mb-5 px-4 py-3 border border-red-200 rounded-xl text-red-700 text-sm"
+                className="
+                  flex items-start
+                  mb-5 px-4 py-3
+                  text-red-700 text-sm
+                  bg-red-50
+                  border border-red-200 rounded-xl
+                  gap-3
+                "
                 role="alert"
               >
                 <AlertCircle
                   size={18}
-                  className="mt-0.5 shrink-0"
+                  className="
+                    mt-0.5
+                    shrink-0
+                  "
                   aria-hidden="true"
                 /
                 >
@@ -597,26 +730,37 @@ const handleModalClick = useCallback((event) => {
                   {visibleError}
                 </span>
               </div>
-            )}
+            ) : null}
 
-            {errors.form && (
+            {/* FORM ERROR */}
+
+            {errors.form ? (
               <p
-                className="mb-4 text-red-600 text-xs"
+                className="
+                  mb-4
+                  text-red-600 text-xs
+                "
                 role="alert"
               >
                 {errors.form}
               </p>
-            )}
+            ) : null}
 
             <div
-              className="space-y-5"
+              className="
+                space-y-5
+              "
             >
               {/* NAME */}
 
               <div>
                 <label
                   htmlFor="challenge-name"
-                  className="block mb-1.5 font-medium text-slate-700 text-sm"
+                  className="
+                    block
+                    mb-1.5
+                    font-medium text-slate-700 text-sm
+                  "
                 >
                   Challenge name
                 </label>
@@ -631,9 +775,9 @@ const handleModalClick = useCallback((event) => {
                   autoComplete="off"
                   maxLength={120}
                   placeholder="e.g. Emergency Fund Challenge"
-                  aria-invalid={
-                    Boolean(errors.name)
-                  }
+                  aria-invalid={Boolean(
+                    errors.name
+                  )}
                   className={`
                     w-full
                     px-3.5 py-2.5
@@ -654,14 +798,17 @@ const handleModalClick = useCallback((event) => {
                   `}
                 />
 
-                {errors.name && (
+                {errors.name ? (
                   <p
-                    className="mt-1.5 text-red-600 text-xs"
+                    className="
+                      mt-1.5
+                      text-red-600 text-xs
+                    "
                     role="alert"
                   >
                     {errors.name}
                   </p>
-                )}
+                ) : null}
               </div>
 
               {/* DESCRIPTION */}
@@ -669,7 +816,11 @@ const handleModalClick = useCallback((event) => {
               <div>
                 <label
                   htmlFor="challenge-description"
-                  className="block mb-1.5 font-medium text-slate-700 text-sm"
+                  className="
+                    block
+                    mb-1.5
+                    font-medium text-slate-700 text-sm
+                  "
                 >
                   Description
                 </label>
@@ -683,20 +834,48 @@ const handleModalClick = useCallback((event) => {
                   rows={3}
                   maxLength={500}
                   placeholder="What are you saving towards?"
-                  className="disabled:bg-slate-50 px-3.5 py-2.5 border border-slate-200 focus:border-blue-500 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 w-full text-slate-900 placeholder:text-slate-400 text-sm transition resize-none"
+                  className="
+                    w-full
+                    px-3.5 py-2.5
+                    text-slate-900 placeholder:text-slate-400 text-sm
+                    disabled:bg-slate-50
+                    border border-slate-200 focus:border-blue-500 rounded-xl
+                    outline-none focus:ring-2 focus:ring-blue-100
+                    transition
+                    resize-none
+                  "
                   /
                 >
+
+                {errors.description ? (
+                  <p
+                    className="
+                      mt-1.5
+                      text-red-600 text-xs
+                    "
+                    role="alert"
+                  >
+                    {errors.description}
+                  </p>
+                ) : null}
               </div>
 
               {/* TYPE / DIFFICULTY */}
 
               <div
-                className="gap-4 grid grid-cols-1 sm:grid-cols-2"
+                className="
+                  grid grid-cols-1 sm:grid-cols-2
+                  gap-4
+                "
               >
                 <div>
                   <label
                     htmlFor="challenge-type"
-                    className="block mb-1.5 font-medium text-slate-700 text-sm"
+                    className="
+                      block
+                      mb-1.5
+                      font-medium text-slate-700 text-sm
+                    "
                   >
                     Challenge type
                   </label>
@@ -704,12 +883,17 @@ const handleModalClick = useCallback((event) => {
                   <select
                     id="challenge-type"
                     name="challengeType"
-                    value={
-                      form.challengeType
-                    }
+                    value={form.challengeType}
                     onChange={handleChange}
                     disabled={creating}
-                    className="bg-white disabled:bg-slate-50 px-3.5 py-2.5 border border-slate-200 focus:border-blue-500 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 w-full text-slate-900 text-sm"
+                    className="
+                      w-full
+                      px-3.5 py-2.5
+                      text-slate-900 text-sm
+                      bg-white disabled:bg-slate-50
+                      border border-slate-200 focus:border-blue-500 rounded-xl
+                      outline-none focus:ring-2 focus:ring-blue-100
+                    "
                   >
                     <option value="">
                       Select challenge type
@@ -727,22 +911,29 @@ const handleModalClick = useCallback((event) => {
                     )}
                   </select>
 
-                  {errors.challengeType && (
+                  {errors.challengeType ? (
                     <p
-                      className="mt-1.5 text-red-600 text-xs"
+                      className="
+                        mt-1.5
+                        text-red-600 text-xs
+                      "
                       role="alert"
                     >
                       {
                         errors.challengeType
                       }
                     </p>
-                  )}
+                  ) : null}
                 </div>
 
                 <div>
                   <label
                     htmlFor="challenge-difficulty"
-                    className="block mb-1.5 font-medium text-slate-700 text-sm"
+                    className="
+                      block
+                      mb-1.5
+                      font-medium text-slate-700 text-sm
+                    "
                   >
                     Difficulty
                   </label>
@@ -750,12 +941,17 @@ const handleModalClick = useCallback((event) => {
                   <select
                     id="challenge-difficulty"
                     name="difficulty"
-                    value={
-                      form.difficulty
-                    }
+                    value={form.difficulty}
                     onChange={handleChange}
                     disabled={creating}
-                    className="bg-white disabled:bg-slate-50 px-3.5 py-2.5 border border-slate-200 focus:border-blue-500 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 w-full text-slate-900 text-sm"
+                    className="
+                      w-full
+                      px-3.5 py-2.5
+                      text-slate-900 text-sm
+                      bg-white disabled:bg-slate-50
+                      border border-slate-200 focus:border-blue-500 rounded-xl
+                      outline-none focus:ring-2 focus:ring-blue-100
+                    "
                   >
                     <option value="">
                       Select difficulty
@@ -773,14 +969,17 @@ const handleModalClick = useCallback((event) => {
                     )}
                   </select>
 
-                  {errors.difficulty && (
+                  {errors.difficulty ? (
                     <p
-                      className="mt-1.5 text-red-600 text-xs"
+                      className="
+                        mt-1.5
+                        text-red-600 text-xs
+                      "
                       role="alert"
                     >
                       {errors.difficulty}
                     </p>
-                  )}
+                  ) : null}
                 </div>
               </div>
 
@@ -789,17 +988,28 @@ const handleModalClick = useCallback((event) => {
               <div>
                 <label
                   htmlFor="challenge-target"
-                  className="block mb-1.5 font-medium text-slate-700 text-sm"
+                  className="
+                    block
+                    mb-1.5
+                    font-medium text-slate-700 text-sm
+                  "
                 >
                   Target amount
                 </label>
 
                 <div
-                  className="relative"
+                  className="
+                    relative
+                  "
                 >
                   <Target
                     size={18}
-                    className="top-1/2 left-3 absolute text-slate-400 -translate-y-1/2 pointer-events-none"
+                    className="
+                      absolute top-1/2 left-3
+                      text-slate-400
+                      pointer-events-none
+                      -translate-y-1/2
+                    "
                     aria-hidden="true"
                   /
                   >
@@ -811,17 +1021,13 @@ const handleModalClick = useCallback((event) => {
                     inputMode="decimal"
                     min="0"
                     step="0.01"
-                    value={
-                      form.targetAmount
-                    }
+                    value={form.targetAmount}
                     onChange={handleChange}
                     disabled={creating}
                     placeholder="0.00"
-                    aria-invalid={
-                      Boolean(
-                        errors.targetAmount
-                      )
-                    }
+                    aria-invalid={Boolean(
+                      errors.targetAmount
+                    )}
                     className={`
                       w-full
                       py-2.5
@@ -845,37 +1051,52 @@ const handleModalClick = useCallback((event) => {
                   />
                 </div>
 
-                {errors.targetAmount && (
+                {errors.targetAmount ? (
                   <p
-                    className="mt-1.5 text-red-600 text-xs"
+                    className="
+                      mt-1.5
+                      text-red-600 text-xs
+                    "
                     role="alert"
                   >
-                    {
-                      errors.targetAmount
-                    }
+                    {errors.targetAmount}
                   </p>
-                )}
+                ) : null}
               </div>
 
               {/* DATES */}
 
               <div
-                className="gap-4 grid grid-cols-1 sm:grid-cols-2"
+                className="
+                  grid grid-cols-1 sm:grid-cols-2
+                  gap-4
+                "
               >
                 <div>
                   <label
                     htmlFor="challenge-start-date"
-                    className="block mb-1.5 font-medium text-slate-700 text-sm"
+                    className="
+                      block
+                      mb-1.5
+                      font-medium text-slate-700 text-sm
+                    "
                   >
                     Start date
                   </label>
 
                   <div
-                    className="relative"
+                    className="
+                      relative
+                    "
                   >
                     <CalendarDays
                       size={18}
-                      className="top-1/2 left-3 absolute text-slate-400 -translate-y-1/2 pointer-events-none"
+                      className="
+                        absolute top-1/2 left-3
+                        text-slate-400
+                        pointer-events-none
+                        -translate-y-1/2
+                      "
                       aria-hidden="true"
                     /
                     >
@@ -884,42 +1105,59 @@ const handleModalClick = useCallback((event) => {
                       id="challenge-start-date"
                       name="startDate"
                       type="date"
-                      value={
-                        form.startDate
-                      }
-                      onChange={
-                        handleChange
-                      }
+                      value={form.startDate}
+                      onChange={handleChange}
                       disabled={creating}
-                      className="bg-white disabled:bg-slate-50 py-2.5 pr-3.5 pl-10 border border-slate-200 focus:border-blue-500 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 w-full text-slate-900 text-sm"
+                      className="
+                        w-full
+                        py-2.5 pr-3.5 pl-10
+                        text-slate-900 text-sm
+                        bg-white disabled:bg-slate-50
+                        border border-slate-200 focus:border-blue-500 rounded-xl
+                        outline-none focus:ring-2 focus:ring-blue-100
+                      "
                       /
                     >
                   </div>
 
-                  {errors.startDate && (
+                  {errors.startDate ? (
                     <p
-                      className="mt-1.5 text-red-600 text-xs"
+                      className="
+                        mt-1.5
+                        text-red-600 text-xs
+                      "
                       role="alert"
                     >
                       {errors.startDate}
                     </p>
-                  )}
+                  ) : null}
                 </div>
 
                 <div>
                   <label
                     htmlFor="challenge-end-date"
-                    className="block mb-1.5 font-medium text-slate-700 text-sm"
+                    className="
+                      block
+                      mb-1.5
+                      font-medium text-slate-700 text-sm
+                    "
                   >
                     End date
                   </label>
 
                   <div
-                    className="relative"
+                    className="
+                      relative
+                    "
                   >
                     <CalendarDays
                       size={18}
-                      className="top-1/2 left-3 absolute text-slate-400 -translate-y-1/2 pointer-events-none"
+                      className="
+                        absolute top-1/2 left-3
+                        text-slate-400
+                        pointer-events-none
+                        -translate-y-1/2
+                      "
                       aria-hidden="true"
                     /
                     >
@@ -928,38 +1166,51 @@ const handleModalClick = useCallback((event) => {
                       id="challenge-end-date"
                       name="endDate"
                       type="date"
-                      value={
-                        form.endDate
-                      }
-                      onChange={
-                        handleChange
-                      }
+                      value={form.endDate}
+                      onChange={handleChange}
                       disabled={creating}
-                      className="bg-white disabled:bg-slate-50 py-2.5 pr-3.5 pl-10 border border-slate-200 focus:border-blue-500 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 w-full text-slate-900 text-sm"
+                      className="
+                        w-full
+                        py-2.5 pr-3.5 pl-10
+                        text-slate-900 text-sm
+                        bg-white disabled:bg-slate-50
+                        border border-slate-200 focus:border-blue-500 rounded-xl
+                        outline-none focus:ring-2 focus:ring-blue-100
+                      "
                       /
                     >
                   </div>
 
-                  {errors.endDate && (
+                  {errors.endDate ? (
                     <p
-                      className="mt-1.5 text-red-600 text-xs"
+                      className="
+                        mt-1.5
+                        text-red-600 text-xs
+                      "
                       role="alert"
                     >
                       {errors.endDate}
                     </p>
-                  )}
+                  ) : null}
                 </div>
               </div>
 
               {/* PLAN / ACCOUNT */}
 
               <div
-                className="gap-4 grid grid-cols-1 sm:grid-cols-2"
+                className="
+                  grid grid-cols-1 sm:grid-cols-2
+                  gap-4
+                "
               >
                 <div>
                   <label
                     htmlFor="challenge-plan"
-                    className="block mb-1.5 font-medium text-slate-700 text-sm"
+                    className="
+                      block
+                      mb-1.5
+                      font-medium text-slate-700 text-sm
+                    "
                   >
                     Saving plan
                   </label>
@@ -967,14 +1218,19 @@ const handleModalClick = useCallback((event) => {
                   <select
                     id="challenge-plan"
                     name="savingPlan"
-                    value={
-                      getId(
-                        form.savingPlan
-                      )
-                    }
+                    value={getId(
+                      form.savingPlan
+                    )}
                     onChange={handleChange}
                     disabled={creating}
-                    className="bg-white disabled:bg-slate-50 px-3.5 py-2.5 border border-slate-200 focus:border-blue-500 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 w-full text-slate-900 text-sm"
+                    className="
+                      w-full
+                      px-3.5 py-2.5
+                      text-slate-900 text-sm
+                      bg-white disabled:bg-slate-50
+                      border border-slate-200 focus:border-blue-500 rounded-xl
+                      outline-none focus:ring-2 focus:ring-blue-100
+                    "
                   >
                     <option value="">
                       No saving plan
@@ -982,44 +1238,52 @@ const handleModalClick = useCallback((event) => {
 
                     {Array.isArray(
                       savingPlans
-                    ) &&
-                      savingPlans.map(
-                        (plan) => {
-                          const id =
-                            getId(plan);
+                    )
+                      ? savingPlans.map(
+                          (plan) => {
+                            const id =
+                              getId(plan);
 
-                          if (!id) {
-                            return null;
+                            if (!id) {
+                              return null;
+                            }
+
+                            return (
+                              <option
+                                key={id}
+                                value={id}
+                              >
+                                {plan?.name ||
+                                  plan?.title ||
+                                  `Plan ${id}`}
+                              </option>
+                            );
                           }
-
-                          return (
-                            <option
-                              key={id}
-                              value={id}
-                            >
-                              {plan?.name ||
-                                plan?.title ||
-                                `Plan ${id}`}
-                            </option>
-                          );
-                        }
-                      )}
+                        )
+                      : null}
                   </select>
 
-                  {errors.savingPlan && (
+                  {errors.savingPlan ? (
                     <p
-                      className="mt-1.5 text-red-600 text-xs"
+                      className="
+                        mt-1.5
+                        text-red-600 text-xs
+                      "
                       role="alert"
                     >
                       {errors.savingPlan}
                     </p>
-                  )}
+                  ) : null}
                 </div>
 
                 <div>
                   <label
                     htmlFor="challenge-account"
-                    className="block mb-1.5 font-medium text-slate-700 text-sm"
+                    className="
+                      block
+                      mb-1.5
+                      font-medium text-slate-700 text-sm
+                    "
                   >
                     Saving account
                   </label>
@@ -1027,14 +1291,19 @@ const handleModalClick = useCallback((event) => {
                   <select
                     id="challenge-account"
                     name="savingAccount"
-                    value={
-                      getId(
-                        form.savingAccount
-                      )
-                    }
+                    value={getId(
+                      form.savingAccount
+                    )}
                     onChange={handleChange}
                     disabled={creating}
-                    className="bg-white disabled:bg-slate-50 px-3.5 py-2.5 border border-slate-200 focus:border-blue-500 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 w-full text-slate-900 text-sm"
+                    className="
+                      w-full
+                      px-3.5 py-2.5
+                      text-slate-900 text-sm
+                      bg-white disabled:bg-slate-50
+                      border border-slate-200 focus:border-blue-500 rounded-xl
+                      outline-none focus:ring-2 focus:ring-blue-100
+                    "
                   >
                     <option value="">
                       No saving account
@@ -1042,40 +1311,44 @@ const handleModalClick = useCallback((event) => {
 
                     {Array.isArray(
                       savingAccounts
-                    ) &&
-                      savingAccounts.map(
-                        (account) => {
-                          const id =
-                            getId(account);
+                    )
+                      ? savingAccounts.map(
+                          (account) => {
+                            const id =
+                              getId(account);
 
-                          if (!id) {
-                            return null;
+                            if (!id) {
+                              return null;
+                            }
+
+                            return (
+                              <option
+                                key={id}
+                                value={id}
+                              >
+                                {account?.name ||
+                                  account?.title ||
+                                  `Account ${id}`}
+                              </option>
+                            );
                           }
-
-                          return (
-                            <option
-                              key={id}
-                              value={id}
-                            >
-                              {account?.name ||
-                                account?.title ||
-                                `Account ${id}`}
-                            </option>
-                          );
-                        }
-                      )}
+                        )
+                      : null}
                   </select>
 
-                  {errors.savingAccount && (
+                  {errors.savingAccount ? (
                     <p
-                      className="mt-1.5 text-red-600 text-xs"
+                      className="
+                        mt-1.5
+                        text-red-600 text-xs
+                      "
                       role="alert"
                     >
                       {
                         errors.savingAccount
                       }
                     </p>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -1084,13 +1357,28 @@ const handleModalClick = useCallback((event) => {
           {/* FOOTER */}
 
           <div
-            className="flex sm:flex-row flex-col-reverse sm:justify-end gap-3 bg-slate-50 px-5 sm:px-6 py-4 border-slate-200 border-t"
+            className="
+              flex flex-col-reverse sm:flex-row sm:justify-end
+              px-5 sm:px-6 py-4
+              bg-slate-50
+              border-t border-slate-200
+              gap-3
+            "
           >
             <button
               type="button"
               onClick={handleClose}
               disabled={creating}
-              className="inline-flex justify-center items-center bg-white hover:bg-slate-100 disabled:opacity-50 px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-700 text-sm transition disabled:cursor-not-allowed"
+              className="
+                inline-flex items-center justify-center
+                px-4 py-2.5
+                font-medium text-slate-700 text-sm
+                bg-white hover:bg-slate-100
+                border border-slate-200 rounded-xl focus:outline-none
+                focus:ring-2 focus:ring-blue-500
+                disabled:opacity-50 transition
+                disabled:cursor-not-allowed
+              "
             >
               Cancel
             </button>
@@ -1098,16 +1386,28 @@ const handleModalClick = useCallback((event) => {
             <button
               type="submit"
               disabled={creating}
-              className="inline-flex justify-center items-center gap-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-60 shadow-sm px-5 py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500 font-semibold text-white text-sm transition disabled:cursor-not-allowed"
+              className="
+                inline-flex items-center justify-center
+                px-5 py-2.5
+                font-semibold text-white text-sm
+                bg-slate-900 hover:bg-slate-800
+                rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-500
+                disabled:opacity-60 shadow-sm transition
+                disabled:cursor-not-allowed
+                gap-2
+              "
             >
               {creating ? (
                 <>
                   <Loader2
                     size={17}
-                    className="animate-spin"
+                    className="
+                      animate-spin
+                    "
                     aria-hidden="true"
                   /
                   >
+
                   Creating...
                 </>
               ) : (
@@ -1116,6 +1416,7 @@ const handleModalClick = useCallback((event) => {
                     size={17}
                     aria-hidden="true"
                   />
+
                   Create Challenge
                 </>
               )}
