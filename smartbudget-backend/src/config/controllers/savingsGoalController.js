@@ -1,34 +1,89 @@
-// controllers/savings/savingsGoalController.js
 
-import {
-  getSavingGoal,
-  getUserSavingGoals,
-  getSavingSummary,
-  getGoalContributions,
-  getSavingHistory,
-  checkSavingEligibility,
-} from "../../services/savingService.js";
+// src/config/controllers/savingsGoalController.js
+
+import savingGoalService from "../../services/savingGoalService.js";
 
 /* =========================================================
-   HELPERS
+   RESPONSE HELPERS
 ========================================================= */
 
-/**
- * Extract authenticated user ID.
- *
- * Ownership must always come from the authenticated request.
- * Never trust userId from params, body, or query.
- */
+const sendSuccess = (
+  res,
+  {
+    statusCode = 200,
+    message,
+    data = null,
+    meta,
+  } = {}
+) => {
+  const response = {
+    success: true,
+  };
+
+  if (message) {
+    response.message = message;
+  }
+
+  if (data !== undefined) {
+    response.data = data;
+  }
+
+  if (meta !== undefined) {
+    response.meta = meta;
+  }
+
+  return res.status(statusCode).json(response);
+};
+
+const sendError = (res, error) => {
+  const statusCode =
+    Number(error?.statusCode) >= 400
+      ? Number(error.statusCode)
+      : 500;
+
+  const response = {
+    success: false,
+    message:
+      error?.message ||
+      "An unexpected error occurred",
+  };
+
+  if (error?.code) {
+    response.code = error.code;
+  }
+
+  /*
+   * Stack traces are useful during development,
+   * but must never be exposed in production.
+   */
+  if (
+    process.env.NODE_ENV !== "production" &&
+    error?.stack
+  ) {
+    response.stack = error.stack;
+  }
+
+  return res.status(statusCode).json(response);
+};
+
+/* =========================================================
+   AUTHENTICATED USER
+========================================================= */
+
 const getAuthenticatedUserId = (req) => {
-  const userId = req.user?.id;
+  const userId =
+    req.user?._id ??
+    req.user?.id ??
+    req.auth?.userId ??
+    req.auth?.id;
 
   if (!userId) {
     const error = new Error(
-      "Authenticated user is required"
+      "Authenticated user not found"
     );
 
     error.statusCode = 401;
-    error.code = "AUTHENTICATION_REQUIRED";
+    error.code = "UNAUTHENTICATED";
 
     throw error;
   }
@@ -36,129 +91,68 @@ const getAuthenticatedUserId = (req) => {
   return userId;
 };
 
-/**
- * Extract pagination parameters.
- *
- * Validation and normalization are handled by the service.
- */
-const getPagination = (req) => ({
-  page: req.query?.page,
-  limit: req.query?.limit,
-});
-
-/**
- * Extract an optional MongoDB transaction session.
- *
- * Normal HTTP requests do not normally provide a session.
- * Transaction orchestration belongs to higher-level services.
- */
-const getRequestSession = (req) =>
-  req.mongoSession || null;
-
 /* =========================================================
-   GET USER SAVING GOALS
+   GET ALL SAVING GOALS
+   GET /api/savings/goals
 ========================================================= */
 
-/**
- * GET /api/savings/goals
- *
- * Returns the authenticated user's saving goals.
- *
- * Query:
- * ?page=1
- * ?limit=20
- * ?status=active
- */
-
-
-
-/* =========================================================
-CREATE SAVING GOAL
-========================================================= */
-
-/**
-
-* POST /api/savings/goals
-*
-* Creates a new saving goal for the authenticated user.
-*
-* Ownership is always taken from req.user.
-* The client must never be allowed to provide the user ID.
-  */
-  export const createSavingGoalController = async (
+export const getSavingGoalsController = async (
   req,
-  res,
-  next
-  ) => {
-  try {
-  const userId =
-  getAuthenticatedUserId(req);
-
-  const goal =
-  await createSavingGoal({
-  userId,
-  data: req.body,
-  session:
-  getRequestSession(req),
-  });
-
-  return res.status(201).json({
-  success: true,
-  data: goal,
-  });
-  } catch (error) {
-  return next(error);
-  }
-  };
-
-export const getUserSavingGoalsController = async (
-  req,
-  res,
-  next
+  res
 ) => {
   try {
     const userId =
       getAuthenticatedUserId(req);
 
     const {
-      page,
-      limit,
-    } = getPagination(req);
-
-    const status =
-      req.query?.status || null;
+      page = 1,
+      limit = 20,
+      status,
+      category,
+      priority,
+      goalType,
+      search,
+      sortBy = "createdAt",
+      sortOrder = "desc",
+      includeDeleted = false,
+    } = req.query;
 
     const result =
-      await getUserSavingGoals({
+      await savingGoalService.getSavingGoals({
         userId,
         page,
         limit,
         status,
-        session:
-          getRequestSession(req),
+        category,
+        priority,
+        goalType,
+        search,
+        sortBy,
+        sortOrder,
+        includeDeleted:
+          String(includeDeleted) === "true",
       });
 
-    return res.status(200).json({
-      success: true,
-      data: result.items,
-      pagination: result.pagination,
+    return sendSuccess(res, {
+      statusCode: 200,
+      data: result.goals,
+      meta: {
+        pagination: result.pagination,
+      },
     });
   } catch (error) {
-    return next(error);
+    return sendError(res, error);
   }
 };
 
 /* =========================================================
    GET SINGLE SAVING GOAL
+   GET /api/savings/goals/:goalId
 ========================================================= */
 
-/**
- * GET /api/savings/goals/:goalId
- */
 export const getSavingGoalController = async (
   req,
-  res,
-  next
+  res
 ) => {
   try {
     const userId =
@@ -167,33 +161,58 @@ export const getSavingGoalController = async (
     const { goalId } = req.params;
 
     const goal =
-      await getSavingGoal({
+      await savingGoalService.getSavingGoal({
         userId,
         goalId,
-        session:
-          getRequestSession(req),
       });
 
-    return res.status(200).json({
-      success: true,
+    return sendSuccess(res, {
+      statusCode: 200,
       data: goal,
     });
   } catch (error) {
-    return next(error);
+    return sendError(res, error);
   }
 };
 
 /* =========================================================
-   GET SAVING GOAL SUMMARY
+   CREATE SAVING GOAL
+   POST /api/savings/goals
 ========================================================= */
 
-/**
- * GET /api/savings/goals/:goalId/summary
- */
-export const getSavingSummaryController = async (
+export const createSavingGoalController = async (
   req,
-  res,
-  next
+  res
+) => {
+  try {
+    const userId =
+      getAuthenticatedUserId(req);
+
+    const goal =
+      await savingGoalService.createSavingGoal({
+        userId,
+        data: req.body,
+      });
+
+    return sendSuccess(res, {
+      statusCode: 201,
+      message:
+        "Saving goal created successfully",
+      data: goal,
+    });
+  } catch (error) {
+    return sendError(res, error);
+  }
+};
+
+/* =========================================================
+   UPDATE SAVING GOAL
+   PATCH /api/savings/goals/:goalId
+========================================================= */
+
+export const updateSavingGoalController = async (
+  req,
+  res
 ) => {
   try {
     const userId =
@@ -201,161 +220,407 @@ export const getSavingSummaryController = async (
 
     const { goalId } = req.params;
 
-    const summary =
-      await getSavingSummary({
+    const goal =
+      await savingGoalService.updateSavingGoal({
         userId,
         goalId,
-        session:
-          getRequestSession(req),
+        data: req.body,
       });
 
-    return res.status(200).json({
-      success: true,
-      data: summary,
+    return sendSuccess(res, {
+      statusCode: 200,
+      message:
+        "Saving goal updated successfully",
+      data: goal,
     });
   } catch (error) {
-    return next(error);
+    return sendError(res, error);
   }
 };
 
 /* =========================================================
-   GET GOAL CONTRIBUTIONS
+   PAUSE SAVING GOAL
+   POST /api/savings/goals/:goalId/pause
 ========================================================= */
 
-/**
- * GET /api/savings/goals/:goalId/contributions
- *
- * Query:
- * ?page=1
- * ?limit=20
- * ?status=completed
- * ?startDate=2026-01-01
- * ?endDate=2026-12-31
- */
-export const getGoalContributionsController =
-  async (req, res, next) => {
+export const pauseSavingGoalController = async (
+  req,
+  res
+) => {
+  try {
+    const userId =
+      getAuthenticatedUserId(req);
+
+    const { goalId } = req.params;
+
+    const goal =
+      await savingGoalService.pauseSavingGoal({
+        userId,
+        goalId,
+        reason:
+          req.body?.reason || "",
+      });
+
+    return sendSuccess(res, {
+      statusCode: 200,
+      message:
+        "Saving goal paused successfully",
+      data: goal,
+    });
+  } catch (error) {
+    return sendError(res, error);
+  }
+};
+
+/* =========================================================
+   RESUME SAVING GOAL
+   POST /api/savings/goals/:goalId/resume
+========================================================= */
+
+export const resumeSavingGoalController = async (
+  req,
+  res
+) => {
+  try {
+    const userId =
+      getAuthenticatedUserId(req);
+
+    const { goalId } = req.params;
+
+    const goal =
+      await savingGoalService.resumeSavingGoal({
+        userId,
+        goalId,
+      });
+
+    return sendSuccess(res, {
+      statusCode: 200,
+      message:
+        "Saving goal resumed successfully",
+      data: goal,
+    });
+  } catch (error) {
+    return sendError(res, error);
+  }
+};
+
+/* =========================================================
+   CANCEL SAVING GOAL
+   POST /api/savings/goals/:goalId/cancel
+========================================================= */
+
+export const cancelSavingGoalController = async (
+  req,
+  res
+) => {
+  try {
+    const userId =
+      getAuthenticatedUserId(req);
+
+    const { goalId } = req.params;
+
+    const goal =
+      await savingGoalService.cancelSavingGoal({
+        userId,
+        goalId,
+        reason:
+          req.body?.reason || "",
+      });
+
+    return sendSuccess(res, {
+      statusCode: 200,
+      message:
+        "Saving goal cancelled successfully",
+      data: goal,
+    });
+  } catch (error) {
+    return sendError(res, error);
+  }
+};
+
+/* =========================================================
+   DELETE SAVING GOAL
+   DELETE /api/savings/goals/:goalId
+========================================================= */
+
+export const deleteSavingGoalController = async (
+  req,
+  res
+) => {
+  try {
+    const userId =
+      getAuthenticatedUserId(req);
+
+    const { goalId } = req.params;
+
+    const goal =
+      await savingGoalService.deleteSavingGoal({
+        userId,
+        goalId,
+      });
+
+    return sendSuccess(res, {
+      statusCode: 200,
+      message:
+        "Saving goal deleted successfully",
+      data: goal,
+    });
+  } catch (error) {
+    return sendError(res, error);
+  }
+};
+
+/* =========================================================
+   RESTORE SAVING GOAL
+   POST /api/savings/goals/:goalId/restore
+========================================================= */
+
+export const restoreSavingGoalController = async (
+  req,
+  res
+) => {
+  try {
+    const userId =
+      getAuthenticatedUserId(req);
+
+    const { goalId } = req.params;
+
+    const goal =
+      await savingGoalService.restoreSavingGoal({
+        userId,
+        goalId,
+      });
+
+    return sendSuccess(res, {
+      statusCode: 200,
+      message:
+        "Saving goal restored successfully",
+      data: goal,
+    });
+  } catch (error) {
+    return sendError(res, error);
+  }
+};
+
+/* =========================================================
+   SET PRIMARY SAVING GOAL
+   POST /api/savings/goals/:goalId/primary
+========================================================= */
+
+export const setPrimarySavingGoalController =
+  async (req, res) => {
     try {
       const userId =
         getAuthenticatedUserId(req);
 
       const { goalId } = req.params;
 
-      const {
-        page,
-        limit,
-      } = getPagination(req);
-
-      const status =
-        req.query?.status || null;
-
-      const startDate =
-        req.query?.startDate || null;
-
-      const endDate =
-        req.query?.endDate || null;
-
-      const result =
-        await getGoalContributions({
+      const goal =
+        await savingGoalService.setPrimarySavingGoal({
           userId,
           goalId,
-          page,
-          limit,
-          status,
-          startDate,
-          endDate,
-          session:
-            getRequestSession(req),
         });
 
-      return res.status(200).json({
-        success: true,
-        data: result.items,
-        pagination:
-          result.pagination,
+      return sendSuccess(res, {
+        statusCode: 200,
+        message:
+          "Primary saving goal updated successfully",
+        data: goal,
       });
     } catch (error) {
-      return next(error);
+      return sendError(res, error);
     }
   };
 
 /* =========================================================
-   GET SAVING HISTORY
+   REMOVE PRIMARY STATUS
+   DELETE /api/savings/goals/:goalId/primary
 ========================================================= */
 
-/**
- * GET /api/savings/goals/:goalId/history
- *
- * Returns contributions and execution
- * records separately.
- */
-export const getSavingHistoryController =
-  async (req, res, next) => {
+export const removePrimarySavingGoalController =
+  async (req, res) => {
     try {
       const userId =
         getAuthenticatedUserId(req);
 
       const { goalId } = req.params;
 
-      const {
-        page,
-        limit,
-      } = getPagination(req);
-
-      const history =
-        await getSavingHistory({
+      const goal =
+        await savingGoalService.removePrimarySavingGoal({
           userId,
           goalId,
-          page,
-          limit,
-          session:
-            getRequestSession(req),
         });
 
-      return res.status(200).json({
-        success: true,
-        data: history,
+      return sendSuccess(res, {
+        statusCode: 200,
+        message:
+          "Primary status removed successfully",
+        data: goal,
       });
     } catch (error) {
-      return next(error);
+      return sendError(res, error);
     }
   };
 
 /* =========================================================
-   CHECK CONTRIBUTION ELIGIBILITY
+   GET PRIMARY SAVING GOAL
+   GET /api/savings/goals/primary
 ========================================================= */
 
-/**
- * GET /api/savings/goals/:goalId/eligibility
- *
- * Query:
- * ?amount=5000
- */
-export const checkSavingEligibilityController =
-  async (req, res, next) => {
+export const getPrimarySavingGoalController =
+  async (req, res) => {
+    try {
+      const userId =
+        getAuthenticatedUserId(req);
+
+      const goal =
+        await savingGoalService.getPrimarySavingGoal({
+          userId,
+        });
+
+      return sendSuccess(res, {
+        statusCode: 200,
+        data: goal,
+      });
+    } catch (error) {
+      return sendError(res, error);
+    }
+  };
+
+/* =========================================================
+   GET GOAL PROGRESS
+   GET /api/savings/goals/:goalId/progress
+========================================================= */
+
+export const getSavingGoalProgressController =
+  async (req, res) => {
     try {
       const userId =
         getAuthenticatedUserId(req);
 
       const { goalId } = req.params;
 
-      const amount =
-        req.query?.amount;
-
-      const eligibility =
-        await checkSavingEligibility({
+      const progress =
+        await savingGoalService.getSavingGoalProgress({
           userId,
           goalId,
-          amount,
-          session:
-            getRequestSession(req),
         });
 
-      return res.status(200).json({
-        success: true,
-        data: eligibility,
+      return sendSuccess(res, {
+        statusCode: 200,
+        data: progress,
       });
     } catch (error) {
-      return next(error);
+      return sendError(res, error);
+    }
+  };
+
+/* =========================================================
+   COMPLETE SAVING GOAL
+   POST /api/savings/goals/:goalId/complete
+========================================================= */
+
+export const completeSavingGoalController =
+  async (req, res) => {
+    try {
+      const userId =
+        getAuthenticatedUserId(req);
+
+      const { goalId } = req.params;
+
+      const goal =
+        await savingGoalService.completeSavingGoal({
+          userId,
+          goalId,
+        });
+
+      return sendSuccess(res, {
+        statusCode: 200,
+        message:
+          "Saving goal completed successfully",
+        data: goal,
+      });
+    } catch (error) {
+      return sendError(res, error);
+    }
+  };
+
+/* =========================================================
+   EXPIRE SAVING GOAL
+   POST /api/savings/goals/:goalId/expire
+========================================================= */
+
+export const expireSavingGoalController =
+  async (req, res) => {
+    try {
+      const userId =
+        getAuthenticatedUserId(req);
+
+      const { goalId } = req.params;
+
+      const goal =
+        await savingGoalService.expireSavingGoal({
+          userId,
+          goalId,
+        });
+
+      return sendSuccess(res, {
+        statusCode: 200,
+        message:
+          "Saving goal expired successfully",
+        data: goal,
+      });
+    } catch (error) {
+      return sendError(res, error);
+    }
+  };
+
+/* =========================================================
+   GET SAVING GOAL SUMMARY
+   GET /api/savings/goals/summary
+========================================================= */
+
+export const getSavingGoalSummaryController =
+  async (req, res) => {
+    try {
+      const userId =
+        getAuthenticatedUserId(req);
+
+      const summary =
+        await savingGoalService.getSavingGoalSummary({
+          userId,
+        });
+
+      return sendSuccess(res, {
+        statusCode: 200,
+        data: summary,
+      });
+    } catch (error) {
+      return sendError(res, error);
+    }
+  };
+
+/* =========================================================
+   GET ACTIVE SAVING GOALS
+========================================================= */
+
+export const getActiveSavingGoalsController =
+  async (req, res) => {
+    try {
+      const userId =
+        getAuthenticatedUserId(req);
+
+      const goals =
+        await savingGoalService.getActiveSavingGoals({
+          userId,
+        });
+
+      return sendSuccess(res, {
+        statusCode: 200,
+        data: goals,
+      });
+    } catch (error) {
+      return sendError(res, error);
     }
   };
 
@@ -363,12 +628,30 @@ export const checkSavingEligibilityController =
    DEFAULT EXPORT
 ========================================================= */
 
-export default {
-  createSavingGoalController,
-  getUserSavingGoalsController,
+const savingGoalController = {
+  getSavingGoalsController,
   getSavingGoalController,
-  getSavingSummaryController,
-  getGoalContributionsController,
-  getSavingHistoryController,
-  checkSavingEligibilityController,
+  createSavingGoalController,
+  updateSavingGoalController,
+
+  pauseSavingGoalController,
+  resumeSavingGoalController,
+  cancelSavingGoalController,
+
+  deleteSavingGoalController,
+  restoreSavingGoalController,
+
+  setPrimarySavingGoalController,
+  removePrimarySavingGoalController,
+  getPrimarySavingGoalController,
+
+  getSavingGoalProgressController,
+
+  completeSavingGoalController,
+  expireSavingGoalController,
+
+  getSavingGoalSummaryController,
+  getActiveSavingGoalsController,
 };
+
+export default savingGoalController;

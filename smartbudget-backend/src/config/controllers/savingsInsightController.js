@@ -10,8 +10,8 @@
  *
  * - Validate authenticated requests
  * - Validate route/query parameters
- * - Load saving-goal intelligence data
- * - Delegate intelligence calculations to savingsInsightService
+ * - Retrieve saving-goal intelligence data
+ * - Delegate calculations to savingsInsightService
  * - Return consistent API responses
  * - Handle known service errors
  * - Prevent clients from supplying arbitrary user IDs
@@ -31,11 +31,13 @@
  *
  * savingsInsightService.js
  *
- * Calculations belong to:
+ * Goal database access belongs to:
  *
- * savingCalculationService.js
+ * savingGoalService.js
  *
- * Database access belongs to the appropriate service layer.
+ * Contribution database access belongs to:
+ *
+ * savingContributionService.js
  *
  * ============================================================
  */
@@ -52,9 +54,6 @@ import * as savingContributionService from "../../services/savingContributionSer
    RESPONSE HELPERS
 ============================================================ */
 
-/**
- * Send a successful API response.
- */
 const sendSuccess = (
   res,
   data,
@@ -68,9 +67,6 @@ const sendSuccess = (
   });
 };
 
-/**
- * Send a consistent API error response.
- */
 const sendError = (
   res,
   message = "Something went wrong",
@@ -91,7 +87,7 @@ const sendError = (
 ============================================================ */
 
 /**
- * Extract the authenticated user ID from the request.
+ * Extract the authenticated user's ID.
  *
  * The controller NEVER accepts userId from:
  *
@@ -99,7 +95,8 @@ const sendError = (
  * - req.query
  * - req.params
  *
- * The authenticated identity comes only from req.user.
+ * The authenticated identity comes exclusively from
+ * req.user.
  */
 const getAuthenticatedUserId = (req) => {
   const userId =
@@ -119,14 +116,9 @@ const getAuthenticatedUserId = (req) => {
 };
 
 /* ============================================================
-   QUERY NORMALIZATION
+   DATE NORMALIZATION
 ============================================================ */
 
-/**
- * Normalize the optional asOfDate query parameter.
- *
- * If no date is supplied, the current date/time is used.
- */
 const normalizeDateQuery = (value) => {
   if (
     value === undefined ||
@@ -150,68 +142,64 @@ const normalizeDateQuery = (value) => {
 };
 
 /* ============================================================
-   SERVICE VALIDATION
+   CONTRIBUTION STATISTICS
 ============================================================ */
 
 /**
- * Ensure the expected saving-goal service methods exist.
+ * Retrieve contribution statistics for a saving goal.
  *
- * This prevents an obscure:
+ * The contribution service is deliberately accessed through
+ * its public service API.
  *
- *   "savingGoalService.getUserGoals is not a function"
- *
- * error from reaching the controller.
+ * This controller does not query the contribution model
+ * directly.
  */
-const assertGoalServiceMethods = () => {
-  if (
-    typeof savingGoalService?.getUserGoals !==
-    "function"
-  ) {
-    throw new SavingInsightServiceError(
-      "Saving goal service is not configured correctly",
-      500,
-      "GOAL_SERVICE_METHOD_MISSING"
-    );
-  }
-
-  if (
-    typeof savingGoalService?.getGoalById !==
-    "function"
-  ) {
-    throw new SavingInsightServiceError(
-      "Saving goal lookup service is not configured correctly",
-      500,
-      "GOAL_LOOKUP_METHOD_MISSING"
-    );
-  }
-};
-
-/**
- * Ensure the contribution service exposes the
- * summary method expected by this controller.
- *
- * NOTE:
- *
- * The provided savingContributionService.js exports:
- *
- *   getContributionSummary()
- *
- * NOT:
- *
- *   getContributionStatistics()
- */
-const assertContributionServiceMethods = () => {
+const getContributionStatistics = async ({
+  goalId,
+  userId,
+}) => {
+  /*
+   * The expected contribution-service method is:
+   *
+   * getContributionStatistics(goalId, userId)
+   *
+   * Validate that the service actually exposes it before
+   * attempting to call it.
+   */
   if (
     typeof savingContributionService
-      ?.getContributionSummary !==
+      .getContributionStatistics !==
     "function"
   ) {
     throw new SavingInsightServiceError(
-      "Saving contribution summary service is not configured correctly",
+      "Saving contribution service is not configured correctly",
       500,
-      "CONTRIBUTION_SUMMARY_METHOD_MISSING"
+      "CONTRIBUTION_SERVICE_METHOD_MISSING"
     );
   }
+
+  const statistics =
+    await savingContributionService.getContributionStatistics(
+      goalId,
+      userId
+    );
+
+  return {
+    contributionCount:
+      Number(
+        statistics?.contributionCount ?? 0
+      ),
+
+    averageContribution:
+      Number(
+        statistics?.averageContribution ?? 0
+      ),
+
+    largestContribution:
+      Number(
+        statistics?.largestContribution ?? 0
+      ),
+  };
 };
 
 /* ============================================================
@@ -219,34 +207,55 @@ const assertContributionServiceMethods = () => {
 ============================================================ */
 
 /**
- * Retrieve saving goals together with contribution
- * statistics required by savingsInsightService.
+ * Retrieve saving goals together with contribution statistics.
  *
- * This function deliberately delegates all contribution
- * aggregation to savingContributionService.
+ * IMPORTANT:
  *
- * It does NOT calculate financial values itself.
+ * This function now matches the actual savingGoalService API.
+ *
+ * savingGoalService provides:
+ *
+ * - getSavingGoal({ userId, goalId })
+ * - getSavingGoals({ userId, ... })
+ *
+ * It does NOT provide:
+ *
+ * - getGoalById()
+ * - getUserGoals()
  */
 const loadGoalInsightData = async ({
   userId,
   goalId = null,
 }) => {
-  assertGoalServiceMethods();
-  assertContributionServiceMethods();
-
-  let goals;
+  let goals = [];
 
   /* ----------------------------------------------------------
      SINGLE GOAL
   ---------------------------------------------------------- */
 
   if (goalId) {
-    const goal =
-      await savingGoalService.getGoalById(
-        goalId,
-        userId
+    if (
+      typeof savingGoalService
+        .getSavingGoal !==
+      "function"
+    ) {
+      throw new SavingInsightServiceError(
+        "Saving goal service is not configured correctly",
+        500,
+        "GOAL_SERVICE_METHOD_MISSING"
       );
+    }
 
+    const goal =
+      await savingGoalService.getSavingGoal({
+        userId,
+        goalId,
+      });
+
+    /*
+     * getSavingGoal already throws a 404 when the goal
+     * does not exist.
+     */
     if (!goal) {
       throw new SavingInsightServiceError(
         "Saving goal not found",
@@ -263,10 +272,38 @@ const loadGoalInsightData = async ({
   ---------------------------------------------------------- */
 
   else {
-    goals =
-      await savingGoalService.getUserGoals(
-        userId
+    if (
+      typeof savingGoalService
+        .getSavingGoals !==
+      "function"
+    ) {
+      throw new SavingInsightServiceError(
+        "Saving goal service is not configured correctly",
+        500,
+        "GOAL_SERVICE_METHOD_MISSING"
       );
+    }
+
+    const result =
+      await savingGoalService.getSavingGoals({
+        userId,
+        page: 1,
+        limit: 100,
+      });
+
+    /*
+     * getSavingGoals returns:
+     *
+     * {
+     *   goals,
+     *   pagination
+     * }
+     */
+    goals = Array.isArray(
+      result?.goals
+    )
+      ? result.goals
+      : [];
   }
 
   /* ----------------------------------------------------------
@@ -282,7 +319,7 @@ const loadGoalInsightData = async ({
   }
 
   /* ----------------------------------------------------------
-     ENRICH GOALS WITH CONTRIBUTION SUMMARY
+     ENRICH GOALS
   ---------------------------------------------------------- */
 
   const enrichedGoals =
@@ -293,9 +330,9 @@ const loadGoalInsightData = async ({
           goal?.id;
 
         /*
-         * A goal without an ID should never normally happen,
-         * but we fail safely instead of crashing the entire
-         * insight endpoint.
+         * A valid goal should always have an ID.
+         * If it does not, we can still return the goal
+         * with empty contribution statistics.
          */
         if (!goalIdValue) {
           return {
@@ -308,6 +345,7 @@ const loadGoalInsightData = async ({
             largestContribution: 0,
 
             contributionAmount:
+              goal?.plannedContributionAmount ??
               goal?.contributionAmount ??
               null,
 
@@ -317,42 +355,35 @@ const loadGoalInsightData = async ({
           };
         }
 
-        /*
-         * Delegate contribution aggregation to the service.
-         *
-         * IMPORTANT:
-         *
-         * getContributionSummary() is the actual method
-         * exported by savingContributionService.js.
-         */
         const statistics =
-          await savingContributionService
-            .getContributionSummary({
-              userId,
+          await getContributionStatistics({
+            goalId:
+              String(goalIdValue),
 
-              savingGoalId:
-                String(goalIdValue),
-            });
+            userId,
+          });
 
         return {
           goal,
 
           contributionCount:
-            Number(
-              statistics?.contributionCount
-            ) || 0,
+            statistics.contributionCount,
 
           averageContribution:
-            Number(
-              statistics?.averageContribution
-            ) || 0,
+            statistics.averageContribution,
 
           largestContribution:
-            Number(
-              statistics?.largestContribution
-            ) || 0,
+            statistics.largestContribution,
 
+          /*
+           * Your SavingGoal service/schema uses
+           * plannedContributionAmount.
+           *
+           * Keep contributionAmount as the normalized
+           * field expected by the insight service.
+           */
           contributionAmount:
+            goal?.plannedContributionAmount ??
             goal?.contributionAmount ??
             null,
 
@@ -394,11 +425,10 @@ export const getDashboardSavingInsights = async (
       });
 
     const result =
-      savingsInsightService
-        .generateDashboardSavingInsights({
-          goals,
-          asOfDate,
-        });
+      savingsInsightService.generateDashboardSavingInsights({
+        goals,
+        asOfDate,
+      });
 
     return sendSuccess(
       res,
@@ -432,7 +462,7 @@ export const getGoalSavingInsights = async (
       getAuthenticatedUserId(req);
 
     const { goalId } =
-      req.params || {};
+      req.params;
 
     if (!goalId) {
       return sendError(
@@ -469,27 +499,26 @@ export const getGoalSavingInsights = async (
       goalData[0];
 
     const result =
-      savingsInsightService
-        .generateGoalInsights({
-          goal: goal.goal,
+      savingsInsightService.generateGoalInsights({
+        goal: goal.goal,
 
-          asOfDate,
+        asOfDate,
 
-          contributionCount:
-            goal.contributionCount,
+        contributionCount:
+          goal.contributionCount,
 
-          averageContribution:
-            goal.averageContribution,
+        averageContribution:
+          goal.averageContribution,
 
-          largestContribution:
-            goal.largestContribution,
+        largestContribution:
+          goal.largestContribution,
 
-          contributionAmount:
-            goal.contributionAmount,
+        contributionAmount:
+          goal.contributionAmount,
 
-          frequency:
-            goal.frequency,
-        });
+        frequency:
+          goal.frequency,
+      });
 
     return sendSuccess(
       res,
@@ -512,8 +541,8 @@ export const getGoalSavingInsights = async (
 /**
  * GET /api/savings/insights/top
  *
- * Returns the highest-priority insight across the
- * user's savings portfolio.
+ * Returns the highest-priority insight across the user's
+ * active savings portfolio.
  */
 export const getTopSavingInsight = async (
   req,
@@ -534,30 +563,25 @@ export const getTopSavingInsight = async (
       });
 
     const result =
-      savingsInsightService
-        .generateDashboardSavingInsights({
-          goals,
-          asOfDate,
-        });
+      savingsInsightService.generateDashboardSavingInsights({
+        goals,
+        asOfDate,
+      });
 
     const topInsight =
-      savingsInsightService
-        .getTopSavingInsight({
-          insights:
-            Array.isArray(
-              result?.insights
-            )
-              ? result.insights
-              : [],
-        });
+      savingsInsightService.getTopSavingInsight({
+        insights:
+          result.insights,
+      });
 
     return sendSuccess(
       res,
       {
-        insight: topInsight ?? null,
+        insight:
+          topInsight,
 
         summary:
-          result?.summary ?? null,
+          result.summary,
       },
       topInsight
         ? "Top saving insight retrieved successfully"
@@ -573,7 +597,7 @@ export const getTopSavingInsight = async (
 };
 
 /* ============================================================
-   GET SAVING INSIGHT SUMMARY
+   GET INSIGHT SUMMARY
 ============================================================ */
 
 /**
@@ -600,28 +624,22 @@ export const getSavingInsightSummary = async (
       });
 
     const result =
-      savingsInsightService
-        .generateDashboardSavingInsights({
-          goals,
-          asOfDate,
-        });
+      savingsInsightService.generateDashboardSavingInsights({
+        goals,
+        asOfDate,
+      });
 
     const insightSummary =
-      savingsInsightService
-        .summarizeInsights({
-          insights:
-            Array.isArray(
-              result?.insights
-            )
-              ? result.insights
-              : [],
-        });
+      savingsInsightService.summarizeInsights({
+        insights:
+          result.insights,
+      });
 
     return sendSuccess(
       res,
       {
         summary:
-          result?.summary ?? null,
+          result.summary,
 
         insights:
           insightSummary,
@@ -641,19 +659,6 @@ export const getSavingInsightSummary = async (
    ERROR HANDLER
 ============================================================ */
 
-/**
- * Central controller error handler.
- *
- * Known service errors preserve their:
- *
- * - statusCode
- * - code
- * - message
- * - safe details
- *
- * Unknown 500-level errors receive a generic message so that
- * database/infrastructure details are not exposed to clients.
- */
 const handleControllerError = (
   error,
   res,
@@ -665,7 +670,7 @@ const handleControllerError = (
   );
 
   /* ----------------------------------------------------------
-     KNOWN SAVINGS INSIGHT ERROR
+     KNOWN INSIGHT SERVICE ERROR
   ---------------------------------------------------------- */
 
   if (
@@ -697,15 +702,13 @@ const handleControllerError = (
         : 500;
 
   const code =
-    typeof error?.code === "string" &&
-    error.code.trim()
-      ? error.code
-      : "INTERNAL_SERVER_ERROR";
+    error?.code ||
+    "INTERNAL_SERVER_ERROR";
 
-  /* ----------------------------------------------------------
-     SAFE CLIENT MESSAGE
-  ---------------------------------------------------------- */
-
+  /*
+   * Never expose internal infrastructure/database
+   * information for server errors.
+   */
   const message =
     statusCode >= 500
       ? "Unable to retrieve saving insights"
@@ -724,9 +727,11 @@ const handleControllerError = (
    DEFAULT EXPORT
 ============================================================ */
 
-export default {
+const savingsInsightController = {
   getDashboardSavingInsights,
   getGoalSavingInsights,
   getTopSavingInsight,
   getSavingInsightSummary,
 };
+
+export default savingsInsightController;
