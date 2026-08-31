@@ -1,4 +1,3 @@
-
 import {
   AlertCircle,
   CheckCircle2,
@@ -8,6 +7,7 @@ import {
   TrendingUp,
   WalletCards,
 } from "lucide-react";
+
 import {
   memo,
   useCallback,
@@ -48,7 +48,7 @@ const MAX_DISPLAY_LIMIT = 100;
 ========================================================= */
 
 /**
- * Convert any value to a finite number.
+ * Convert a value to a finite number.
  */
 const toFiniteNumber = (value, fallback = 0) => {
   const number = Number(value);
@@ -59,7 +59,7 @@ const toFiniteNumber = (value, fallback = 0) => {
 };
 
 /**
- * Resolve the canonical goal ID.
+ * Resolve the canonical savings-goal ID.
  */
 const getGoalId = (goal) => {
   if (!goal) {
@@ -79,7 +79,7 @@ const getGoalId = (goal) => {
 };
 
 /**
- * Safely normalize supported API response shapes.
+ * Normalize supported API response shapes.
  */
 const normalizeGoals = (value) => {
   if (Array.isArray(value)) {
@@ -129,10 +129,7 @@ const normalizeGoals = (value) => {
 /**
  * Extract a safe user-facing error message.
  */
-const getErrorMessage = (
-  error,
-  fallback
-) => {
+const getErrorMessage = (error, fallback) => {
   if (!error) {
     return null;
   }
@@ -151,7 +148,9 @@ const getErrorMessage = (
     error?.error;
 
   if (typeof message === "string") {
-    return message.trim() || fallback;
+    const normalized = message.trim();
+
+    return normalized || fallback;
   }
 
   return fallback;
@@ -160,31 +159,34 @@ const getErrorMessage = (
 /**
  * Normalize goal status.
  */
-const getGoalStatus = (goal) =>
-  String(goal?.status ?? "")
+const getGoalStatus = (goal) => {
+  return String(goal?.status ?? "")
     .trim()
     .toLowerCase();
+};
 
 /**
  * Resolve target amount.
  */
-const getTargetAmount = (goal) =>
-  toFiniteNumber(
+const getTargetAmount = (goal) => {
+  return toFiniteNumber(
     goal?.targetAmount ??
       goal?.target ??
       goal?.amount
   );
+};
 
 /**
- * Resolve saved/current amount.
+ * Resolve current/saved amount.
  */
-const getSavedAmount = (goal) =>
-  toFiniteNumber(
+const getSavedAmount = (goal) => {
+  return toFiniteNumber(
     goal?.currentAmount ??
       goal?.savedAmount ??
       goal?.amountSaved ??
       goal?.progressAmount
   );
+};
 
 /**
  * Resolve currency.
@@ -203,10 +205,11 @@ const getGoalCurrency = (goal) => {
 };
 
 /**
- * A goal is renderable only when it has an ID.
+ * Only render goals that have a usable ID.
  */
-const isValidGoal = (goal) =>
-  Boolean(getGoalId(goal));
+const isValidGoal = (goal) => {
+  return Boolean(getGoalId(goal));
+};
 
 /**
  * Resolve display limit.
@@ -223,7 +226,7 @@ const resolveLimit = (limit) => {
 };
 
 /**
- * Safely calculate progress percentage.
+ * Calculate progress safely.
  */
 const calculatePercentage = (
   current,
@@ -774,12 +777,14 @@ const SavingsGoalsPage = ({
   compact = false,
   onGoalSelect,
 }) => {
-  /*
-   * The hook owns server state.
-   *
-   * This page intentionally does NOT perform an
-   * initial fetch inside useEffect.
-   */
+  /* =======================================================
+     SERVER STATE
+
+     IMPORTANT:
+     This component does not use useEffect to fetch data.
+     useSavingsGoals owns the server-state lifecycle.
+  ======================================================= */
+
   const savingsGoals = useSavingsGoals();
 
   const {
@@ -812,18 +817,18 @@ const SavingsGoalsPage = ({
     useState(null);
 
   /* =======================================================
-     NORMALIZED SERVER DATA
+     NORMALIZED GOALS
   ======================================================= */
 
   const goals = useMemo(() => {
-    return normalizeGoals(hookGoals)
-      .filter(isValidGoal);
+    return normalizeGoals(hookGoals).filter(
+      isValidGoal
+    );
   }, [hookGoals]);
 
-  const resolvedLimit = useMemo(
-    () => resolveLimit(limit),
-    [limit]
-  );
+  const resolvedLimit = useMemo(() => {
+    return resolveLimit(limit);
+  }, [limit]);
 
   const visibleGoals = useMemo(() => {
     if (!resolvedLimit) {
@@ -840,63 +845,56 @@ const SavingsGoalsPage = ({
   ]);
 
   /* =======================================================
-     SERVER STATE
+     LOADING / ERROR STATE
   ======================================================= */
 
   const loading = Boolean(hookLoading);
 
-  const loadErrorMessage = useMemo(
-    () =>
-      getErrorMessage(
-        hookError,
-        DEFAULT_LOAD_ERROR
-      ),
-    [hookError]
-  );
+  const loadErrorMessage = useMemo(() => {
+    return getErrorMessage(
+      hookError,
+      DEFAULT_LOAD_ERROR
+    );
+  }, [hookError]);
 
-  const mutationErrorMessage = useMemo(
-    () =>
-      getErrorMessage(
+  const mutationErrorMessage =
+    useMemo(() => {
+      return getErrorMessage(
         mutationError,
         DEFAULT_MUTATION_ERROR
-      ),
-    [mutationError]
-  );
+      );
+    }, [mutationError]);
 
   /* =======================================================
-     DERIVED SUMMARY
+     SUMMARY
   ======================================================= */
 
   const summary = useMemo(() => {
     let active = 0;
     let completed = 0;
     let paused = 0;
+
     let totalTarget = 0;
     let totalSaved = 0;
 
     for (const goal of goals) {
       const status = getGoalStatus(goal);
-      const target = getTargetAmount(goal);
-      const saved = getSavedAmount(goal);
+
+      const target =
+        getTargetAmount(goal);
+
+      const saved =
+        getSavedAmount(goal);
 
       totalTarget += target;
       totalSaved += saved;
 
-      switch (status) {
-        case "active":
-          active += 1;
-          break;
-
-        case "completed":
-          completed += 1;
-          break;
-
-        case "paused":
-          paused += 1;
-          break;
-
-        default:
-          break;
+      if (status === "active") {
+        active += 1;
+      } else if (status === "completed") {
+        completed += 1;
+      } else if (status === "paused") {
+        paused += 1;
       }
     }
 
@@ -942,14 +940,12 @@ const SavingsGoalsPage = ({
       try {
         await refreshGoals();
       } catch {
-        /*
-         * The hook owns the server error.
-         */
+        // The hook owns the server error.
       }
     },
     [
-      refreshGoals,
       mutationInProgress,
+      refreshGoals,
     ]
   );
 
@@ -997,6 +993,10 @@ const SavingsGoalsPage = ({
           throw error;
         }
 
+        if (mutationInProgress) {
+          return;
+        }
+
         setMutationError(null);
         setAction("create");
 
@@ -1014,7 +1014,10 @@ const SavingsGoalsPage = ({
           setAction(null);
         }
       },
-      [createGoal]
+      [
+        createGoal,
+        mutationInProgress,
+      ]
     );
 
   /* =======================================================
@@ -1030,7 +1033,9 @@ const SavingsGoalsPage = ({
         return;
       }
 
-      if (!getGoalId(goal)) {
+      const goalId = getGoalId(goal);
+
+      if (!goalId) {
         setMutationError(
           new Error(
             "This savings goal could not be identified."
@@ -1082,6 +1087,10 @@ const SavingsGoalsPage = ({
           throw error;
         }
 
+        if (mutationInProgress) {
+          return;
+        }
+
         setMutationError(null);
         setAction("update");
 
@@ -1105,6 +1114,7 @@ const SavingsGoalsPage = ({
       [
         editingGoal,
         updateGoal,
+        mutationInProgress,
       ]
     );
 
@@ -1122,7 +1132,9 @@ const SavingsGoalsPage = ({
           return;
         }
 
-        if (!getGoalId(goal)) {
+        const goalId = getGoalId(goal);
+
+        if (!goalId) {
           setMutationError(
             new Error(
               "This savings goal could not be identified."
@@ -1173,6 +1185,10 @@ const SavingsGoalsPage = ({
         throw error;
       }
 
+      if (mutationInProgress) {
+        return;
+      }
+
       setMutationError(null);
       setAction("delete");
 
@@ -1192,6 +1208,7 @@ const SavingsGoalsPage = ({
     }, [
       deletingGoal,
       deleteGoal,
+      mutationInProgress,
     ]);
 
   /* =======================================================
@@ -1248,9 +1265,7 @@ const SavingsGoalsPage = ({
         {loadErrorMessage &&
           goals.length === 0 && (
             <ErrorState
-              message={
-                loadErrorMessage
-              }
+              message={loadErrorMessage}
               onRetry={
                 canRefresh
                   ? handleRefresh
@@ -1355,9 +1370,7 @@ const SavingsGoalsPage = ({
 
               <SummaryStat
                 label="Completed"
-                value={
-                  summary.completed
-                }
+                value={summary.completed}
                 icon={CheckCircle2}
               />
 
@@ -1547,9 +1560,7 @@ const SavingsGoalsPage = ({
                       }
                       currency={currency}
                       progress={progress}
-                      isCompleted={
-                        completed
-                      }
+                      isCompleted={completed}
                       showAmounts
                       showPercentage
                       showRemaining
@@ -1616,9 +1627,7 @@ const SavingsGoalsPage = ({
           open={createOpen}
           onClose={handleCloseCreate}
           onSubmit={handleCreate}
-          loading={
-            action === "create"
-          }
+          loading={action === "create"}
         />
       )}
 
@@ -1630,9 +1639,7 @@ const SavingsGoalsPage = ({
           goal={editingGoal}
           onClose={handleCloseEdit}
           onSubmit={handleUpdate}
-          loading={
-            action === "update"
-          }
+          loading={action === "update"}
         />
       )}
 
@@ -1640,28 +1647,18 @@ const SavingsGoalsPage = ({
 
       {deletingGoal && (
         <DeleteSavingsGoalModal
-          open={Boolean(
-            deletingGoal
-          )}
+          open={Boolean(deletingGoal)}
           goal={deletingGoal}
           onClose={handleCloseDelete}
           onConfirm={handleDelete}
-          loading={
-            action === "delete"
-          }
+          loading={action === "delete"}
         />
       )}
     </>
   );
 };
 
-/* =========================================================
-   EXPORT
-========================================================= */
-
 SavingsGoalsPage.displayName =
   "SavingsGoalsPage";
 
-export default memo(
-  SavingsGoalsPage
-);
+export default memo(SavingsGoalsPage);

@@ -595,6 +595,7 @@ const request = async ({
 };
 
 
+
 /* ============================================================
    ACCOUNTS
 ============================================================ */
@@ -758,7 +759,13 @@ export const closeSavingAccount =
 /* ============================================================
    GOALS
 ============================================================ */
-
+export const createSavingGoal =
+  (payload) =>
+    request({
+      method: HTTP_METHODS.POST,
+      endpoint: SMART_SAVE_ENDPOINTS.goals,
+      data: payload,
+    });
 /**
  * The supplied backend routes currently expose:
  *
@@ -1922,6 +1929,7 @@ const smartSaveService = Object.freeze({
   closeSavingAccount,
 
   /* Goals */
+  createSavingGoal,
   getSavingGoals,
   getSavingGoal,
   getSavingGoalSummary,

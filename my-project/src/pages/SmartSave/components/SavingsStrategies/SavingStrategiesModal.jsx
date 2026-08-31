@@ -1,7 +1,7 @@
 
 // components/.../SavingStrategiesModal.jsx
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   AlertCircle,
   CalendarClock,
@@ -149,70 +149,74 @@ const getStrategyId = (strategy) => {
    FORM FACTORY
 ========================================================= */
 
-const createInitialForm = (strategy = null) => ({
-  name: getText(
-    strategy?.name,
-    strategy?.title,
-    strategy?.planName,
-    strategy?.strategyName
-  ),
+const createInitialForm = (strategy = null) => {
+  const amount = getNumber(
+    strategy?.amount,
+    strategy?.contributionAmount,
+    strategy?.fixedAmount,
+    strategy?.savingAmount,
+    strategy?.metrics?.contributionAmount
+  );
 
-  description: getText(
-    strategy?.description,
-    strategy?.summary,
-    strategy?.note
-  ),
+  const targetAmount = getNumber(
+    strategy?.targetAmount,
+    strategy?.target,
+    strategy?.goalAmount,
+    strategy?.progress?.target
+  );
 
-  strategy:
-    getText(
-      strategy?.strategy,
-      strategy?.strategyType,
-      strategy?.method,
-      strategy?.type
-    ) || FIXED_STRATEGY,
+  return {
+    name: getText(
+      strategy?.name,
+      strategy?.title,
+      strategy?.planName,
+      strategy?.strategyName
+    ),
 
-  amount: (() => {
-    const amount = getNumber(
-      strategy?.amount,
-      strategy?.contributionAmount,
-      strategy?.fixedAmount,
-      strategy?.savingAmount,
-      strategy?.metrics?.contributionAmount
-    );
+    description: getText(
+      strategy?.description,
+      strategy?.summary,
+      strategy?.note
+    ),
 
-    return amount > 0 ? String(amount) : "";
-  })(),
+    strategy:
+      getText(
+        strategy?.strategy,
+        strategy?.strategyType,
+        strategy?.method,
+        strategy?.type
+      ) || FIXED_STRATEGY,
 
-  targetAmount: (() => {
-    const target = getNumber(
-      strategy?.targetAmount,
-      strategy?.target,
-      strategy?.goalAmount,
-      strategy?.progress?.target
-    );
+    amount:
+      amount > 0
+        ? String(amount)
+        : "",
 
-    return target > 0 ? String(target) : "";
-  })(),
+    targetAmount:
+      targetAmount > 0
+        ? String(targetAmount)
+        : "",
 
-  frequency:
-    getText(
-      strategy?.frequency,
-      strategy?.schedule?.frequency
-    ) || DEFAULT_FREQUENCY,
+    frequency:
+      getText(
+        strategy?.frequency,
+        strategy?.schedule?.frequency
+      ) || DEFAULT_FREQUENCY,
 
-  currency:
-    getText(
-      strategy?.currency,
-      strategy?.targetCurrency,
-      strategy?.savingAccount?.currency
-    ) || DEFAULT_CURRENCY,
+    currency:
+      getText(
+        strategy?.currency,
+        strategy?.targetCurrency,
+        strategy?.savingAccount?.currency
+      ) || DEFAULT_CURRENCY,
 
-  status:
-    getText(
-      strategy?.status,
-      strategy?.state
-    ) || DEFAULT_STATUS,
-});
+    status:
+      getText(
+        strategy?.status,
+        strategy?.state
+      ) || DEFAULT_STATUS,
+  };
+};
 
 /* =========================================================
    VALIDATION
@@ -222,12 +226,20 @@ const validateForm = (form) => {
   const errors = {};
 
   const name = form.name.trim();
-  const amount = Number(form.amount);
+
+  const amount =
+    form.amount === ""
+      ? NaN
+      : Number(form.amount);
 
   const targetAmount =
     form.targetAmount === ""
       ? 0
       : Number(form.targetAmount);
+
+  /* -------------------------------------------------------
+     NAME
+  ------------------------------------------------------- */
 
   if (!name) {
     errors.name =
@@ -240,6 +252,10 @@ const validateForm = (form) => {
       "Strategy name cannot exceed 100 characters.";
   }
 
+  /* -------------------------------------------------------
+     CONTRIBUTION AMOUNT
+  ------------------------------------------------------- */
+
   if (
     form.amount === "" ||
     !Number.isFinite(amount) ||
@@ -248,6 +264,10 @@ const validateForm = (form) => {
     errors.amount =
       "Enter a valid contribution amount greater than zero.";
   }
+
+  /* -------------------------------------------------------
+     TARGET AMOUNT
+  ------------------------------------------------------- */
 
   if (
     form.targetAmount !== "" &&
@@ -260,6 +280,10 @@ const validateForm = (form) => {
       "Target amount must be greater than zero.";
   }
 
+  /* -------------------------------------------------------
+     AMOUNT VS TARGET
+  ------------------------------------------------------- */
+
   if (
     Number.isFinite(amount) &&
     amount > 0 &&
@@ -271,10 +295,18 @@ const validateForm = (form) => {
       "Contribution amount cannot be greater than the target.";
   }
 
+  /* -------------------------------------------------------
+     FREQUENCY
+  ------------------------------------------------------- */
+
   if (!form.frequency) {
     errors.frequency =
       "Please select a savings frequency.";
   }
+
+  /* -------------------------------------------------------
+     CURRENCY
+  ------------------------------------------------------- */
 
   if (!form.currency) {
     errors.currency =
@@ -318,10 +350,26 @@ const buildPayload = (form, strategy) => {
     getStrategyId(strategy);
 
   if (strategyId) {
-    payload.strategyId = strategyId;
+    payload.strategyId =
+      strategyId;
   }
 
   return payload;
+};
+
+/* =========================================================
+   ERROR MESSAGE
+========================================================= */
+
+const getSubmissionErrorMessage = (
+  submissionError
+) => {
+  return (
+    submissionError?.response?.data?.message ??
+    submissionError?.response?.data?.error ??
+    submissionError?.message ??
+    "Unable to save this strategy. Please try again."
+  );
 };
 
 /* =========================================================
@@ -355,10 +403,12 @@ const FieldError = ({ message }) => {
 };
 
 /* =========================================================
-   INPUT CLASS HELPER
+   INPUT CLASS
 ========================================================= */
 
-const getInputClass = (hasError = false) => `
+const getInputClass = (
+  hasError = false
+) => `
   w-full
   mt-2
   px-3.5
@@ -374,6 +424,7 @@ const getInputClass = (hasError = false) => `
   disabled:bg-slate-50
   disabled:cursor-not-allowed
   focus:ring-2
+
   ${
     hasError
       ? `
@@ -404,20 +455,23 @@ const SavingStrategiesModal = ({
   submitLabel,
 }) => {
   /*
-   * IMPORTANT
+   * The parent should provide a changing `key` when switching
+   * between create/edit records. This allows local form state
+   * to initialize from the correct strategy without an
+   * effect-driven state synchronization loop.
    *
-   * We derive the initial form from the current strategy.
+   * Example:
    *
-   * No useEffect + setState is used here.
+   * <SavingStrategiesModal
+   *   key={strategy?._id ?? "create"}
+   *   strategy={strategy}
+   *   ...
+   * />
    */
 
-  const initialForm = useMemo(
-    () => createInitialForm(strategy),
-    [strategy]
+  const [form, setForm] = useState(() =>
+    createInitialForm(strategy)
   );
-
-  const [form, setForm] =
-    useState(initialForm);
 
   const [errors, setErrors] =
     useState({});
@@ -433,6 +487,10 @@ const SavingStrategiesModal = ({
       (currency) =>
         currency.value === form.currency
     )?.symbol ?? "₦";
+
+  /* =======================================================
+     EARLY RETURN
+  ======================================================= */
 
   if (!isOpen) {
     return null;
@@ -481,8 +539,7 @@ const SavingStrategiesModal = ({
       validateForm(form);
 
     if (
-      Object.keys(validationErrors)
-        .length > 0
+      Object.keys(validationErrors).length > 0
     ) {
       setErrors(validationErrors);
       return;
@@ -513,13 +570,11 @@ const SavingStrategiesModal = ({
         strategy
       );
     } catch (submissionError) {
-      const message =
-        submissionError?.response?.data
-          ?.message ??
-        submissionError?.message ??
-        "Unable to save this strategy. Please try again.";
-
-      setSubmitError(message);
+      setSubmitError(
+        getSubmissionErrorMessage(
+          submissionError
+        )
+      );
     }
   };
 
@@ -538,7 +593,7 @@ const SavingStrategiesModal = ({
     }
   };
 
-  const handleBackdropClick = (
+  const handleBackdropMouseDown = (
     event
   ) => {
     if (
@@ -548,6 +603,10 @@ const SavingStrategiesModal = ({
       handleClose();
     }
   };
+
+  /* =======================================================
+     DERIVED VALUES
+  ======================================================= */
 
   const modalTitle =
     title ??
@@ -577,7 +636,7 @@ const SavingStrategiesModal = ({
   /* =======================================================
      RENDER
   ======================================================= */
-const handleMouseDown = (event)=> event.stopPropagation()
+
   return (
     <div
       className="
@@ -589,7 +648,9 @@ const handleMouseDown = (event)=> event.stopPropagation()
       role="dialog"
       aria-modal="true"
       aria-labelledby="saving-strategies-modal-title"
-      onMouseDown={handleBackdropClick}
+      onMouseDown={
+        handleBackdropMouseDown
+      }
     >
       <div
         className="
@@ -599,9 +660,7 @@ const handleMouseDown = (event)=> event.stopPropagation()
           border border-slate-200 rounded-2xl
           shadow-2xl
         "
-        onMouseDown={handleMouseDown}
       >
-
         {/* =================================================
             HEADER
         ================================================= */}
@@ -702,9 +761,8 @@ const handleMouseDown = (event)=> event.stopPropagation()
               px-5 sm:px-6 py-5
             "
           >
-
             {/* =============================================
-                ERROR
+                GENERAL ERROR
             ============================================= */}
 
             {displayedError && (
@@ -833,6 +891,7 @@ const handleMouseDown = (event)=> event.stopPropagation()
                 onChange={handleChange}
                 disabled={loading}
                 maxLength={100}
+                autoComplete="off"
                 placeholder="e.g. Monthly emergency fund"
                 className={getInputClass(
                   Boolean(errors.name)
@@ -906,6 +965,8 @@ const handleMouseDown = (event)=> event.stopPropagation()
                 gap-3
               "
             >
+              {/* CONTRIBUTION */}
+
               <div>
                 <label
                   htmlFor="strategy-amount"
@@ -958,6 +1019,8 @@ const handleMouseDown = (event)=> event.stopPropagation()
                   message={errors.amount}
                 />
               </div>
+
+              {/* CURRENCY */}
 
               <div>
                 <label
@@ -1064,7 +1127,9 @@ const handleMouseDown = (event)=> event.stopPropagation()
                   placeholder="100000"
                   className={`
                     ${getInputClass(
-                      Boolean(errors.targetAmount)
+                      Boolean(
+                        errors.targetAmount
+                      )
                     )}
                     pl-10
                   `}
@@ -1072,7 +1137,9 @@ const handleMouseDown = (event)=> event.stopPropagation()
               </div>
 
               <FieldError
-                message={errors.targetAmount}
+                message={
+                  errors.targetAmount
+                }
               />
             </div>
 
