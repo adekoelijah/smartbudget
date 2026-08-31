@@ -1835,14 +1835,10 @@ const SavingsStrategiesPage = ({
       ===================================================== */}
 
       <SavingStrategiesModal
-        open={isCreateModalOpen}
-        isOpen={isCreateModalOpen}
-        onClose={handleCloseCreateModal}
-        onCancel={handleCloseCreateModal}
-        onSuccess={handleStrategyCreated}
-        onCreated={handleStrategyCreated}
-        onCreate={handleStrategyCreated}
-      />
+  open={isCreateModalOpen}
+  onClose={handleCloseCreateModal}
+  onSubmit={handleStrategyCreated}
+/>
     </>
   );
 };

@@ -1,3 +1,4 @@
+
 /**
  * ============================================================
  * SAVINGS INSIGHT CONTROLLER
@@ -9,8 +10,8 @@
  *
  * - Validate authenticated requests
  * - Validate route/query parameters
- * - Retrieve saving-goal intelligence data
- * - Delegate calculations to savingsInsightService
+ * - Load saving-goal intelligence data
+ * - Delegate intelligence calculations to savingsInsightService
  * - Return consistent API responses
  * - Handle known service errors
  * - Prevent clients from supplying arbitrary user IDs
@@ -44,14 +45,16 @@ import savingsInsightService, {
 } from "../../services/savingsInsightService.js";
 
 import savingGoalService from "../../services/savingGoalService.js";
-// import savingContributionService from "../../services/savingContributionService.js";
-import * as savingContributionService
-from "../../services/savingContributionService.js";
+
+import * as savingContributionService from "../../services/savingContributionService.js";
 
 /* ============================================================
    RESPONSE HELPERS
 ============================================================ */
 
+/**
+ * Send a successful API response.
+ */
 const sendSuccess = (
   res,
   data,
@@ -65,6 +68,9 @@ const sendSuccess = (
   });
 };
 
+/**
+ * Send a consistent API error response.
+ */
 const sendError = (
   res,
   message = "Something went wrong",
@@ -84,10 +90,21 @@ const sendError = (
    AUTHENTICATION HELPERS
 ============================================================ */
 
+/**
+ * Extract the authenticated user ID from the request.
+ *
+ * The controller NEVER accepts userId from:
+ *
+ * - req.body
+ * - req.query
+ * - req.params
+ *
+ * The authenticated identity comes only from req.user.
+ */
 const getAuthenticatedUserId = (req) => {
   const userId =
-    req.user?._id ||
-    req.user?.id ||
+    req.user?._id ??
+    req.user?.id ??
     req.user?.userId;
 
   if (!userId) {
@@ -105,8 +122,17 @@ const getAuthenticatedUserId = (req) => {
    QUERY NORMALIZATION
 ============================================================ */
 
+/**
+ * Normalize the optional asOfDate query parameter.
+ *
+ * If no date is supplied, the current date/time is used.
+ */
 const normalizeDateQuery = (value) => {
-  if (!value) {
+  if (
+    value === undefined ||
+    value === null ||
+    value === ""
+  ) {
     return new Date();
   }
 
@@ -124,23 +150,95 @@ const normalizeDateQuery = (value) => {
 };
 
 /* ============================================================
+   SERVICE VALIDATION
+============================================================ */
+
+/**
+ * Ensure the expected saving-goal service methods exist.
+ *
+ * This prevents an obscure:
+ *
+ *   "savingGoalService.getUserGoals is not a function"
+ *
+ * error from reaching the controller.
+ */
+const assertGoalServiceMethods = () => {
+  if (
+    typeof savingGoalService?.getUserGoals !==
+    "function"
+  ) {
+    throw new SavingInsightServiceError(
+      "Saving goal service is not configured correctly",
+      500,
+      "GOAL_SERVICE_METHOD_MISSING"
+    );
+  }
+
+  if (
+    typeof savingGoalService?.getGoalById !==
+    "function"
+  ) {
+    throw new SavingInsightServiceError(
+      "Saving goal lookup service is not configured correctly",
+      500,
+      "GOAL_LOOKUP_METHOD_MISSING"
+    );
+  }
+};
+
+/**
+ * Ensure the contribution service exposes the
+ * summary method expected by this controller.
+ *
+ * NOTE:
+ *
+ * The provided savingContributionService.js exports:
+ *
+ *   getContributionSummary()
+ *
+ * NOT:
+ *
+ *   getContributionStatistics()
+ */
+const assertContributionServiceMethods = () => {
+  if (
+    typeof savingContributionService
+      ?.getContributionSummary !==
+    "function"
+  ) {
+    throw new SavingInsightServiceError(
+      "Saving contribution summary service is not configured correctly",
+      500,
+      "CONTRIBUTION_SUMMARY_METHOD_MISSING"
+    );
+  }
+};
+
+/* ============================================================
    GOAL DATA LOADER
 ============================================================ */
 
 /**
- * Retrieve goals together with the contribution statistics
- * required by savingsInsightService.
+ * Retrieve saving goals together with contribution
+ * statistics required by savingsInsightService.
  *
- * IMPORTANT:
+ * This function deliberately delegates all contribution
+ * aggregation to savingContributionService.
  *
- * The exact service method names below should match your
- * existing savingGoalService and savingContributionService.
+ * It does NOT calculate financial values itself.
  */
 const loadGoalInsightData = async ({
   userId,
   goalId = null,
 }) => {
+  assertGoalServiceMethods();
+  assertContributionServiceMethods();
+
   let goals;
+
+  /* ----------------------------------------------------------
+     SINGLE GOAL
+  ---------------------------------------------------------- */
 
   if (goalId) {
     const goal =
@@ -158,12 +256,22 @@ const loadGoalInsightData = async ({
     }
 
     goals = [goal];
-  } else {
+  }
+
+  /* ----------------------------------------------------------
+     ALL USER GOALS
+  ---------------------------------------------------------- */
+
+  else {
     goals =
       await savingGoalService.getUserGoals(
         userId
       );
   }
+
+  /* ----------------------------------------------------------
+     VALIDATE RESULT
+  ---------------------------------------------------------- */
 
   if (!Array.isArray(goals)) {
     throw new SavingInsightServiceError(
@@ -173,49 +281,87 @@ const loadGoalInsightData = async ({
     );
   }
 
-  const enrichedGoals = await Promise.all(
-    goals.map(async (goal) => {
-      const goalIdValue =
-        goal?._id || goal?.id;
+  /* ----------------------------------------------------------
+     ENRICH GOALS WITH CONTRIBUTION SUMMARY
+  ---------------------------------------------------------- */
 
-      if (!goalIdValue) {
+  const enrichedGoals =
+    await Promise.all(
+      goals.map(async (goal) => {
+        const goalIdValue =
+          goal?._id ??
+          goal?.id;
+
+        /*
+         * A goal without an ID should never normally happen,
+         * but we fail safely instead of crashing the entire
+         * insight endpoint.
+         */
+        if (!goalIdValue) {
+          return {
+            goal,
+
+            contributionCount: 0,
+
+            averageContribution: 0,
+
+            largestContribution: 0,
+
+            contributionAmount:
+              goal?.contributionAmount ??
+              null,
+
+            frequency:
+              goal?.contributionFrequency ??
+              null,
+          };
+        }
+
+        /*
+         * Delegate contribution aggregation to the service.
+         *
+         * IMPORTANT:
+         *
+         * getContributionSummary() is the actual method
+         * exported by savingContributionService.js.
+         */
+        const statistics =
+          await savingContributionService
+            .getContributionSummary({
+              userId,
+
+              savingGoalId:
+                String(goalIdValue),
+            });
+
         return {
           goal,
-          contributionCount: 0,
-          averageContribution: 0,
-          largestContribution: 0,
+
+          contributionCount:
+            Number(
+              statistics?.contributionCount
+            ) || 0,
+
+          averageContribution:
+            Number(
+              statistics?.averageContribution
+            ) || 0,
+
+          largestContribution:
+            Number(
+              statistics?.largestContribution
+            ) || 0,
+
+          contributionAmount:
+            goal?.contributionAmount ??
+            null,
+
+          frequency:
+            goal?.contributionFrequency ??
+            null,
         };
-      }
-
-      const statistics =
-        await savingContributionService
-          .getContributionStatistics(
-            goalIdValue,
-            userId
-          );
-
-      return {
-        goal,
-
-        contributionCount:
-          statistics?.contributionCount || 0,
-
-        averageContribution:
-          statistics?.averageContribution || 0,
-
-        largestContribution:
-          statistics?.largestContribution || 0,
-
-        contributionAmount:
-          goal?.contributionAmount ||
-          null,
-
-        frequency:
-          goal?.contributionFrequency ||
-          null,
-      };
-    })
-  );
+      })
+    );
 
   return enrichedGoals;
 };
@@ -285,7 +431,8 @@ export const getGoalSavingInsights = async (
     const userId =
       getAuthenticatedUserId(req);
 
-    const { goalId } = req.params;
+    const { goalId } =
+      req.params || {};
 
     if (!goalId) {
       return sendError(
@@ -307,7 +454,10 @@ export const getGoalSavingInsights = async (
         goalId,
       });
 
-    if (goalData.length === 0) {
+    if (
+      !Array.isArray(goalData) ||
+      goalData.length === 0
+    ) {
       throw new SavingInsightServiceError(
         "Saving goal not found",
         404,
@@ -315,7 +465,8 @@ export const getGoalSavingInsights = async (
       );
     }
 
-    const goal = goalData[0];
+    const goal =
+      goalData[0];
 
     const result =
       savingsInsightService
@@ -361,8 +512,8 @@ export const getGoalSavingInsights = async (
 /**
  * GET /api/savings/insights/top
  *
- * Returns the highest-priority insight across the user's
- * active savings portfolio.
+ * Returns the highest-priority insight across the
+ * user's savings portfolio.
  */
 export const getTopSavingInsight = async (
   req,
@@ -393,14 +544,20 @@ export const getTopSavingInsight = async (
       savingsInsightService
         .getTopSavingInsight({
           insights:
-            result.insights,
+            Array.isArray(
+              result?.insights
+            )
+              ? result.insights
+              : [],
         });
 
     return sendSuccess(
       res,
       {
-        insight: topInsight,
-        summary: result.summary,
+        insight: topInsight ?? null,
+
+        summary:
+          result?.summary ?? null,
       },
       topInsight
         ? "Top saving insight retrieved successfully"
@@ -416,7 +573,7 @@ export const getTopSavingInsight = async (
 };
 
 /* ============================================================
-   GET INSIGHT SUMMARY
+   GET SAVING INSIGHT SUMMARY
 ============================================================ */
 
 /**
@@ -453,14 +610,18 @@ export const getSavingInsightSummary = async (
       savingsInsightService
         .summarizeInsights({
           insights:
-            result.insights,
+            Array.isArray(
+              result?.insights
+            )
+              ? result.insights
+              : [],
         });
 
     return sendSuccess(
       res,
       {
         summary:
-          result.summary,
+          result?.summary ?? null,
 
         insights:
           insightSummary,
@@ -480,6 +641,19 @@ export const getSavingInsightSummary = async (
    ERROR HANDLER
 ============================================================ */
 
+/**
+ * Central controller error handler.
+ *
+ * Known service errors preserve their:
+ *
+ * - statusCode
+ * - code
+ * - message
+ * - safe details
+ *
+ * Unknown 500-level errors receive a generic message so that
+ * database/infrastructure details are not exposed to clients.
+ */
 const handleControllerError = (
   error,
   res,
@@ -489,6 +663,10 @@ const handleControllerError = (
     `${logContext}:`,
     error
   );
+
+  /* ----------------------------------------------------------
+     KNOWN SAVINGS INSIGHT ERROR
+  ---------------------------------------------------------- */
 
   if (
     error instanceof
@@ -503,26 +681,31 @@ const handleControllerError = (
     );
   }
 
-  /*
-   * Preserve errors that expose an HTTP status
-   * from downstream services.
-   */
+  /* ----------------------------------------------------------
+     DOWNSTREAM SERVICE ERROR
+  ---------------------------------------------------------- */
+
   const statusCode =
-    Number.isInteger(error?.statusCode)
+    Number.isInteger(
+      error?.statusCode
+    )
       ? error.statusCode
-      : Number.isInteger(error?.status)
+      : Number.isInteger(
+          error?.status
+        )
         ? error.status
         : 500;
 
   const code =
-    error?.code ||
-    "INTERNAL_SERVER_ERROR";
+    typeof error?.code === "string" &&
+    error.code.trim()
+      ? error.code
+      : "INTERNAL_SERVER_ERROR";
 
-  /*
-   * Do not expose internal database,
-   * stack-trace, or infrastructure details
-   * in production responses.
-   */
+  /* ----------------------------------------------------------
+     SAFE CLIENT MESSAGE
+  ---------------------------------------------------------- */
+
   const message =
     statusCode >= 500
       ? "Unable to retrieve saving insights"

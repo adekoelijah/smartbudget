@@ -3,6 +3,7 @@
 import express from "express";
 
 import {
+  createSavingGoalController,
   getUserSavingGoalsController,
   getSavingGoalController,
   getSavingSummaryController,
@@ -11,7 +12,7 @@ import {
   checkSavingEligibilityController,
 } from "../config/controllers/savingsGoalController.js";
 
-import protect  from "../middleware/authMiddleware.js";
+import protect from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -20,18 +21,32 @@ const router = express.Router();
 ========================================================= */
 
 /**
- * All saving-goal endpoints require authentication.
+ * All saving-goal routes require authentication.
  *
- * Ownership is determined exclusively from:
+ * Ownership is always determined from:
  *
  *   req.user.id
  *
- * Controllers must never trust userId from:
+ * Never trust userId from:
  * - params
  * - query
  * - request body
  */
 router.use(protect);
+
+/* =========================================================
+   CREATE SAVING GOAL
+========================================================= */
+
+/**
+ * POST /api/savings/goals
+ *
+ * Creates a new saving goal.
+ */
+router.post(
+  "/",
+  createSavingGoalController
+);
 
 /* =========================================================
    LIST SAVING GOALS
@@ -40,10 +55,7 @@ router.use(protect);
 /**
  * GET /api/savings/goals
  *
- * Returns the authenticated user's saving goals.
- *
- * Query parameters:
- *
+ * Query:
  * ?page=1
  * ?limit=20
  * ?status=active
@@ -54,52 +66,23 @@ router.get(
 );
 
 /* =========================================================
-   GET SAVING GOAL
-========================================================= */
-
-/**
- * GET /api/savings/goals/:goalId
- *
- * Returns one saving goal belonging to the
- * authenticated user.
- */
-router.get(
-  "/:goalId",
-  getSavingGoalController
-);
-
-/* =========================================================
-   SAVING GOAL SUMMARY
+   GOAL-SPECIFIC ROUTES
+   IMPORTANT:
+   These must come BEFORE /:goalId
 ========================================================= */
 
 /**
  * GET /api/savings/goals/:goalId/summary
- *
- * Returns financial/progress summary for the goal.
- *
- * IMPORTANT:
- * This route must appear before:
- *
- *   /:goalId
- *
- * otherwise Express can interpret "summary" as a goalId.
  */
 router.get(
   "/:goalId/summary",
   getSavingSummaryController
 );
 
-/* =========================================================
-   GOAL CONTRIBUTIONS
-========================================================= */
-
 /**
  * GET /api/savings/goals/:goalId/contributions
  *
- * Returns contributions belonging to the goal.
- *
- * Query parameters:
- *
+ * Query:
  * ?page=1
  * ?limit=20
  * ?status=completed
@@ -111,36 +94,36 @@ router.get(
   getGoalContributionsController
 );
 
-/* =========================================================
-   SAVING HISTORY
-========================================================= */
-
 /**
  * GET /api/savings/goals/:goalId/history
- *
- * Returns the saving history associated with the goal.
  */
 router.get(
   "/:goalId/history",
   getSavingHistoryController
 );
 
-/* =========================================================
-   CONTRIBUTION ELIGIBILITY
-========================================================= */
-
 /**
  * GET /api/savings/goals/:goalId/eligibility
  *
- * Checks whether a contribution can be made.
- *
  * Query:
- *
  * ?amount=5000
  */
 router.get(
   "/:goalId/eligibility",
   checkSavingEligibilityController
+);
+
+/* =========================================================
+   GET SINGLE SAVING GOAL
+   MUST COME AFTER /:goalId/... ROUTES
+========================================================= */
+
+/**
+ * GET /api/savings/goals/:goalId
+ */
+router.get(
+  "/:goalId",
+  getSavingGoalController
 );
 
 /* =========================================================

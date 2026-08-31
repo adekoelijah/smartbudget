@@ -69,6 +69,48 @@ const getRequestSession = (req) =>
  * ?limit=20
  * ?status=active
  */
+
+
+
+/* =========================================================
+CREATE SAVING GOAL
+========================================================= */
+
+/**
+
+* POST /api/savings/goals
+*
+* Creates a new saving goal for the authenticated user.
+*
+* Ownership is always taken from req.user.
+* The client must never be allowed to provide the user ID.
+  */
+  export const createSavingGoalController = async (
+  req,
+  res,
+  next
+  ) => {
+  try {
+  const userId =
+  getAuthenticatedUserId(req);
+
+  const goal =
+  await createSavingGoal({
+  userId,
+  data: req.body,
+  session:
+  getRequestSession(req),
+  });
+
+  return res.status(201).json({
+  success: true,
+  data: goal,
+  });
+  } catch (error) {
+  return next(error);
+  }
+  };
+
 export const getUserSavingGoalsController = async (
   req,
   res,
@@ -322,6 +364,7 @@ export const checkSavingEligibilityController =
 ========================================================= */
 
 export default {
+  createSavingGoalController,
   getUserSavingGoalsController,
   getSavingGoalController,
   getSavingSummaryController,
