@@ -175,6 +175,15 @@ const savingsGoalSchema = new Schema(
       default: "medium",
       index: true,
     },
+    status: {
+  type: String,
+  enum: {
+    values: SAVINGS_GOAL_STATUSES,
+    message: "{VALUE} is not a valid savings goal status",
+  },
+  default: "active",
+  index: true,
+},
 
     /* =====================================================
        FINANCIAL TARGET
