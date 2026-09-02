@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useMemo,
   useState,
 } from "react";
 
@@ -32,15 +33,67 @@ import {
 ========================================================= */
 
 const MAX_NAME_LENGTH = 120;
-const MAX_DESCRIPTION_LENGTH = 500;
+const MAX_DESCRIPTION_LENGTH = 1000;
 
 const SUPPORTED_CHALLENGE_TYPES = new Set([
   "fixed_amount",
+  "incremental",
+  "percentage",
   "round_up",
   "no_spend",
   "streak",
   "custom",
 ]);
+
+const FALLBACK_CHALLENGE_TYPES = [
+  {
+    value: "fixed_amount",
+    label: "Fixed Amount",
+  },
+  {
+    value: "incremental",
+    label: "Incremental",
+  },
+  {
+    value: "percentage",
+    label: "Percentage",
+  },
+  {
+    value: "round_up",
+    label: "Round Up",
+  },
+  {
+    value: "no_spend",
+    label: "No Spend",
+  },
+  {
+    value: "streak",
+    label: "Streak",
+  },
+  {
+    value: "custom",
+    label: "Custom",
+  },
+];
+
+const FALLBACK_DIFFICULTIES = [
+  {
+    value: "beginner",
+    label: "Beginner",
+  },
+  {
+    value: "intermediate",
+    label: "Intermediate",
+  },
+  {
+    value: "advanced",
+    label: "Advanced",
+  },
+  {
+    value: "expert",
+    label: "Expert",
+  },
+];
 
 const FREQUENCY_OPTIONS = [
   {
@@ -173,7 +226,9 @@ const getId = (value) => {
     return String(value);
   }
 
-  if (typeof value === "object") {
+  if (
+    typeof value === "object"
+  ) {
     return String(
       value?._id ??
         value?.id ??
@@ -185,7 +240,47 @@ const getId = (value) => {
   return "";
 };
 
-const normalizeOptions = (source) => {
+const prettifyEnumLabel = (value) => {
+  if (value == null) {
+    return "";
+  }
+
+  return String(value)
+    .trim()
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(
+      /\b\w/g,
+      (character) =>
+        character.toUpperCase()
+    );
+};
+
+/**
+ * Normalizes enum constants regardless of whether
+ * they are exported as:
+ *
+ * [
+ *   "fixed_amount",
+ *   "incremental"
+ * ]
+ *
+ * or:
+ *
+ * {
+ *   FIXED_AMOUNT: "fixed_amount",
+ *   INCREMENTAL: "incremental"
+ * }
+ *
+ * or:
+ *
+ * [
+ *   { value: "fixed_amount", label: "Fixed Amount" }
+ * ]
+ */
+const normalizeOptions = (
+  source
+) => {
   if (Array.isArray(source)) {
     return source
       .map((option) => {
@@ -199,20 +294,20 @@ const normalizeOptions = (source) => {
             option._id ??
             "";
 
-          const label =
-            option.label ??
-            option.name ??
-            option.title ??
-            option.value ??
-            "";
-
           if (!value) {
             return null;
           }
 
           return {
             value: String(value),
-            label: String(label),
+            label: String(
+              option.label ??
+                option.name ??
+                option.title ??
+                prettifyEnumLabel(
+                  value
+                )
+            ),
           };
         }
 
@@ -226,7 +321,10 @@ const normalizeOptions = (source) => {
 
         return {
           value: String(option),
-          label: String(option),
+          label:
+            prettifyEnumLabel(
+              option
+            ),
         };
       })
       .filter(Boolean);
@@ -236,21 +334,90 @@ const normalizeOptions = (source) => {
     source &&
     typeof source === "object"
   ) {
-    return Object.entries(source)
-      .map(([value, label]) => ({
-        value: String(value),
-        label: String(label),
-      }))
-      .filter((option) => option.value);
+    return Object.values(source)
+      .map((value) => {
+        if (
+          value &&
+          typeof value === "object"
+        ) {
+          const optionValue =
+            value.value ??
+            value.id ??
+            value._id ??
+            "";
+
+          if (!optionValue) {
+            return null;
+          }
+
+          return {
+            value: String(
+              optionValue
+            ),
+            label: String(
+              value.label ??
+                value.name ??
+                value.title ??
+                prettifyEnumLabel(
+                  optionValue
+                )
+            ),
+          };
+        }
+
+        if (
+          value === null ||
+          value === undefined ||
+          value === ""
+        ) {
+          return null;
+        }
+
+        return {
+          value: String(value),
+          label:
+            prettifyEnumLabel(
+              value
+            ),
+        };
+      })
+      .filter(Boolean);
   }
 
   return [];
 };
 
+const normalizeDifficulty = (
+  value
+) =>
+  String(
+    value ?? "beginner"
+  )
+    .trim()
+    .toLowerCase();
+
+const normalizeChallengeType = (
+  value
+) => {
+  const normalized =
+    String(
+      value ?? ""
+    )
+      .trim()
+      .toLowerCase();
+
+  return SUPPORTED_CHALLENGE_TYPES.has(
+    normalized
+  )
+    ? normalized
+    : "fixed_amount";
+};
+
 const getToday = () => {
   const date = new Date();
 
-  const year = date.getFullYear();
+  const year =
+    date.getFullYear();
 
   const month = String(
     date.getMonth() + 1
@@ -263,34 +430,38 @@ const getToday = () => {
   return `${year}-${month}-${day}`;
 };
 
-const createInitialForm = (values = {}) => ({
+const createInitialForm = (
+  values = {}
+) => ({
   ...INITIAL_FORM,
 
   name:
-    typeof values.name === "string"
+    typeof values.name ===
+    "string"
       ? values.name
       : "",
 
   description:
-    typeof values.description === "string"
+    typeof values.description ===
+    "string"
       ? values.description
       : "",
 
   challengeType:
-    SUPPORTED_CHALLENGE_TYPES.has(
-      String(values.challengeType ?? "")
-    )
-      ? String(values.challengeType)
-      : INITIAL_FORM.challengeType,
+    normalizeChallengeType(
+      values.challengeType
+    ),
 
   difficulty:
-    values.difficulty != null
-      ? String(values.difficulty)
-      : INITIAL_FORM.difficulty,
+    normalizeDifficulty(
+      values.difficulty
+    ),
 
   currency:
     values.currency != null
-      ? String(values.currency).toUpperCase()
+      ? String(
+          values.currency
+        ).toUpperCase()
       : INITIAL_FORM.currency,
 
   targetAmount:
@@ -325,16 +496,24 @@ const createInitialForm = (values = {}) => ({
     values.endDate ?? "",
 
   savingPlan:
-    getId(values.savingPlan),
+    getId(
+      values.savingPlan
+    ),
 
   savingAccount:
-    getId(values.savingAccount),
+    getId(
+      values.savingAccount
+    ),
 
   autoSaveEnabled:
-    Boolean(values.autoSaveEnabled),
+    Boolean(
+      values.autoSaveEnabled
+    ),
 
   autoSave:
-    getId(values.autoSave),
+    getId(
+      values.autoSave
+    ),
 
   allowEarlyCompletion:
     values.allowEarlyCompletion ??
@@ -353,92 +532,115 @@ const createInitialForm = (values = {}) => ({
     INITIAL_FORM.notificationDaysBefore,
 });
 
-const buildChallengePayload = (form) => {
+/* =========================================================
+   PAYLOAD BUILDER
+========================================================= */
+
+const buildChallengePayload = (
+  form
+) => {
+  const challengeType =
+    normalizeChallengeType(
+      form.challengeType
+    );
+
+  const difficulty =
+    normalizeDifficulty(
+      form.difficulty
+    );
+
+  const currency =
+    String(
+      form.currency || "NGN"
+    ).toUpperCase();
+
   const frequencyType =
-    form.frequencyType;
+    String(
+      form.frequencyType ||
+        "weekly"
+    ).toLowerCase();
 
   const frequency = {
     type: frequencyType,
-    interval:
-      Math.max(
-        1,
-        Number(form.frequencyInterval) || 1
-      ),
+
+    interval: Math.max(
+      1,
+      Number(
+        form.frequencyInterval
+      ) || 1
+    ),
   };
 
   if (
-    frequencyType === "weekly" ||
-    frequencyType === "biweekly"
+    frequencyType ===
+      "weekly" ||
+    frequencyType ===
+      "biweekly"
   ) {
-    if (form.dayOfWeek !== "") {
+    if (
+      form.dayOfWeek !==
+      ""
+    ) {
       frequency.dayOfWeek =
-        Number(form.dayOfWeek);
+        Number(
+          form.dayOfWeek
+        );
     }
   }
 
-  if (frequencyType === "monthly") {
-    if (form.dayOfMonth !== "") {
+  if (
+    frequencyType ===
+    "monthly"
+  ) {
+    if (
+      form.dayOfMonth !==
+      ""
+    ) {
       frequency.dayOfMonth =
-        Number(form.dayOfMonth);
+        Number(
+          form.dayOfMonth
+        );
     }
   }
 
-  return {
-    name: form.name.trim(),
+  const payload = {
+    name:
+      typeof form.name ===
+      "string"
+        ? form.name.trim()
+        : "",
 
-    ...(form.description.trim()
-      ? {
-          description:
-            form.description.trim(),
-        }
-      : {}),
+    description:
+      typeof form.description ===
+      "string"
+        ? form.description.trim()
+        : "",
 
-    challengeType:
-      form.challengeType,
+    challengeType,
 
-    difficulty:
-      form.difficulty,
+    difficulty,
 
-    currency:
-      String(form.currency).toUpperCase(),
+    currency,
 
     target: {
       targetAmount:
-        Number(form.targetAmount),
+        Number(
+          form.targetAmount
+        ),
     },
 
     frequency,
 
     startDate:
-      form.startDate,
+      form.startDate || "",
 
     endDate:
-      form.endDate,
-
-    ...(getId(form.savingAccount)
-      ? {
-          savingAccount:
-            getId(form.savingAccount),
-        }
-      : {}),
-
-    ...(getId(form.savingPlan)
-      ? {
-          savingPlan:
-            getId(form.savingPlan),
-        }
-      : {}),
+      form.endDate || "",
 
     autoSaveEnabled:
-      Boolean(form.autoSaveEnabled),
-
-    ...(form.autoSaveEnabled &&
-    getId(form.autoSave)
-      ? {
-          autoSave:
-            getId(form.autoSave),
-        }
-      : {}),
+      Boolean(
+        form.autoSaveEnabled
+      ),
 
     allowEarlyCompletion:
       Boolean(
@@ -451,7 +653,9 @@ const buildChallengePayload = (form) => {
       ),
 
     notifyBeforeDue:
-      Boolean(form.notifyBeforeDue),
+      Boolean(
+        form.notifyBeforeDue
+      ),
 
     notificationDaysBefore:
       Math.min(
@@ -464,7 +668,46 @@ const buildChallengePayload = (form) => {
         )
       ),
   };
+
+  const savingAccount =
+    getId(
+      form.savingAccount
+    );
+
+  const savingPlan =
+    getId(
+      form.savingPlan
+    );
+
+  const autoSave =
+    getId(
+      form.autoSave
+    );
+
+  if (savingAccount) {
+    payload.savingAccount =
+      savingAccount;
+  }
+
+  if (savingPlan) {
+    payload.savingPlan =
+      savingPlan;
+  }
+
+  if (
+    payload.autoSaveEnabled &&
+    autoSave
+  ) {
+    payload.autoSave =
+      autoSave;
+  }
+
+  return payload;
 };
+
+/* =========================================================
+   VALIDATION HELPERS
+========================================================= */
 
 const extractValidationErrors = (
   result
@@ -475,7 +718,8 @@ const extractValidationErrors = (
 
   if (
     !result ||
-    typeof result !== "object"
+    typeof result !==
+      "object"
   ) {
     return {
       form:
@@ -494,7 +738,8 @@ const extractValidationErrors = (
   ) {
     if (
       result.errors &&
-      typeof result.errors === "object"
+      typeof result.errors ===
+        "object"
     ) {
       return result.errors;
     }
@@ -507,7 +752,8 @@ const extractValidationErrors = (
 
   if (
     result.errors &&
-    typeof result.errors === "object"
+    typeof result.errors ===
+      "object"
   ) {
     return result.errors;
   }
@@ -531,30 +777,26 @@ const getFieldError = (
 const getChallengeTypeLabel = (
   options,
   value
-) => {
-  return (
-    options.find(
-      (option) =>
-        option.value === value
-    )?.label ||
-    value ||
-    "Savings challenge"
+) =>
+  options.find(
+    (option) =>
+      option.value === value
+  )?.label ??
+  prettifyEnumLabel(
+    value
   );
-};
 
 const getDifficultyLabel = (
   options,
   value
-) => {
-  return (
-    options.find(
-      (option) =>
-        option.value === value
-    )?.label ||
-    value ||
-    "Beginner"
+) =>
+  options.find(
+    (option) =>
+      option.value === value
+  )?.label ??
+  prettifyEnumLabel(
+    value
   );
-};
 
 /* =========================================================
    SMALL UI COMPONENTS
@@ -683,7 +925,9 @@ const SelectField = ({
       value={value}
       onChange={onChange}
       disabled={disabled}
-      aria-invalid={Boolean(error)}
+      aria-invalid={Boolean(
+        error
+      )}
       className={[
         "appearance-none w-full",
         "px-3.5 py-2.5 pr-10",
@@ -692,6 +936,7 @@ const SelectField = ({
         "transition",
         "disabled:bg-slate-50 disabled:text-slate-400",
         "focus:ring-2",
+
         error
           ? "border-red-300 focus:border-red-500 focus:ring-red-100"
           : "border-slate-200 focus:border-blue-500 focus:ring-blue-100",
@@ -703,14 +948,16 @@ const SelectField = ({
         </option>
       ) : null}
 
-      {options.map((option) => (
-        <option
-          key={option.value}
-          value={option.value}
-        >
-          {option.label}
-        </option>
-      ))}
+      {options.map(
+        (option) => (
+          <option
+            key={option.value}
+            value={option.value}
+          >
+            {option.label}
+          </option>
+        )
+      )}
     </select>
 
     <ChevronDown
@@ -742,9 +989,11 @@ const Toggle = ({
       "flex items-start gap-3",
       "p-3.5 rounded-xl border",
       "cursor-pointer transition",
+
       checked
         ? "border-blue-200 bg-blue-50/50"
         : "border-slate-200 bg-white hover:bg-slate-50",
+
       disabled
         ? "opacity-60 cursor-not-allowed"
         : "",
@@ -769,6 +1018,7 @@ const Toggle = ({
         "flex justify-center items-center mt-0.5",
         "rounded-full w-5 h-5 border",
         "shrink-0 transition",
+
         checked
           ? "bg-blue-600 border-blue-600 text-white"
           : "bg-white border-slate-300",
@@ -827,182 +1077,364 @@ const CreateChallengeModal = ({
 }) => {
   const titleId = useId();
 
-  const [form, setForm] = useState(
-    () =>
+  const [form, setForm] =
+    useState(() =>
       createInitialForm(
         initialValues
       )
-  );
+    );
 
   const [errors, setErrors] =
     useState({});
 
-  const [submitError, setSubmitError] =
-    useState("");
+  const [
+    submitError,
+    setSubmitError,
+  ] = useState("");
 
   const today = getToday();
 
+  /* =======================================================
+     NORMALIZED OPTIONS
+  ======================================================== */
+
   const challengeTypeOptions =
-    normalizeOptions(
-      CHALLENGE_TYPES
-    ).filter((option) =>
-      SUPPORTED_CHALLENGE_TYPES.has(
-        option.value
-      )
-    );
+    useMemo(() => {
+      const normalized =
+        normalizeOptions(
+          CHALLENGE_TYPES
+        )
+          .map(
+            (option) => ({
+              value:
+                String(
+                  option.value
+                )
+                  .trim()
+                  .toLowerCase(),
+
+              label:
+                option.label ||
+                prettifyEnumLabel(
+                  option.value
+                ),
+            })
+          )
+          .filter(
+            (option) =>
+              SUPPORTED_CHALLENGE_TYPES.has(
+                option.value
+              )
+          );
+
+      const unique =
+        new Map();
+
+      normalized.forEach(
+        (option) => {
+          if (
+            !unique.has(
+              option.value
+            )
+          ) {
+            unique.set(
+              option.value,
+              option
+            );
+          }
+        }
+      );
+
+      const options =
+        Array.from(
+          unique.values()
+        );
+
+      /*
+       * If the constants file has an unexpected
+       * export shape, do not render an empty
+       * challenge-type selector.
+       */
+      return options.length > 0
+        ? options
+        : FALLBACK_CHALLENGE_TYPES;
+    }, []);
 
   const difficultyOptions =
-    normalizeOptions(
-      CHALLENGE_DIFFICULTIES
-    );
+    useMemo(() => {
+      const normalized =
+        normalizeOptions(
+          CHALLENGE_DIFFICULTIES
+        )
+          .map(
+            (option) => ({
+              value:
+                normalizeDifficulty(
+                  option.value
+                ),
+              label:
+                option.label ||
+                prettifyEnumLabel(
+                  option.value
+                ),
+            })
+          );
+
+      const unique =
+        new Map();
+
+      normalized.forEach(
+        (option) => {
+          if (
+            !unique.has(
+              option.value
+            )
+          ) {
+            unique.set(
+              option.value,
+              option
+            );
+          }
+        }
+      );
+
+      const options =
+        Array.from(
+          unique.values()
+        );
+
+      return options.length > 0
+        ? options
+        : FALLBACK_DIFFICULTIES;
+    }, []);
 
   const normalizedPlans =
-    Array.isArray(savingPlans)
-      ? savingPlans
-      : [];
+    useMemo(
+      () =>
+        Array.isArray(
+          savingPlans
+        )
+          ? savingPlans
+          : [],
+      [savingPlans]
+    );
 
   const normalizedAccounts =
-    Array.isArray(savingAccounts)
-      ? savingAccounts
-      : [];
+    useMemo(
+      () =>
+        Array.isArray(
+          savingAccounts
+        )
+          ? savingAccounts
+          : [],
+      [savingAccounts]
+    );
 
   const normalizedAutoSaves =
-    Array.isArray(autoSaves)
-      ? autoSaves
-      : [];
+    useMemo(
+      () =>
+        Array.isArray(
+          autoSaves
+        )
+          ? autoSaves
+          : [],
+      [autoSaves]
+    );
 
   const selectedCurrency =
-    CURRENCY_OPTIONS.find(
-      (currency) =>
-        currency.value ===
-        form.currency
-    ) ??
-    CURRENCY_OPTIONS[0];
+    useMemo(
+      () =>
+        CURRENCY_OPTIONS.find(
+          (currency) =>
+            currency.value ===
+            form.currency
+        ) ??
+        CURRENCY_OPTIONS[0],
+      [form.currency]
+    );
 
   const selectedChallengeType =
-    getChallengeTypeLabel(
-      challengeTypeOptions,
-      form.challengeType
+    useMemo(
+      () =>
+        getChallengeTypeLabel(
+          challengeTypeOptions,
+          form.challengeType
+        ),
+      [
+        challengeTypeOptions,
+        form.challengeType,
+      ]
     );
 
   const selectedDifficulty =
-    getDifficultyLabel(
-      difficultyOptions,
-      form.difficulty
+    useMemo(
+      () =>
+        getDifficultyLabel(
+          difficultyOptions,
+          form.difficulty
+        ),
+      [
+        difficultyOptions,
+        form.difficulty,
+      ]
     );
 
-  const updateField = useCallback(
-    (name, value) => {
-      setForm((previous) => ({
-        ...previous,
-        [name]: value,
-      }));
+  /* =======================================================
+     FIELD UPDATES
+  ======================================================== */
 
-      setErrors((previous) => {
-        const keysToRemove = [
-          name,
-        ];
+  const updateField =
+    useCallback(
+      (name, value) => {
+        setForm(
+          (previous) => ({
+            ...previous,
+            [name]:
+              name ===
+              "challengeType"
+                ? normalizeChallengeType(
+                    value
+                  )
+                : name ===
+                    "difficulty"
+                  ? normalizeDifficulty(
+                      value
+                    )
+                  : name ===
+                      "currency"
+                    ? String(
+                        value
+                      ).toUpperCase()
+                    : value,
+          })
+        );
 
-        if (name === "targetAmount") {
-          keysToRemove.push(
-            "target.targetAmount"
-          );
-        }
+        setErrors(
+          (previous) => {
+            const keysToRemove =
+              [name];
 
-        if (
-          name === "frequencyType"
-        ) {
-          keysToRemove.push(
-            "frequency.type"
-          );
-        }
-
-        if (
-          name === "frequencyInterval"
-        ) {
-          keysToRemove.push(
-            "frequency.interval"
-          );
-        }
-
-        if (name === "dayOfWeek") {
-          keysToRemove.push(
-            "frequency.dayOfWeek"
-          );
-        }
-
-        if (name === "dayOfMonth") {
-          keysToRemove.push(
-            "frequency.dayOfMonth"
-          );
-        }
-
-        const next = {
-          ...previous,
-        };
-
-        let changed = false;
-
-        keysToRemove.forEach(
-          (key) => {
             if (
-              Object.prototype.hasOwnProperty.call(
-                next,
-                key
-              )
+              name ===
+              "targetAmount"
             ) {
-              delete next[key];
-              changed = true;
+              keysToRemove.push(
+                "target.targetAmount"
+              );
             }
+
+            if (
+              name ===
+              "frequencyType"
+            ) {
+              keysToRemove.push(
+                "frequency.type"
+              );
+            }
+
+            if (
+              name ===
+              "frequencyInterval"
+            ) {
+              keysToRemove.push(
+                "frequency.interval"
+              );
+            }
+
+            if (
+              name ===
+              "dayOfWeek"
+            ) {
+              keysToRemove.push(
+                "frequency.dayOfWeek"
+              );
+            }
+
+            if (
+              name ===
+              "dayOfMonth"
+            ) {
+              keysToRemove.push(
+                "frequency.dayOfMonth"
+              );
+            }
+
+            const next = {
+              ...previous,
+            };
+
+            let changed =
+              false;
+
+            keysToRemove.forEach(
+              (key) => {
+                if (
+                  Object.prototype.hasOwnProperty.call(
+                    next,
+                    key
+                  )
+                ) {
+                  delete next[key];
+                  changed = true;
+                }
+              }
+            );
+
+            return changed
+              ? next
+              : previous;
           }
         );
 
-        return changed
-          ? next
-          : previous;
-      });
-
-      setSubmitError("");
-    },
-    []
-  );
-
-  const handleChange = useCallback(
-    (event) => {
-      const {
-        name,
-        value,
-        type,
-        checked,
-      } = event.target;
-
-      updateField(
-        name,
-        type === "checkbox"
-          ? checked
-          : value
-      );
-    },
-    [updateField]
-  );
-
-  const handleClose = useCallback(() => {
-    if (creating) {
-      return;
-    }
-
-    setForm(
-      createInitialForm()
+        setSubmitError("");
+      },
+      []
     );
 
-    setErrors({});
-    setSubmitError("");
+  const handleChange =
+    useCallback(
+      (event) => {
+        const {
+          name,
+          value,
+          type,
+          checked,
+        } =
+          event.target;
 
-    onClose?.();
-  }, [
-    creating,
-    onClose,
-  ]);
+        updateField(
+          name,
+          type ===
+            "checkbox"
+            ? checked
+            : value
+        );
+      },
+      [updateField]
+    );
+
+  /* =======================================================
+     CLOSE
+  ======================================================== */
+
+  const handleClose =
+    useCallback(() => {
+      if (creating) {
+        return;
+      }
+
+      setForm(
+        createInitialForm()
+      );
+
+      setErrors({});
+      setSubmitError("");
+
+      onClose?.();
+    }, [
+      creating,
+      onClose,
+    ]);
 
   const handleBackdropClick =
     useCallback(
@@ -1023,33 +1455,51 @@ const CreateChallengeModal = ({
       ]
     );
 
+  /* =======================================================
+     VALIDATION
+  ======================================================== */
+
   const validateForm =
-    useCallback((payload) => {
-      try {
-        const result =
-          validateSavingsChallenge(
-            payload
-          );
+    useCallback(
+      (payload) => {
+        try {
+          /*
+           * IMPORTANT:
+           * Validate the actual payload, not
+           * { data: payload } and not the form state.
+           */
+          const result =
+            validateSavingsChallenge(
+              payload
+            );
 
-        return extractValidationErrors(
-          result
-        );
-      } catch (validationError) {
-        if (
-          import.meta.env.DEV
+          return extractValidationErrors(
+            result
+          );
+        } catch (
+          validationError
         ) {
-          console.error(
-            "[CreateChallengeModal] Validation error:",
-            validationError
-          );
-        }
+          if (
+            import.meta.env.DEV
+          ) {
+            console.error(
+              "[CreateChallengeModal] Validation error:",
+              validationError
+            );
+          }
 
-        return {
-          form:
-            "Unable to validate this challenge. Please review the information and try again.",
-        };
-      }
-    }, []);
+          return {
+            form:
+              "Unable to validate this challenge. Please review the information and try again.",
+          };
+        }
+      },
+      []
+    );
+
+  /* =======================================================
+     SUBMIT
+  ======================================================== */
 
   const handleSubmit =
     useCallback(
@@ -1077,8 +1527,19 @@ const CreateChallengeModal = ({
             form
           );
 
+        if (
+          import.meta.env.DEV
+        ) {
+          console.debug(
+            "[CreateChallengeModal] create payload:",
+            payload
+          );
+        }
+
         const validationErrors =
-          validateForm(payload);
+          validateForm(
+            payload
+          );
 
         if (
           Object.keys(
@@ -1094,7 +1555,9 @@ const CreateChallengeModal = ({
         setErrors({});
 
         try {
-          await onSubmit(payload);
+          await onSubmit(
+            payload
+          );
 
           setForm(
             createInitialForm()
@@ -1102,7 +1565,9 @@ const CreateChallengeModal = ({
 
           setErrors({});
           setSubmitError("");
-        } catch (submitErrorValue) {
+        } catch (
+          submitErrorValue
+        ) {
           if (
             import.meta.env.DEV
           ) {
@@ -1134,6 +1599,10 @@ const CreateChallengeModal = ({
         validateForm,
       ]
     );
+
+  /* =======================================================
+     KEYBOARD / BODY LOCK
+  ======================================================== */
 
   useEffect(() => {
     if (!open) {
@@ -1174,7 +1643,8 @@ const CreateChallengeModal = ({
     }
 
     const previousOverflow =
-      document.body.style.overflow;
+      document.body.style
+        .overflow;
 
     document.body.style.overflow =
       "hidden";
@@ -1189,9 +1659,14 @@ const CreateChallengeModal = ({
     return null;
   }
 
+  /* =======================================================
+     ERRORS
+  ======================================================== */
+
   const visibleError =
     submitError ||
-    (typeof error === "string"
+    (typeof error ===
+    "string"
       ? error
       : error?.message || "");
 
@@ -1217,6 +1692,12 @@ const CreateChallengeModal = ({
     getFieldError(
       errors,
       "difficulty"
+    );
+
+  const currencyError =
+    getFieldError(
+      errors,
+      "currency"
     );
 
   const targetError =
@@ -1289,6 +1770,10 @@ const CreateChallengeModal = ({
     form.frequencyType ===
     "monthly";
 
+  /* =======================================================
+     RENDER
+  ======================================================== */
+
   return (
     <div
       className="
@@ -1300,7 +1785,9 @@ const CreateChallengeModal = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
-      onClick={handleBackdropClick}
+      onClick={
+        handleBackdropClick
+      }
     >
       <div
         className="
@@ -1310,13 +1797,13 @@ const CreateChallengeModal = ({
           rounded-3xl
           shadow-2xl
         "
-        onClick={(event) =>
-          event.stopPropagation()
-        }
+        onClick={(event) => {
+          event.stopPropagation();
+        }}
       >
-        {/* =====================================================
+        {/* =================================================
             HEADER
-        ====================================================== */}
+        ================================================== */}
 
         <header
           className="
@@ -1370,8 +1857,9 @@ const CreateChallengeModal = ({
                   text-slate-500 text-xs sm:text-sm
                 "
               >
-                Turn a savings target into
-                a structured challenge.
+                Turn a savings target
+                into a structured
+                challenge.
               </p>
             </div>
           </div>
@@ -1398,9 +1886,9 @@ const CreateChallengeModal = ({
           </button>
         </header>
 
-        {/* =====================================================
+        {/* =================================================
             BODY
-        ====================================================== */}
+        ================================================== */}
 
         <form
           onSubmit={handleSubmit}
@@ -1420,10 +1908,6 @@ const CreateChallengeModal = ({
                 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px]
               "
             >
-              {/* =================================================
-                  FORM CONTENT
-              ================================================== */}
-
               <div
                 className="
                   space-y-6 p-5 sm:p-7
@@ -1518,8 +2002,12 @@ const CreateChallengeModal = ({
                         name="name"
                         type="text"
                         value={form.name}
-                        onChange={handleChange}
-                        disabled={creating}
+                        onChange={
+                          handleChange
+                        }
+                        disabled={
+                          creating
+                        }
                         maxLength={
                           MAX_NAME_LENGTH
                         }
@@ -1536,6 +2024,7 @@ const CreateChallengeModal = ({
                           "transition",
                           "disabled:bg-slate-50",
                           "focus:ring-2",
+
                           nameError
                             ? "border-red-300 focus:border-red-500 focus:ring-red-100"
                             : "border-slate-200 focus:border-blue-500 focus:ring-blue-100",
@@ -1559,7 +2048,9 @@ const CreateChallengeModal = ({
                           "
                         >
                           {form.name.length}/
-                          {MAX_NAME_LENGTH}
+                          {
+                            MAX_NAME_LENGTH
+                          }
                         </span>
                       </div>
                     </div>
@@ -1575,8 +2066,12 @@ const CreateChallengeModal = ({
                         value={
                           form.description
                         }
-                        onChange={handleChange}
-                        disabled={creating}
+                        onChange={
+                          handleChange
+                        }
+                        disabled={
+                          creating
+                        }
                         rows={3}
                         maxLength={
                           MAX_DESCRIPTION_LENGTH
@@ -1590,19 +2085,18 @@ const CreateChallengeModal = ({
                           "resize-none transition",
                           "disabled:bg-slate-50",
                           "focus:border-blue-500 focus:ring-2 focus:ring-blue-100",
+
                           descriptionError
                             ? "border-red-300"
                             : "border-slate-200",
                         ].join(" ")}
                       />
 
-                      {descriptionError ? (
-                        <FieldError>
-                          {
-                            descriptionError
-                          }
-                        </FieldError>
-                      ) : null}
+                      <FieldError>
+                        {
+                          descriptionError
+                        }
+                      </FieldError>
                     </div>
 
                     <div
@@ -1611,6 +2105,10 @@ const CreateChallengeModal = ({
                         gap-4
                       "
                     >
+                      {/* =================================================
+                          CHALLENGE TYPE
+                      ================================================== */}
+
                       <div>
                         <FieldLabel
                           htmlFor="challenge-type"
@@ -1643,7 +2141,27 @@ const CreateChallengeModal = ({
                         <FieldError>
                           {typeError}
                         </FieldError>
+
+                        {import.meta
+                          .env.DEV &&
+                        challengeTypeOptions.length ===
+                          0 ? (
+                          <p
+                            className="
+                              mt-1.5
+                              text-[11px] text-amber-600
+                            "
+                          >
+                            No challenge
+                            types are
+                            configured.
+                          </p>
+                        ) : null}
                       </div>
+
+                      {/* =================================================
+                          DIFFICULTY
+                      ================================================== */}
 
                       <div>
                         <FieldLabel
@@ -1681,6 +2199,10 @@ const CreateChallengeModal = ({
                         </FieldError>
                       </div>
 
+                      {/* =================================================
+                          CURRENCY
+                      ================================================== */}
+
                       <div>
                         <FieldLabel
                           htmlFor="challenge-currency"
@@ -1701,9 +2223,19 @@ const CreateChallengeModal = ({
                           disabled={
                             creating
                           }
-                          options={CURRENCY_OPTIONS}
-                          error={false}
+                          options={
+                            CURRENCY_OPTIONS
+                          }
+                          error={
+                            currencyError
+                          }
                         />
+
+                        <FieldError>
+                          {
+                            currencyError
+                          }
+                        </FieldError>
                       </div>
                     </div>
                   </div>
@@ -1780,6 +2312,7 @@ const CreateChallengeModal = ({
                           "transition",
                           "disabled:bg-slate-50",
                           "focus:ring-2",
+
                           targetError
                             ? "border-red-300 focus:border-red-500 focus:ring-red-100"
                             : "border-slate-200 focus:border-blue-500 focus:ring-blue-100",
@@ -1897,6 +2430,7 @@ const CreateChallengeModal = ({
                               "border rounded-xl outline-none",
                               "disabled:bg-slate-50",
                               "focus:ring-2",
+
                               intervalError
                                 ? "border-red-300 focus:border-red-500 focus:ring-red-100"
                                 : "border-slate-200 focus:border-blue-500 focus:ring-blue-100",
@@ -1905,16 +2439,16 @@ const CreateChallengeModal = ({
                         </div>
 
                         <FieldError>
-                          {intervalError}
+                          {
+                            intervalError
+                          }
                         </FieldError>
                       </div>
                     </div>
 
                     {showWeeklyDay ? (
                       <div>
-                        <FieldLabel
-                          htmlFor="challenge-day-of-week"
-                        >
+                        <FieldLabel htmlFor="challenge-day-of-week">
                           Preferred day
                         </FieldLabel>
 
@@ -1934,22 +2468,18 @@ const CreateChallengeModal = ({
                             DAY_OF_WEEK_OPTIONS
                           }
                           placeholder="Any day"
-                          error={
-                            getFieldError(
-                              errors,
-                              "dayOfWeek",
-                              "frequency.dayOfWeek"
-                            )
-                          }
+                          error={getFieldError(
+                            errors,
+                            "dayOfWeek",
+                            "frequency.dayOfWeek"
+                          )}
                         />
                       </div>
                     ) : null}
 
                     {showMonthlyDay ? (
                       <div>
-                        <FieldLabel
-                          htmlFor="challenge-day-of-month"
-                        >
+                        <FieldLabel htmlFor="challenge-day-of-month">
                           Day of month
                         </FieldLabel>
 
@@ -1969,13 +2499,11 @@ const CreateChallengeModal = ({
                             DAY_OF_MONTH_OPTIONS
                           }
                           placeholder="Select day"
-                          error={
-                            getFieldError(
-                              errors,
-                              "dayOfMonth",
-                              "frequency.dayOfMonth"
-                            )
-                          }
+                          error={getFieldError(
+                            errors,
+                            "dayOfMonth",
+                            "frequency.dayOfMonth"
+                          )}
                         />
                       </div>
                     ) : null}
@@ -2031,6 +2559,7 @@ const CreateChallengeModal = ({
                               "border rounded-xl outline-none",
                               "disabled:bg-slate-50",
                               "focus:ring-2",
+
                               startDateError
                                 ? "border-red-300 focus:border-red-500 focus:ring-red-100"
                                 : "border-slate-200 focus:border-blue-500 focus:ring-blue-100",
@@ -2039,7 +2568,9 @@ const CreateChallengeModal = ({
                         </div>
 
                         <FieldError>
-                          {startDateError}
+                          {
+                            startDateError
+                          }
                         </FieldError>
                       </div>
 
@@ -2091,6 +2622,7 @@ const CreateChallengeModal = ({
                               "border rounded-xl outline-none",
                               "disabled:bg-slate-50",
                               "focus:ring-2",
+
                               endDateError
                                 ? "border-red-300 focus:border-red-500 focus:ring-red-100"
                                 : "border-slate-200 focus:border-blue-500 focus:ring-blue-100",
@@ -2099,7 +2631,9 @@ const CreateChallengeModal = ({
                         </div>
 
                         <FieldError>
-                          {endDateError}
+                          {
+                            endDateError
+                          }
                         </FieldError>
                       </div>
                     </div>
@@ -2131,11 +2665,9 @@ const CreateChallengeModal = ({
                       <SelectField
                         id="challenge-account"
                         name="savingAccount"
-                        value={
-                          getId(
-                            form.savingAccount
-                          )
-                        }
+                        value={getId(
+                          form.savingAccount
+                        )}
                         onChange={
                           handleChange
                         }
@@ -2144,7 +2676,9 @@ const CreateChallengeModal = ({
                         }
                         options={normalizedAccounts
                           .map(
-                            (account) => {
+                            (
+                              account
+                            ) => {
                               const id =
                                 getId(
                                   account
@@ -2163,7 +2697,9 @@ const CreateChallengeModal = ({
                               };
                             }
                           )
-                          .filter(Boolean)}
+                          .filter(
+                            Boolean
+                          )}
                         placeholder="No saving account"
                         error={
                           accountError
@@ -2183,11 +2719,9 @@ const CreateChallengeModal = ({
                       <SelectField
                         id="challenge-plan"
                         name="savingPlan"
-                        value={
-                          getId(
-                            form.savingPlan
-                          )
-                        }
+                        value={getId(
+                          form.savingPlan
+                        )}
                         onChange={
                           handleChange
                         }
@@ -2215,7 +2749,9 @@ const CreateChallengeModal = ({
                               };
                             }
                           )
-                          .filter(Boolean)}
+                          .filter(
+                            Boolean
+                          )}
                         placeholder="No saving plan"
                         error={
                           planError
@@ -2419,6 +2955,7 @@ const CreateChallengeModal = ({
                               "border rounded-xl outline-none",
                               "disabled:bg-slate-50",
                               "focus:ring-2",
+
                               notificationError
                                 ? "border-red-300 focus:border-red-500 focus:ring-red-100"
                                 : "border-slate-200 focus:border-blue-500 focus:ring-blue-100",
@@ -2518,7 +3055,9 @@ const CreateChallengeModal = ({
                         font-bold text-slate-950 text-xl break-words
                       "
                     >
-                      {selectedCurrency.shortLabel}
+                      {
+                        selectedCurrency.shortLabel
+                      }
                       {form.targetAmount ||
                         "0"}
                     </p>
@@ -2595,7 +3134,9 @@ const CreateChallengeModal = ({
                           "
                         >
                           {FREQUENCY_OPTIONS.find(
-                            (option) =>
+                            (
+                              option
+                            ) =>
                               option.value ===
                               form.frequencyType
                           )?.label ??
@@ -2653,10 +3194,12 @@ const CreateChallengeModal = ({
                         text-blue-700 text-xs leading-5
                       "
                     >
-                      Your challenge will be
-                      created as a draft. The
-                      SmartSave system can
-                      manage its lifecycle after
+                      Your challenge
+                      will be created
+                      as a draft. The
+                      SmartSave system
+                      can manage its
+                      lifecycle after
                       creation.
                     </p>
                   </div>
@@ -2665,9 +3208,9 @@ const CreateChallengeModal = ({
             </div>
           </div>
 
-          {/* =====================================================
+          {/* =================================================
               FOOTER
-          ====================================================== */}
+          ================================================== */}
 
           <footer
             className="
@@ -2685,7 +3228,8 @@ const CreateChallengeModal = ({
                 text-slate-400 text-xs
               "
             >
-              Fields marked * are required.
+              Fields marked * are
+              required.
             </p>
 
             <div
@@ -2697,8 +3241,12 @@ const CreateChallengeModal = ({
             >
               <button
                 type="button"
-                onClick={handleClose}
-                disabled={creating}
+                onClick={
+                  handleClose
+                }
+                disabled={
+                  creating
+                }
                 className="
                   inline-flex justify-center items-center
                   px-4 py-2.5
@@ -2714,7 +3262,9 @@ const CreateChallengeModal = ({
 
               <button
                 type="submit"
-                disabled={creating}
+                disabled={
+                  creating
+                }
                 className="
                   inline-flex justify-center items-center
                   px-5 py-2.5
@@ -2737,7 +3287,8 @@ const CreateChallengeModal = ({
                     /
                     >
 
-                    Creating challenge...
+                    Creating
+                    challenge...
                   </>
                 ) : (
                   <>
