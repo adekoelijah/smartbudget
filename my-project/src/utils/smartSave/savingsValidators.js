@@ -36,6 +36,10 @@ const MAX_AMOUNT = Number.MAX_SAFE_INTEGER;
 
 const MAX_PERCENTAGE = 100;
 
+const MAX_NOTIFICATION_DAYS = 30;
+
+const MAX_REFERENCE_LENGTH = 150;
+
 const SAVINGS_CHALLENGE_TYPES = Object.freeze([
   "fixed_amount",
   "incremental",
@@ -119,6 +123,13 @@ const isEmptyValue = (value) =>
   value === null ||
   value === undefined;
 
+const hasOwn = (object, property) =>
+  isObject(object) &&
+  Object.prototype.hasOwnProperty.call(
+    object,
+    property,
+  );
+
 const isValidDate = (value) => {
   if (isEmptyValue(value)) {
     return false;
@@ -178,21 +189,9 @@ const isValidEnumValue = (
 
   return (
     normalizedValue !== "" &&
-    allowedValues.includes(
-      normalizedValue,
-    )
+    allowedValues.includes(normalizedValue)
   );
 };
-
-const hasOwn = (
-  object,
-  property,
-) =>
-  isObject(object) &&
-  Object.prototype.hasOwnProperty.call(
-    object,
-    property,
-  );
 
 /* -------------------------------------------------------------------------- */
 /* Amount Validation                                                          */
@@ -230,8 +229,7 @@ export const validateAmount = (
     return {
       valid: false,
       errors: {
-        amount:
-          "Amount must be a valid number",
+        amount: "Amount must be a valid number",
       },
     };
   }
@@ -240,8 +238,7 @@ export const validateAmount = (
     return {
       valid: false,
       errors: {
-        amount:
-          `Amount must be at least ${min}`,
+        amount: `Amount must be at least ${min}`,
       },
     };
   }
@@ -250,8 +247,7 @@ export const validateAmount = (
     return {
       valid: false,
       errors: {
-        amount:
-          "Amount must be greater than zero",
+        amount: "Amount must be greater than zero",
       },
     };
   }
@@ -260,23 +256,18 @@ export const validateAmount = (
     return {
       valid: false,
       errors: {
-        amount:
-          "Amount exceeds the allowed limit",
+        amount: "Amount exceeds the allowed limit",
       },
     };
   }
 
-  const amountString =
-    String(value).trim();
+  const amountString = String(value).trim();
 
   if (amountString.includes(".")) {
     const decimalPart =
       amountString.split(".")[1] || "";
 
-    if (
-      decimalPart.length >
-      decimalPlaces
-    ) {
+    if (decimalPart.length > decimalPlaces) {
       return {
         valid: false,
         errors: {
@@ -308,8 +299,7 @@ export const validatePercentage = (
       ? {
           valid: false,
           errors: {
-            percentage:
-              "Percentage is required",
+            percentage: "Percentage is required",
           },
         }
       : {
@@ -367,8 +357,7 @@ const validateInteger = (
       ? {
           valid: false,
           errors: {
-            value:
-              `${fieldName} is required`,
+            value: `${fieldName} is required`,
           },
         }
       : {
@@ -379,14 +368,11 @@ const validateInteger = (
 
   const number = Number(value);
 
-  if (
-    !Number.isInteger(number)
-  ) {
+  if (!Number.isInteger(number)) {
     return {
       valid: false,
       errors: {
-        value:
-          `${fieldName} must be a whole number`,
+        value: `${fieldName} must be a whole number`,
       },
     };
   }
@@ -436,8 +422,7 @@ export const validateCurrency = (
       ? {
           valid: false,
           errors: {
-            currency:
-              "Currency is required",
+            currency: "Currency is required",
           },
         }
       : {
@@ -454,8 +439,7 @@ export const validateCurrency = (
     return {
       valid: false,
       errors: {
-        currency:
-          "Unsupported currency",
+        currency: "Unsupported currency",
       },
     };
   }
@@ -484,13 +468,11 @@ export const validateDate = (
 
   if (isEmptyValue(value)) {
     if (required) {
-      errors.date =
-        `${fieldName} is required`;
+      errors.date = `${fieldName} is required`;
     }
 
     return {
-      valid:
-        Object.keys(errors).length === 0,
+      valid: Object.keys(errors).length === 0,
       errors,
     };
   }
@@ -521,26 +503,18 @@ export const validateDate = (
   }
 
   if (minDate) {
-    const minimum =
-      parseDate(minDate);
+    const minimum = parseDate(minDate);
 
-    if (
-      minimum &&
-      date < minimum
-    ) {
+    if (minimum && date < minimum) {
       errors.date =
         `${fieldName} cannot be earlier than the minimum allowed date`;
     }
   }
 
   if (maxDate) {
-    const maximum =
-      parseDate(maxDate);
+    const maximum = parseDate(maxDate);
 
-    if (
-      maximum &&
-      date > maximum
-    ) {
+    if (maximum && date > maximum) {
       errors.date =
         `${fieldName} cannot be later than the maximum allowed date`;
     }
@@ -560,8 +534,7 @@ export const validateDate = (
   }
 
   return {
-    valid:
-      Object.keys(errors).length === 0,
+    valid: Object.keys(errors).length === 0,
     errors,
   };
 };
@@ -619,18 +592,17 @@ export const validateDateRange = (
     isValidDate(startDate) &&
     isValidDate(endDate)
   ) {
-    const start =
-      parseDate(startDate);
-
-    const end =
-      parseDate(endDate);
+    const start = parseDate(startDate);
+    const end = parseDate(endDate);
 
     if (
       start &&
       end &&
-      endDateMustBeAfterStart
-        ? end <= start
-        : end < start
+      (
+        endDateMustBeAfterStart
+          ? end <= start
+          : end < start
+      )
     ) {
       errors.endDate =
         endDateMustBeAfterStart
@@ -640,8 +612,7 @@ export const validateDateRange = (
   }
 
   return {
-    valid:
-      Object.keys(errors).length === 0,
+    valid: Object.keys(errors).length === 0,
     errors,
   };
 };
@@ -672,8 +643,6 @@ export const validateSavingsGoal = (
     };
   }
 
-  /* Name */
-
   const name =
     normalizeString(payload.name);
 
@@ -689,12 +658,8 @@ export const validateSavingsGoal = (
       `Savings goal name cannot exceed ${MAX_NAME_LENGTH} characters`;
   }
 
-  /* Description */
-
   const description =
-    normalizeString(
-      payload.description,
-    );
+    normalizeString(payload.description);
 
   if (
     description.length >
@@ -704,30 +669,24 @@ export const validateSavingsGoal = (
       `Description cannot exceed ${MAX_DESCRIPTION_LENGTH} characters`;
   }
 
-  /* Target Amount */
-
   if (
-    isEmptyValue(
-      payload.targetAmount,
-    )
+    isEmptyValue(payload.targetAmount)
   ) {
     if (requireTargetAmount) {
       errors.targetAmount =
         "Target amount is required";
     }
   } else {
-    const result =
-      validateAmount(
-        payload.targetAmount,
-        {
-          required:
-            requireTargetAmount,
-          min: MIN_AMOUNT,
-          max: MAX_AMOUNT,
-          allowZero: false,
-          decimalPlaces: 2,
-        },
-      );
+    const result = validateAmount(
+      payload.targetAmount,
+      {
+        required: requireTargetAmount,
+        min: MIN_AMOUNT,
+        max: MAX_AMOUNT,
+        allowZero: false,
+        decimalPlaces: 2,
+      },
+    );
 
     if (!result.valid) {
       errors.targetAmount =
@@ -736,17 +695,12 @@ export const validateSavingsGoal = (
     }
   }
 
-  /* Currency */
-
   const currencyResult =
     validateCurrency(
       payload.currency,
       {
-        required:
-          requireCurrency,
-        allowedCurrencies: [
-          "NGN",
-        ],
+        required: requireCurrency,
+        allowedCurrencies: ["NGN"],
       },
     );
 
@@ -756,28 +710,21 @@ export const validateSavingsGoal = (
       "Currency is invalid";
   }
 
-  /* Target Date */
-
   if (
-    isEmptyValue(
-      payload.targetDate,
-    )
+    isEmptyValue(payload.targetDate)
   ) {
     if (requireTargetDate) {
       errors.targetDate =
         "Target date is required";
     }
   } else {
-    const result =
-      validateDate(
-        payload.targetDate,
-        {
-          required:
-            requireTargetDate,
-          fieldName:
-            "Target date",
-        },
-      );
+    const result = validateDate(
+      payload.targetDate,
+      {
+        required: requireTargetDate,
+        fieldName: "Target date",
+      },
+    );
 
     if (!result.valid) {
       errors.targetDate =
@@ -786,26 +733,17 @@ export const validateSavingsGoal = (
     }
   }
 
-  /* Target Date vs Start Date */
-
   if (
     validateTargetDateAgainstStartDate &&
     payload.targetDate &&
-    isValidDate(
-      payload.targetDate,
-    )
+    isValidDate(payload.targetDate)
   ) {
-    const startDate =
-      payload.startDate
-        ? parseDate(
-            payload.startDate,
-          )
-        : new Date();
+    const startDate = payload.startDate
+      ? parseDate(payload.startDate)
+      : new Date();
 
     const targetDate =
-      parseDate(
-        payload.targetDate,
-      );
+      parseDate(payload.targetDate);
 
     if (
       startDate &&
@@ -818,8 +756,7 @@ export const validateSavingsGoal = (
   }
 
   return {
-    valid:
-      Object.keys(errors).length === 0,
+    valid: Object.keys(errors).length === 0,
     errors,
   };
 };
@@ -896,32 +833,26 @@ const validateChallengeTarget = (
     };
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* target.targetAmount                                                    */
-  /* ---------------------------------------------------------------------- */
+  /* Target amount */
 
   if (
-    isEmptyValue(
-      target.targetAmount,
-    )
+    isEmptyValue(target.targetAmount)
   ) {
     if (requireTargetAmount) {
       errors["target.targetAmount"] =
         "Target amount is required";
     }
   } else {
-    const result =
-      validateAmount(
-        target.targetAmount,
-        {
-          required:
-            requireTargetAmount,
-          min: MIN_AMOUNT,
-          max: MAX_AMOUNT,
-          allowZero: false,
-          decimalPlaces: 2,
-        },
-      );
+    const result = validateAmount(
+      target.targetAmount,
+      {
+        required: requireTargetAmount,
+        min: MIN_AMOUNT,
+        max: MAX_AMOUNT,
+        allowZero: false,
+        decimalPlaces: 2,
+      },
+    );
 
     if (!result.valid) {
       errors["target.targetAmount"] =
@@ -930,24 +861,19 @@ const validateChallengeTarget = (
     }
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* target.amount                                                          */
-  /* ---------------------------------------------------------------------- */
+  /* Optional amount */
 
-  if (
-    !isEmptyValue(target.amount)
-  ) {
-    const result =
-      validateAmount(
-        target.amount,
-        {
-          required: false,
-          min: MIN_AMOUNT,
-          max: MAX_AMOUNT,
-          allowZero: true,
-          decimalPlaces: 2,
-        },
-      );
+  if (!isEmptyValue(target.amount)) {
+    const result = validateAmount(
+      target.amount,
+      {
+        required: false,
+        min: MIN_AMOUNT,
+        max: MAX_AMOUNT,
+        allowZero: true,
+        decimalPlaces: 2,
+      },
+    );
 
     if (!result.valid) {
       errors["target.amount"] =
@@ -956,21 +882,15 @@ const validateChallengeTarget = (
     }
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* target.percentage                                                      */
-  /* ---------------------------------------------------------------------- */
+  /* Percentage challenge */
 
-  if (
-    challengeType ===
-    "percentage"
-  ) {
-    const result =
-      validatePercentage(
-        target.percentage,
-        {
-          required: true,
-        },
-      );
+  if (challengeType === "percentage") {
+    const result = validatePercentage(
+      target.percentage,
+      {
+        required: true,
+      },
+    );
 
     if (!result.valid) {
       errors["target.percentage"] =
@@ -978,17 +898,14 @@ const validateChallengeTarget = (
         "Percentage is required for percentage challenges";
     }
   } else if (
-    !isEmptyValue(
-      target.percentage,
-    )
+    !isEmptyValue(target.percentage)
   ) {
-    const result =
-      validatePercentage(
-        target.percentage,
-        {
-          required: false,
-        },
-      );
+    const result = validatePercentage(
+      target.percentage,
+      {
+        required: false,
+      },
+    );
 
     if (!result.valid) {
       errors["target.percentage"] =
@@ -997,15 +914,10 @@ const validateChallengeTarget = (
     }
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* target.startingAmount                                                  */
-  /* ---------------------------------------------------------------------- */
+  /* Incremental challenge */
 
-  if (
-    challengeType ===
-    "incremental"
-  ) {
-    const result =
+  if (challengeType === "incremental") {
+    const startingAmount =
       validateAmount(
         target.startingAmount,
         {
@@ -1017,44 +929,13 @@ const validateChallengeTarget = (
         },
       );
 
-    if (!result.valid) {
+    if (!startingAmount.valid) {
       errors["target.startingAmount"] =
-        result.errors.amount ||
+        startingAmount.errors.amount ||
         "Starting amount is required for incremental challenges";
     }
-  } else if (
-    !isEmptyValue(
-      target.startingAmount,
-    )
-  ) {
-    const result =
-      validateAmount(
-        target.startingAmount,
-        {
-          required: false,
-          min: MIN_AMOUNT,
-          max: MAX_AMOUNT,
-          allowZero: true,
-          decimalPlaces: 2,
-        },
-      );
 
-    if (!result.valid) {
-      errors["target.startingAmount"] =
-        result.errors.amount ||
-        "Starting amount is invalid";
-    }
-  }
-
-  /* ---------------------------------------------------------------------- */
-  /* target.incrementAmount                                                  */
-  /* ---------------------------------------------------------------------- */
-
-  if (
-    challengeType ===
-    "incremental"
-  ) {
-    const result =
+    const incrementAmount =
       validateAmount(
         target.incrementAmount,
         {
@@ -1066,18 +947,41 @@ const validateChallengeTarget = (
         },
       );
 
-    if (!result.valid) {
+    if (!incrementAmount.valid) {
       errors["target.incrementAmount"] =
-        result.errors.amount ||
+        incrementAmount.errors.amount ||
         "Increment amount is required for incremental challenges";
     }
-  } else if (
-    !isEmptyValue(
-      target.incrementAmount,
-    )
-  ) {
-    const result =
-      validateAmount(
+  } else {
+    if (
+      !isEmptyValue(
+        target.startingAmount,
+      )
+    ) {
+      const result = validateAmount(
+        target.startingAmount,
+        {
+          required: false,
+          min: MIN_AMOUNT,
+          max: MAX_AMOUNT,
+          allowZero: true,
+          decimalPlaces: 2,
+        },
+      );
+
+      if (!result.valid) {
+        errors["target.startingAmount"] =
+          result.errors.amount ||
+          "Starting amount is invalid";
+      }
+    }
+
+    if (
+      !isEmptyValue(
+        target.incrementAmount,
+      )
+    ) {
+      const result = validateAmount(
         target.incrementAmount,
         {
           required: false,
@@ -1088,33 +992,29 @@ const validateChallengeTarget = (
         },
       );
 
-    if (!result.valid) {
-      errors["target.incrementAmount"] =
-        result.errors.amount ||
-        "Increment amount is invalid";
+      if (!result.valid) {
+        errors["target.incrementAmount"] =
+          result.errors.amount ||
+          "Increment amount is invalid";
+      }
     }
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* target.maximumAmount                                                   */
-  /* ---------------------------------------------------------------------- */
+  /* Maximum amount */
 
   if (
-    !isEmptyValue(
-      target.maximumAmount,
-    )
+    !isEmptyValue(target.maximumAmount)
   ) {
-    const result =
-      validateAmount(
-        target.maximumAmount,
-        {
-          required: false,
-          min: MIN_AMOUNT,
-          max: MAX_AMOUNT,
-          allowZero: true,
-          decimalPlaces: 2,
-        },
-      );
+    const result = validateAmount(
+      target.maximumAmount,
+      {
+        required: false,
+        min: MIN_AMOUNT,
+        max: MAX_AMOUNT,
+        allowZero: true,
+        decimalPlaces: 2,
+      },
+    );
 
     if (!result.valid) {
       errors["target.maximumAmount"] =
@@ -1123,9 +1023,30 @@ const validateChallengeTarget = (
     }
   }
 
+  /* Maximum amount cannot be below starting amount */
+
+  if (
+    !isEmptyValue(target.maximumAmount) &&
+    !isEmptyValue(target.startingAmount)
+  ) {
+    const maximum =
+      Number(target.maximumAmount);
+
+    const starting =
+      Number(target.startingAmount);
+
+    if (
+      Number.isFinite(maximum) &&
+      Number.isFinite(starting) &&
+      maximum < starting
+    ) {
+      errors["target.maximumAmount"] =
+        "Maximum amount cannot be less than starting amount";
+    }
+  }
+
   return {
-    valid:
-      Object.keys(errors).length === 0,
+    valid: Object.keys(errors).length === 0,
     errors,
   };
 };
@@ -1142,9 +1063,7 @@ const validateChallengeFrequency = (
 ) => {
   const errors = {};
 
-  if (
-    isEmptyValue(frequency)
-  ) {
+  if (isEmptyValue(frequency)) {
     if (required) {
       return {
         valid: false,
@@ -1171,12 +1090,8 @@ const validateChallengeFrequency = (
     };
   }
 
-  /* Frequency type */
-
   const type =
-    normalizeEnum(
-      frequency.type,
-    );
+    normalizeEnum(frequency.type);
 
   if (!type) {
     if (required) {
@@ -1192,25 +1107,18 @@ const validateChallengeFrequency = (
       "Invalid challenge frequency";
   }
 
-  /* Interval */
-
   if (
-    !isEmptyValue(
-      frequency.interval,
-    )
+    !isEmptyValue(frequency.interval)
   ) {
-    const result =
-      validateInteger(
-        frequency.interval,
-        {
-          required: false,
-          min: 1,
-          max:
-            Number.MAX_SAFE_INTEGER,
-          fieldName:
-            "Frequency interval",
-        },
-      );
+    const result = validateInteger(
+      frequency.interval,
+      {
+        required: false,
+        min: 1,
+        max: Number.MAX_SAFE_INTEGER,
+        fieldName: "Frequency interval",
+      },
+    );
 
     if (!result.valid) {
       errors["frequency.interval"] =
@@ -1219,24 +1127,18 @@ const validateChallengeFrequency = (
     }
   }
 
-  /* Day of week */
-
   if (
-    !isEmptyValue(
-      frequency.dayOfWeek,
-    )
+    !isEmptyValue(frequency.dayOfWeek)
   ) {
-    const result =
-      validateInteger(
-        frequency.dayOfWeek,
-        {
-          required: false,
-          min: 0,
-          max: 6,
-          fieldName:
-            "Day of week",
-        },
-      );
+    const result = validateInteger(
+      frequency.dayOfWeek,
+      {
+        required: false,
+        min: 0,
+        max: 6,
+        fieldName: "Day of week",
+      },
+    );
 
     if (!result.valid) {
       errors["frequency.dayOfWeek"] =
@@ -1245,24 +1147,18 @@ const validateChallengeFrequency = (
     }
   }
 
-  /* Day of month */
-
   if (
-    !isEmptyValue(
-      frequency.dayOfMonth,
-    )
+    !isEmptyValue(frequency.dayOfMonth)
   ) {
-    const result =
-      validateInteger(
-        frequency.dayOfMonth,
-        {
-          required: false,
-          min: 1,
-          max: 31,
-          fieldName:
-            "Day of month",
-        },
-      );
+    const result = validateInteger(
+      frequency.dayOfMonth,
+      {
+        required: false,
+        min: 1,
+        max: 31,
+        fieldName: "Day of month",
+      },
+    );
 
     if (!result.valid) {
       errors["frequency.dayOfMonth"] =
@@ -1272,8 +1168,7 @@ const validateChallengeFrequency = (
   }
 
   return {
-    valid:
-      Object.keys(errors).length === 0,
+    valid: Object.keys(errors).length === 0,
     errors,
   };
 };
@@ -1287,9 +1182,7 @@ const validateChallengeReward = (
 ) => {
   const errors = {};
 
-  if (
-    isEmptyValue(reward)
-  ) {
+  if (isEmptyValue(reward)) {
     return {
       valid: true,
       errors: {},
@@ -1306,18 +1199,13 @@ const validateChallengeReward = (
     };
   }
 
-  /* Enabled */
-
   if (
     hasOwn(reward, "enabled") &&
-    typeof reward.enabled !==
-      "boolean"
+    typeof reward.enabled !== "boolean"
   ) {
     errors["reward.enabled"] =
       "Reward enabled value must be true or false";
   }
-
-  /* Type */
 
   if (
     !isEmptyValue(reward.type) &&
@@ -1330,22 +1218,17 @@ const validateChallengeReward = (
       "Invalid reward type";
   }
 
-  /* Value */
-
-  if (
-    !isEmptyValue(reward.value)
-  ) {
-    const result =
-      validateAmount(
-        reward.value,
-        {
-          required: false,
-          min: MIN_AMOUNT,
-          max: MAX_AMOUNT,
-          allowZero: true,
-          decimalPlaces: 2,
-        },
-      );
+  if (!isEmptyValue(reward.value)) {
+    const result = validateAmount(
+      reward.value,
+      {
+        required: false,
+        min: MIN_AMOUNT,
+        max: MAX_AMOUNT,
+        allowZero: true,
+        decimalPlaces: 2,
+      },
+    );
 
     if (!result.valid) {
       errors["reward.value"] =
@@ -1354,8 +1237,6 @@ const validateChallengeReward = (
     }
   }
 
-  /* Description */
-
   const description =
     normalizeString(
       reward.description,
@@ -1363,44 +1244,31 @@ const validateChallengeReward = (
 
   if (
     description.length >
-    MAX_DESCRIPTION_LENGTH
+    MAX_CHALLENGE_DESCRIPTION_LENGTH
   ) {
     errors["reward.description"] =
-      `Reward description cannot exceed ${MAX_DESCRIPTION_LENGTH} characters`;
+      `Reward description cannot exceed ${MAX_CHALLENGE_DESCRIPTION_LENGTH} characters`;
   }
 
   return {
-    valid:
-      Object.keys(errors).length === 0,
+    valid: Object.keys(errors).length === 0,
     errors,
   };
 };
 
 /* -------------------------------------------------------------------------- */
-/* Savings Challenge - Settings Validation                                   */
+/* Savings Challenge - Top-Level Settings Validation                          */
 /* -------------------------------------------------------------------------- */
 
 const validateChallengeSettings = (
-  settings = {},
+  payload = {},
 ) => {
   const errors = {};
 
-  if (
-    isEmptyValue(settings)
-  ) {
-    return {
-      valid: true,
-      errors: {},
-    };
-  }
-
-  if (!isObject(settings)) {
+  if (!isObject(payload)) {
     return {
       valid: false,
-      errors: {
-        settings:
-          "Challenge settings must be an object",
-      },
+      errors: {},
     };
   }
 
@@ -1412,48 +1280,41 @@ const validateChallengeSettings = (
     "notifyBeforeDue",
   ];
 
-  booleanFields.forEach(
-    (field) => {
-      if (
-        hasOwn(settings, field) &&
-        typeof settings[field] !==
-          "boolean"
-      ) {
-        errors[`settings.${field}`] =
-          `${field} must be true or false`;
-      }
-    },
-  );
+  booleanFields.forEach((field) => {
+    if (
+      hasOwn(payload, field) &&
+      typeof payload[field] !== "boolean"
+    ) {
+      errors[field] =
+        `${field} must be true or false`;
+    }
+  });
 
   if (
     !isEmptyValue(
-      settings.notificationDaysBefore,
+      payload.notificationDaysBefore,
     )
   ) {
-    const result =
-      validateInteger(
-        settings.notificationDaysBefore,
-        {
-          required: false,
-          min: 0,
-          max: 30,
-          fieldName:
-            "Notification days before",
-        },
-      );
+    const result = validateInteger(
+      payload.notificationDaysBefore,
+      {
+        required: false,
+        min: 0,
+        max: MAX_NOTIFICATION_DAYS,
+        fieldName:
+          "Notification days before",
+      },
+    );
 
     if (!result.valid) {
-      errors[
-        "settings.notificationDaysBefore"
-      ] =
+      errors.notificationDaysBefore =
         result.errors.value ||
         "Notification days before must be between 0 and 30";
     }
   }
 
   return {
-    valid:
-      Object.keys(errors).length === 0,
+    valid: Object.keys(errors).length === 0,
     errors,
   };
 };
@@ -1462,66 +1323,6 @@ const validateChallengeSettings = (
 /* Savings Challenge Validation                                               */
 /* -------------------------------------------------------------------------- */
 
-/**
- * Validate a SavingsChallenge payload against the frontend
- * representation of the backend SavingsChallenge model.
- *
- * Expected structure:
- *
- * {
- *   name,
- *   slug,
- *   description,
- *   challengeType,
- *   difficulty,
- *   source,
- *   visibility,
- *   currency,
- *
- *   target: {
- *     amount,
- *     percentage,
- *     startingAmount,
- *     incrementAmount,
- *     maximumAmount,
- *     targetAmount
- *   },
- *
- *   frequency: {
- *     type,
- *     interval,
- *     dayOfWeek,
- *     dayOfMonth
- *   },
- *
- *   startDate,
- *   endDate,
- *
- *   savingAccount,
- *   savingPlan,
- *
- *   autoSaveEnabled,
- *   autoSave,
- *
- *   participantCount,
- *
- *   settings: {
- *     allowEarlyCompletion,
- *     allowPartialContribution,
- *     allowOverContribution,
- *     rolloverMissedContribution,
- *     notifyBeforeDue,
- *     notificationDaysBefore
- *   },
- *
- *   reward: {
- *     enabled,
- *     type,
- *     value,
- *     description
- *   }
- * }
- */
 export const validateSavingsChallenge = (
   payload = {},
   {
@@ -1551,9 +1352,7 @@ export const validateSavingsChallenge = (
     };
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* Name                                                                   */
-  /* ---------------------------------------------------------------------- */
+  /* Name */
 
   const name =
     normalizeString(payload.name);
@@ -1563,48 +1362,32 @@ export const validateSavingsChallenge = (
       errors.name =
         "Challenge name is required";
     }
-  } else if (
-    name.length < 2
-  ) {
+  } else if (name.length < 2) {
     errors.name =
       "Challenge name must contain at least 2 characters";
   } else if (
-    name.length >
-    MAX_CHALLENGE_NAME_LENGTH
+    name.length > MAX_CHALLENGE_NAME_LENGTH
   ) {
     errors.name =
       `Challenge name cannot exceed ${MAX_CHALLENGE_NAME_LENGTH} characters`;
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* Slug                                                                   */
-  /* ---------------------------------------------------------------------- */
+  /* Slug */
 
-  if (
-    !isEmptyValue(payload.slug)
-  ) {
+  if (!isEmptyValue(payload.slug)) {
     const slug =
-      normalizeString(
-        payload.slug,
-      );
+      normalizeString(payload.slug);
 
-    if (
-      slug.length >
-      MAX_SLUG_LENGTH
-    ) {
+    if (slug.length > MAX_SLUG_LENGTH) {
       errors.slug =
         `Slug cannot exceed ${MAX_SLUG_LENGTH} characters`;
     }
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* Description                                                            */
-  /* ---------------------------------------------------------------------- */
+  /* Description */
 
   const description =
-    normalizeString(
-      payload.description,
-    );
+    normalizeString(payload.description);
 
   if (
     !description &&
@@ -1622,9 +1405,7 @@ export const validateSavingsChallenge = (
       `Description cannot exceed ${MAX_CHALLENGE_DESCRIPTION_LENGTH} characters`;
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* Challenge Type                                                         */
-  /* ---------------------------------------------------------------------- */
+  /* Challenge type */
 
   const challengeType =
     normalizeEnum(
@@ -1645,14 +1426,10 @@ export const validateSavingsChallenge = (
       "Invalid challenge type";
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* Difficulty                                                             */
-  /* ---------------------------------------------------------------------- */
+  /* Difficulty */
 
   const difficulty =
-    normalizeEnum(
-      payload.difficulty,
-    );
+    normalizeEnum(payload.difficulty);
 
   if (!difficulty) {
     if (requireDifficulty) {
@@ -1668,18 +1445,14 @@ export const validateSavingsChallenge = (
       "Invalid challenge difficulty";
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* Source                                                                  */
-  /* ---------------------------------------------------------------------- */
+  /* Source */
 
   if (
     validateSource &&
     !isEmptyValue(payload.source)
   ) {
     const source =
-      normalizeEnum(
-        payload.source,
-      );
+      normalizeEnum(payload.source);
 
     if (
       !SAVINGS_CHALLENGE_SOURCE_TYPES.includes(
@@ -1691,14 +1464,10 @@ export const validateSavingsChallenge = (
     }
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* Visibility                                                             */
-  /* ---------------------------------------------------------------------- */
+  /* Visibility */
 
   if (
-    !isEmptyValue(
-      payload.visibility,
-    )
+    !isEmptyValue(payload.visibility)
   ) {
     const visibility =
       normalizeEnum(
@@ -1715,18 +1484,14 @@ export const validateSavingsChallenge = (
     }
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* Status                                                                  */
-  /* ---------------------------------------------------------------------- */
+  /* Status */
 
   if (
     validateStatus &&
     !isEmptyValue(payload.status)
   ) {
     const status =
-      normalizeEnum(
-        payload.status,
-      );
+      normalizeEnum(payload.status);
 
     if (
       !SAVINGS_CHALLENGE_STATUS.includes(
@@ -1738,16 +1503,13 @@ export const validateSavingsChallenge = (
     }
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* Currency                                                               */
-  /* ---------------------------------------------------------------------- */
+  /* Currency */
 
   const currencyResult =
     validateCurrency(
       payload.currency,
       {
-        required:
-          requireCurrency,
+        required: requireCurrency,
         allowedCurrencies:
           SAVINGS_CHALLENGE_CURRENCIES,
       },
@@ -1759,13 +1521,9 @@ export const validateSavingsChallenge = (
       "Currency is invalid";
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* Target                                                                  */
-  /* ---------------------------------------------------------------------- */
+  /* Target */
 
-  if (
-    isEmptyValue(payload.target)
-  ) {
+  if (isEmptyValue(payload.target)) {
     if (requireTarget) {
       errors.target =
         "Challenge target configuration is required";
@@ -1786,16 +1544,13 @@ export const validateSavingsChallenge = (
     );
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* Frequency                                                              */
-  /* ---------------------------------------------------------------------- */
+  /* Frequency */
 
   const frequencyResult =
     validateChallengeFrequency(
       payload.frequency,
       {
-        required:
-          requireFrequency,
+        required: requireFrequency,
       },
     );
 
@@ -1804,30 +1559,23 @@ export const validateSavingsChallenge = (
     frequencyResult.errors,
   );
 
-  /* ---------------------------------------------------------------------- */
-  /* Start Date                                                             */
-  /* ---------------------------------------------------------------------- */
+  /* Start date */
 
   if (
-    isEmptyValue(
-      payload.startDate,
-    )
+    isEmptyValue(payload.startDate)
   ) {
     if (requireStartDate) {
       errors.startDate =
         "Start date is required";
     }
   } else {
-    const result =
-      validateDate(
-        payload.startDate,
-        {
-          required:
-            requireStartDate,
-          fieldName:
-            "Start date",
-        },
-      );
+    const result = validateDate(
+      payload.startDate,
+      {
+        required: requireStartDate,
+        fieldName: "Start date",
+      },
+    );
 
     if (!result.valid) {
       errors.startDate =
@@ -1836,30 +1584,23 @@ export const validateSavingsChallenge = (
     }
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* End Date                                                               */
-  /* ---------------------------------------------------------------------- */
+  /* End date */
 
   if (
-    isEmptyValue(
-      payload.endDate,
-    )
+    isEmptyValue(payload.endDate)
   ) {
     if (requireEndDate) {
       errors.endDate =
         "End date is required";
     }
   } else {
-    const result =
-      validateDate(
-        payload.endDate,
-        {
-          required:
-            requireEndDate,
-          fieldName:
-            "End date",
-        },
-      );
+    const result = validateDate(
+      payload.endDate,
+      {
+        required: requireEndDate,
+        fieldName: "End date",
+      },
+    );
 
     if (!result.valid) {
       errors.endDate =
@@ -1868,42 +1609,26 @@ export const validateSavingsChallenge = (
     }
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* Start / End Date Relationship                                          */
-  /* ---------------------------------------------------------------------- */
+  /* Start / end relationship */
 
   if (
     payload.startDate &&
     payload.endDate &&
-    isValidDate(
-      payload.startDate,
-    ) &&
-    isValidDate(
-      payload.endDate,
-    )
+    isValidDate(payload.startDate) &&
+    isValidDate(payload.endDate)
   ) {
     const start =
-      parseDate(
-        payload.startDate,
-      );
+      parseDate(payload.startDate);
 
     const end =
-      parseDate(
-        payload.endDate,
-      );
+      parseDate(payload.endDate);
 
     /*
-     * IMPORTANT:
+     * Backend:
      *
-     * The backend model rejects:
+     *   if (endDate < startDate) reject
      *
-     *   endDate < startDate
-     *
-     * It does NOT reject equal dates.
-     *
-     * Therefore this validator intentionally allows:
-     *
-     *   startDate === endDate
+     * Equal dates are allowed.
      */
     if (
       start &&
@@ -1915,9 +1640,7 @@ export const validateSavingsChallenge = (
     }
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* Saving Account                                                         */
-  /* ---------------------------------------------------------------------- */
+  /* Saving account */
 
   if (
     !isEmptyValue(
@@ -1932,16 +1655,12 @@ export const validateSavingsChallenge = (
 
     if (!result.valid) {
       errors.savingAccount =
-        result.errors[
-          "Saving account"
-        ] ||
+        result.errors["Saving account"] ||
         "Saving account ID is invalid";
     }
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* Saving Plan                                                            */
-  /* ---------------------------------------------------------------------- */
+  /* Saving plan */
 
   if (
     !isEmptyValue(
@@ -1956,16 +1675,12 @@ export const validateSavingsChallenge = (
 
     if (!result.valid) {
       errors.savingPlan =
-        result.errors[
-          "Saving plan"
-        ] ||
+        result.errors["Saving plan"] ||
         "Saving plan ID is invalid";
     }
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* Auto Save                                                              */
-  /* ---------------------------------------------------------------------- */
+  /* Auto-save */
 
   if (
     hasOwn(
@@ -1983,9 +1698,7 @@ export const validateSavingsChallenge = (
     payload.autoSaveEnabled === true
   ) {
     if (
-      isEmptyValue(
-        payload.autoSave,
-      )
+      isEmptyValue(payload.autoSave)
     ) {
       errors.autoSave =
         "Auto-save configuration is required when auto-save is enabled";
@@ -1998,16 +1711,13 @@ export const validateSavingsChallenge = (
 
       if (!result.valid) {
         errors.autoSave =
-          result.errors.AutoSave ||
           result.errors["Auto-save"] ||
           "Auto-save ID is invalid";
       }
     }
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* Participant Count                                                      */
-  /* ---------------------------------------------------------------------- */
+  /* Participant count */
 
   if (
     !isEmptyValue(
@@ -2020,8 +1730,7 @@ export const validateSavingsChallenge = (
         {
           required: false,
           min: 1,
-          max:
-            Number.MAX_SAFE_INTEGER,
+          max: Number.MAX_SAFE_INTEGER,
           fieldName:
             "Participant count",
         },
@@ -2034,9 +1743,7 @@ export const validateSavingsChallenge = (
     }
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* Reward                                                                 */
-  /* ---------------------------------------------------------------------- */
+  /* Reward */
 
   const rewardResult =
     validateChallengeReward(
@@ -2048,13 +1755,11 @@ export const validateSavingsChallenge = (
     rewardResult.errors,
   );
 
-  /* ---------------------------------------------------------------------- */
-  /* Settings                                                               */
-  /* ---------------------------------------------------------------------- */
+  /* Top-level challenge settings */
 
   const settingsResult =
     validateChallengeSettings(
-      payload.settings,
+      payload,
     );
 
   Object.assign(
@@ -2062,9 +1767,7 @@ export const validateSavingsChallenge = (
     settingsResult.errors,
   );
 
-  /* ---------------------------------------------------------------------- */
-  /* Creation Reference                                                     */
-  /* ---------------------------------------------------------------------- */
+  /* Creation reference */
 
   if (
     !isEmptyValue(
@@ -2078,20 +1781,36 @@ export const validateSavingsChallenge = (
 
     if (
       creationReference.length >
-      150
+      MAX_REFERENCE_LENGTH
     ) {
       errors.creationReference =
-        "Creation reference cannot exceed 150 characters";
+        `Creation reference cannot exceed ${MAX_REFERENCE_LENGTH} characters`;
     }
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* Final Result                                                           */
-  /* ---------------------------------------------------------------------- */
+  /* Last operation reference */
+
+  if (
+    !isEmptyValue(
+      payload.lastOperationReference,
+    )
+  ) {
+    const lastOperationReference =
+      normalizeString(
+        payload.lastOperationReference,
+      );
+
+    if (
+      lastOperationReference.length >
+      MAX_REFERENCE_LENGTH
+    ) {
+      errors.lastOperationReference =
+        `Last operation reference cannot exceed ${MAX_REFERENCE_LENGTH} characters`;
+    }
+  }
 
   return {
-    valid:
-      Object.keys(errors).length === 0,
+    valid: Object.keys(errors).length === 0,
     errors,
   };
 };
@@ -2100,21 +1819,6 @@ export const validateSavingsChallenge = (
 /* Savings Challenge Create Validation                                        */
 /* -------------------------------------------------------------------------- */
 
-/**
- * Validate a new SavingsChallenge.
- *
- * Required backend creation fields:
- *
- * - name
- * - challengeType
- * - difficulty
- * - currency
- * - target
- * - target.targetAmount
- * - frequency
- * - startDate
- * - endDate
- */
 export const validateCreateSavingsChallenge = (
   payload = {},
 ) =>
@@ -2140,12 +1844,6 @@ export const validateCreateSavingsChallenge = (
 /* Savings Challenge Update Validation                                        */
 /* -------------------------------------------------------------------------- */
 
-/**
- * Validate a SavingsChallenge update.
- *
- * PATCH operations may contain only the fields
- * being changed.
- */
 export const validateUpdateSavingsChallenge = (
   payload = {},
 ) =>
@@ -2174,10 +1872,7 @@ export const validateUpdateSavingsChallenge = (
 export const isValidObjectId = (
   value,
 ) => {
-  if (
-    typeof value !==
-    "string"
-  ) {
+  if (typeof value !== "string") {
     return false;
   }
 
@@ -2190,9 +1885,7 @@ export const validateObjectId = (
   value,
   fieldName = "ID",
 ) => {
-  if (
-    isEmptyValue(value)
-  ) {
+  if (isEmptyValue(value)) {
     return {
       valid: false,
       errors: {
@@ -2202,9 +1895,7 @@ export const validateObjectId = (
     };
   }
 
-  if (
-    !isValidObjectId(value)
-  ) {
+  if (!isValidObjectId(value)) {
     return {
       valid: false,
       errors: {
@@ -2240,9 +1931,7 @@ export const hasValidationErrors = (
 
   return (
     isObject(result.errors) &&
-    Object.keys(
-      result.errors,
-    ).length > 0
+    Object.keys(result.errors).length > 0
   );
 };
 
@@ -2256,11 +1945,24 @@ export const getValidationErrors = (
     return {};
   }
 
-  if (
-    !isObject(result.errors)
-  ) {
+  if (!isObject(result.errors)) {
     return {};
   }
 
   return result.errors;
+};
+
+/* -------------------------------------------------------------------------- */
+/* Public Constants                                                           */
+/* -------------------------------------------------------------------------- */
+
+export {
+  SAVINGS_CHALLENGE_TYPES,
+  SAVINGS_CHALLENGE_DIFFICULTIES,
+  SAVINGS_CHALLENGE_FREQUENCIES,
+  SAVINGS_CHALLENGE_CURRENCIES,
+  SAVINGS_CHALLENGE_VISIBILITY,
+  SAVINGS_CHALLENGE_SOURCE_TYPES,
+  SAVINGS_CHALLENGE_STATUS,
+  SAVINGS_CHALLENGE_REWARD_TYPES,
 };
