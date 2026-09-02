@@ -1,952 +1,986 @@
-
-// src/config/smartSaveConfig.js
-
 /**
- * ============================================================
- * SMARTSAVE CONFIGURATION
- * ============================================================
+ * SmartSave Configuration
  *
- * Central configuration for the SmartSave frontend module.
- *
- * Responsibilities:
- * - SmartSave API endpoint definitions
- * - Resource names
- * - HTTP methods
- * - Pagination defaults
- * - Query parameter contracts
- * - Domain statuses
- * - Strategies
- * - Challenge configuration
- * - Insight configuration
- * - Lifecycle actions
- * - Cache keys
- * - UI limits
- * - Feature flags
+ * Centralized configuration for the SmartSave frontend.
  *
  * IMPORTANT:
- *
- * - No API requests belong here.
- * - No Axios calls belong here.
- * - No server-side business logic belongs here.
- * - No React state belongs here.
- * - No UI components belong here.
- * - smartSaveService.js remains the API boundary.
- *
- * Backward compatibility:
- *
- * This module intentionally exposes both the original
- * production names and compatibility aliases used by
- * existing SmartSave components.
- *
- * ============================================================
+ * - Backend/Mongoose remains the source of truth for business rules.
+ * - This file contains frontend configuration, constants, labels,
+ *   endpoint definitions, and safe UI defaults.
+ * - Do not place financial calculations or business logic here.
  */
 
-/* ============================================================
-   API RESOURCE PATHS
-============================================================ */
+/* -------------------------------------------------------------------------- */
+/* API Endpoints                                                              */
+/* -------------------------------------------------------------------------- */
 
 export const SMART_SAVE_ENDPOINTS = Object.freeze({
   accounts: "/savings/accounts",
+  primaryAccount: "/savings/accounts/primary",
   goals: "/savings/goals",
   plans: "/savings/plans",
   schedules: "/savings/schedules",
   executions: "/savings/executions",
+  contributions: "/savings/contributions",
+  milestones: "/savings/milestones",
   challenges: "/savings/challenges",
   insights: "/savings/insights",
   autoSave: "/savings/auto-save",
+  forecast: "/savings/forecast",
+  analytics: "/savings/analytics",
 });
 
+/* -------------------------------------------------------------------------- */
+/* HTTP Methods                                                               */
+/* -------------------------------------------------------------------------- */
 
+export const HTTP_METHODS = Object.freeze({
+  GET: "get",
+  POST: "post",
+  PUT: "put",
+  PATCH: "patch",
+  DELETE: "delete",
+});
 
+/* -------------------------------------------------------------------------- */
+/* Default Currency                                                           */
+/* -------------------------------------------------------------------------- */
 
-
-
-
-// src/config/smartSave/smartSaveCurrency.js
-
-/**
- * ============================================================
- * SMARTSAVE CURRENCY CONFIGURATION
- * ============================================================
- *
- * Centralized currency configuration for the SmartSave module.
- *
- * Responsibilities:
- * - Define the application's primary savings currency
- * - Provide currency metadata
- * - Provide Intl.NumberFormat configuration
- * - Keep currency presentation consistent across SmartSave
- *
- * This file contains configuration only.
- *
- * It MUST NOT:
- * - Perform financial calculations
- * - Make API requests
- * - Read React state
- * - Contain component/UI logic
- * - Contain business rules
- * ============================================================
- */
+export const DEFAULT_CURRENCY = "NGN";
 
 export const SMART_SAVE_CURRENCY = Object.freeze({
-  /**
-   * ISO 4217 currency code.
-   *
-   * SmartBudget's default currency is Nigerian Naira.
-   */
   code: "NGN",
-
-  /**
-   * Currency symbol.
-   */
   symbol: "₦",
-
-  /**
-   * Human-readable currency name.
-   */
-  name: "Nigerian Naira",
-
-  /**
-   * Locale used for currency formatting.
-   */
   locale: "en-NG",
+  currency: "NGN",
+});
 
-  /**
-   * ISO country code associated with the default currency.
-   */
-  country: "NG",
+/* -------------------------------------------------------------------------- */
+/* Currency Configuration                                                     */
+/* -------------------------------------------------------------------------- */
 
-  /**
-   * Number of decimal places normally displayed.
-   */
-  decimalPlaces: 2,
+export const SUPPORTED_CURRENCIES = Object.freeze([
+  "NGN",
+  "USD",
+  "GBP",
+  "EUR",
+]);
 
-  /**
-   * Intl.NumberFormat configuration.
-   *
-   * Keeping this here prevents different SmartSave components
-   * from formatting currency differently.
-   */
-  formatOptions: Object.freeze({
-    style: "currency",
-    currency: "NGN",
-    currencyDisplay: "symbol",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+export const SMART_SAVE_CURRENCIES = Object.freeze([
+  Object.freeze({
+    code: "NGN",
+    symbol: "₦",
+    name: "Nigerian Naira",
+    locale: "en-NG",
   }),
-});
 
-/* ============================================================
-   NAMED CONFIG EXPORTS
-============================================================ */
+  Object.freeze({
+    code: "USD",
+    symbol: "$",
+    name: "US Dollar",
+    locale: "en-US",
+  }),
 
-export const SMART_SAVE_CURRENCY_CODE =
-  SMART_SAVE_CURRENCY.code;
+  Object.freeze({
+    code: "GBP",
+    symbol: "£",
+    name: "British Pound",
+    locale: "en-GB",
+  }),
 
-export const SMART_SAVE_CURRENCY_SYMBOL =
-  SMART_SAVE_CURRENCY.symbol;
+  Object.freeze({
+    code: "EUR",
+    symbol: "€",
+    name: "Euro",
+    locale: "de-DE",
+  }),
+]);
 
-export const SMART_SAVE_CURRENCY_LOCALE =
-  SMART_SAVE_CURRENCY.locale;
+/* -------------------------------------------------------------------------- */
+/* Pagination                                                                 */
+/* -------------------------------------------------------------------------- */
 
-/* ============================================================
-   DEFAULT EXPORT
-============================================================ */
+export const DEFAULT_PAGE = 1;
 
+export const DEFAULT_LIMIT = 20;
 
-
-/* ============================================================
-   RESOURCE NAMES
-============================================================ */
-
-export const SMART_SAVE_RESOURCES = Object.freeze({
-  ACCOUNT: "account",
-  GOAL: "goal",
-  PLAN: "plan",
-  SCHEDULE: "schedule",
-  EXECUTION: "execution",
-  CHALLENGE: "challenge",
-  INSIGHT: "insight",
-  AUTO_SAVE: "autoSave",
-});
-
-/* ============================================================
-   HTTP METHODS
-============================================================ */
-
-export const SMART_SAVE_HTTP_METHODS = Object.freeze({
-  GET: "GET",
-  POST: "POST",
-  PUT: "PUT",
-  PATCH: "PATCH",
-  DELETE: "DELETE",
-});
-
-/* ============================================================
-   DEFAULT PAGINATION
-============================================================ */
+export const MAX_LIMIT = 100;
 
 export const SMART_SAVE_PAGINATION = Object.freeze({
-  DEFAULT_PAGE: 1,
-  DEFAULT_LIMIT: 20,
-  MIN_PAGE: 1,
-  MIN_LIMIT: 1,
-  MAX_LIMIT: 100,
+  DEFAULT_PAGE,
+  DEFAULT_LIMIT,
+  MAX_LIMIT,
 });
 
-/* ============================================================
-   DEFAULT QUERY OPTIONS
-============================================================ */
+/* -------------------------------------------------------------------------- */
+/* Savings Goal Statuses                                                      */
+/* -------------------------------------------------------------------------- */
 
-export const SMART_SAVE_QUERY_DEFAULTS = Object.freeze({
-  page: SMART_SAVE_PAGINATION.DEFAULT_PAGE,
-  limit: SMART_SAVE_PAGINATION.DEFAULT_LIMIT,
-});
-
-/* ============================================================
-   ACCOUNT STATUSES
-============================================================ */
-
-export const SAVING_ACCOUNT_STATUS = Object.freeze({
+export const SAVINGS_GOAL_STATUS = Object.freeze({
   ACTIVE: "active",
-  PAUSED: "paused",
-  LOCKED: "locked",
-  CLOSED: "closed",
-});
-
-/* ============================================================
-   ACCOUNT TYPES
-============================================================ */
-
-export const SAVING_ACCOUNT_TYPES = Object.freeze({
-  SAVINGS: "savings",
-});
-
-/* ============================================================
-   GOAL STATUSES
-============================================================ */
-
-export const SAVING_GOAL_STATUS = Object.freeze({
-  ACTIVE: "active",
-  PAUSED: "paused",
   COMPLETED: "completed",
-  CANCELLED: "cancelled",
-  EXPIRED: "expired",
-});
-
-/* ============================================================
-   PLAN STATUSES
-============================================================ */
-
-export const SAVING_PLAN_STATUS = Object.freeze({
-  DRAFT: "draft",
-  ACTIVE: "active",
-  PAUSED: "paused",
-  COMPLETED: "completed",
-  CANCELLED: "cancelled",
-});
-
-/* ============================================================
-   SCHEDULE STATUSES
-============================================================ */
-
-export const SAVING_SCHEDULE_STATUS = Object.freeze({
-  ACTIVE: "active",
   PAUSED: "paused",
   CANCELLED: "cancelled",
-  COMPLETED: "completed",
-});
-
-/* ============================================================
-   EXECUTION STATUSES
-============================================================ */
-
-export const SAVING_EXECUTION_STATUS = Object.freeze({
-  PENDING: "pending",
-  PROCESSING: "processing",
-  COMPLETED: "completed",
-  FAILED: "failed",
-  CANCELLED: "cancelled",
-  RETRYING: "retrying",
-});
-
-/* ============================================================
-   CHALLENGE STATUSES
-============================================================ */
-
-export const SAVINGS_CHALLENGE_STATUS = Object.freeze({
-  DRAFT: "draft",
-  ACTIVE: "active",
-  PAUSED: "paused",
-  COMPLETED: "completed",
-  CANCELLED: "cancelled",
-  FAILED: "failed",
   EXPIRED: "expired",
   ARCHIVED: "archived",
 });
 
-/**
- * Compatibility export.
- *
- * Existing SmartSave components import:
- *
- *   CHALLENGE_STATUS
- *
- * Keep this alias instead of forcing production components
- * to be rewritten.
- */
-export const CHALLENGE_STATUS =
-  SAVINGS_CHALLENGE_STATUS;
+export const SAVINGS_GOAL_STATUSES = Object.freeze(
+  Object.values(SAVINGS_GOAL_STATUS),
+);
 
-/* ============================================================
-   INSIGHT TYPES
-============================================================ */
+/* -------------------------------------------------------------------------- */
+/* Savings Challenge Types                                                    */
+/* -------------------------------------------------------------------------- */
 
-export const SAVING_INSIGHT_TYPES = Object.freeze({
-  PROGRESS: "progress",
-  PACE: "pace",
-  HEALTH: "health",
-  RISK: "risk",
-  MILESTONE: "milestone",
-  CONTRIBUTION: "contribution",
-  COMPLETION: "completion",
-  RECOMMENDATION: "recommendation",
-});
-
-/**
- * Compatibility export.
- *
- * Existing SmartSave components use the plural form.
- */
-export const SAVINGS_INSIGHT_TYPES =
-  SAVING_INSIGHT_TYPES;
-
-
-  export const DEFAULT_CURRENCY = "NGN";
-
-/* ============================================================
-   INSIGHT SEVERITIES
-============================================================ */
-
-export const SAVING_INSIGHT_SEVERITIES = Object.freeze({
-  INFO: "info",
-  SUCCESS: "success",
-  WARNING: "warning",
-  CRITICAL: "critical",
-});
-
-/**
- * Compatibility alias for consumers using the plural
- * SAVINGS naming convention.
- */
-export const SAVINGS_INSIGHT_SEVERITIES =
-  SAVING_INSIGHT_SEVERITIES;
-
-/* ============================================================
-   SAVING FREQUENCIES
-============================================================ */
-
-export const SAVING_FREQUENCIES = Object.freeze({
-  DAILY: "daily",
-  WEEKLY: "weekly",
-  BIWEEKLY: "biweekly",
-  MONTHLY: "monthly",
-  QUARTERLY: "quarterly",
-});
-
-/* ============================================================
-   SAVING STRATEGIES
-============================================================ */
-
-/**
- * SmartSave strategies are frontend domain concepts.
- *
- * They are NOT backend endpoints.
- *
- * Strategy behavior is composed through:
- *
- * - saving plans
- * - saving schedules
- * - AutoSave
- *
- * There is intentionally no /strategies API endpoint.
- */
-export const SAVINGS_STRATEGIES = Object.freeze({
-  FIXED: "fixed",
-  FLEXIBLE: "flexible",
-  GOAL_BASED: "goal_based",
-  AUTOMATIC: "automatic",
-});
-
-/**
- * Singular compatibility alias.
- *
- * Some older consumers may use SAVING_STRATEGIES.
- */
-export const SAVING_STRATEGIES =
-  SAVINGS_STRATEGIES;
-
-/* ============================================================
-   SMART SAVE STRATEGY CONFIGURATION
-============================================================ */
-
-/**
- * UI/domain metadata for SmartSave strategies.
- *
- * This configuration does not perform any business operation
- * and does not imply the existence of a backend strategy route.
- *
- * The values are deliberately kept aligned with the canonical
- * SAVINGS_STRATEGIES constants above.
- */
-export const SMART_SAVE_STRATEGY_CONFIG =
-  Object.freeze({
-    [SAVINGS_STRATEGIES.FIXED]: Object.freeze({
-      key: SAVINGS_STRATEGIES.FIXED,
-      label: "Fixed Savings",
-      description:
-        "Save a consistent amount according to a defined contribution schedule.",
-      frequencySupported: true,
-      goalBased: false,
-      automatic: false,
-    }),
-
-    [SAVINGS_STRATEGIES.FLEXIBLE]: Object.freeze({
-      key: SAVINGS_STRATEGIES.FLEXIBLE,
-      label: "Flexible Savings",
-      description:
-        "Make flexible contributions without requiring a fixed contribution amount.",
-      frequencySupported: true,
-      goalBased: false,
-      automatic: false,
-    }),
-
-    [SAVINGS_STRATEGIES.GOAL_BASED]: Object.freeze({
-      key: SAVINGS_STRATEGIES.GOAL_BASED,
-      label: "Goal-Based Savings",
-      description:
-        "Structure contributions around a specific savings goal and target amount.",
-      frequencySupported: true,
-      goalBased: true,
-      automatic: false,
-    }),
-
-    [SAVINGS_STRATEGIES.AUTOMATIC]: Object.freeze({
-      key: SAVINGS_STRATEGIES.AUTOMATIC,
-      label: "Automatic Savings",
-      description:
-        "Automatically contribute according to an active AutoSave or schedule configuration.",
-      frequencySupported: true,
-      goalBased: false,
-      automatic: true,
-    }),
-  });
-
-/* ============================================================
-   CHALLENGE TYPES
-============================================================ */
-
-export const SAVINGS_CHALLENGE_TYPES = Object.freeze({
+export const SAVINGS_CHALLENGE_TYPE = Object.freeze({
   FIXED_AMOUNT: "fixed_amount",
+  INCREMENTAL: "incremental",
   PERCENTAGE: "percentage",
+  ROUND_UP: "round_up",
+  NO_SPEND: "no_spend",
   STREAK: "streak",
   CUSTOM: "custom",
 });
 
-/* ============================================================
-   CHALLENGE DIFFICULTIES
-============================================================ */
+/*
+ * Compatibility:
+ *
+ * Some existing SmartSave files may use:
+ *
+ * SAVINGS_CHALLENGE_TYPES.FIXED_AMOUNT
+ *
+ * while newer code may iterate over the values.
+ *
+ * Keep the object export available and expose a separate values array.
+ */
 
-export const SAVINGS_CHALLENGE_DIFFICULTIES =
+export const SAVINGS_CHALLENGE_TYPES =
+  SAVINGS_CHALLENGE_TYPE;
+
+export const SAVINGS_CHALLENGE_TYPE_VALUES =
+  Object.freeze(
+    Object.values(SAVINGS_CHALLENGE_TYPE),
+  );
+
+/* -------------------------------------------------------------------------- */
+/* Challenge Type Labels                                                      */
+/* -------------------------------------------------------------------------- */
+
+export const SAVINGS_CHALLENGE_TYPE_LABELS =
+  Object.freeze({
+    [SAVINGS_CHALLENGE_TYPE.FIXED_AMOUNT]:
+      "Fixed Amount",
+
+    [SAVINGS_CHALLENGE_TYPE.INCREMENTAL]:
+      "Incremental",
+
+    [SAVINGS_CHALLENGE_TYPE.PERCENTAGE]:
+      "Percentage",
+
+    [SAVINGS_CHALLENGE_TYPE.ROUND_UP]:
+      "Round Up",
+
+    [SAVINGS_CHALLENGE_TYPE.NO_SPEND]:
+      "No Spend",
+
+    [SAVINGS_CHALLENGE_TYPE.STREAK]:
+      "Savings Streak",
+
+    [SAVINGS_CHALLENGE_TYPE.CUSTOM]:
+      "Custom",
+  });
+
+/* -------------------------------------------------------------------------- */
+/* Challenge Difficulty                                                       */
+/* -------------------------------------------------------------------------- */
+
+export const SAVINGS_CHALLENGE_DIFFICULTY =
   Object.freeze({
     BEGINNER: "beginner",
     INTERMEDIATE: "intermediate",
     ADVANCED: "advanced",
+    EXPERT: "expert",
   });
 
-/* ============================================================
-   FUNDING SOURCES
-============================================================ */
+/*
+ * Backward-compatible object export.
+ */
 
-export const SAVING_FUNDING_SOURCES = Object.freeze({
-  WALLET: "wallet",
-});
+export const SAVINGS_CHALLENGE_DIFFICULTIES =
+  SAVINGS_CHALLENGE_DIFFICULTY;
 
-/* ============================================================
-   PLAN AUTOMATION
-============================================================ */
+export const SAVINGS_CHALLENGE_DIFFICULTY_VALUES =
+  Object.freeze(
+    Object.values(
+      SAVINGS_CHALLENGE_DIFFICULTY,
+    ),
+  );
 
-export const SAVING_AUTOMATION_TYPES = Object.freeze({
-  AUTO_SAVE: "autoSave",
-  SCHEDULE: "schedule",
-});
+/* -------------------------------------------------------------------------- */
+/* Challenge Difficulty Labels                                                */
+/* -------------------------------------------------------------------------- */
 
-/* ============================================================
-   DEFAULTS
-============================================================ */
-
-export const SMART_SAVE_DEFAULTS = Object.freeze({
-  currency: "NGN",
-
-  contributionFrequency:
-    SAVING_FREQUENCIES.MONTHLY,
-
-  priority: "medium",
-
-  goalStatus:
-    SAVING_GOAL_STATUS.ACTIVE,
-
-  accountStatus:
-    SAVING_ACCOUNT_STATUS.ACTIVE,
-
-  planStatus:
-    SAVING_PLAN_STATUS.DRAFT,
-
-  challengeStatus:
-    SAVINGS_CHALLENGE_STATUS.ACTIVE,
-
-  insightType:
-    SAVING_INSIGHT_TYPES.PROGRESS,
-
-  insightSeverity:
-    SAVING_INSIGHT_SEVERITIES.INFO,
-
-  strategy:
-    SAVINGS_STRATEGIES.FIXED,
-});
-
-/* ============================================================
-   MILESTONES
-============================================================ */
-
-export const SAVING_MILESTONES =
-  Object.freeze([
-    25,
-    50,
-    75,
-    90,
-    100,
-  ]);
-
-/* ============================================================
-   QUERY PARAMETER WHITELISTS
-============================================================ */
-
-export const SMART_SAVE_QUERY_PARAMS =
+export const SAVINGS_CHALLENGE_DIFFICULTY_LABELS =
   Object.freeze({
-    accounts: Object.freeze([
-      "page",
-      "limit",
-      "status",
-      "accountType",
-      "currency",
-      "search",
-      "includeClosed",
-    ]),
+    [SAVINGS_CHALLENGE_DIFFICULTY.BEGINNER]:
+      "Beginner",
 
-    goals: Object.freeze([
-      "page",
-      "limit",
-      "status",
-    ]),
+    [SAVINGS_CHALLENGE_DIFFICULTY.INTERMEDIATE]:
+      "Intermediate",
 
-    plans: Object.freeze([
-      "page",
-      "limit",
-      "status",
-      "goal",
-      "savingAccount",
-      "automated",
-    ]),
+    [SAVINGS_CHALLENGE_DIFFICULTY.ADVANCED]:
+      "Advanced",
 
-    schedules: Object.freeze([
-      "page",
-      "limit",
-      "status",
-      "savingGoal",
-      "fundingSource",
-      "strategy",
-      "frequency",
-      "isAutomatic",
-      "includeCancelled",
-    ]),
-
-    executions: Object.freeze([
-      "savingGoalId",
-      "savingScheduleId",
-      "status",
-      "page",
-      "limit",
-    ]),
-
-    challenges: Object.freeze([
-      "page",
-      "limit",
-      "status",
-      "challengeType",
-      "difficulty",
-      "savingPlan",
-      "savingAccount",
-      "includeTemplates",
-    ]),
-
-    insights: Object.freeze([
-      "asOfDate",
-    ]),
+    [SAVINGS_CHALLENGE_DIFFICULTY.EXPERT]:
+      "Expert",
   });
 
-/* ============================================================
-   ID PARAMETER NAMES
-============================================================ */
+/* -------------------------------------------------------------------------- */
+/* Challenge Frequency                                                        */
+/* -------------------------------------------------------------------------- */
 
-export const SMART_SAVE_ID_PARAMS =
+export const SAVINGS_CHALLENGE_FREQUENCY =
   Object.freeze({
-    accountId: "accountId",
-    goalId: "goalId",
-    planId: "planId",
-    scheduleId: "scheduleId",
-    executionId: "executionId",
-    challengeId: "challengeId",
-    autoSaveId: "autoSaveId",
+    DAILY: "daily",
+    WEEKLY: "weekly",
+    BIWEEKLY: "biweekly",
+    MONTHLY: "monthly",
+    CUSTOM: "custom",
   });
 
-/* ============================================================
-   LIFECYCLE ACTIONS
-============================================================ */
+/*
+ * Backward-compatible object export.
+ */
 
-export const SMART_SAVE_LIFECYCLE_ACTIONS =
+export const SAVINGS_CHALLENGE_FREQUENCIES =
+  SAVINGS_CHALLENGE_FREQUENCY;
+
+export const SAVINGS_CHALLENGE_FREQUENCY_VALUES =
+  Object.freeze(
+    Object.values(
+      SAVINGS_CHALLENGE_FREQUENCY,
+    ),
+  );
+
+/* -------------------------------------------------------------------------- */
+/* Challenge Frequency Labels                                                 */
+/* -------------------------------------------------------------------------- */
+
+export const SAVINGS_CHALLENGE_FREQUENCY_LABELS =
   Object.freeze({
-    account: Object.freeze({
-      setPrimary: "primary",
-      pause: "pause",
-      activate: "activate",
-      lock: "lock",
-      close: "close",
+    [SAVINGS_CHALLENGE_FREQUENCY.DAILY]:
+      "Daily",
+
+    [SAVINGS_CHALLENGE_FREQUENCY.WEEKLY]:
+      "Weekly",
+
+    [SAVINGS_CHALLENGE_FREQUENCY.BIWEEKLY]:
+      "Every 2 Weeks",
+
+    [SAVINGS_CHALLENGE_FREQUENCY.MONTHLY]:
+      "Monthly",
+
+    [SAVINGS_CHALLENGE_FREQUENCY.CUSTOM]:
+      "Custom",
+  });
+
+/* -------------------------------------------------------------------------- */
+/* Challenge Status                                                           */
+/* -------------------------------------------------------------------------- */
+
+export const SAVINGS_CHALLENGE_STATUS =
+  Object.freeze({
+    DRAFT: "draft",
+    ACTIVE: "active",
+    PAUSED: "paused",
+    COMPLETED: "completed",
+    FAILED: "failed",
+    EXPIRED: "expired",
+    CANCELLED: "cancelled",
+  });
+
+export const CHALLENGE_STATUS =
+  SAVINGS_CHALLENGE_STATUS;
+
+export const SAVINGS_CHALLENGE_STATUSES =
+  Object.freeze(
+    Object.values(
+      SAVINGS_CHALLENGE_STATUS,
+    ),
+  );
+
+/* -------------------------------------------------------------------------- */
+/* Challenge Status Labels                                                    */
+/* -------------------------------------------------------------------------- */
+
+export const SAVINGS_CHALLENGE_STATUS_LABELS =
+  Object.freeze({
+    [SAVINGS_CHALLENGE_STATUS.DRAFT]:
+      "Draft",
+
+    [SAVINGS_CHALLENGE_STATUS.ACTIVE]:
+      "Active",
+
+    [SAVINGS_CHALLENGE_STATUS.PAUSED]:
+      "Paused",
+
+    [SAVINGS_CHALLENGE_STATUS.COMPLETED]:
+      "Completed",
+
+    [SAVINGS_CHALLENGE_STATUS.FAILED]:
+      "Failed",
+
+    [SAVINGS_CHALLENGE_STATUS.EXPIRED]:
+      "Expired",
+
+    [SAVINGS_CHALLENGE_STATUS.CANCELLED]:
+      "Cancelled",
+  });
+
+/* -------------------------------------------------------------------------- */
+/* Challenge Source                                                           */
+/* -------------------------------------------------------------------------- */
+
+export const SAVINGS_CHALLENGE_SOURCE =
+  Object.freeze({
+    SYSTEM: "system",
+    USER: "user",
+    ADMIN: "admin",
+  });
+
+export const SAVINGS_CHALLENGE_SOURCES =
+  Object.freeze(
+    Object.values(
+      SAVINGS_CHALLENGE_SOURCE,
+    ),
+  );
+
+/* -------------------------------------------------------------------------- */
+/* Challenge Visibility                                                       */
+/* -------------------------------------------------------------------------- */
+
+export const SAVINGS_CHALLENGE_VISIBILITY =
+  Object.freeze({
+    PRIVATE: "private",
+    PUBLIC: "public",
+  });
+
+export const SAVINGS_CHALLENGE_VISIBILITIES =
+  Object.freeze(
+    Object.values(
+      SAVINGS_CHALLENGE_VISIBILITY,
+    ),
+  );
+
+/* -------------------------------------------------------------------------- */
+/* Challenge Reward                                                           */
+/* -------------------------------------------------------------------------- */
+
+export const SAVINGS_CHALLENGE_REWARD_TYPE =
+  Object.freeze({
+    BADGE: "badge",
+    POINTS: "points",
+    CASHBACK: "cashback",
+    INTEREST_BONUS: "interest_bonus",
+    NONE: "none",
+  });
+
+export const SAVINGS_CHALLENGE_REWARD_TYPES =
+  Object.freeze(
+    Object.values(
+      SAVINGS_CHALLENGE_REWARD_TYPE,
+    ),
+  );
+
+/* -------------------------------------------------------------------------- */
+/* Challenge Defaults                                                         */
+/* -------------------------------------------------------------------------- */
+
+export const SAVINGS_CHALLENGE_DEFAULTS =
+  Object.freeze({
+    challengeType:
+      SAVINGS_CHALLENGE_TYPE.FIXED_AMOUNT,
+
+    difficulty:
+      SAVINGS_CHALLENGE_DIFFICULTY.BEGINNER,
+
+    currency:
+      DEFAULT_CURRENCY,
+
+    frequency:
+      SAVINGS_CHALLENGE_FREQUENCY.WEEKLY,
+
+    source:
+      SAVINGS_CHALLENGE_SOURCE.USER,
+
+    visibility:
+      SAVINGS_CHALLENGE_VISIBILITY.PRIVATE,
+
+    status:
+      SAVINGS_CHALLENGE_STATUS.DRAFT,
+
+    autoSaveEnabled: false,
+
+    allowEarlyCompletion: true,
+
+    allowPartialContribution: true,
+
+    allowOverContribution: false,
+
+    rolloverMissedContribution: false,
+
+    notifyBeforeDue: true,
+
+    notificationDaysBefore: 1,
+
+    participantCount: 1,
+  });
+
+/* -------------------------------------------------------------------------- */
+/* Challenge UI Options                                                       */
+/* -------------------------------------------------------------------------- */
+
+export const SAVINGS_CHALLENGE_TYPE_OPTIONS =
+  Object.freeze(
+    SAVINGS_CHALLENGE_TYPE_VALUES.map(
+      (value) =>
+        Object.freeze({
+          value,
+          label:
+            SAVINGS_CHALLENGE_TYPE_LABELS[
+              value
+            ] || value,
+        }),
+    ),
+  );
+
+export const SAVINGS_CHALLENGE_DIFFICULTY_OPTIONS =
+  Object.freeze(
+    SAVINGS_CHALLENGE_DIFFICULTY_VALUES.map(
+      (value) =>
+        Object.freeze({
+          value,
+          label:
+            SAVINGS_CHALLENGE_DIFFICULTY_LABELS[
+              value
+            ] || value,
+        }),
+    ),
+  );
+
+export const SAVINGS_CHALLENGE_FREQUENCY_OPTIONS =
+  Object.freeze(
+    SAVINGS_CHALLENGE_FREQUENCY_VALUES.map(
+      (value) =>
+        Object.freeze({
+          value,
+          label:
+            SAVINGS_CHALLENGE_FREQUENCY_LABELS[
+              value
+            ] || value,
+        }),
+    ),
+  );
+
+/* -------------------------------------------------------------------------- */
+/* SmartSave Resource Names                                                   */
+/* -------------------------------------------------------------------------- */
+
+export const SMART_SAVE_RESOURCES =
+  Object.freeze({
+    ACCOUNTS: "accounts",
+    GOALS: "goals",
+    PLANS: "plans",
+    SCHEDULES: "schedules",
+    EXECUTIONS: "executions",
+    CONTRIBUTIONS: "contributions",
+    MILESTONES: "milestones",
+    CHALLENGES: "challenges",
+    INSIGHTS: "insights",
+    AUTO_SAVE: "autoSave",
+    FORECAST: "forecast",
+    ANALYTICS: "analytics",
+  });
+
+/* -------------------------------------------------------------------------- */
+/* Insight Types                                                              */
+/* -------------------------------------------------------------------------- */
+
+export const SMART_SAVE_INSIGHT_TYPES =
+  Object.freeze({
+    SAVING_OPPORTUNITY:
+      "saving_opportunity",
+
+    SPENDING_PATTERN:
+      "spending_pattern",
+
+    GOAL_PROGRESS:
+      "goal_progress",
+
+    GOAL_RISK:
+      "goal_risk",
+
+    FORECAST:
+      "forecast",
+
+    RECOMMENDATION:
+      "recommendation",
+
+    ACHIEVEMENT:
+      "achievement",
+
+    WARNING:
+      "warning",
+  });
+
+export const SMART_SAVE_INSIGHT_TYPE_VALUES =
+  Object.freeze(
+    Object.values(
+      SMART_SAVE_INSIGHT_TYPES,
+    ),
+  );
+
+/* -------------------------------------------------------------------------- */
+/* Savings Strategy                                                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Strategy identifiers.
+ *
+ * These values should remain aligned with the strategy
+ * identifiers consumed by the SmartSave strategy UI/backend.
+ */
+
+export const SAVINGS_STRATEGIES =
+  Object.freeze({
+    FIXED_AMOUNT: "fixed_amount",
+    PERCENTAGE: "percentage",
+    ROUND_UP: "round_up",
+    INCREMENTAL: "incremental",
+    SMART: "smart",
+    CUSTOM: "custom",
+  });
+
+export const SAVINGS_STRATEGY_VALUES =
+  Object.freeze(
+    Object.values(
+      SAVINGS_STRATEGIES,
+    ),
+  );
+
+/**
+ * Human-readable strategy labels.
+ */
+
+export const SAVINGS_STRATEGY_LABELS =
+  Object.freeze({
+    [SAVINGS_STRATEGIES.FIXED_AMOUNT]:
+      "Fixed Amount",
+
+    [SAVINGS_STRATEGIES.PERCENTAGE]:
+      "Percentage",
+
+    [SAVINGS_STRATEGIES.ROUND_UP]:
+      "Round Up",
+
+    [SAVINGS_STRATEGIES.INCREMENTAL]:
+      "Incremental",
+
+    [SAVINGS_STRATEGIES.SMART]:
+      "Smart Saving",
+
+    [SAVINGS_STRATEGIES.CUSTOM]:
+      "Custom",
+  });
+
+/**
+ * Central strategy configuration.
+ *
+ * This export is required by:
+ * - SavingsStrategiesPage.jsx
+ * - SavingsEmptyState.jsx
+ * - SavingsErrorState.jsx
+ *
+ * Keep this configuration descriptive only.
+ * Financial calculations belong in the backend/service layer.
+ */
+
+export const SMART_SAVE_STRATEGY_CONFIG =
+  Object.freeze({
+    strategies:
+      SAVINGS_STRATEGIES,
+
+    values:
+      SAVINGS_STRATEGY_VALUES,
+
+    labels:
+      SAVINGS_STRATEGY_LABELS,
+
+    options:
+      Object.freeze(
+        SAVINGS_STRATEGY_VALUES.map(
+          (value) =>
+            Object.freeze({
+              value,
+              label:
+                SAVINGS_STRATEGY_LABELS[
+                  value
+                ] || value,
+            }),
+        ),
+      ),
+
+    defaults: Object.freeze({
+      strategy:
+        SAVINGS_STRATEGIES.SMART,
     }),
 
-    plan: Object.freeze({
-      activate: "activate",
-      pause: "pause",
-      resume: "resume",
-      complete: "complete",
-      cancel: "cancel",
-      recalculateMetrics:
-        "recalculate-metrics",
-      refreshProgress:
-        "refresh-progress",
-    }),
-
-    schedule: Object.freeze({
-      activate: "activate",
-      pause: "pause",
-      resume: "resume",
-      cancel: "cancel",
-      complete: "complete",
-    }),
-
-    execution: Object.freeze({
-      cancel: "cancel",
-      retry: "retry",
-    }),
-
-    challenge: Object.freeze({
-      activate: "activate",
-      pause: "pause",
-      resume: "resume",
-      complete: "complete",
-      cancel: "cancel",
-      fail: "fail",
-      expire: "expire",
-      restore: "restore",
-      contributions: "contributions",
-      successfulPeriod:
-        "periods/success",
-      missedPeriod:
-        "periods/missed",
-    }),
-
-    autoSave: Object.freeze({
-      activate: "activate",
-      pause: "pause",
-      resume: "resume",
-      cancel: "cancel",
-    }),
+    supported:
+      Object.freeze(
+        SAVINGS_STRATEGY_VALUES,
+      ),
   });
 
-/* ============================================================
-   CACHE KEYS
-============================================================ */
+/* -------------------------------------------------------------------------- */
+/* UI Limits                                                                  */
+/* -------------------------------------------------------------------------- */
 
-export const SMART_SAVE_CACHE_KEYS =
+export const SMART_SAVE_UI_LIMITS =
   Object.freeze({
-    root: "smart-save",
+    MAX_NAME_LENGTH: 120,
 
-    accounts:
-      "smart-save-accounts",
+    MAX_DESCRIPTION_LENGTH: 1000,
 
-    primaryAccount:
-      "smart-save-primary-account",
+    MAX_GOAL_NAME_LENGTH: 100,
 
-    goals:
-      "smart-save-goals",
+    MAX_CHALLENGE_NAME_LENGTH: 120,
 
-    plans:
-      "smart-save-plans",
+    MAX_SLUG_LENGTH: 160,
 
-    schedules:
-      "smart-save-schedules",
+    MAX_REFERENCE_LENGTH: 150,
 
-    executions:
-      "smart-save-executions",
+    MAX_NOTIFICATION_DAYS: 30,
 
-    challenges:
-      "smart-save-challenges",
+    MAX_PERCENTAGE: 100,
 
-    activeChallenges:
-      "smart-save-active-challenges",
-
-    pausedChallenges:
-      "smart-save-paused-challenges",
-
-    completedChallenges:
-      "smart-save-completed-challenges",
-
-    insights:
-      "smart-save-insights",
-
-    autoSaves:
-      "smart-save-auto-saves",
+    MAX_AMOUNT:
+      Number.MAX_SAFE_INTEGER,
   });
 
-/* ============================================================
-   REQUEST CONFIGURATION
-============================================================ */
+/* -------------------------------------------------------------------------- */
+/* SmartSave Defaults                                                         */
+/* -------------------------------------------------------------------------- */
 
-export const SMART_SAVE_REQUEST_CONFIG =
+export const SMART_SAVE_DEFAULTS =
   Object.freeze({
-    timeout: 15000,
-    retries: 2,
-    retryDelay: 500,
-    credentialsRequired: true,
+    page: DEFAULT_PAGE,
+
+    limit: DEFAULT_LIMIT,
+
+    maxLimit: MAX_LIMIT,
+
+    currency: DEFAULT_CURRENCY,
+
+    locale:
+      SMART_SAVE_CURRENCY.locale,
   });
 
-/* ============================================================
-   ERROR CODES
-============================================================ */
-
-export const SMART_SAVE_ERROR_CODES =
-  Object.freeze({
-    INVALID_ID: "INVALID_ID",
-    INVALID_QUERY: "INVALID_QUERY",
-    INVALID_PAYLOAD: "INVALID_PAYLOAD",
-
-    NETWORK_ERROR:
-      "NETWORK_ERROR",
-
-    TIMEOUT:
-      "TIMEOUT",
-
-    UNAUTHORIZED:
-      "UNAUTHORIZED",
-
-    FORBIDDEN:
-      "FORBIDDEN",
-
-    NOT_FOUND:
-      "NOT_FOUND",
-
-    VALIDATION_ERROR:
-      "VALIDATION_ERROR",
-
-    SERVER_ERROR:
-      "SERVER_ERROR",
-
-    UNKNOWN_ERROR:
-      "UNKNOWN_ERROR",
-  });
-
-/* ============================================================
-   UI CONFIGURATION
-============================================================ */
-
-export const SMART_SAVE_UI =
-  Object.freeze({
-    maxVisibleInsights: 20,
-    maxRecentActivity: 10,
-    maxDashboardGoals: 5,
-    maxDashboardChallenges: 5,
-  });
-
-/* ============================================================
-   FEATURE FLAGS
-============================================================ */
-
-export const SMART_SAVE_FEATURES =
-  Object.freeze({
-    accounts: true,
-    goals: true,
-    plans: true,
-    schedules: true,
-    executions: true,
-    challenges: true,
-    insights: true,
-    autoSave: true,
-    forecasting: true,
-    emergencyFund: true,
-    strategies: true,
-  });
-
-/* ============================================================
-   CONFIGURATION VALIDATION
-============================================================ */
-
-export const validateSmartSaveConfig = () => {
-  const endpointEntries =
-    Object.entries(
-      SMART_SAVE_ENDPOINTS
-    );
-
-  const invalidEndpoints =
-    endpointEntries.filter(
-      ([, endpoint]) =>
-        typeof endpoint !== "string" ||
-        !endpoint.startsWith(
-          "/savings/"
-        )
-    );
-
-  if (
-    invalidEndpoints.length > 0
-  ) {
-    throw new Error(
-      "Invalid SmartSave endpoint configuration."
-    );
-  }
-
-  const strategyEntries =
-    Object.entries(
-      SMART_SAVE_STRATEGY_CONFIG
-    );
-
-  const invalidStrategies =
-    strategyEntries.some(
-      ([key, config]) =>
-        !Object.values(
-          SAVINGS_STRATEGIES
-        ).includes(key) ||
-        config.key !== key
-    );
-
-  if (invalidStrategies) {
-    throw new Error(
-      "Invalid SmartSave strategy configuration."
-    );
-  }
-
-  return true;
-};
-
-/* ============================================================
-   COMPLETE CONFIGURATION OBJECT
-============================================================ */
+/* -------------------------------------------------------------------------- */
+/* Configuration Object                                                       */
+/* -------------------------------------------------------------------------- */
 
 export const SMART_SAVE_CONFIG =
   Object.freeze({
     endpoints:
       SMART_SAVE_ENDPOINTS,
 
-    resources:
-      SMART_SAVE_RESOURCES,
+    httpMethods:
+      HTTP_METHODS,
 
-    methods:
-      SMART_SAVE_HTTP_METHODS,
+    currency:
+      SMART_SAVE_CURRENCY,
+
+    currencies:
+      SMART_SAVE_CURRENCIES,
+
+    supportedCurrencies:
+      SUPPORTED_CURRENCIES,
 
     pagination:
       SMART_SAVE_PAGINATION,
 
-    queryDefaults:
-      SMART_SAVE_QUERY_DEFAULTS,
+    resources:
+      SMART_SAVE_RESOURCES,
 
-    queryParams:
-      SMART_SAVE_QUERY_PARAMS,
-
-    ids:
-      SMART_SAVE_ID_PARAMS,
-
-    lifecycle:
-      SMART_SAVE_LIFECYCLE_ACTIONS,
-
-    statuses: Object.freeze({
-      account:
-        SAVING_ACCOUNT_STATUS,
-
-      goal:
-        SAVING_GOAL_STATUS,
-
-      plan:
-        SAVING_PLAN_STATUS,
-
-      schedule:
-        SAVING_SCHEDULE_STATUS,
-
-      execution:
-        SAVING_EXECUTION_STATUS,
-
-      challenge:
-        SAVINGS_CHALLENGE_STATUS,
+    goals: Object.freeze({
+      statuses:
+        SAVINGS_GOAL_STATUSES,
     }),
 
-    insightTypes:
-      SAVING_INSIGHT_TYPES,
+    challenges: Object.freeze({
+      types:
+        SAVINGS_CHALLENGE_TYPE_VALUES,
 
-    insightSeverities:
-      SAVING_INSIGHT_SEVERITIES,
+      typeConfig:
+        SAVINGS_CHALLENGE_TYPE,
 
-    frequencies:
-      SAVING_FREQUENCIES,
+      typeOptions:
+        SAVINGS_CHALLENGE_TYPE_OPTIONS,
+
+      difficulties:
+        SAVINGS_CHALLENGE_DIFFICULTY_VALUES,
+
+      difficultyConfig:
+        SAVINGS_CHALLENGE_DIFFICULTY,
+
+      difficultyOptions:
+        SAVINGS_CHALLENGE_DIFFICULTY_OPTIONS,
+
+      frequencies:
+        SAVINGS_CHALLENGE_FREQUENCY_VALUES,
+
+      frequencyConfig:
+        SAVINGS_CHALLENGE_FREQUENCY,
+
+      frequencyOptions:
+        SAVINGS_CHALLENGE_FREQUENCY_OPTIONS,
+
+      statuses:
+        SAVINGS_CHALLENGE_STATUSES,
+
+      sources:
+        SAVINGS_CHALLENGE_SOURCES,
+
+      visibility:
+        SAVINGS_CHALLENGE_VISIBILITIES,
+
+      rewardTypes:
+        SAVINGS_CHALLENGE_REWARD_TYPES,
+
+      defaults:
+        SAVINGS_CHALLENGE_DEFAULTS,
+    }),
+
+    insights:
+      SMART_SAVE_INSIGHT_TYPE_VALUES,
 
     strategies:
-      SAVINGS_STRATEGIES,
+      SAVINGS_STRATEGY_VALUES,
 
     strategyConfig:
       SMART_SAVE_STRATEGY_CONFIG,
 
-    challengeTypes:
-      SAVINGS_CHALLENGE_TYPES,
-
-    challengeDifficulties:
-      SAVINGS_CHALLENGE_DIFFICULTIES,
-
-    fundingSources:
-      SAVING_FUNDING_SOURCES,
-
-    automationTypes:
-      SAVING_AUTOMATION_TYPES,
+    uiLimits:
+      SMART_SAVE_UI_LIMITS,
 
     defaults:
       SMART_SAVE_DEFAULTS,
-
-    milestones:
-      SAVING_MILESTONES,
-
-    cacheKeys:
-      SMART_SAVE_CACHE_KEYS,
-
-    request:
-      SMART_SAVE_REQUEST_CONFIG,
-
-    errorCodes:
-      SMART_SAVE_ERROR_CODES,
-
-    ui:
-      SMART_SAVE_UI,
-
-    features:
-      SMART_SAVE_FEATURES,
   });
 
-/* ============================================================
-   DEFAULT EXPORT
-============================================================ */
+/* -------------------------------------------------------------------------- */
+/* Validation                                                                 */
+/* -------------------------------------------------------------------------- */
+
+export const validateSmartSaveConfig = () => {
+  const errors = [];
+
+  if (!SMART_SAVE_ENDPOINTS.accounts) {
+    errors.push(
+      "Savings accounts endpoint is missing",
+    );
+  }
+
+  if (!SMART_SAVE_ENDPOINTS.goals) {
+    errors.push(
+      "Savings goals endpoint is missing",
+    );
+  }
+
+  if (!SMART_SAVE_ENDPOINTS.challenges) {
+    errors.push(
+      "Savings challenges endpoint is missing",
+    );
+  }
+
+  if (!SMART_SAVE_ENDPOINTS.insights) {
+    errors.push(
+      "Savings insights endpoint is missing",
+    );
+  }
+
+  if (
+    !SUPPORTED_CURRENCIES.includes(
+      DEFAULT_CURRENCY,
+    )
+  ) {
+    errors.push(
+      "Default currency is not supported",
+    );
+  }
+
+  if (DEFAULT_PAGE < 1) {
+    errors.push(
+      "Default page must be at least 1",
+    );
+  }
+
+  if (
+    DEFAULT_LIMIT < 1 ||
+    DEFAULT_LIMIT > MAX_LIMIT
+  ) {
+    errors.push(
+      "Default limit is outside the allowed pagination range",
+    );
+  }
+
+  if (
+    SAVINGS_CHALLENGE_TYPE_VALUES.length ===
+    0
+  ) {
+    errors.push(
+      "No savings challenge types are configured",
+    );
+  }
+
+  if (
+    SAVINGS_CHALLENGE_DIFFICULTY_VALUES.length ===
+    0
+  ) {
+    errors.push(
+      "No savings challenge difficulties are configured",
+    );
+  }
+
+  if (
+    SAVINGS_CHALLENGE_FREQUENCY_VALUES.length ===
+    0
+  ) {
+    errors.push(
+      "No savings challenge frequencies are configured",
+    );
+  }
+
+  if (
+    SAVINGS_STRATEGY_VALUES.length ===
+    0
+  ) {
+    errors.push(
+      "No savings strategies are configured",
+    );
+  }
+
+  if (
+    !SMART_SAVE_STRATEGY_CONFIG.defaults
+      .strategy
+  ) {
+    errors.push(
+      "Default savings strategy is missing",
+    );
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+};
+
+/* -------------------------------------------------------------------------- */
+/* Convenience Helpers                                                        */
+/* -------------------------------------------------------------------------- */
+
+export const getChallengeTypeLabel = (
+  value,
+) => {
+  const normalizedValue =
+    String(value || "")
+      .trim()
+      .toLowerCase();
+
+  return (
+    SAVINGS_CHALLENGE_TYPE_LABELS[
+      normalizedValue
+    ] || normalizedValue
+  );
+};
+
+export const getChallengeDifficultyLabel = (
+  value,
+) => {
+  const normalizedValue =
+    String(value || "")
+      .trim()
+      .toLowerCase();
+
+  return (
+    SAVINGS_CHALLENGE_DIFFICULTY_LABELS[
+      normalizedValue
+    ] || normalizedValue
+  );
+};
+
+export const getChallengeFrequencyLabel = (
+  value,
+) => {
+  const normalizedValue =
+    String(value || "")
+      .trim()
+      .toLowerCase();
+
+  return (
+    SAVINGS_CHALLENGE_FREQUENCY_LABELS[
+      normalizedValue
+    ] || normalizedValue
+  );
+};
+
+export const isSupportedCurrency = (
+  currency,
+) =>
+  SUPPORTED_CURRENCIES.includes(
+    String(currency || "")
+      .trim()
+      .toUpperCase(),
+  );
+
+export const isSupportedChallengeType = (
+  value,
+) =>
+  SAVINGS_CHALLENGE_TYPE_VALUES.includes(
+    String(value || "")
+      .trim()
+      .toLowerCase(),
+  );
+
+export const isSupportedChallengeDifficulty = (
+  value,
+) =>
+  SAVINGS_CHALLENGE_DIFFICULTY_VALUES.includes(
+    String(value || "")
+      .trim()
+      .toLowerCase(),
+  );
+
+export const isSupportedChallengeFrequency = (
+  value,
+) =>
+  SAVINGS_CHALLENGE_FREQUENCY_VALUES.includes(
+    String(value || "")
+      .trim()
+      .toLowerCase(),
+  );
+
+export const isSupportedSavingsStrategy = (
+  value,
+) =>
+  SAVINGS_STRATEGY_VALUES.includes(
+    String(value || "")
+      .trim()
+      .toLowerCase(),
+  );
+
+/* -------------------------------------------------------------------------- */
+/* Default Export                                                             */
+/* -------------------------------------------------------------------------- */
 
 export default SMART_SAVE_CONFIG;
