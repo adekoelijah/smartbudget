@@ -1,4 +1,3 @@
-
 // hooks/useSavingsGoals.js
 
 import {
@@ -23,6 +22,12 @@ const DEFAULT_FILTERS = Object.freeze({
   page: DEFAULT_PAGE,
   limit: DEFAULT_LIMIT,
 });
+
+const DEFAULT_ERROR_MESSAGE =
+  "Unable to process savings goal request.";
+
+const DEFAULT_ERROR_CODE =
+  "SAVINGS_GOALS_ERROR";
 
 /* =========================================================
    FILTER HELPERS
@@ -52,22 +57,31 @@ const normalizePositiveInteger = (
   return number;
 };
 
-const normalizeFilters = (value = {}) => ({
-  status:
-    typeof value?.status === "string"
-      ? value.status.trim()
-      : "",
+const normalizeFilters = (value = {}) => {
+  const source =
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value)
+      ? value
+      : {};
 
-  page: normalizePositiveInteger(
-    value?.page,
-    DEFAULT_PAGE
-  ),
+  return {
+    status:
+      typeof source.status === "string"
+        ? source.status.trim()
+        : "",
 
-  limit: normalizePositiveInteger(
-    value?.limit,
-    DEFAULT_LIMIT
-  ),
-});
+    page: normalizePositiveInteger(
+      source.page,
+      DEFAULT_PAGE
+    ),
+
+    limit: normalizePositiveInteger(
+      source.limit,
+      DEFAULT_LIMIT
+    ),
+  };
+};
 
 const createFilterKey = (filters) =>
   [
@@ -110,7 +124,9 @@ const normalizePagination = (
     filters.limit
   );
 
-  const rawTotal = Number(source?.total);
+  const rawTotal = Number(
+    source?.total
+  );
 
   const total = Number.isFinite(rawTotal)
     ? Math.max(0, rawTotal)
@@ -120,13 +136,12 @@ const normalizePagination = (
     source?.totalPages
   );
 
-  const totalPages = Number.isFinite(
-    rawTotalPages
-  )
-    ? Math.max(0, rawTotalPages)
-    : limit > 0
-      ? Math.ceil(total / limit)
-      : 0;
+  const totalPages =
+    Number.isFinite(rawTotalPages)
+      ? Math.max(0, rawTotalPages)
+      : limit > 0
+        ? Math.ceil(total / limit)
+        : 0;
 
   return {
     page,
@@ -135,12 +150,14 @@ const normalizePagination = (
     totalPages,
 
     hasNextPage:
-      typeof source?.hasNextPage === "boolean"
+      typeof source?.hasNextPage ===
+      "boolean"
         ? source.hasNextPage
         : page < totalPages,
 
     hasPreviousPage:
-      typeof source?.hasPreviousPage === "boolean"
+      typeof source?.hasPreviousPage ===
+      "boolean"
         ? source.hasPreviousPage
         : page > 1,
   };
@@ -155,32 +172,54 @@ const normalizeGoals = (response) => {
     return response;
   }
 
-  if (Array.isArray(response?.goals)) {
-    return response.goals;
-  }
+  if (
+    response &&
+    typeof response === "object"
+  ) {
+    if (Array.isArray(response.goals)) {
+      return response.goals;
+    }
 
-  if (Array.isArray(response?.items)) {
-    return response.items;
-  }
+    if (Array.isArray(response.items)) {
+      return response.items;
+    }
 
-  if (Array.isArray(response?.results)) {
-    return response.results;
-  }
+    if (Array.isArray(response.results)) {
+      return response.results;
+    }
 
-  if (Array.isArray(response?.data)) {
-    return response.data;
-  }
+    if (Array.isArray(response.data)) {
+      return response.data;
+    }
 
-  if (Array.isArray(response?.data?.goals)) {
-    return response.data.goals;
-  }
+    if (
+      response.data &&
+      typeof response.data === "object"
+    ) {
+      if (
+        Array.isArray(
+          response.data.goals
+        )
+      ) {
+        return response.data.goals;
+      }
 
-  if (Array.isArray(response?.data?.items)) {
-    return response.data.items;
-  }
+      if (
+        Array.isArray(
+          response.data.items
+        )
+      ) {
+        return response.data.items;
+      }
 
-  if (Array.isArray(response?.data?.results)) {
-    return response.data.results;
+      if (
+        Array.isArray(
+          response.data.results
+        )
+      ) {
+        return response.data.results;
+      }
+    }
   }
 
   return [];
@@ -191,34 +230,68 @@ const normalizeGoals = (response) => {
 ========================================================= */
 
 const normalizeError = (error) => {
+  if (
+    error &&
+    typeof error === "object" &&
+    error.code &&
+    error.message
+  ) {
+    return {
+      message:
+        typeof error.message === "string" &&
+        error.message.trim()
+          ? error.message.trim()
+          : DEFAULT_ERROR_MESSAGE,
+
+      code:
+        error.code ||
+        DEFAULT_ERROR_CODE,
+
+      statusCode:
+        error.statusCode ??
+        error.status ??
+        null,
+
+      details:
+        error.details ??
+        null,
+
+      originalError:
+        error.originalError ??
+        error,
+    };
+  }
+
   const message =
-    error?.message ??
     error?.response?.data?.message ??
     error?.response?.data?.error ??
-    "Unable to process savings goal request.";
+    error?.data?.message ??
+    error?.message ??
+    error?.error ??
+    DEFAULT_ERROR_MESSAGE;
 
   return {
     message:
       typeof message === "string" &&
       message.trim()
         ? message.trim()
-        : "Unable to process savings goal request.",
+        : DEFAULT_ERROR_MESSAGE,
 
     code:
-      error?.code ??
       error?.response?.data?.code ??
-      "SAVINGS_GOALS_ERROR",
+      error?.code ??
+      DEFAULT_ERROR_CODE,
 
     statusCode:
-      error?.status ??
-      error?.statusCode ??
       error?.response?.status ??
+      error?.statusCode ??
+      error?.status ??
       null,
 
     details:
-      error?.details ??
       error?.response?.data?.details ??
       error?.response?.data?.errors ??
+      error?.details ??
       null,
 
     originalError: error,
@@ -231,7 +304,7 @@ const normalizeError = (error) => {
 
 const createHookError = ({
   message,
-  code = "SAVINGS_GOAL_VALIDATION_ERROR",
+  code = "SAVINGS_GOAL_ERROR",
   details = null,
 }) => ({
   message,
@@ -246,7 +319,8 @@ const createHookError = ({
 ========================================================= */
 
 const getServiceMethod = (name) => {
-  const method = smartSaveService?.[name];
+  const method =
+    smartSaveService?.[name];
 
   if (typeof method !== "function") {
     throw new Error(
@@ -262,23 +336,33 @@ const getServiceMethod = (name) => {
 ========================================================= */
 
 /**
- * Create-goal requests are deliberately normalized here.
- *
- * The backend expects these fields at the top level:
+ * The create-goal API expects a flat request body:
  *
  * {
  *   name,
  *   targetAmount,
- *   targetDate
+ *   currency,
+ *   targetDate,
+ *   description?
  * }
  *
- * We do NOT invent missing values.
+ * We intentionally reject nested payloads such as:
  *
- * We also do NOT silently rename arbitrary fields such as
- * goalName -> name or amount -> targetAmount because doing
- * so could hide a contract problem between the modal and
- * the hook.
+ * {
+ *   data: {
+ *     name,
+ *     targetAmount,
+ *     ...
+ *   }
+ * }
+ *
+ * This keeps the contract between:
+ *
+ * Modal -> Page -> Hook -> Service
+ *
+ * explicit and predictable.
  */
+
 const normalizeCreateGoalPayload = (
   payload
 ) => {
@@ -299,86 +383,99 @@ const normalizeCreateGoalPayload = (
   const name =
     typeof payload.name === "string"
       ? payload.name.trim()
-      : payload.name;
+      : "";
+
+  const rawTargetAmount =
+    payload.targetAmount;
 
   const targetAmount =
-    typeof payload.targetAmount === "string"
-      ? payload.targetAmount.trim()
-      : payload.targetAmount;
+    typeof rawTargetAmount === "string"
+      ? Number(rawTargetAmount.trim())
+      : Number(rawTargetAmount);
+
+  const currency =
+    typeof payload.currency === "string" &&
+    payload.currency.trim()
+      ? payload.currency
+          .trim()
+          .toUpperCase()
+      : "NGN";
 
   const targetDate =
     typeof payload.targetDate === "string"
       ? payload.targetDate.trim()
-      : payload.targetDate;
+      : "";
+
+  const description =
+    typeof payload.description === "string"
+      ? payload.description.trim()
+      : "";
 
   const missingFields = [];
 
-  if (
-    name === undefined ||
-    name === null ||
-    name === ""
-  ) {
+  if (!name) {
     missingFields.push("name");
   }
 
   if (
-    targetAmount === undefined ||
-    targetAmount === null ||
-    targetAmount === ""
+    rawTargetAmount === null ||
+    rawTargetAmount === undefined ||
+    rawTargetAmount === ""
   ) {
-    missingFields.push("targetAmount");
+    missingFields.push(
+      "targetAmount"
+    );
   }
 
-  if (
-    targetDate === undefined ||
-    targetDate === null ||
-    targetDate === ""
-  ) {
-    missingFields.push("targetDate");
+  if (!targetDate) {
+    missingFields.push(
+      "targetDate"
+    );
   }
 
   if (missingFields.length > 0) {
     throw createHookError({
       message:
-        `Savings goal is missing required field(s): ` +
-        missingFields.join(", ") +
-        ".",
+        `Savings goal is missing required field(s): ${missingFields.join(
+          ", "
+        )}.`,
+
       code:
         "SAVINGS_GOAL_REQUIRED_FIELDS",
+
       details: {
         fields: missingFields,
       },
     });
   }
 
-  const numericTargetAmount =
-    Number(targetAmount);
-
   if (
-    !Number.isFinite(numericTargetAmount) ||
-    numericTargetAmount <= 0
+    !Number.isFinite(targetAmount) ||
+    targetAmount <= 0
   ) {
     throw createHookError({
       message:
         "Savings goal target amount must be greater than zero.",
+
       code:
         "INVALID_SAVINGS_GOAL_TARGET_AMOUNT",
+
       details: {
         field: "targetAmount",
-        value: targetAmount,
       },
     });
   }
 
-  const normalizedPayload = {
-    ...payload,
+  return {
     name,
-    targetAmount:
-      numericTargetAmount,
+    targetAmount,
+    currency,
     targetDate,
-  };
 
-  return normalizedPayload;
+    ...(description
+      ? { description }
+      : {}),
+  };
 };
 
 /* =========================================================
@@ -392,34 +489,8 @@ const useSavingsGoals = (
      INITIAL FILTERS
   ======================================================= */
 
-  const initialFiltersKey = useMemo(
-    () => {
-      const normalized =
-        normalizeFilters(initialFilters);
-
-      return createFilterKey(normalized);
-    },
-    [
-      initialFilters?.status,
-      initialFilters?.page,
-      initialFilters?.limit,
-    ]
-  );
-
   const normalizedInitialFilters =
-    useMemo(() => {
-      const [
-        status,
-        page,
-        limit,
-      ] = initialFiltersKey.split("|");
-
-      return normalizeFilters({
-        status,
-        page,
-        limit,
-      });
-    }, [initialFiltersKey]);
+  normalizeFilters(initialFilters);
 
   /* =======================================================
      FILTER STATE
@@ -452,7 +523,7 @@ const useSavingsGoals = (
     useState(null);
 
   /* =======================================================
-     REQUEST CONTROL
+     REQUEST LIFECYCLE
   ======================================================= */
 
   const mountedRef =
@@ -464,23 +535,8 @@ const useSavingsGoals = (
   const abortControllerRef =
     useRef(null);
 
-  const filtersRef =
-    useRef(filters);
-
-  /* =======================================================
-     MUTATION CONTROL
-  ======================================================= */
-
   const mutationIdRef =
     useRef(0);
-
-  /* =======================================================
-     KEEP FILTER REF CURRENT
-  ======================================================= */
-
-  useEffect(() => {
-    filtersRef.current = filters;
-  }, [filters]);
 
   /* =======================================================
      MOUNT / UNMOUNT
@@ -493,9 +549,11 @@ const useSavingsGoals = (
       mountedRef.current = false;
 
       requestIdRef.current += 1;
+
       mutationIdRef.current += 1;
 
       abortControllerRef.current?.abort();
+
       abortControllerRef.current = null;
     };
   }, []);
@@ -505,7 +563,8 @@ const useSavingsGoals = (
   ======================================================= */
 
   const filterKey = useMemo(
-    () => createFilterKey(filters),
+    () =>
+      createFilterKey(filters),
     [filters]
   );
 
@@ -522,15 +581,31 @@ const useSavingsGoals = (
         options?.silent
       );
 
+      /*
+       * IMPORTANT:
+       *
+       * We use React state directly.
+       *
+       * There is intentionally NO:
+       *
+       * filtersRef.current
+       *
+       * anywhere in this hook.
+       */
+
       const nextFilters =
         normalizeFilters({
-          ...filtersRef.current,
+          ...filters,
           ...overrideFilters,
         });
 
       const requestId =
         ++requestIdRef.current;
 
+      /*
+       * Cancel the previous request before
+       * starting another one.
+       */
       abortControllerRef.current?.abort();
 
       const controller =
@@ -562,15 +637,13 @@ const useSavingsGoals = (
               controller.signal,
           });
 
+        /*
+         * Ignore stale or cancelled requests.
+         */
         if (
+          controller.signal.aborted ||
           requestId !==
-          requestIdRef.current
-        ) {
-          return null;
-        }
-
-        if (
-          controller.signal.aborted
+            requestIdRef.current
         ) {
           return null;
         }
@@ -584,6 +657,10 @@ const useSavingsGoals = (
             nextFilters
           );
 
+        /*
+         * Component may have unmounted while
+         * the request was running.
+         */
         if (!mountedRef.current) {
           return {
             goals: nextGoals,
@@ -599,23 +676,6 @@ const useSavingsGoals = (
           nextPagination
         );
 
-        setFiltersState(
-          (previous) => {
-            if (
-              previous.status ===
-                nextFilters.status &&
-              previous.page ===
-                nextFilters.page &&
-              previous.limit ===
-                nextFilters.limit
-            ) {
-              return previous;
-            }
-
-            return nextFilters;
-          }
-        );
-
         return {
           goals: nextGoals,
           pagination:
@@ -623,6 +683,9 @@ const useSavingsGoals = (
           raw: response,
         };
       } catch (requestError) {
+        /*
+         * Ignore cancellation and stale requests.
+         */
         if (
           controller.signal.aborted ||
           requestId !==
@@ -660,7 +723,7 @@ const useSavingsGoals = (
         }
       }
     },
-    []
+    [filters]
   );
 
   /* =======================================================
@@ -670,7 +733,7 @@ const useSavingsGoals = (
   useEffect(() => {
     let cancelled = false;
 
-    const load = async () => {
+    const loadGoals = async () => {
       if (cancelled) {
         return;
       }
@@ -679,12 +742,12 @@ const useSavingsGoals = (
         await fetchGoals();
       } catch {
         /*
-         * fetchGoals owns error state.
+         * fetchGoals already owns error state.
          */
       }
     };
 
-    void load();
+    void loadGoals();
 
     return () => {
       cancelled = true;
@@ -744,23 +807,24 @@ const useSavingsGoals = (
           );
 
         /*
-         * IMPORTANT:
+         * Send the payload flat.
          *
-         * The payload sent to the service is now
-         * explicitly validated and normalized.
+         * NOT:
          *
-         * This prevents:
-         *
-         * createSavingGoal(undefined)
-         * createSavingGoal({})
-         *
-         * from reaching the backend.
+         * {
+         *   data: normalizedPayload
+         * }
          */
+
         const response =
           await createSavingGoal(
             normalizedPayload
           );
 
+        /*
+         * Ignore refresh if another mutation
+         * has superseded this one.
+         */
         if (
           mutationId !==
           mutationIdRef.current
@@ -768,10 +832,6 @@ const useSavingsGoals = (
           return response;
         }
 
-        /*
-         * Refresh the list only after successful
-         * creation.
-         */
         await fetchGoals(
           {},
           {
@@ -810,6 +870,7 @@ const useSavingsGoals = (
           createHookError({
             message:
               "A savings goal ID is required.",
+
             code:
               "SAVINGS_GOAL_ID_REQUIRED",
           });
@@ -821,14 +882,6 @@ const useSavingsGoals = (
         throw normalized;
       }
 
-      /*
-       * The current smartSaveService does not expose
-       * updateSavingGoal().
-       *
-       * Resolve the method explicitly so this failure
-       * becomes clear instead of becoming a silent
-       * backend problem.
-       */
       const methodName =
         "updateSavingGoal";
 
@@ -841,11 +894,12 @@ const useSavingsGoals = (
           createHookError({
             message:
               "Updating savings goals is not currently supported by the SmartSave service.",
+
             code:
               "SAVINGS_GOAL_UPDATE_UNAVAILABLE",
+
             details: {
-              method:
-                methodName,
+              method: methodName,
             },
           });
 
@@ -913,6 +967,7 @@ const useSavingsGoals = (
           createHookError({
             message:
               "A savings goal ID is required.",
+
             code:
               "SAVINGS_GOAL_ID_REQUIRED",
           });
@@ -924,10 +979,6 @@ const useSavingsGoals = (
         throw normalized;
       }
 
-      /*
-       * The current smartSaveService does not expose
-       * deleteSavingGoal().
-       */
       const methodName =
         "deleteSavingGoal";
 
@@ -940,11 +991,12 @@ const useSavingsGoals = (
           createHookError({
             message:
               "Deleting savings goals is not currently supported by the SmartSave service.",
+
             code:
               "SAVINGS_GOAL_DELETE_UNAVAILABLE",
+
             details: {
-              method:
-                methodName,
+              method: methodName,
             },
           });
 
@@ -1028,6 +1080,9 @@ const useSavingsGoals = (
             normalized.limit !==
             previous.limit;
 
+          /*
+           * Changing a filter starts from page 1.
+           */
           if (
             statusChanged ||
             limitChanged
@@ -1078,8 +1133,10 @@ const useSavingsGoals = (
 
           return {
             ...previous,
+
             status:
               normalizedStatus,
+
             page:
               DEFAULT_PAGE,
           };
@@ -1108,9 +1165,9 @@ const useSavingsGoals = (
             return previous;
           }
 
-          return normalizeFilters(
-            DEFAULT_FILTERS
-          );
+          return {
+            ...DEFAULT_FILTERS,
+          };
         }
       );
     },
@@ -1118,7 +1175,7 @@ const useSavingsGoals = (
   );
 
   /* =======================================================
-     PAGE
+     PAGINATION
   ======================================================= */
 
   const goToPage = useCallback(
@@ -1161,6 +1218,7 @@ const useSavingsGoals = (
 
           return {
             ...previous,
+
             page:
               previous.page + 1,
           };
@@ -1183,6 +1241,7 @@ const useSavingsGoals = (
 
           return {
             ...previous,
+
             page:
               previous.page - 1,
           };
@@ -1203,6 +1262,7 @@ const useSavingsGoals = (
           createHookError({
             message:
               "A savings goal ID is required.",
+
             code:
               "SAVINGS_GOAL_ID_REQUIRED",
           });
@@ -1251,6 +1311,7 @@ const useSavingsGoals = (
             createHookError({
               message:
                 "A savings goal ID is required.",
+
               code:
                 "SAVINGS_GOAL_ID_REQUIRED",
             });
@@ -1302,6 +1363,7 @@ const useSavingsGoals = (
             createHookError({
               message:
                 "A savings goal ID is required.",
+
               code:
                 "SAVINGS_GOAL_ID_REQUIRED",
             });
@@ -1354,6 +1416,7 @@ const useSavingsGoals = (
             createHookError({
               message:
                 "A savings goal ID is required.",
+
               code:
                 "SAVINGS_GOAL_ID_REQUIRED",
             });
@@ -1406,6 +1469,7 @@ const useSavingsGoals = (
             createHookError({
               message:
                 "A savings goal ID is required.",
+
               code:
                 "SAVINGS_GOAL_ID_REQUIRED",
             });
@@ -1423,18 +1487,6 @@ const useSavingsGoals = (
               "checkSavingEligibility"
             );
 
-          /*
-           * IMPORTANT:
-           *
-           * smartSaveService.checkSavingEligibility()
-           * expects:
-           *
-           * checkSavingEligibility(goalId, amount)
-           *
-           * NOT:
-           *
-           * checkSavingEligibility(goalId, { amount })
-           */
           return await method(
             goalId,
             amount
@@ -1512,7 +1564,7 @@ const useSavingsGoals = (
             )
               .trim()
               .toLowerCase() ===
-            "cancelled"
+          "cancelled"
         ),
       [goals]
     );
@@ -1524,7 +1576,8 @@ const useSavingsGoals = (
   const hasGoals =
     goals.length > 0;
 
-  const isLoading = loading;
+  const isLoading =
+    loading;
 
   const isRefreshing =
     refreshing;
@@ -1545,10 +1598,13 @@ const useSavingsGoals = (
   const reset = useCallback(
     () => {
       requestIdRef.current += 1;
+
       mutationIdRef.current += 1;
 
       abortControllerRef.current?.abort();
-      abortControllerRef.current = null;
+
+      abortControllerRef.current =
+        null;
 
       if (!mountedRef.current) {
         return;
@@ -1565,7 +1621,9 @@ const useSavingsGoals = (
       );
 
       setLoading(false);
+
       setRefreshing(false);
+
       setError(null);
     },
     [normalizedInitialFilters]
@@ -1577,15 +1635,17 @@ const useSavingsGoals = (
 
   return useMemo(
     () => ({
+      /* Goals */
       goals,
-
       items: goals,
 
+      /* Derived collections */
       activeGoals,
       completedGoals,
       pausedGoals,
       cancelledGoals,
 
+      /* Pagination */
       pagination,
 
       total:
@@ -1603,50 +1663,78 @@ const useSavingsGoals = (
       hasPreviousPage:
         pagination.hasPreviousPage,
 
+      /* Filters */
       filters,
 
       setFilters,
+
       setStatus,
+
       clearFilters,
 
+      /* Pagination actions */
       goToPage,
+
       nextPage,
+
       previousPage,
 
+      /* Single-goal operations */
       getGoal,
+
       getGoalSummary,
+
       getGoalContributions,
+
       getGoalHistory,
+
       checkEligibility,
 
+      /* Mutations */
       createGoal,
+
       updateGoal,
+
       deleteGoal,
 
+      /* Fetching */
       fetchGoals,
+
       refresh,
+
       refreshGoals,
 
+      /* Reset */
       reset,
 
+      /* Loading */
       loading,
+
       refreshing,
 
       isLoading,
+
       isRefreshing,
 
+      /* Errors */
       error,
+
       hasError,
 
+      /* Convenience flags */
       hasGoals,
+
       isEmpty,
     }),
     [
       goals,
 
       activeGoals,
+
       completedGoals,
+
       pausedGoals,
+
       cancelledGoals,
 
       pagination,
@@ -1654,39 +1742,55 @@ const useSavingsGoals = (
       filters,
 
       setFilters,
+
       setStatus,
+
       clearFilters,
 
       goToPage,
+
       nextPage,
+
       previousPage,
 
       getGoal,
+
       getGoalSummary,
+
       getGoalContributions,
+
       getGoalHistory,
+
       checkEligibility,
 
       createGoal,
+
       updateGoal,
+
       deleteGoal,
 
       fetchGoals,
+
       refresh,
+
       refreshGoals,
 
       reset,
 
       loading,
+
       refreshing,
 
       isLoading,
+
       isRefreshing,
 
       error,
+
       hasError,
 
       hasGoals,
+
       isEmpty,
     ]
   );

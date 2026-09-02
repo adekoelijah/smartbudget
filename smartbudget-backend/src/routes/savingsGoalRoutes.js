@@ -140,10 +140,7 @@ router.get(
  *
  * Get one saving goal.
  */
-router.get(
-  "/:goalId",
-  getSavingGoalController
-);
+
 
 /**
  * PATCH /api/savings/goals/:goalId
@@ -267,6 +264,10 @@ router.get(
   getSavingGoalProgressController
 );
 
+router.get(
+  "/:goalId",
+  getSavingGoalController
+);
 /* =========================================================
    EXPORT
 ========================================================= */

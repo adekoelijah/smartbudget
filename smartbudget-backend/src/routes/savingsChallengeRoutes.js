@@ -142,10 +142,7 @@ router.get(
  *
  * Get a single savings challenge.
  */
-router.get(
-  "/:challengeId",
-  getSavingsChallenge
-);
+
 
 /* =========================================================
    SNAPSHOT
@@ -164,6 +161,11 @@ router.get(
 router.get(
   "/:challengeId/snapshot",
   getChallengeSnapshot
+);
+
+router.get(
+  "/:challengeId",
+  getSavingsChallenge
 );
 
 /* =========================================================

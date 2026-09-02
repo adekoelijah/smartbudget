@@ -7,7 +7,6 @@ import {
   TrendingUp,
   WalletCards,
 } from "lucide-react";
-
 import {
   memo,
   useCallback,
@@ -16,7 +15,6 @@ import {
 } from "react";
 
 import useSavingsGoals from "../../../../hooks/useSavingsGoals";
-
 import SavingsGoalCard from "./SavingsGoalCard";
 import SavingsGoalEmptyState from "./SavingsGoalEmptyState";
 import SavingsGoalProgress from "./SavingsGoalProgress";
@@ -159,34 +157,31 @@ const getErrorMessage = (error, fallback) => {
 /**
  * Normalize goal status.
  */
-const getGoalStatus = (goal) => {
-  return String(goal?.status ?? "")
+const getGoalStatus = (goal) =>
+  String(goal?.status ?? "")
     .trim()
     .toLowerCase();
-};
 
 /**
  * Resolve target amount.
  */
-const getTargetAmount = (goal) => {
-  return toFiniteNumber(
+const getTargetAmount = (goal) =>
+  toFiniteNumber(
     goal?.targetAmount ??
       goal?.target ??
       goal?.amount
   );
-};
 
 /**
  * Resolve current/saved amount.
  */
-const getSavedAmount = (goal) => {
-  return toFiniteNumber(
+const getSavedAmount = (goal) =>
+  toFiniteNumber(
     goal?.currentAmount ??
       goal?.savedAmount ??
       goal?.amountSaved ??
       goal?.progressAmount
   );
-};
 
 /**
  * Resolve currency.
@@ -207,9 +202,8 @@ const getGoalCurrency = (goal) => {
 /**
  * Only render goals that have a usable ID.
  */
-const isValidGoal = (goal) => {
-  return Boolean(getGoalId(goal));
-};
+const isValidGoal = (goal) =>
+  Boolean(getGoalId(goal));
 
 /**
  * Resolve display limit.
@@ -245,6 +239,77 @@ const calculatePercentage = (
   );
 };
 
+/**
+ * Normalize the create-goal payload.
+ *
+ * IMPORTANT:
+ * This keeps the payload FLAT.
+ *
+ * The API should receive:
+ *
+ * {
+ *   name,
+ *   targetAmount,
+ *   currency,
+ *   targetDate,
+ *   description
+ * }
+ *
+ * NOT:
+ *
+ * {
+ *   data: {
+ *     name,
+ *     ...
+ *   }
+ * }
+ */
+const normalizeCreatePayload = (payload) => {
+  if (
+    !payload ||
+    typeof payload !== "object" ||
+    Array.isArray(payload)
+  ) {
+    return null;
+  }
+
+  const name =
+    typeof payload.name === "string"
+      ? payload.name.trim()
+      : "";
+
+  const targetAmount =
+    Number(payload.targetAmount);
+
+  const currency =
+    typeof payload.currency === "string" &&
+    payload.currency.trim()
+      ? payload.currency
+          .trim()
+          .toUpperCase()
+      : DEFAULT_CURRENCY;
+
+  const targetDate =
+    typeof payload.targetDate === "string"
+      ? payload.targetDate.trim()
+      : "";
+
+  const description =
+    typeof payload.description === "string"
+      ? payload.description.trim()
+      : "";
+
+  return {
+    name,
+    targetAmount,
+    currency,
+    targetDate,
+    ...(description
+      ? { description }
+      : {}),
+  };
+};
+
 /* =========================================================
    SUMMARY STAT
 ========================================================= */
@@ -257,22 +322,39 @@ const SummaryStat = memo(
   }) => {
     return (
       <div
-        className="bg-white shadow-sm p-4 border border-slate-200/80 rounded-2xl min-w-0"
+        className="
+          min-w-0
+          p-4
+          bg-white
+          border border-slate-200/80 rounded-2xl
+          shadow-sm
+        "
       >
         <div
-          className="flex justify-between items-start gap-3"
+          className="
+            flex justify-between items-start
+            gap-3
+          "
         >
           <div
-            className="min-w-0"
+            className="
+              min-w-0
+            "
           >
             <p
-              className="font-semibold text-[11px] text-slate-400 truncate uppercase tracking-[0.08em]"
+              className="
+                font-semibold text-[11px] text-slate-400 truncate uppercase
+                tracking-[0.08em]
+              "
             >
               {label}
             </p>
 
             <p
-              className="mt-1 font-bold text-slate-950 text-xl truncate tracking-tight"
+              className="
+                mt-1
+                font-bold text-slate-950 text-xl truncate tracking-tight
+              "
             >
               {value}
             </p>
@@ -280,7 +362,14 @@ const SummaryStat = memo(
 
           {Icon && (
             <div
-              className="flex justify-center items-center bg-slate-50 rounded-xl w-9 h-9 text-slate-500 shrink-0"
+              className="
+                flex justify-center items-center
+                w-9 h-9
+                text-slate-500
+                bg-slate-50
+                rounded-xl
+                shrink-0
+              "
               aria-hidden="true"
             >
               <Icon size={17} />
@@ -311,33 +400,60 @@ const GoalsHeader = memo(
   }) => {
     return (
       <header
-        className="flex lg:flex-row flex-col lg:justify-between lg:items-center gap-4"
+        className="
+          flex flex-col lg:flex-row lg:justify-between lg:items-center
+          gap-4
+        "
       >
         <div
-          className="flex items-center gap-3 min-w-0"
+          className="
+            flex items-center
+            min-w-0
+            gap-3
+          "
         >
           <div
-            className="flex justify-center items-center bg-blue-50 rounded-xl w-10 h-10 text-blue-600 shrink-0"
+            className="
+              flex justify-center items-center
+              w-10 h-10
+              text-blue-600
+              bg-blue-50
+              rounded-xl
+              shrink-0
+            "
             aria-hidden="true"
           >
             <Target size={19} />
           </div>
 
           <div
-            className="min-w-0"
+            className="
+              min-w-0
+            "
           >
             <div
-              className="flex items-center gap-2"
+              className="
+                flex items-center
+                gap-2
+              "
             >
               <h2
                 id="savings-goals-title"
-                className="font-bold text-slate-950 text-lg truncate tracking-tight"
+                className="
+                  font-bold text-slate-950 text-lg truncate tracking-tight
+                "
               >
                 {title}
               </h2>
 
               <span
-                className="bg-slate-100 px-2 py-0.5 rounded-full font-semibold text-[11px] text-slate-600 shrink-0"
+                className="
+                  px-2 py-0.5
+                  font-semibold text-[11px] text-slate-600
+                  bg-slate-100
+                  rounded-full
+                  shrink-0
+                "
               >
                 {count}
               </span>
@@ -345,7 +461,11 @@ const GoalsHeader = memo(
 
             {description && (
               <p
-                className="mt-1 max-w-2xl text-slate-500 text-sm leading-5"
+                className="
+                  max-w-2xl
+                  mt-1
+                  text-slate-500 text-sm leading-5
+                "
               >
                 {description}
               </p>
@@ -354,14 +474,28 @@ const GoalsHeader = memo(
         </div>
 
         <div
-          className="flex gap-2 w-full sm:w-auto"
+          className="
+            flex
+            w-full sm:w-auto
+            gap-2
+          "
         >
           {canRefresh && (
             <button
               type="button"
               onClick={onRefresh}
               disabled={loading}
-              className="inline-flex flex-1 sm:flex-none justify-center items-center gap-2 bg-white hover:bg-slate-50 disabled:opacity-60 shadow-sm px-3 border border-slate-200 rounded-xl h-10 font-semibold text-slate-700 text-sm transition disabled:cursor-not-allowed"
+              className="
+                inline-flex flex-1 sm:flex-none justify-center items-center
+                h-10
+                px-3
+                font-semibold text-slate-700 text-sm
+                bg-white hover:bg-slate-50
+                border border-slate-200 rounded-xl
+                disabled:opacity-60 shadow-sm transition
+                disabled:cursor-not-allowed
+                gap-2
+              "
             >
               <RefreshCw
                 size={15}
@@ -374,7 +508,9 @@ const GoalsHeader = memo(
               />
 
               <span
-                className="hidden sm:inline"
+                className="
+                  hidden sm:inline
+                "
               >
                 {loading
                   ? "Refreshing"
@@ -388,7 +524,17 @@ const GoalsHeader = memo(
               type="button"
               onClick={onCreate}
               disabled={loading}
-              className="inline-flex flex-1 sm:flex-none justify-center items-center gap-2 bg-slate-950 hover:bg-slate-800 disabled:opacity-60 px-4 rounded-xl h-10 font-semibold text-white text-sm transition disabled:cursor-not-allowed"
+              className="
+                inline-flex flex-1 sm:flex-none justify-center items-center
+                h-10
+                px-4
+                font-semibold text-white text-sm
+                bg-slate-950 hover:bg-slate-800
+                rounded-xl
+                disabled:opacity-60 transition
+                disabled:cursor-not-allowed
+                gap-2
+              "
             >
               <Plus
                 size={16}
@@ -413,45 +559,91 @@ GoalsHeader.displayName = "GoalsHeader";
 const GoalsLoadingState = memo(() => {
   return (
     <section
-      className="w-full"
+      className="
+        w-full
+      "
       aria-busy="true"
       aria-label="Loading savings goals"
     >
       <div
-        className="gap-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"
+        className="
+          grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3
+          gap-4
+        "
       >
         {[1, 2, 3].map((item) => (
           <div
             key={item}
-            className="bg-white shadow-sm p-5 border border-slate-100 rounded-2xl min-h-[240px]"
+            className="
+              min-h-[240px]
+              p-5
+              bg-white
+              border border-slate-100 rounded-2xl
+              shadow-sm
+            "
           >
             <div
-              className="bg-slate-100 rounded-xl w-10 h-10 animate-pulse"
+              className="
+                w-10 h-10
+                bg-slate-100
+                rounded-xl
+                animate-pulse
+              "
               /
             >
 
             <div
-              className="bg-slate-100 mt-5 rounded w-2/3 h-5 animate-pulse"
+              className="
+                w-2/3 h-5
+                mt-5
+                bg-slate-100
+                rounded
+                animate-pulse
+              "
               /
             >
 
             <div
-              className="bg-slate-100 mt-3 rounded w-full h-3 animate-pulse"
+              className="
+                w-full h-3
+                mt-3
+                bg-slate-100
+                rounded
+                animate-pulse
+              "
               /
             >
 
             <div
-              className="bg-slate-100 mt-2 rounded w-4/5 h-3 animate-pulse"
+              className="
+                w-4/5 h-3
+                mt-2
+                bg-slate-100
+                rounded
+                animate-pulse
+              "
               /
             >
 
             <div
-              className="bg-slate-100 mt-7 rounded-full w-full h-2 animate-pulse"
+              className="
+                w-full h-2
+                mt-7
+                bg-slate-100
+                rounded-full
+                animate-pulse
+              "
               /
             >
 
             <div
-              className="bg-slate-100 mt-5 rounded-xl w-full h-10 animate-pulse"
+              className="
+                w-full h-10
+                mt-5
+                bg-slate-100
+                rounded-xl
+                animate-pulse
+              "
               /
             >
           </div>
@@ -476,30 +668,49 @@ const ErrorState = memo(
   }) => {
     return (
       <div
-        className="bg-red-50 mt-5 p-5 border border-red-200 rounded-2xl"
+        className="
+          mt-5 p-5
+          bg-red-50
+          border border-red-200 rounded-2xl
+        "
         role="alert"
       >
         <div
-          className="flex items-start gap-3"
+          className="
+            flex items-start
+            gap-3
+          "
         >
           <AlertCircle
             size={19}
-            className="mt-0.5 text-red-600 shrink-0"
+            className="
+              mt-0.5
+              text-red-600
+              shrink-0
+            "
             aria-hidden="true"
           /
           >
 
           <div
-            className="flex-1 min-w-0"
+            className="
+              flex-1
+              min-w-0
+            "
           >
             <p
-              className="font-semibold text-red-900 text-sm"
+              className="
+                font-semibold text-red-900 text-sm
+              "
             >
               Unable to load savings goals
             </p>
 
             <p
-              className="mt-1 text-red-700 text-sm leading-5"
+              className="
+                mt-1
+                text-red-700 text-sm leading-5
+              "
             >
               {message}
             </p>
@@ -509,7 +720,15 @@ const ErrorState = memo(
                 type="button"
                 onClick={onRetry}
                 disabled={loading}
-                className="inline-flex items-center gap-2 disabled:opacity-50 mt-3 font-semibold text-red-800 text-sm underline underline-offset-2 disabled:cursor-not-allowed"
+                className="
+                  inline-flex items-center
+                  mt-3
+                  font-semibold text-red-800 text-sm
+                  underline underline-offset-2
+                  disabled:opacity-50
+                  disabled:cursor-not-allowed
+                  gap-2
+                "
               >
                 <RefreshCw
                   size={14}
@@ -548,27 +767,45 @@ const MutationError = memo(
 
     return (
       <div
-        className="flex items-start gap-3 bg-red-50 mt-4 p-4 border border-red-200 rounded-2xl"
+        className="
+          flex items-start
+          mt-4 p-4
+          bg-red-50
+          border border-red-200 rounded-2xl
+          gap-3
+        "
         role="alert"
       >
         <AlertCircle
           size={18}
-          className="mt-0.5 text-red-600 shrink-0"
+          className="
+            mt-0.5
+            text-red-600
+            shrink-0
+          "
           aria-hidden="true"
         /
         >
 
         <div
-          className="flex-1 min-w-0"
+          className="
+            flex-1
+            min-w-0
+          "
         >
           <p
-            className="font-semibold text-red-900 text-sm"
+            className="
+              font-semibold text-red-900 text-sm
+            "
           >
             Action could not be completed
           </p>
 
           <p
-            className="mt-1 text-red-700 text-sm"
+            className="
+              mt-1
+              text-red-700 text-sm
+            "
           >
             {message}
           </p>
@@ -577,7 +814,10 @@ const MutationError = memo(
         <button
           type="button"
           onClick={onDismiss}
-          className="font-semibold text-red-700 hover:text-red-900 text-xs shrink-0"
+          className="
+            font-semibold text-red-700 hover:text-red-900 text-xs
+            shrink-0
+          "
         >
           Dismiss
         </button>
@@ -604,10 +844,6 @@ const SavingsGoalsPage = ({
 }) => {
   /* =======================================================
      SERVER STATE
-
-     IMPORTANT:
-     This component does not use useEffect to fetch data.
-     useSavingsGoals owns the server-state lifecycle.
   ======================================================= */
 
   const savingsGoals = useSavingsGoals();
@@ -645,15 +881,18 @@ const SavingsGoalsPage = ({
      NORMALIZED GOALS
   ======================================================= */
 
-  const goals = useMemo(() => {
-    return normalizeGoals(hookGoals).filter(
-      isValidGoal
-    );
-  }, [hookGoals]);
+  const goals = useMemo(
+    () =>
+      normalizeGoals(hookGoals).filter(
+        isValidGoal
+      ),
+    [hookGoals]
+  );
 
-  const resolvedLimit = useMemo(() => {
-    return resolveLimit(limit);
-  }, [limit]);
+  const resolvedLimit = useMemo(
+    () => resolveLimit(limit),
+    [limit]
+  );
 
   const visibleGoals = useMemo(() => {
     if (!resolvedLimit) {
@@ -675,20 +914,23 @@ const SavingsGoalsPage = ({
 
   const loading = Boolean(hookLoading);
 
-  const loadErrorMessage = useMemo(() => {
-    return getErrorMessage(
-      hookError,
-      DEFAULT_LOAD_ERROR
-    );
-  }, [hookError]);
+  const loadErrorMessage = useMemo(
+    () =>
+      getErrorMessage(
+        hookError,
+        DEFAULT_LOAD_ERROR
+      ),
+    [hookError]
+  );
 
-  const mutationErrorMessage =
-    useMemo(() => {
-      return getErrorMessage(
+  const mutationErrorMessage = useMemo(
+    () =>
+      getErrorMessage(
         mutationError,
         DEFAULT_MUTATION_ERROR
-      );
-    }, [mutationError]);
+      ),
+    [mutationError]
+  );
 
   /* =======================================================
      SUMMARY
@@ -698,7 +940,6 @@ const SavingsGoalsPage = ({
     let active = 0;
     let completed = 0;
     let paused = 0;
-
     let totalTarget = 0;
     let totalSaved = 0;
 
@@ -804,117 +1045,130 @@ const SavingsGoalsPage = ({
     }, [action]);
 
   const handleCreate = useCallback(
-  async (payload) => {
-    if (typeof createGoal !== "function") {
-      const error = new Error(
-        "Creating savings goals is currently unavailable."
-      );
+    async (payload) => {
+      if (
+        typeof createGoal !== "function"
+      ) {
+        const error = new Error(
+          "Creating savings goals is currently unavailable."
+        );
 
-      setMutationError(error);
-      throw error;
-    }
+        setMutationError(error);
 
-    if (mutationInProgress) {
-      return;
-    }
+        throw error;
+      }
 
-    const normalizedPayload =
-      payload &&
-      typeof payload === "object" &&
-      payload.data &&
-      typeof payload.data === "object"
-        ? payload.data
-        : payload;
+      if (mutationInProgress) {
+        return;
+      }
 
-    if (
-      !normalizedPayload ||
-      typeof normalizedPayload !== "object"
-    ) {
-      const error = new Error(
-        "Invalid savings goal data."
-      );
+      /*
+       * The modal is expected to provide a
+       * flat payload.
+       *
+       * We intentionally do NOT accept or
+       * unwrap payload.data here.
+       *
+       * This makes the contract between the
+       * modal, page, hook, and service explicit.
+       */
+      const normalizedPayload =
+        normalizeCreatePayload(payload);
 
-      setMutationError(error);
-      throw error;
-    }
+      if (!normalizedPayload) {
+        const error = new Error(
+          "Invalid savings goal data."
+        );
 
-    const name =
-      typeof normalizedPayload.name === "string"
-        ? normalizedPayload.name.trim()
-        : "";
+        setMutationError(error);
 
-    const targetAmount = Number(
-      normalizedPayload.targetAmount
-    );
+        throw error;
+      }
 
-    const currency =
-      typeof normalizedPayload.currency === "string"
-        ? normalizedPayload.currency.trim().toUpperCase()
-        : DEFAULT_CURRENCY;
+      /*
+       * Basic defensive validation.
+       *
+       * Full validation belongs to the
+       * canonical savings validator and
+       * backend.
+       */
+      if (!normalizedPayload.name) {
+        const error = new Error(
+          "Savings goal name is required."
+        );
 
-    const targetDate =
-      typeof normalizedPayload.targetDate === "string"
-        ? normalizedPayload.targetDate.trim()
-        : "";
+        setMutationError(error);
 
-    if (!name) {
-      const error = new Error(
-        "Savings goal name is required."
-      );
+        throw error;
+      }
 
-      setMutationError(error);
-      throw error;
-    }
+      if (
+        !Number.isFinite(
+          normalizedPayload.targetAmount
+        ) ||
+        normalizedPayload.targetAmount <= 0
+      ) {
+        const error = new Error(
+          "Target amount must be greater than zero."
+        );
 
-    if (
-      !Number.isFinite(targetAmount) ||
-      targetAmount <= 0
-    ) {
-      const error = new Error(
-        "Target amount must be greater than zero."
-      );
+        setMutationError(error);
 
-      setMutationError(error);
-      throw error;
-    }
+        throw error;
+      }
 
-    if (!targetDate) {
-      const error = new Error(
-        "Target date is required."
-      );
+      if (!normalizedPayload.targetDate) {
+        const error = new Error(
+          "Target date is required."
+        );
 
-      setMutationError(error);
-      throw error;
-    }
+        setMutationError(error);
 
-    const normalizedGoal = {
-      name,
-      targetAmount,
-      currency,
-      targetDate,
-    };
+        throw error;
+      }
 
-    setMutationError(null);
-    setAction("create");
+      setMutationError(null);
+      setAction("create");
 
-    try {
-      const result = await createGoal(normalizedGoal);
+      try {
+        /*
+         * IMPORTANT:
+         *
+         * Send the FLAT payload directly.
+         *
+         * No:
+         *   { data: normalizedPayload }
+         *
+         * No:
+         *   { payload: normalizedPayload }
+         *
+         * No:
+         *   { goal: normalizedPayload }
+         *
+         * The hook/service will own the API
+         * request shape.
+         */
+        const result =
+          await createGoal(
+            normalizedPayload
+          );
 
-      setCreateOpen(false);
+        setCreateOpen(false);
 
-      return result;
-    } catch (error) {
-      setMutationError(error);
-      throw error;
-    } finally {
-      setAction(null);
-    }
-  },
-  [
-    createGoal,
-    mutationInProgress,
-  ]
-);
+        return result;
+      } catch (error) {
+        setMutationError(error);
+
+        throw error;
+      } finally {
+        setAction(null);
+      }
+    },
+    [
+      createGoal,
+      mutationInProgress,
+    ]
+  );
 
   /* =======================================================
      EDIT
@@ -929,7 +1183,8 @@ const SavingsGoalsPage = ({
         return;
       }
 
-      const goalId = getGoalId(goal);
+      const goalId =
+        getGoalId(goal);
 
       if (!goalId) {
         setMutationError(
@@ -956,63 +1211,64 @@ const SavingsGoalsPage = ({
       setEditingGoal(null);
     }, [action]);
 
-  const handleUpdate =
-    useCallback(
-      async (payload) => {
-        const goalId =
-          getGoalId(editingGoal);
+  const handleUpdate = useCallback(
+    async (payload) => {
+      const goalId =
+        getGoalId(editingGoal);
 
-        if (!goalId) {
-          const error = new Error(
-            "This savings goal could not be identified."
+      if (!goalId) {
+        const error = new Error(
+          "This savings goal could not be identified."
+        );
+
+        setMutationError(error);
+
+        throw error;
+      }
+
+      if (
+        typeof updateGoal !== "function"
+      ) {
+        const error = new Error(
+          "Updating savings goals is currently unavailable."
+        );
+
+        setMutationError(error);
+
+        throw error;
+      }
+
+      if (mutationInProgress) {
+        return;
+      }
+
+      setMutationError(null);
+      setAction("update");
+
+      try {
+        const result =
+          await updateGoal(
+            goalId,
+            payload
           );
 
-          setMutationError(error);
-          throw error;
-        }
+        setEditingGoal(null);
 
-        if (
-          typeof updateGoal !==
-          "function"
-        ) {
-          const error = new Error(
-            "Updating savings goals is currently unavailable."
-          );
+        return result;
+      } catch (error) {
+        setMutationError(error);
 
-          setMutationError(error);
-          throw error;
-        }
-
-        if (mutationInProgress) {
-          return;
-        }
-
-        setMutationError(null);
-        setAction("update");
-
-        try {
-          const result =
-            await updateGoal(
-              goalId,
-              payload
-            );
-
-          setEditingGoal(null);
-
-          return result;
-        } catch (error) {
-          setMutationError(error);
-          throw error;
-        } finally {
-          setAction(null);
-        }
-      },
-      [
-        editingGoal,
-        updateGoal,
-        mutationInProgress,
-      ]
-    );
+        throw error;
+      } finally {
+        setAction(null);
+      }
+    },
+    [
+      editingGoal,
+      updateGoal,
+      mutationInProgress,
+    ]
+  );
 
   /* =======================================================
      DELETE
@@ -1028,7 +1284,8 @@ const SavingsGoalsPage = ({
           return;
         }
 
-        const goalId = getGoalId(goal);
+        const goalId =
+          getGoalId(goal);
 
         if (!goalId) {
           setMutationError(
@@ -1066,18 +1323,19 @@ const SavingsGoalsPage = ({
         );
 
         setMutationError(error);
+
         throw error;
       }
 
       if (
-        typeof deleteGoal !==
-        "function"
+        typeof deleteGoal !== "function"
       ) {
         const error = new Error(
           "Deleting savings goals is currently unavailable."
         );
 
         setMutationError(error);
+
         throw error;
       }
 
@@ -1097,6 +1355,7 @@ const SavingsGoalsPage = ({
         return result;
       } catch (error) {
         setMutationError(error);
+
         throw error;
       } finally {
         setAction(null);
@@ -1148,7 +1407,9 @@ const SavingsGoalsPage = ({
           goals.length === 0 &&
           !loadErrorMessage && (
             <div
-              className="mt-5"
+              className="
+                mt-5
+              "
             >
               <GoalsLoadingState />
             </div>
@@ -1174,27 +1435,45 @@ const SavingsGoalsPage = ({
         {loadErrorMessage &&
           goals.length > 0 && (
             <div
-              className="flex items-start gap-3 bg-amber-50 mt-4 p-4 border border-amber-200 rounded-2xl"
+              className="
+                flex items-start
+                mt-4 p-4
+                bg-amber-50
+                border border-amber-200 rounded-2xl
+                gap-3
+              "
               role="status"
             >
               <AlertCircle
                 size={17}
-                className="mt-0.5 text-amber-600 shrink-0"
+                className="
+                  mt-0.5
+                  text-amber-600
+                  shrink-0
+                "
                 aria-hidden="true"
               /
               >
 
               <div
-                className="flex-1 min-w-0"
+                className="
+                  flex-1
+                  min-w-0
+                "
               >
                 <p
-                  className="font-semibold text-amber-900 text-sm"
+                  className="
+                    font-semibold text-amber-900 text-sm
+                  "
                 >
                   Your goals may be out of date
                 </p>
 
                 <p
-                  className="mt-1 text-amber-700 text-sm"
+                  className="
+                    mt-1
+                    text-amber-700 text-sm
+                  "
                 >
                   {loadErrorMessage}
                 </p>
@@ -1208,7 +1487,12 @@ const SavingsGoalsPage = ({
                     loading ||
                     mutationInProgress
                   }
-                  className="disabled:opacity-50 font-semibold text-amber-800 hover:text-amber-950 text-sm underline disabled:cursor-not-allowed"
+                  className="
+                    font-semibold text-amber-800 hover:text-amber-950 text-sm
+                    underline
+                    disabled:opacity-50
+                    disabled:cursor-not-allowed
+                  "
                 >
                   Retry
                 </button>
@@ -1221,7 +1505,11 @@ const SavingsGoalsPage = ({
         {!compact &&
           goals.length > 0 && (
             <div
-              className="gap-3 grid grid-cols-2 lg:grid-cols-4 mt-5"
+              className="
+                grid grid-cols-2 lg:grid-cols-4
+                mt-5
+                gap-3
+              "
             >
               <SummaryStat
                 label="Total goals"
@@ -1256,27 +1544,42 @@ const SavingsGoalsPage = ({
         {!compact &&
           goals.length > 0 && (
             <div
-              className="bg-white shadow-sm mt-4 p-4 border border-slate-200/80 rounded-2xl"
+              className="
+                mt-4 p-4
+                bg-white
+                border border-slate-200/80 rounded-2xl
+                shadow-sm
+              "
             >
               <div
-                className="flex justify-between items-center gap-3"
+                className="
+                  flex justify-between items-center
+                  gap-3
+                "
               >
                 <div>
                   <p
-                    className="font-semibold text-slate-900 text-sm"
+                    className="
+                      font-semibold text-slate-900 text-sm
+                    "
                   >
                     Overall savings progress
                   </p>
 
                   <p
-                    className="mt-0.5 text-slate-500 text-xs"
+                    className="
+                      mt-0.5
+                      text-slate-500 text-xs
+                    "
                   >
                     Across your current savings goals
                   </p>
                 </div>
 
                 <span
-                  className="font-bold tabular-nums text-slate-900 text-sm"
+                  className="
+                    font-bold tabular-nums text-slate-900 text-sm
+                  "
                 >
                   {Math.round(
                     summary.progress
@@ -1286,7 +1589,13 @@ const SavingsGoalsPage = ({
               </div>
 
               <div
-                className="bg-slate-100 mt-3 rounded-full h-2 overflow-hidden"
+                className="
+                  overflow-hidden
+                  h-2
+                  mt-3
+                  bg-slate-100
+                  rounded-full
+                "
                 role="progressbar"
                 aria-valuemin={0}
                 aria-valuemax={100}
@@ -1296,7 +1605,12 @@ const SavingsGoalsPage = ({
                 aria-label="Overall savings progress"
               >
                 <div
-                  className="bg-slate-900 rounded-full h-full transition-[width] duration-500"
+                  className="
+                    h-full
+                    bg-slate-900
+                    rounded-full
+                    transition-[width] duration-500
+                  "
                   style={{
                     width: `${summary.progress}%`,
                   }}
@@ -1312,7 +1626,9 @@ const SavingsGoalsPage = ({
           !loading &&
           !loadErrorMessage && (
             <div
-              className="mt-5"
+              className="
+                mt-5
+              "
             >
               <SavingsGoalEmptyState
                 onCreate={
@@ -1328,7 +1644,11 @@ const SavingsGoalsPage = ({
 
         {visibleGoals.length > 0 && (
           <div
-            className="gap-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 mt-5"
+            className="
+              grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3
+              mt-5
+              gap-4
+            "
           >
             {visibleGoals.map((goal) => {
               const goalId =
@@ -1361,7 +1681,14 @@ const SavingsGoalsPage = ({
               return (
                 <article
                   key={goalId}
-                  className="bg-white shadow-sm hover:shadow-md border border-slate-200/80 hover:border-slate-300 rounded-2xl min-w-0 overflow-hidden transition"
+                  className="
+                    overflow-hidden
+                    min-w-0
+                    bg-white
+                    border border-slate-200/80 hover:border-slate-300
+                    rounded-2xl
+                    shadow-sm hover:shadow-md transition
+                  "
                 >
                   <SavingsGoalCard
                     goal={goal}
@@ -1374,7 +1701,10 @@ const SavingsGoalsPage = ({
                   />
 
                   <div
-                    className="px-4 py-4 border-slate-100 border-t"
+                    className="
+                      px-4 py-4
+                      border-slate-100 border-t
+                    "
                   >
                     <SavingsGoalProgress
                       currentAmount={
@@ -1404,7 +1734,10 @@ const SavingsGoalsPage = ({
           goals.length >
             visibleGoals.length && (
             <p
-              className="mt-4 text-slate-400 text-xs text-center"
+              className="
+                mt-4
+                text-slate-400 text-xs text-center
+              "
             >
               Showing{" "}
               {visibleGoals.length}{" "}
@@ -1419,13 +1752,20 @@ const SavingsGoalsPage = ({
         {loading &&
           goals.length > 0 && (
             <div
-              className="flex justify-center items-center gap-2 mt-4 text-slate-400 text-xs"
+              className="
+                flex justify-center items-center
+                mt-4
+                text-slate-400 text-xs
+                gap-2
+              "
               role="status"
               aria-live="polite"
             >
               <RefreshCw
                 size={13}
-                className="animate-spin"
+                className="
+                  animate-spin
+                "
                 aria-hidden="true"
               /
               >
