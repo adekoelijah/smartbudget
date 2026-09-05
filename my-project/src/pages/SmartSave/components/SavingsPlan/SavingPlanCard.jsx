@@ -1,3 +1,5 @@
+// components/.../SavingPlanCard.jsx
+
 import {
   CalendarDays,
   CheckCircle2,
@@ -18,6 +20,9 @@ import {
   useState,
 } from "react";
 
+import SavingPlanProgress from "./SavingPlanProgress";
+import SavingPlanStatusBadge from "./SavingPlanStatusBadge";
+
 import {
   getSavingPlanId,
   getSavingPlanName,
@@ -33,108 +38,28 @@ import {
 import {
   formatSavingPlanAmount,
   formatSavingPlanDate,
-  formatSavingPlanProgress,
   formatSavingPlanRemainingDays,
-  formatSavingPlanStatus,
 } from "../../../../utils/smartSave/savingPlanFormatters";
 
 /* -------------------------------------------------------------------------- */
 /* Constants                                                                  */
 /* -------------------------------------------------------------------------- */
 
-const STATUS_STYLES = {
-  active: {
-    badge:
-      "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
-    dot: "bg-emerald-500",
-  },
+const DEFAULT_PLAN_NAME = "Untitled savings plan";
 
-  in_progress: {
-    badge:
-      "bg-blue-50 text-blue-700 ring-blue-600/20",
-    dot: "bg-blue-500",
-  },
+const DEFAULT_DESCRIPTION = "";
 
-  "in-progress": {
-    badge:
-      "bg-blue-50 text-blue-700 ring-blue-600/20",
-    dot: "bg-blue-500",
-  },
-
-  ongoing: {
-    badge:
-      "bg-blue-50 text-blue-700 ring-blue-600/20",
-    dot: "bg-blue-500",
-  },
-
-  completed: {
-    badge:
-      "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
-    dot: "bg-emerald-500",
-  },
-
-  complete: {
-    badge:
-      "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
-    dot: "bg-emerald-500",
-  },
-
-  achieved: {
-    badge:
-      "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
-    dot: "bg-emerald-500",
-  },
-
-  paused: {
-    badge:
-      "bg-amber-50 text-amber-700 ring-amber-600/20",
-    dot: "bg-amber-500",
-  },
-
-  pause: {
-    badge:
-      "bg-amber-50 text-amber-700 ring-amber-600/20",
-    dot: "bg-amber-500",
-  },
-
-  cancelled: {
-    badge:
-      "bg-red-50 text-red-700 ring-red-600/20",
-    dot: "bg-red-500",
-  },
-
-  canceled: {
-    badge:
-      "bg-red-50 text-red-700 ring-red-600/20",
-    dot: "bg-red-500",
-  },
-
-  failed: {
-    badge:
-      "bg-red-50 text-red-700 ring-red-600/20",
-    dot: "bg-red-500",
-  },
-
-  default: {
-    badge:
-      "bg-slate-50 text-slate-700 ring-slate-600/20",
-    dot: "bg-slate-400",
-  },
-};
+const ACTION_SELECTOR =
+  "button, a, input, select, textarea, [role='menu'], [role='menuitem']";
 
 /* -------------------------------------------------------------------------- */
-/* Pure helpers                                                               */
+/* Utilities                                                                  */
 /* -------------------------------------------------------------------------- */
 
-const clampProgress = (value) => {
-  const numericValue = Number(value);
-
-  if (!Number.isFinite(numericValue)) {
-    return 0;
-  }
-
-  return Math.min(100, Math.max(0, numericValue));
-};
+const cn = (...classes) =>
+  classes
+    .filter(Boolean)
+    .join(" ");
 
 const getCurrentAmount = (plan) => {
   if (!plan || typeof plan !== "object") {
@@ -160,18 +85,31 @@ const getCurrentAmount = (plan) => {
   return 0;
 };
 
+const clampProgress = (value) => {
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue)) {
+    return 0;
+  }
+
+  return Math.min(
+    100,
+    Math.max(0, numericValue),
+  );
+};
+
 const getPlanProgress = (plan) => {
   if (!plan || typeof plan !== "object") {
     return 0;
   }
 
-  const candidates = [
+  const explicitProgressValues = [
     plan.progress,
     plan.progressPercentage,
     plan.percentageComplete,
   ];
 
-  for (const value of candidates) {
+  for (const value of explicitProgressValues) {
     const numericValue = Number(value);
 
     if (Number.isFinite(numericValue)) {
@@ -179,8 +117,11 @@ const getPlanProgress = (plan) => {
     }
   }
 
-  const targetAmount = getSavingPlanTargetAmount(plan);
-  const currentAmount = getCurrentAmount(plan);
+  const targetAmount =
+    Number(getSavingPlanTargetAmount(plan));
+
+  const currentAmount =
+    getCurrentAmount(plan);
 
   if (
     Number.isFinite(targetAmount) &&
@@ -194,8 +135,20 @@ const getPlanProgress = (plan) => {
   return 0;
 };
 
+const getDescription = (plan) => {
+  if (!plan || typeof plan !== "object") {
+    return DEFAULT_DESCRIPTION;
+  }
+
+  if (typeof plan.description !== "string") {
+    return DEFAULT_DESCRIPTION;
+  }
+
+  return plan.description.trim();
+};
+
 /* -------------------------------------------------------------------------- */
-/* Component                                                                  */
+/* SavingPlanCard                                                             */
 /* -------------------------------------------------------------------------- */
 
 const SavingPlanCard = ({
@@ -210,6 +163,7 @@ const SavingPlanCard = ({
 
   selected = false,
   disabled = false,
+
   deleting = false,
   updating = false,
 
@@ -223,10 +177,11 @@ const SavingPlanCard = ({
 }) => {
   const menuId = useId();
 
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuOpen, setMenuOpen] =
+    useState(false);
 
   /* ------------------------------------------------------------------------ */
-  /* Derived plan data                                                       */
+  /* Derived data                                                             */
   /* ------------------------------------------------------------------------ */
 
   const planId = useMemo(
@@ -235,7 +190,9 @@ const SavingPlanCard = ({
   );
 
   const planName = useMemo(
-    () => getSavingPlanName(plan) || "Untitled savings plan",
+    () =>
+      getSavingPlanName(plan) ||
+      DEFAULT_PLAN_NAME,
     [plan],
   );
 
@@ -264,20 +221,35 @@ const SavingPlanCard = ({
     [plan],
   );
 
-  const statusStyle = useMemo(
-    () =>
-      STATUS_STYLES[planStatus] ??
-      STATUS_STYLES.default,
-    [planStatus],
+  const description = useMemo(
+    () => getDescription(plan),
+    [plan],
   );
 
-  const statusLabel = useMemo(
-    () =>
-      formatSavingPlanStatus(
-        planStatus || "unknown",
-      ),
-    [planStatus],
+  const active = useMemo(
+    () => isSavingPlanActive(plan),
+    [plan],
   );
+
+  const paused = useMemo(
+    () => isSavingPlanPaused(plan),
+    [plan],
+  );
+
+  const completed = useMemo(
+    () => isSavingPlanCompleted(plan),
+    [plan],
+  );
+
+  const cancelled = useMemo(
+    () => isSavingPlanCancelled(plan),
+    [plan],
+  );
+
+  const busy =
+    disabled ||
+    deleting ||
+    updating;
 
   const formattedTargetAmount = useMemo(
     () =>
@@ -285,7 +257,10 @@ const SavingPlanCard = ({
         targetAmount,
         plan?.currency,
       ),
-    [targetAmount, plan?.currency],
+    [
+      targetAmount,
+      plan?.currency,
+    ],
   );
 
   const formattedCurrentAmount = useMemo(
@@ -294,13 +269,10 @@ const SavingPlanCard = ({
         currentAmount,
         plan?.currency,
       ),
-    [currentAmount, plan?.currency],
-  );
-
-  const formattedProgress = useMemo(
-    () =>
-      formatSavingPlanProgress(progress),
-    [progress],
+    [
+      currentAmount,
+      plan?.currency,
+    ],
   );
 
   const formattedTargetDate = useMemo(
@@ -314,43 +286,15 @@ const SavingPlanCard = ({
   const remainingDays = useMemo(
     () =>
       targetDate
-        ? formatSavingPlanRemainingDays(targetDate)
+        ? formatSavingPlanRemainingDays(
+            targetDate,
+          )
         : null,
     [targetDate],
   );
 
-  const description = useMemo(() => {
-    if (
-      !plan ||
-      typeof plan !== "object"
-    ) {
-      return "";
-    }
-
-    return typeof plan.description === "string"
-      ? plan.description.trim()
-      : "";
-  }, [plan]);
-
-  const active =
-    isSavingPlanActive(plan);
-
-  const paused =
-    isSavingPlanPaused(plan);
-
-  const completed =
-    isSavingPlanCompleted(plan);
-
-  const cancelled =
-    isSavingPlanCancelled(plan);
-
-  const busy =
-    disabled ||
-    deleting ||
-    updating;
-
   /* ------------------------------------------------------------------------ */
-  /* Event propagation                                                        */
+  /* Shared event protection                                                  */
   /* ------------------------------------------------------------------------ */
 
   const stopPropagation = useCallback(
@@ -360,9 +304,15 @@ const SavingPlanCard = ({
     [],
   );
 
-  const stopPointerPropagation = useCallback(
-    (event) => {
-      event.stopPropagation();
+  const isInteractiveTarget = useCallback(
+    (target) => {
+      if (!(target instanceof Element)) {
+        return false;
+      }
+
+      return Boolean(
+        target.closest(ACTION_SELECTOR),
+      );
     },
     [],
   );
@@ -378,25 +328,23 @@ const SavingPlanCard = ({
       }
 
       if (
-        event.target instanceof HTMLElement &&
-        event.target.closest(
-          "button, a, input, select, textarea, [role='menu'], [role='menuitem']",
-        )
+        isInteractiveTarget(event.target)
       ) {
         return;
       }
 
-      if (onView) {
-        onView(plan);
+      if (typeof onView === "function") {
+        onView(plan, event);
         return;
       }
 
-      if (onSelect) {
-        onSelect(plan);
+      if (typeof onSelect === "function") {
+        onSelect(plan, event);
       }
     },
     [
       busy,
+      isInteractiveTarget,
       onView,
       onSelect,
       plan,
@@ -417,27 +365,25 @@ const SavingPlanCard = ({
       }
 
       if (
-        event.target instanceof HTMLElement &&
-        event.target.closest(
-          "button, a, input, select, textarea, [role='menu'], [role='menuitem']",
-        )
+        isInteractiveTarget(event.target)
       ) {
         return;
       }
 
       event.preventDefault();
 
-      if (onView) {
-        onView(plan);
+      if (typeof onView === "function") {
+        onView(plan, event);
         return;
       }
 
-      if (onSelect) {
-        onSelect(plan);
+      if (typeof onSelect === "function") {
+        onSelect(plan, event);
       }
     },
     [
       busy,
+      isInteractiveTarget,
       onView,
       onSelect,
       plan,
@@ -445,7 +391,7 @@ const SavingPlanCard = ({
   );
 
   /* ------------------------------------------------------------------------ */
-  /* Menu interaction                                                         */
+  /* Menu                                                                     */
   /* ------------------------------------------------------------------------ */
 
   const handleToggleMenu = useCallback(
@@ -456,7 +402,9 @@ const SavingPlanCard = ({
         return;
       }
 
-      setMenuOpen((current) => !current);
+      setMenuOpen(
+        (current) => !current,
+      );
     },
     [
       busy,
@@ -473,25 +421,26 @@ const SavingPlanCard = ({
   );
 
   /* ------------------------------------------------------------------------ */
-  /* Action handlers                                                          */
+  /* Actions                                                                  */
   /* ------------------------------------------------------------------------ */
 
   const handleView = useCallback(
     (event) => {
       event.stopPropagation();
-
       setMenuOpen(false);
 
       if (busy) {
         return;
       }
 
-      if (onView) {
-        onView(plan);
+      if (typeof onView === "function") {
+        onView(plan, event);
         return;
       }
 
-      onSelect?.(plan);
+      if (typeof onSelect === "function") {
+        onSelect(plan, event);
+      }
     },
     [
       busy,
@@ -504,17 +453,16 @@ const SavingPlanCard = ({
   const handleEdit = useCallback(
     (event) => {
       event.stopPropagation();
-
       setMenuOpen(false);
 
       if (
         busy ||
-        !onEdit
+        typeof onEdit !== "function"
       ) {
         return;
       }
 
-      onEdit(plan);
+      onEdit(plan, event);
     },
     [
       busy,
@@ -526,17 +474,16 @@ const SavingPlanCard = ({
   const handleDelete = useCallback(
     (event) => {
       event.stopPropagation();
-
       setMenuOpen(false);
 
       if (
         busy ||
-        !onDelete
+        typeof onDelete !== "function"
       ) {
         return;
       }
 
-      onDelete(plan);
+      onDelete(plan, event);
     },
     [
       busy,
@@ -548,17 +495,16 @@ const SavingPlanCard = ({
   const handlePause = useCallback(
     (event) => {
       event.stopPropagation();
-
       setMenuOpen(false);
 
       if (
         busy ||
-        !onPause
+        typeof onPause !== "function"
       ) {
         return;
       }
 
-      onPause(plan);
+      onPause(plan, event);
     },
     [
       busy,
@@ -570,17 +516,16 @@ const SavingPlanCard = ({
   const handleResume = useCallback(
     (event) => {
       event.stopPropagation();
-
       setMenuOpen(false);
 
       if (
         busy ||
-        !onResume
+        typeof onResume !== "function"
       ) {
         return;
       }
 
-      onResume(plan);
+      onResume(plan, event);
     },
     [
       busy,
@@ -590,19 +535,13 @@ const SavingPlanCard = ({
   );
 
   /* ------------------------------------------------------------------------ */
-  /* Class names                                                              */
+  /* Card classes                                                             */
   /* ------------------------------------------------------------------------ */
 
-  const cardClasses = [
-    "group",
-    "relative",
-    "overflow-visible",
-    "rounded-2xl",
-    "border",
-    "bg-white",
-    "transition-all",
-    "duration-200",
-    "ease-out",
+  const cardClasses = cn(
+    "group relative overflow-visible",
+    "rounded-2xl border bg-white",
+    "transition-all duration-200 ease-out",
 
     selected
       ? "border-blue-500 ring-2 ring-blue-500/10"
@@ -610,18 +549,19 @@ const SavingPlanCard = ({
 
     busy
       ? "cursor-not-allowed opacity-70"
-      : "cursor-pointer hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg",
+      : [
+          "cursor-pointer",
+          "hover:-translate-y-0.5",
+          "hover:border-slate-300",
+          "hover:shadow-lg",
+        ].join(" "),
 
     compact
       ? "p-4"
       : "p-5",
 
     className,
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  const progressBarWidth = `${progress}%`;
+  );
 
   /* ------------------------------------------------------------------------ */
   /* Render                                                                   */
@@ -640,81 +580,69 @@ const SavingPlanCard = ({
           ? "true"
           : "false"
       }
-      data-plan-id={planId || undefined}
+      data-plan-id={
+        planId !== null &&
+        planId !== undefined
+          ? String(planId)
+          : undefined
+      }
     >
       {/* ------------------------------------------------------------------ */}
-      {/* Header                                                              */}
+      {/* Header                                                             */}
       {/* ------------------------------------------------------------------ */}
 
       <div
-        className="
-          flex justify-between items-start
-          gap-4
-        "
+        className="flex justify-between items-start gap-4"
       >
         <div
-          className="
-            flex items-start
-            min-w-0
-            gap-3
-          "
+          className="flex items-start gap-3 min-w-0"
         >
           <div
-            className={[
-              "flex shrink-0 items-center justify-center rounded-xl",
+            className={cn(
+              "flex shrink-0",
+              "items-center justify-center",
+              "rounded-xl",
+              "bg-blue-50 text-blue-600",
               compact
                 ? "h-9 w-9"
                 : "h-10 w-10",
-              "bg-blue-50 text-blue-600",
-            ].join(" ")}
+            )}
             aria-hidden="true"
           >
             <Target
-              size={compact ? 18 : 20}
+              size={
+                compact
+                  ? 18
+                  : 20
+              }
               strokeWidth={2}
             />
           </div>
 
           <div
-            className="
-              min-w-0
-            "
+            className="min-w-0"
           >
             <h3
-              className={[
-                "truncate font-semibold text-slate-900",
+              className={cn(
+                "font-semibold truncate",
+                "text-slate-900",
                 compact
                   ? "text-sm"
                   : "text-base",
-              ].join(" ")}
+              )}
               title={planName}
             >
               {planName}
             </h3>
 
             <div
-              className="
-                flex flex-wrap items-center
-                mt-1
-                gap-2
-              "
+              className="mt-1"
             >
-              <span
-                className={[
-                  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset",
-                  statusStyle.badge,
-                ].join(" ")}
-              >
-                <span
-                  className={[
-                    "h-1.5 w-1.5 rounded-full",
-                    statusStyle.dot,
-                  ].join(" ")}
-                  aria-hidden="true"
-                />
-
-                {statusLabel}
-              </span>
+              <SavingPlanStatusBadge
+                plan={plan}
+                status={planStatus}
+                size="sm"
+              />
             </div>
           </div>
         </div>
@@ -725,12 +653,9 @@ const SavingPlanCard = ({
 
         {showActions && (
           <div
-            className="
-              relative
-              shrink-0
-            "
+            className="relative shrink-0"
             onClick={stopPropagation}
-            onMouseDown={stopPointerPropagation}
+            onMouseDown={stopPropagation}
           >
             <button
               type="button"
@@ -739,15 +664,12 @@ const SavingPlanCard = ({
               aria-label={`Actions for ${planName}`}
               aria-haspopup="menu"
               aria-expanded={menuOpen}
-              aria-controls={menuOpen ? menuId : undefined}
-              className={[
-                "inline-flex h-9 w-9 items-center justify-center rounded-lg",
-                "text-slate-500",
-                "transition-colors",
-                "hover:bg-slate-100 hover:text-slate-700",
-                "focus:outline-none focus:ring-2 focus:ring-blue-500/30",
-                "disabled:cursor-not-allowed disabled:opacity-50",
-              ].join(" ")}
+              aria-controls={
+                menuOpen
+                  ? menuId
+                  : undefined
+              }
+              className="inline-flex justify-center items-center hover:bg-slate-100 disabled:opacity-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 w-9 h-9 text-slate-500 hover:text-slate-700 transition-colors disabled:cursor-not-allowed"
             >
               <MoreVertical
                 size={18}
@@ -761,115 +683,101 @@ const SavingPlanCard = ({
                 role="menu"
                 aria-label={`${planName} actions`}
                 onClick={stopPropagation}
-                onMouseDown={stopPointerPropagation}
-                className={[
-                  "absolute right-0 top-11 z-50 w-48",
-                  "overflow-hidden rounded-xl",
-                  "border border-slate-200",
-                  "bg-white",
-                  "p-1.5",
-                  "shadow-xl shadow-slate-900/10",
-                ].join(" ")}
+                onMouseDown={stopPropagation}
+                className="top-11 right-0 z-50 absolute bg-white shadow-slate-900/10 shadow-xl p-1.5 border border-slate-200 rounded-xl w-48 overflow-hidden"
               >
+                {/* View */}
                 <button
                   type="button"
                   role="menuitem"
                   onClick={handleView}
                   disabled={busy}
-                  className={[
-                    "flex w-full items-center gap-3 rounded-lg px-3 py-2.5",
-                    "text-left text-sm text-slate-700",
-                    "transition-colors",
-                    "hover:bg-slate-50",
-                    "focus:bg-slate-50 focus:outline-none",
-                    "disabled:cursor-not-allowed disabled:opacity-50",
-                  ].join(" ")}
+                  className="flex items-center gap-3 hover:bg-slate-50 focus:bg-slate-50 disabled:opacity-50 px-3 py-2.5 rounded-lg focus:outline-none w-full text-slate-700 text-sm text-left transition-colors disabled:cursor-not-allowed"
                 >
                   <ChevronRight
                     size={16}
                     aria-hidden="true"
                   />
-                  View plan
+
+                  <span>
+                    View plan
+                  </span>
                 </button>
 
-                {onEdit && (
+                {/* Edit */}
+                {typeof onEdit ===
+                  "function" && (
                   <button
                     type="button"
                     role="menuitem"
                     onClick={handleEdit}
                     disabled={busy}
-                    className={[
-                      "flex w-full items-center gap-3 rounded-lg px-3 py-2.5",
-                      "text-left text-sm text-slate-700",
-                      "transition-colors",
-                      "hover:bg-slate-50",
-                      "focus:bg-slate-50 focus:outline-none",
-                      "disabled:cursor-not-allowed disabled:opacity-50",
-                    ].join(" ")}
+                    className="flex items-center gap-3 hover:bg-slate-50 focus:bg-slate-50 disabled:opacity-50 px-3 py-2.5 rounded-lg focus:outline-none w-full text-slate-700 text-sm text-left transition-colors disabled:cursor-not-allowed"
                   >
                     <Pencil
                       size={16}
                       aria-hidden="true"
                     />
-                    Edit plan
+
+                    <span>
+                      Edit plan
+                    </span>
                   </button>
                 )}
 
-                {active && onPause && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={handlePause}
-                    disabled={busy}
-                    className={[
-                      "flex w-full items-center gap-3 rounded-lg px-3 py-2.5",
-                      "text-left text-sm text-amber-700",
-                      "transition-colors",
-                      "hover:bg-amber-50",
-                      "focus:bg-amber-50 focus:outline-none",
-                      "disabled:cursor-not-allowed disabled:opacity-50",
-                    ].join(" ")}
-                  >
-                    <PauseCircle
-                      size={16}
-                      aria-hidden="true"
-                    />
-                    Pause plan
-                  </button>
-                )}
+                {/* Pause */}
+                {active &&
+                  typeof onPause ===
+                    "function" && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={handlePause}
+                      disabled={busy}
+                      className="flex items-center gap-3 hover:bg-amber-50 focus:bg-amber-50 disabled:opacity-50 px-3 py-2.5 rounded-lg focus:outline-none w-full text-amber-700 text-sm text-left transition-colors disabled:cursor-not-allowed"
+                    >
+                      <PauseCircle
+                        size={16}
+                        aria-hidden="true"
+                      />
 
-                {paused && onResume && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={handleResume}
-                    disabled={busy}
-                    className={[
-                      "flex w-full items-center gap-3 rounded-lg px-3 py-2.5",
-                      "text-left text-sm text-emerald-700",
-                      "transition-colors",
-                      "hover:bg-emerald-50",
-                      "focus:bg-emerald-50 focus:outline-none",
-                      "disabled:cursor-not-allowed disabled:opacity-50",
-                    ].join(" ")}
-                  >
-                    <PlayCircle
-                      size={16}
-                      aria-hidden="true"
-                    />
-                    Resume plan
-                  </button>
-                )}
+                      <span>
+                        Pause plan
+                      </span>
+                    </button>
+                  )}
 
-                {onDelete && (
+                {/* Resume */}
+                {paused &&
+                  typeof onResume ===
+                    "function" && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={handleResume}
+                      disabled={busy}
+                      className="flex items-center gap-3 hover:bg-emerald-50 focus:bg-emerald-50 disabled:opacity-50 px-3 py-2.5 rounded-lg focus:outline-none w-full text-emerald-700 text-sm text-left transition-colors disabled:cursor-not-allowed"
+                    >
+                      <PlayCircle
+                        size={16}
+                        aria-hidden="true"
+                      />
+
+                      <span>
+                        Resume plan
+                      </span>
+                    </button>
+                  )}
+
+                {/* Delete */}
+                {typeof onDelete ===
+                  "function" && (
                   <>
                     <div
-                      className="
-                        my-1
-                        border-slate-100 border-t
-                      "
                       role="separator"
-                    /
+                      aria-hidden="true"
+                      className="my-1 border-slate-100 border-t"
+                      /
                     >
 
                     <button
@@ -877,37 +785,30 @@ const SavingPlanCard = ({
                       role="menuitem"
                       onClick={handleDelete}
                       disabled={busy}
-                      className={[
-                        "flex w-full items-center gap-3 rounded-lg px-3 py-2.5",
-                        "text-left text-sm text-red-600",
-                        "transition-colors",
-                        "hover:bg-red-50",
-                        "focus:bg-red-50 focus:outline-none",
-                        "disabled:cursor-not-allowed disabled:opacity-50",
-                      ].join(" ")}
+                      className="flex items-center gap-3 hover:bg-red-50 focus:bg-red-50 disabled:opacity-50 px-3 py-2.5 rounded-lg focus:outline-none w-full text-red-600 text-sm text-left transition-colors disabled:cursor-not-allowed"
                     >
                       <Trash2
                         size={16}
                         aria-hidden="true"
                       />
-                      Delete plan
+
+                      <span>
+                        Delete plan
+                      </span>
                     </button>
                   </>
                 )}
 
+                {/* Close */}
                 <button
                   type="button"
                   role="menuitem"
                   onClick={closeMenu}
-                  className={[
-                    "mt-0.5 flex w-full items-center gap-3 rounded-lg px-3 py-2.5",
-                    "text-left text-sm text-slate-500",
-                    "transition-colors",
-                    "hover:bg-slate-50",
-                    "focus:bg-slate-50 focus:outline-none",
-                  ].join(" ")}
+                  className="flex items-center gap-3 hover:bg-slate-50 focus:bg-slate-50 mt-0.5 px-3 py-2.5 rounded-lg focus:outline-none w-full text-slate-500 text-sm text-left transition-colors"
                 >
-                  Close
+                  <span>
+                    Close
+                  </span>
                 </button>
               </div>
             )}
@@ -919,21 +820,23 @@ const SavingPlanCard = ({
       {/* Description                                                         */}
       {/* ------------------------------------------------------------------ */}
 
-      {showDescription && description && (
-        <p
-          className={[
-            "mt-4 text-sm leading-6 text-slate-500",
-            compact
-              ? "line-clamp-2"
-              : "line-clamp-3",
-          ].join(" ")}
-        >
-          {description}
-        </p>
-      )}
+      {showDescription &&
+        description && (
+          <p
+            className={cn(
+              "mt-4 text-sm",
+              "leading-6 text-slate-500",
+              compact
+                ? "line-clamp-2"
+                : "line-clamp-3",
+            )}
+          >
+            {description}
+          </p>
+        )}
 
       {/* ------------------------------------------------------------------ */}
-      {/* Amount                                                              */}
+      {/* Amount Summary                                                      */}
       {/* ------------------------------------------------------------------ */}
 
       <div
@@ -944,55 +847,41 @@ const SavingPlanCard = ({
         }
       >
         <div
-          className="
-            flex justify-between items-end
-            gap-4
-          "
+          className="flex justify-between items-end gap-4"
         >
           <div
-            className="
-              min-w-0
-            "
+            className="min-w-0"
           >
             <p
-              className="
-                font-medium text-slate-400 text-xs uppercase tracking-wide
-              "
+              className="font-medium text-slate-400 text-xs uppercase tracking-wider"
             >
               Saved
             </p>
 
             <p
-              className={[
-                "mt-1 truncate font-bold text-slate-900",
+              className={cn(
+                "mt-1 font-bold truncate",
+                "text-slate-900",
                 compact
                   ? "text-lg"
                   : "text-xl",
-              ].join(" ")}
+              )}
             >
               {formattedCurrentAmount}
             </p>
           </div>
 
           <div
-            className="
-              text-right
-              shrink-0
-            "
+            className="text-right shrink-0"
           >
             <p
-              className="
-                font-medium text-slate-400 text-xs uppercase tracking-wide
-              "
+              className="font-medium text-slate-400 text-xs uppercase tracking-wider"
             >
               Target
             </p>
 
             <p
-              className="
-                mt-1
-                font-semibold text-slate-700
-              "
+              className="mt-1 font-semibold text-slate-700"
             >
               {formattedTargetAmount}
             </p>
@@ -1006,78 +895,35 @@ const SavingPlanCard = ({
 
       {showProgress && (
         <div
-          className="
-            mt-4
-          "
+          className="mt-4"
         >
-          <div
-            className="
-              flex justify-between items-center
-              mb-2
-              gap-3
-            "
-          >
-            <span
-              className="
-                font-medium text-slate-500 text-xs
-              "
-            >
-              Progress
-            </span>
-
-            <span
-              className="
-                font-semibold text-slate-700 text-xs
-              "
-            >
-              {formattedProgress}
-            </span>
-          </div>
-
-          <div
-            className="
-              overflow-hidden
-              h-2
-              bg-slate-100
-              rounded-full
-            "
-            role="progressbar"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={progress}
-            aria-label={`${planName} progress`}
-          >
-            <div
-              className={[
-                "h-full rounded-full",
-                "bg-blue-600",
-                "transition-[width] duration-300 ease-out",
-              ].join(" ")}
-              style={{
-                width: progressBarWidth,
-              }}
-            />
-          </div>
+          <SavingPlanProgress
+            plan={plan}
+            currentAmount={currentAmount}
+            targetAmount={targetAmount}
+            progress={progress}
+            compact={compact}
+          />
         </div>
       )}
 
       {/* ------------------------------------------------------------------ */}
-      {/* Footer metadata                                                     */}
+      {/* Footer                                                              */}
       {/* ------------------------------------------------------------------ */}
 
       <div
-        className={[
-          "mt-5 flex flex-wrap items-center gap-x-5 gap-y-2",
+        className={cn(
+          "flex flex-wrap mt-5",
+          "items-center gap-x-5 gap-y-2",
           "border-t border-slate-100 pt-4",
-          compact ? "text-xs" : "text-sm",
-        ].join(" ")}
+          compact
+            ? "text-xs"
+            : "text-sm",
+        )}
       >
+        {/* Target date */}
         <div
-          className="
-            flex items-center
-            text-slate-500
-            gap-2
-          "
+          className="flex items-center gap-2 text-slate-500"
         >
           <CalendarDays
             size={15}
@@ -1089,13 +935,10 @@ const SavingPlanCard = ({
           </span>
         </div>
 
+        {/* Remaining time */}
         {remainingDays && (
           <div
-            className="
-              flex items-center
-              text-slate-500
-              gap-2
-            "
+            className="flex items-center gap-2 text-slate-500"
           >
             <Clock3
               size={15}
@@ -1108,14 +951,10 @@ const SavingPlanCard = ({
           </div>
         )}
 
+        {/* Completed */}
         {completed && (
           <div
-            className="
-              flex items-center
-              ml-auto
-              font-medium text-emerald-600
-              gap-1.5
-            "
+            className="flex items-center gap-1.5 ml-auto font-medium text-emerald-600"
           >
             <CheckCircle2
               size={15}
@@ -1128,25 +967,19 @@ const SavingPlanCard = ({
           </div>
         )}
 
+        {/* Cancelled */}
         {cancelled && (
           <div
-            className="
-              ml-auto
-              font-medium text-red-600
-            "
+            className="ml-auto font-medium text-red-600"
           >
             Cancelled
           </div>
         )}
 
+        {/* Paused */}
         {paused && (
           <div
-            className="
-              flex items-center
-              ml-auto
-              font-medium text-amber-600
-              gap-1.5
-            "
+            className="flex items-center gap-1.5 ml-auto font-medium text-amber-600"
           >
             <PauseCircle
               size={15}
@@ -1161,77 +994,52 @@ const SavingPlanCard = ({
       </div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* Explicit view affordance                                           */}
+      {/* View affordance                                                     */}
       {/* ------------------------------------------------------------------ */}
 
       {!showActions && !busy && (
         <div
-          className="
-            right-5 bottom-5 absolute
-            opacity-0 transition-opacity
-            pointer-events-none
-            group-hover:opacity-100
-          "
+          aria-hidden="true"
+          className="right-5 bottom-5 absolute opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
         >
           <ChevronRight
             size={18}
-            className="
-              text-slate-400
-            "
-            aria-hidden="true"
-          /
+            className="text-slate-400"
+            /
           >
         </div>
       )}
 
       {/* ------------------------------------------------------------------ */}
-      {/* Busy overlay                                                        */}
+      {/* Delete overlay                                                      */}
       {/* ------------------------------------------------------------------ */}
 
       {deleting && (
         <div
-          className="
-            z-40 absolute inset-0 flex justify-center items-center
-            bg-white/70
-            rounded-2xl
-            backdrop-blur-[1px]
-          "
           aria-live="polite"
           aria-busy="true"
+          className="z-40 absolute inset-0 flex justify-center items-center bg-white/75 backdrop-blur-[1px] rounded-2xl"
         >
           <div
-            className="
-              px-4 py-2
-              font-medium text-slate-700 text-sm
-              bg-white
-              rounded-lg ring-1 ring-slate-200
-              shadow-sm
-            "
+            className="bg-white shadow-sm px-4 py-2 rounded-lg ring-1 ring-slate-200 font-medium text-slate-700 text-sm"
           >
             Deleting plan…
           </div>
         </div>
       )}
 
+      {/* ------------------------------------------------------------------ */}
+      {/* Updating overlay                                                    */}
+      {/* ------------------------------------------------------------------ */}
+
       {updating && !deleting && (
         <div
-          className="
-            z-40 absolute inset-0 flex justify-center items-center
-            bg-white/60
-            rounded-2xl
-            backdrop-blur-[1px]
-          "
           aria-live="polite"
           aria-busy="true"
+          className="z-40 absolute inset-0 flex justify-center items-center bg-white/65 backdrop-blur-[1px] rounded-2xl"
         >
           <div
-            className="
-              px-4 py-2
-              font-medium text-slate-700 text-sm
-              bg-white
-              rounded-lg ring-1 ring-slate-200
-              shadow-sm
-            "
+            className="bg-white shadow-sm px-4 py-2 rounded-lg ring-1 ring-slate-200 font-medium text-slate-700 text-sm"
           >
             Updating plan…
           </div>
@@ -1241,6 +1049,7 @@ const SavingPlanCard = ({
   );
 };
 
-SavingPlanCard.displayName = "SavingPlanCard";
+SavingPlanCard.displayName =
+  "SavingPlanCard";
 
 export default memo(SavingPlanCard);

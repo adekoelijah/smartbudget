@@ -1,13 +1,14 @@
 /**
  * SavingPlansPage.jsx
  *
- * Production-ready SmartSave Saving Plans page.
+ * SmartSave — Saving Plans
  *
  * Responsibilities:
- * - Orchestrate saving-plan data through useSavingPlans.
+ * - Display saving plans.
  * - Manage page-level UI state.
  * - Coordinate create/edit/delete/detail interactions.
- * - Coordinate pause/resume/activate/complete/cancel actions.
+ * - Coordinate saving-plan lifecycle actions.
+ * - Manage search and status filters.
  * - Render loading, error, empty and populated states.
  * - Render pagination.
  *
@@ -21,18 +22,17 @@
  *      ↓
  * SmartSave backend
  *
- * The page does NOT call smartSaveService directly.
- * Financial calculations and business rules remain server-side.
+ * The page does not contain financial business logic.
  */
 
 import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
+  Filter,
   Plus,
   RefreshCw,
   Search,
-  SlidersHorizontal,
   X,
 } from "lucide-react";
 
@@ -45,39 +45,27 @@ import {
 
 import useSavingPlans from "../../../../hooks/useSavingPlans";
 
-import SavingPlanCard from "./SavingPlanCard";
 import SavingPlanDetailsDrawer from "./SavingPlanDetailsDrawer";
 import SavingPlanEmptyState from "./SavingPlanEmptyState";
 import SavingPlanList from "./SavingPlanList";
-import SavingPlanStats from "./SavingPlanStats";
-import SavingPlanTimeline from "./SavingPlanTimeline";
-
 import CreateSavingPlanModal from "./CreateSavingPlanModal";
 import EditSavingPlanModal from "./EditSavingPlanModal";
 import DeleteSavingPlanDialog from "./DeleteSavingPlanDialog";
 
 import {
   getSavingPlanId,
-  getSavingPlanName,
-  getSavingPlanStatus,
-  isSavingPlanActive,
-  isSavingPlanPaused,
 } from "../../../../utils/smartSave/savingPlanHelpers";
-
-import {
-  formatSavingPlanStatus,
-} from "../../../../utils/smartSave/savingPlanFormatters";
 
 /* -------------------------------------------------------------------------- */
 /* Constants                                                                  */
 /* -------------------------------------------------------------------------- */
 
-const DEFAULT_FILTERS = {
+const DEFAULT_FILTERS = Object.freeze({
   page: 1,
   limit: 20,
-};
+});
 
-const STATUS_OPTIONS = [
+const STATUS_OPTIONS = Object.freeze([
   {
     value: "",
     label: "All statuses",
@@ -102,11 +90,16 @@ const STATUS_OPTIONS = [
     value: "cancelled",
     label: "Cancelled",
   },
-];
+]);
 
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                    */
 /* -------------------------------------------------------------------------- */
+
+const normalizeSearchValue = (value) =>
+  typeof value === "string"
+    ? value.trim()
+    : "";
 
 const getErrorText = (error) => {
   if (!error) {
@@ -117,48 +110,46 @@ const getErrorText = (error) => {
     typeof error === "string" &&
     error.trim()
   ) {
-    return error;
+    return error.trim();
   }
 
   if (
     typeof error.message === "string" &&
     error.message.trim()
   ) {
-    return error.message;
+    return error.message.trim();
   }
 
   if (
     typeof error.error === "string" &&
     error.error.trim()
   ) {
-    return error.error;
+    return error.error.trim();
   }
 
   if (
     typeof error.data?.message === "string" &&
     error.data.message.trim()
   ) {
-    return error.data.message;
+    return error.data.message.trim();
   }
 
   return "Something went wrong while processing your saving plans.";
 };
 
 const getMutationResultError = (result) => {
-  if (!result || result.success !== false) {
+  if (
+    !result ||
+    result.success !== false
+  ) {
     return "";
   }
 
   return getErrorText(result.error);
 };
 
-const normalizeSearchValue = (value) =>
-  typeof value === "string"
-    ? value.trim()
-    : "";
-
 /* -------------------------------------------------------------------------- */
-/* Error banner                                                               */
+/* Error Banner                                                                */
 /* -------------------------------------------------------------------------- */
 
 const PageError = memo(
@@ -175,135 +166,144 @@ const PageError = memo(
     }
 
     return (
-      <div
+      <section
         role="alert"
+        aria-live="assertive"
         className="
-          flex flex-col sm:flex-row sm:justify-between sm:items-center
-          mb-6 p-4
+          overflow-hidden
+          mb-6
           bg-red-50
-          border border-red-200 rounded-2xl
-          gap-4
+          rounded-2xl border border-red-200
         "
       >
         <div
           className="
-            flex items-start
-            min-w-0
-            gap-3
+            flex flex-col sm:flex-row sm:items-center sm:justify-between
+            p-4
+            gap-4
           "
         >
-          <span
+          <div
             className="
-              flex justify-center items-center
-              w-9 h-9
-              mt-0.5
-              text-red-600
-              bg-red-100
-              rounded-full
-              shrink-0
+              flex items-start
+              min-w-0
+              gap-3
             "
           >
-            <AlertCircle
-              aria-hidden="true"
+            <div
               className="
-                w-5 h-5
+                flex items-center justify-center
+                h-9 w-9
+                text-red-600
+                bg-red-100
+                rounded-full
+                shrink-0
               "
-              /
             >
-          </span>
+              <AlertCircle
+                aria-hidden="true"
+                className="
+                  h-5 w-5
+                "
+                /
+              >
+            </div>
+
+            <div
+              className="
+                min-w-0
+              "
+            >
+              <p
+                className="
+                  text-sm text-red-900 font-semibold
+                "
+              >
+                Unable to load saving plans
+              </p>
+
+              <p
+                className="
+                  mt-1
+                  text-sm text-red-700 leading-relaxed
+                "
+              >
+                {message}
+              </p>
+            </div>
+          </div>
 
           <div
             className="
-              min-w-0
+              flex items-center
+              shrink-0 gap-2
             "
           >
-            <p
-              className="
-                font-semibold text-red-900 text-sm
-              "
-            >
-              Unable to load saving plans
-            </p>
+            {onDismiss ? (
+              <button
+                type="button"
+                onClick={onDismiss}
+                disabled={retrying}
+                className="
+                  inline-flex items-center justify-center
+                  min-h-9
+                  px-3
+                  text-xs text-red-700 font-semibold
+                  hover:bg-red-100
+                  rounded-lg
+                  transition disabled:opacity-50
+                  disabled:cursor-not-allowed
+                "
+              >
+                Dismiss
+              </button>
+            ) : null}
 
-            <p
-              className="
-                mt-1
-                text-red-700 text-sm leading-relaxed
-              "
-            >
-              {message}
-            </p>
+            {onRetry ? (
+              <button
+                type="button"
+                onClick={onRetry}
+                disabled={retrying}
+                className="
+                  inline-flex items-center justify-center
+                  min-h-9
+                  px-3
+                  text-xs text-white font-semibold
+                  bg-red-600 hover:bg-red-700
+                  rounded-lg
+                  transition disabled:opacity-60
+                  disabled:cursor-not-allowed
+                  gap-2
+                "
+              >
+                <RefreshCw
+                  aria-hidden="true"
+                  className={[
+                    "h-3.5 w-3.5",
+                    retrying
+                      ? "animate-spin"
+                      : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                />
+
+                {retrying
+                  ? "Retrying..."
+                  : "Retry"}
+              </button>
+            ) : null}
           </div>
         </div>
-
-        <div
-          className="
-            flex items-center
-            gap-2 shrink-0
-          "
-        >
-          {onDismiss ? (
-            <button
-              type="button"
-              onClick={onDismiss}
-              disabled={retrying}
-              className="
-                inline-flex justify-center items-center
-                min-h-9
-                px-3
-                font-semibold text-red-700 text-xs
-                hover:bg-red-100
-                rounded-lg
-                disabled:opacity-50 transition
-                disabled:cursor-not-allowed
-              "
-            >
-              Dismiss
-            </button>
-          ) : null}
-
-          {onRetry ? (
-            <button
-              type="button"
-              onClick={onRetry}
-              disabled={retrying}
-              className="
-                inline-flex justify-center items-center
-                min-h-9
-                px-3
-                font-semibold text-white text-xs
-                bg-red-600 hover:bg-red-700
-                rounded-lg
-                disabled:opacity-60 transition
-                disabled:cursor-not-allowed
-                gap-2
-              "
-            >
-              <RefreshCw
-                aria-hidden="true"
-                className={[
-                  "h-3.5 w-3.5",
-                  retrying
-                    ? "animate-spin"
-                    : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-              />
-
-              {retrying
-                ? "Retrying..."
-                : "Retry"}
-            </button>
-          ) : null}
-        </div>
-      </div>
+      </section>
     );
   }
 );
 
+PageError.displayName = "PageError";
+
 /* -------------------------------------------------------------------------- */
-/* Page header                                                                */
+/* Page Header                                                                 */
 /* -------------------------------------------------------------------------- */
 
 const PageHeader = memo(
@@ -321,8 +321,8 @@ const PageHeader = memo(
       >
         <div
           className="
-            flex flex-col lg:flex-row lg:justify-between lg:items-end
-            gap-4
+            flex flex-col lg:flex-row lg:items-end lg:justify-between
+            gap-5
           "
         >
           <div
@@ -333,10 +333,10 @@ const PageHeader = memo(
             <div
               className="
                 inline-flex items-center
-                mb-2 px-2.5 py-1
-                font-semibold text-[11px] text-blue-700 uppercase tracking-wide
+                mb-3 px-3 py-1
+                text-[11px] text-blue-700 font-bold uppercase tracking-wider
                 bg-blue-50
-                border border-blue-100 rounded-full
+                rounded-full border border-blue-100
               "
             >
               SmartSave
@@ -344,7 +344,7 @@ const PageHeader = memo(
 
             <h1
               className="
-                font-bold text-slate-950 text-2xl sm:text-3xl tracking-tight
+                text-2xl text-slate-950 sm:text-3xl font-bold tracking-tight
               "
             >
               Saving Plans
@@ -354,16 +354,18 @@ const PageHeader = memo(
               className="
                 max-w-2xl
                 mt-2
-                text-slate-500 text-sm sm:text-base leading-relaxed
+                text-sm text-slate-500 sm:text-base leading-relaxed
               "
             >
-              Create, manage and monitor your saving plans from one place.
+              Create structured saving plans, track your progress,
+              and manage your savings journey from one place.
             </p>
           </div>
 
           <div
             className="
               flex flex-col sm:flex-row
+              w-full sm:w-auto
               gap-2
             "
           >
@@ -372,13 +374,13 @@ const PageHeader = memo(
               onClick={onRefresh}
               disabled={disabled || refreshing}
               className="
-                inline-flex justify-center items-center
-                min-h-10
+                inline-flex items-center justify-center
+                min-h-11
                 px-4
-                font-semibold text-slate-700 text-sm
+                text-sm text-slate-700 font-semibold
                 bg-white hover:bg-slate-50
-                border border-slate-200 hover:border-slate-300 rounded-xl
-                disabled:opacity-50 shadow-sm transition
+                rounded-xl border border-slate-200 hover:border-slate-300
+                shadow-sm transition disabled:opacity-50
                 disabled:cursor-not-allowed
                 gap-2
               "
@@ -405,13 +407,13 @@ const PageHeader = memo(
               onClick={onCreate}
               disabled={disabled}
               className="
-                inline-flex justify-center items-center
-                min-h-10
-                px-4
-                font-semibold text-white text-sm
+                inline-flex items-center justify-center
+                min-h-11
+                px-5
+                text-sm text-white font-semibold
                 bg-slate-950 hover:bg-slate-800
                 rounded-xl
-                disabled:opacity-50 shadow-sm transition
+                shadow-sm transition disabled:opacity-50
                 disabled:cursor-not-allowed
                 gap-2
               "
@@ -419,7 +421,7 @@ const PageHeader = memo(
               <Plus
                 aria-hidden="true"
                 className="
-                  w-4 h-4
+                  h-4 w-4
                 "
                 /
               >
@@ -433,8 +435,10 @@ const PageHeader = memo(
   }
 );
 
+PageHeader.displayName = "PageHeader";
+
 /* -------------------------------------------------------------------------- */
-/* Filters                                                                    */
+/* Filters                                                                     */
 /* -------------------------------------------------------------------------- */
 
 const FilterBar = memo(
@@ -443,40 +447,115 @@ const FilterBar = memo(
     status,
     onSearchChange,
     onStatusChange,
+    onApply,
     onClear,
     disabled,
+    hasActiveFilters,
   }) => {
-    const hasFilters =
-      Boolean(search) ||
-      Boolean(status);
-
     return (
       <section
         aria-label="Saving plan filters"
         className="
-          mb-6 p-3 sm:p-4
+          mb-6 p-4
           bg-white
-          border border-slate-200 rounded-2xl
+          rounded-2xl border border-slate-200
           shadow-sm
         "
       >
         <div
           className="
-            flex flex-col lg:flex-row lg:items-center
+            flex items-center justify-between
+            mb-3
             gap-3
           "
         >
           <div
             className="
-              relative flex-1
-              min-w-0
+              flex items-center
+              gap-2
+            "
+          >
+            <div
+              className="
+                flex items-center justify-center
+                h-8 w-8
+                text-slate-600
+                bg-slate-100
+                rounded-lg
+              "
+            >
+              <Filter
+                aria-hidden="true"
+                className="
+                  h-4 w-4
+                "
+                /
+              >
+            </div>
+
+            <div>
+              <p
+                className="
+                  text-sm text-slate-900 font-semibold
+                "
+              >
+                Filter plans
+              </p>
+
+              <p
+                className="
+                  text-xs text-slate-500
+                "
+              >
+                Search or narrow plans by status.
+              </p>
+            </div>
+          </div>
+
+          {hasActiveFilters ? (
+            <button
+              type="button"
+              onClick={onClear}
+              disabled={disabled}
+              className="
+                inline-flex items-center
+                px-2.5 py-1.5
+                text-xs text-slate-500 hover:text-slate-800 font-semibold
+                hover:bg-slate-100
+                rounded-lg
+                transition disabled:opacity-50
+                disabled:cursor-not-allowed
+                gap-1.5
+              "
+            >
+              <X
+                aria-hidden="true"
+                className="
+                  h-3.5 w-3.5
+                "
+                /
+              >
+              Clear
+            </button>
+          ) : null}
+        </div>
+
+        <div
+          className="
+            grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_220px_auto]
+            gap-3
+          "
+        >
+          <div
+            className="
+              relative
             "
           >
             <Search
               aria-hidden="true"
               className="
-                top-1/2 left-3 absolute
-                w-4 h-4
+                absolute left-3 top-1/2
+                h-4 w-4
                 text-slate-400
                 pointer-events-none
                 -translate-y-1/2
@@ -488,30 +567,31 @@ const FilterBar = memo(
               type="search"
               value={search}
               onChange={(event) =>
-                onSearchChange(
-                  event.target.value
-                )
+                onSearchChange(event.target.value)
               }
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  onApply();
+                }
+              }}
               placeholder="Search saving plans..."
               disabled={disabled}
               aria-label="Search saving plans"
-              className="bg-slate-50 focus:bg-white disabled:opacity-60 pr-10 pl-9 border border-slate-200 focus:border-blue-400 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 w-full h-10 text-slate-900 placeholder:text-slate-400 text-sm transition disabled:cursor-not-allowed"
+              className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-10 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
             />
 
             {search ? (
               <button
                 type="button"
-                onClick={() =>
-                  onSearchChange("")
-                }
+                onClick={() => onSearchChange("")}
                 disabled={disabled}
-                aria-label="Clear search"
-                className="top-1/2 right-2 absolute flex justify-center items-center hover:bg-slate-200 disabled:opacity-50 rounded-lg w-7 h-7 text-slate-400 hover:text-slate-700 transition -translate-y-1/2 disabled:cursor-not-allowed"
+                aria-label="Clear search text"
+                className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-200 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <X
                   aria-hidden="true"
                   className="
-                    w-4 h-4
+                    h-4 w-4
                   "
                   /
                 >
@@ -519,83 +599,118 @@ const FilterBar = memo(
             ) : null}
           </div>
 
-          <div
+          <select
+            value={status}
+            onChange={(event) =>
+              onStatusChange(event.target.value)
+            }
+            disabled={disabled}
+            aria-label="Filter by status"
+            className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {STATUS_OPTIONS.map((option) => (
+              <option
+                key={option.value}
+                value={option.value}
+              >
+                {option.label}
+              </option>
+            ))}
+          </select>
+
+          <button
+            type="button"
+            onClick={onApply}
+            disabled={disabled}
             className="
-              flex items-center
-              gap-2
+              inline-flex items-center justify-center
+              h-11
+              px-5
+              text-sm text-white font-semibold
+              bg-slate-950 hover:bg-slate-800
+              rounded-xl
+              transition disabled:opacity-50
+              disabled:cursor-not-allowed
             "
           >
-            <div
-              className="
-                relative flex-1 lg:flex-none
-                lg:w-48
-              "
-            >
-              <SlidersHorizontal
-                aria-hidden="true"
-                className="
-                  top-1/2 left-3 absolute
-                  w-4 h-4
-                  text-slate-400
-                  pointer-events-none
-                  -translate-y-1/2
-                "
-                /
-              >
-
-              <select
-                value={status}
-                onChange={(event) =>
-                  onStatusChange(
-                    event.target.value
-                  )
-                }
-                disabled={disabled}
-                aria-label="Filter by status"
-                className="bg-slate-50 focus:bg-white disabled:opacity-60 pr-8 pl-9 border border-slate-200 focus:border-blue-400 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 w-full h-10 font-medium text-slate-700 text-sm transition appearance-none disabled:cursor-not-allowed"
-              >
-                {STATUS_OPTIONS.map(
-                  (option) => (
-                    <option
-                      key={option.value}
-                      value={option.value}
-                    >
-                      {option.label}
-                    </option>
-                  )
-                )}
-              </select>
-            </div>
-
-            {hasFilters ? (
-              <button
-                type="button"
-                onClick={onClear}
-                disabled={disabled}
-                className="
-                  inline-flex justify-center items-center
-                  h-10
-                  px-3
-                  font-semibold text-slate-600 text-xs
-                  bg-white hover:bg-slate-50
-                  border border-slate-200 rounded-xl
-                  disabled:opacity-50 transition
-                  disabled:cursor-not-allowed
-                  shrink-0
-                "
-              >
-                Clear
-              </button>
-            ) : null}
-          </div>
+            Apply filters
+          </button>
         </div>
       </section>
     );
   }
 );
 
+FilterBar.displayName = "FilterBar";
+
 /* -------------------------------------------------------------------------- */
-/* Pagination                                                                 */
+/* Summary Bar                                                                 */
+/* -------------------------------------------------------------------------- */
+
+const PlansSummary = memo(
+  ({
+    totalPlans,
+    loading,
+  }) => {
+    return (
+      <div
+        className="
+          flex flex-col sm:flex-row sm:items-center sm:justify-between
+          mb-4
+          gap-2
+        "
+      >
+        <div>
+          <h2
+            className="
+              text-sm text-slate-900 font-bold
+            "
+          >
+            Your saving plans
+          </h2>
+
+          <p
+            className="
+              mt-0.5
+              text-xs text-slate-500
+            "
+          >
+            {totalPlans}{" "}
+            {totalPlans === 1
+              ? "plan"
+              : "plans"}{" "}
+            available
+          </p>
+        </div>
+
+        {loading ? (
+          <div
+            className="
+              inline-flex items-center
+              text-xs text-slate-500 font-medium
+              gap-2
+            "
+          >
+            <RefreshCw
+              aria-hidden="true"
+              className="
+                h-3.5 w-3.5
+                animate-spin
+              "
+              /
+            >
+            Updating plans...
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+);
+
+PlansSummary.displayName = "PlansSummary";
+
+/* -------------------------------------------------------------------------- */
+/* Pagination                                                                  */
 /* -------------------------------------------------------------------------- */
 
 const Pagination = memo(
@@ -608,7 +723,10 @@ const Pagination = memo(
     onNext,
     disabled,
   }) => {
-    if (totalPages <= 1) {
+    if (
+      totalPages <= 1 &&
+      totalItems <= limit
+    ) {
       return null;
     }
 
@@ -627,16 +745,17 @@ const Pagination = memo(
       <nav
         aria-label="Saving plan pagination"
         className="
-          flex flex-col sm:flex-row sm:justify-between sm:items-center
-          mt-6 p-3 sm:p-4
+          flex flex-col sm:flex-row sm:items-center sm:justify-between
+          mt-6 p-4
           bg-white
-          border border-slate-200 rounded-2xl
+          rounded-2xl border border-slate-200
+          shadow-sm
           gap-3
         "
       >
         <p
           className="
-            text-slate-500 text-xs
+            text-xs text-slate-500
           "
         >
           Showing{" "}
@@ -680,13 +799,13 @@ const Pagination = memo(
               currentPage <= 1
             }
             className="
-              inline-flex justify-center items-center
+              inline-flex items-center justify-center
               h-9
               px-3
-              font-semibold text-slate-700 text-xs
+              text-xs text-slate-700 font-semibold
               bg-white hover:bg-slate-50
-              border border-slate-200 rounded-lg
-              disabled:opacity-40 transition
+              rounded-lg border border-slate-200
+              transition disabled:opacity-40
               disabled:cursor-not-allowed
               gap-1
             "
@@ -694,7 +813,7 @@ const Pagination = memo(
             <ChevronLeft
               aria-hidden="true"
               className="
-                w-4 h-4
+                h-4 w-4
               "
               /
             >
@@ -704,10 +823,10 @@ const Pagination = memo(
           <span
             aria-current="page"
             className="
-              inline-flex justify-center items-center
-              min-w-9 h-9
+              inline-flex items-center justify-center
+              h-9 min-w-9
               px-2
-              font-semibold text-white text-xs
+              text-xs text-white font-semibold
               bg-slate-950
               rounded-lg
             "
@@ -722,13 +841,14 @@ const Pagination = memo(
               disabled ||
               currentPage >= totalPages
             }
-            className="inline-flex justify-center items-center gap-1 bg-white hover:bg-slate-50 disabled:opacity-40 px-3 border border-slate-200 rounded-lg h-9 font-semibold text-slate-700 text-xs transition disabled:cursor-not-allowed"
+            className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Next
+
             <ChevronRight
               aria-hidden="true"
               className="
-                w-4 h-4
+                h-4 w-4
               "
               /
             >
@@ -739,21 +859,19 @@ const Pagination = memo(
   }
 );
 
+Pagination.displayName = "Pagination";
+
 /* -------------------------------------------------------------------------- */
-/* Page                                                                       */
+/* Page                                                                        */
 /* -------------------------------------------------------------------------- */
 
 const SavingPlansPage = () => {
-  /* ------------------------------------------------------------------------ */
-  /* Data hook                                                                */
-  /* ------------------------------------------------------------------------ */
-
   const {
     plans,
-    
     filters,
 
     loading,
+
     fetchPlans,
     refreshPlans,
 
@@ -763,14 +881,11 @@ const SavingPlansPage = () => {
 
     createPlan,
     updatePlan,
-
     activatePlan,
     pausePlan,
     resumePlan,
     completePlan,
     cancelPlan,
-
-    
 
     creating,
     updating,
@@ -779,6 +894,7 @@ const SavingPlansPage = () => {
     resuming,
     completing,
     cancelling,
+
     recalculating,
     refreshingProgress,
 
@@ -796,54 +912,70 @@ const SavingPlansPage = () => {
     error,
     clearError,
   } = useSavingPlans({
-    initialFilters:
-      DEFAULT_FILTERS,
+    initialFilters: DEFAULT_FILTERS,
     autoFetch: true,
   });
 
   /* ------------------------------------------------------------------------ */
-  /* Page UI state                                                            */
+  /* Local filter state                                                       */
   /* ------------------------------------------------------------------------ */
 
-  const [search, setSearch] =
-    useState(
-      filters.search ?? ""
-    );
+  const [search, setSearch] = useState(
+    filters?.search ?? ""
+  );
 
-  const [status, setStatus] =
-    useState(
-      filters.status ?? ""
-    );
+  const [status, setStatus] = useState(
+    filters?.status ?? ""
+  );
 
-  const [selectedPlanId, setSelectedPlanId] =
-    useState(null);
+  /* ------------------------------------------------------------------------ */
+  /* UI state                                                                 */
+  /* ------------------------------------------------------------------------ */
 
-  const [detailsOpen, setDetailsOpen] =
-    useState(false);
+  const [
+    selectedPlanId,
+    setSelectedPlanId,
+  ] = useState(null);
 
-  const [createOpen, setCreateOpen] =
-    useState(false);
+  const [
+    detailsOpen,
+    setDetailsOpen,
+  ] = useState(false);
 
-  const [editOpen, setEditOpen] =
-    useState(false);
+  const [
+    createOpen,
+    setCreateOpen,
+  ] = useState(false);
 
-  const [deleteOpen, setDeleteOpen] =
-    useState(false);
+  const [
+    editOpen,
+    setEditOpen,
+  ] = useState(false);
 
-  const [actionError, setActionError] =
-    useState(null);
+  const [
+    deleteOpen,
+    setDeleteOpen,
+  ] = useState(false);
+
+  const [
+    actionError,
+    setActionError,
+  ] = useState(null);
 
   /* ------------------------------------------------------------------------ */
   /* Selected plan                                                            */
   /* ------------------------------------------------------------------------ */
 
   const selectedPlan = useMemo(
-    () =>
-      selectedPlanId
-        ? getPlanById(
-            selectedPlanId
-          )
-        : null,
+    () => {
+      if (!selectedPlanId) {
+        return null;
+      }
+
+      return getPlanById(
+        selectedPlanId
+      );
+    },
     [
       selectedPlanId,
       getPlanById,
@@ -857,15 +989,6 @@ const SavingPlansPage = () => {
   const refreshing =
     loading && hasPlans;
 
-  const pageDisabled =
-    isMutating;
-
-  const deleteBusy =
-    cancelling;
-
-  const editBusy =
-    updating;
-
   const actionBusy =
     activating ||
     pausing ||
@@ -875,20 +998,38 @@ const SavingPlansPage = () => {
     recalculating ||
     refreshingProgress;
 
+  const pageDisabled =
+    isMutating;
+
   /* ------------------------------------------------------------------------ */
   /* Filter handlers                                                          */
   /* ------------------------------------------------------------------------ */
 
-  const applyFilters = useCallback(
-    (nextSearch, nextStatus) => {
+  const handleSearchChange = useCallback(
+    (value) => {
+      setSearch(value);
+    },
+    []
+  );
+
+  const handleStatusChange = useCallback(
+    (value) => {
+      setStatus(value);
+    },
+    []
+  );
+
+  const handleApplyFilters = useCallback(
+    () => {
+      const normalizedSearch =
+        normalizeSearchValue(search);
+
+      setActionError(null);
+
       setFilters(
         {
-          search:
-            normalizeSearchValue(
-              nextSearch
-            ),
-          status:
-            nextStatus || "",
+          search: normalizedSearch,
+          status: status || "",
           page: 1,
         },
         {
@@ -897,73 +1038,50 @@ const SavingPlansPage = () => {
         }
       );
     },
-    [setFilters]
+    [
+      search,
+      status,
+      setFilters,
+    ]
   );
 
-  const handleSearchChange =
-    useCallback(
-      (value) => {
-        setSearch(value);
-
-        applyFilters(
-          value,
-          status
-        );
-      },
-      [
-        applyFilters,
-        status,
-      ]
-    );
-
-  const handleStatusChange =
-    useCallback(
-      (value) => {
-        setStatus(value);
-
-        applyFilters(
-          search,
-          value
-        );
-      },
-      [
-        applyFilters,
-        search,
-      ]
-    );
-
-  const handleClearFilters =
-    useCallback(() => {
+  const handleClearFilters = useCallback(
+    () => {
       setSearch("");
       setStatus("");
+      setActionError(null);
 
       resetFilters({
         fetch: true,
       });
-    }, [resetFilters]);
+    },
+    [resetFilters]
+  );
 
   /* ------------------------------------------------------------------------ */
   /* Refresh                                                                  */
   /* ------------------------------------------------------------------------ */
 
-  const handleRefresh =
-    useCallback(async () => {
+  const handleRefresh = useCallback(
+    async () => {
       setActionError(null);
 
       await refreshPlans({
         preserveData: true,
         silent: false,
       });
-    }, [refreshPlans]);
+    },
+    [refreshPlans]
+  );
 
   /* ------------------------------------------------------------------------ */
   /* Retry                                                                    */
   /* ------------------------------------------------------------------------ */
 
-  const handleRetry =
-    useCallback(async () => {
-      clearError();
+  const handleRetry = useCallback(
+    async () => {
       setActionError(null);
+      clearError();
 
       await fetchPlans(
         filters,
@@ -972,11 +1090,13 @@ const SavingPlansPage = () => {
           silent: false,
         }
       );
-    }, [
+    },
+    [
       clearError,
       fetchPlans,
       filters,
-    ]);
+    ]
+  );
 
   /* ------------------------------------------------------------------------ */
   /* Create                                                                   */
@@ -1003,19 +1123,13 @@ const SavingPlansPage = () => {
         setActionError(null);
 
         const result =
-          await createPlan(
-            payload
-          );
+          await createPlan(payload);
 
-        if (
-          result?.success
-        ) {
+        if (result?.success) {
           setCreateOpen(false);
         } else if (result) {
           setActionError(
-            getMutationResultError(
-              result
-            )
+            getMutationResultError(result)
           );
         }
 
@@ -1025,7 +1139,7 @@ const SavingPlansPage = () => {
     );
 
   /* ------------------------------------------------------------------------ */
-  /* Selection / details                                                      */
+  /* View                                                                     */
   /* ------------------------------------------------------------------------ */
 
   const handleViewPlan =
@@ -1040,6 +1154,7 @@ const SavingPlansPage = () => {
       setSelectedPlanId(
         String(planId)
       );
+
       setDetailsOpen(true);
       setActionError(null);
     }, []);
@@ -1069,6 +1184,7 @@ const SavingPlansPage = () => {
       setSelectedPlanId(
         String(planId)
       );
+
       setEditOpen(true);
       setDetailsOpen(false);
       setActionError(null);
@@ -1076,12 +1192,12 @@ const SavingPlansPage = () => {
 
   const handleCloseEdit =
     useCallback(() => {
-      if (editBusy) {
+      if (updating) {
         return;
       }
 
       setEditOpen(false);
-    }, [editBusy]);
+    }, [updating]);
 
   const handleUpdate =
     useCallback(
@@ -1097,15 +1213,11 @@ const SavingPlansPage = () => {
             payload
           );
 
-        if (
-          result?.success
-        ) {
+        if (result?.success) {
           setEditOpen(false);
         } else if (result) {
           setActionError(
-            getMutationResultError(
-              result
-            )
+            getMutationResultError(result)
           );
         }
 
@@ -1130,6 +1242,7 @@ const SavingPlansPage = () => {
       setSelectedPlanId(
         String(planId)
       );
+
       setDeleteOpen(true);
       setDetailsOpen(false);
       setActionError(null);
@@ -1137,22 +1250,28 @@ const SavingPlansPage = () => {
 
   const handleCloseDelete =
     useCallback(() => {
-      if (deleteBusy) {
+      if (cancelling) {
         return;
       }
 
       setDeleteOpen(false);
-    }, [deleteBusy]);
+    }, [cancelling]);
 
   const handleDelete =
     useCallback(async () => {
       if (!selectedPlanId) {
-        return {
+        const result = {
           success: false,
           error: new Error(
             "A saving plan ID is required."
           ),
         };
+
+        setActionError(
+          getMutationResultError(result)
+        );
+
+        return result;
       }
 
       setActionError(null);
@@ -1162,17 +1281,13 @@ const SavingPlansPage = () => {
           selectedPlanId
         );
 
-      if (
-        result?.success
-      ) {
+      if (result?.success) {
         setDeleteOpen(false);
         setDetailsOpen(false);
         setSelectedPlanId(null);
       } else if (result) {
         setActionError(
-          getMutationResultError(
-            result
-          )
+          getMutationResultError(result)
         );
       }
 
@@ -1183,211 +1298,106 @@ const SavingPlansPage = () => {
     ]);
 
   /* ------------------------------------------------------------------------ */
-  /* Pause                                                                    */
+  /* Lifecycle actions                                                        */
   /* ------------------------------------------------------------------------ */
+
+  const runPlanAction =
+    useCallback(
+      async (
+        plan,
+        action
+      ) => {
+        const planId =
+          getSavingPlanId(plan);
+
+        if (!planId) {
+          return null;
+        }
+
+        setActionError(null);
+
+        const result =
+          await action(planId);
+
+        if (
+          result &&
+          result.success === false
+        ) {
+          setActionError(
+            getMutationResultError(result)
+          );
+        }
+
+        return result;
+      },
+      []
+    );
 
   const handlePause =
     useCallback(
-      async (plan) => {
-        const planId =
-          getSavingPlanId(plan);
-
-        if (!planId) {
-          return null;
-        }
-
-        setActionError(null);
-
-        const result =
-          await pausePlan(
-            planId
-          );
-
-        if (
-          result?.success
-        ) {
-          return result;
-        }
-
-        if (result) {
-          setActionError(
-            getMutationResultError(
-              result
-            )
-          );
-        }
-
-        return result;
-      },
-      [pausePlan]
+      (plan) =>
+        runPlanAction(
+          plan,
+          pausePlan
+        ),
+      [
+        pausePlan,
+        runPlanAction,
+      ]
     );
-
-  /* ------------------------------------------------------------------------ */
-  /* Resume                                                                   */
-  /* ------------------------------------------------------------------------ */
 
   const handleResume =
     useCallback(
-      async (plan) => {
-        const planId =
-          getSavingPlanId(plan);
-
-        if (!planId) {
-          return null;
-        }
-
-        setActionError(null);
-
-        const result =
-          await resumePlan(
-            planId
-          );
-
-        if (
-          result?.success
-        ) {
-          return result;
-        }
-
-        if (result) {
-          setActionError(
-            getMutationResultError(
-              result
-            )
-          );
-        }
-
-        return result;
-      },
-      [resumePlan]
+      (plan) =>
+        runPlanAction(
+          plan,
+          resumePlan
+        ),
+      [
+        resumePlan,
+        runPlanAction,
+      ]
     );
-
-  /* ------------------------------------------------------------------------ */
-  /* Activate                                                                 */
-  /* ------------------------------------------------------------------------ */
 
   const handleActivate =
     useCallback(
-      async (plan) => {
-        const planId =
-          getSavingPlanId(plan);
-
-        if (!planId) {
-          return null;
-        }
-
-        setActionError(null);
-
-        const result =
-          await activatePlan(
-            planId
-          );
-
-        if (
-          result?.success
-        ) {
-          return result;
-        }
-
-        if (result) {
-          setActionError(
-            getMutationResultError(
-              result
-            )
-          );
-        }
-
-        return result;
-      },
-      [activatePlan]
+      (plan) =>
+        runPlanAction(
+          plan,
+          activatePlan
+        ),
+      [
+        activatePlan,
+        runPlanAction,
+      ]
     );
-
-  /* ------------------------------------------------------------------------ */
-  /* Complete                                                                 */
-  /* ------------------------------------------------------------------------ */
 
   const handleComplete =
     useCallback(
-      async (plan) => {
-        const planId =
-          getSavingPlanId(plan);
-
-        if (!planId) {
-          return null;
-        }
-
-        setActionError(null);
-
-        const result =
-          await completePlan(
-            planId
-          );
-
-        if (
-          result?.success
-        ) {
-          return result;
-        }
-
-        if (result) {
-          setActionError(
-            getMutationResultError(
-              result
-            )
-          );
-        }
-
-        return result;
-      },
-      [completePlan]
+      (plan) =>
+        runPlanAction(
+          plan,
+          completePlan
+        ),
+      [
+        completePlan,
+        runPlanAction,
+      ]
     );
-
-  /* ------------------------------------------------------------------------ */
-  /* Cancel                                                                   */
-  /* ------------------------------------------------------------------------ */
 
   const handleCancel =
     useCallback(
-      async (plan) => {
-        const planId =
-          getSavingPlanId(plan);
-
-        if (!planId) {
-          return null;
-        }
-
-        setActionError(null);
-
-        const result =
-          await cancelPlan(
-            planId
-          );
-
-        if (
-          result?.success
-        ) {
-          return result;
-        }
-
-        if (result) {
-          setActionError(
-            getMutationResultError(
-              result
-            )
-          );
-        }
-
-        return result;
-      },
-      [cancelPlan]
+      (plan) =>
+        runPlanAction(
+          plan,
+          cancelPlan
+        ),
+      [
+        cancelPlan,
+        runPlanAction,
+      ]
     );
 
-  /* ------------------------------------------------------------------------ */
-  /* Metrics                                                                  */
-  /* ------------------------------------------------------------------------ */
-
-  
-  
   /* ------------------------------------------------------------------------ */
   /* Pagination                                                               */
   /* ------------------------------------------------------------------------ */
@@ -1401,12 +1411,12 @@ const SavingPlansPage = () => {
         return;
       }
 
-      const nextPage =
-        currentPage - 1;
-
-      setPage(nextPage, {
-        fetch: true,
-      });
+      setPage(
+        currentPage - 1,
+        {
+          fetch: true,
+        }
+      );
     }, [
       currentPage,
       isBusy,
@@ -1422,75 +1432,39 @@ const SavingPlansPage = () => {
         return;
       }
 
-      const nextPage =
-        currentPage + 1;
-
-      setPage(nextPage, {
-        fetch: true,
-      });
+      setPage(
+        currentPage + 1,
+        {
+          fetch: true,
+        }
+      );
     }, [
       currentPage,
+      totalPages,
       isBusy,
       setPage,
-      totalPages,
     ]);
 
   /* ------------------------------------------------------------------------ */
-  /* List callbacks                                                           */
-  /* ------------------------------------------------------------------------ */
-
-  const handleSelectPlan =
-    useCallback(
-      (plan) => {
-        handleViewPlan(plan);
-      },
-      [handleViewPlan]
-    );
-
-  /* ------------------------------------------------------------------------ */
-  /* Derived page state                                                       */
+  /* Derived state                                                            */
   /* ------------------------------------------------------------------------ */
 
   const showInitialLoading =
-    loading &&
-    !hasPlans;
+    loading && !hasPlans;
 
   const showEmpty =
     !loading &&
     !hasPlans &&
     !error;
 
-  const visibleActionError =
-    actionError ||
-    getErrorText(error);
+  const hasActiveFilters =
+    Boolean(
+      normalizeSearchValue(search)
+    ) ||
+    Boolean(status);
 
-  const selectedPlanStatus =
-    selectedPlan
-      ? getSavingPlanStatus(
-          selectedPlan
-        )
-      : "";
-
-  const selectedPlanStatusLabel =
-    selectedPlanStatus
-      ? formatSavingPlanStatus(
-          selectedPlanStatus
-        )
-      : "";
-
-  const selectedPlanIsActive =
-    selectedPlan
-      ? isSavingPlanActive(
-          selectedPlan
-        )
-      : false;
-
-  const selectedPlanIsPaused =
-    selectedPlan
-      ? isSavingPlanPaused(
-          selectedPlan
-        )
-      : false;
+  const pageError =
+    actionError || error;
 
   /* ------------------------------------------------------------------------ */
   /* Render                                                                   */
@@ -1499,7 +1473,7 @@ const SavingPlansPage = () => {
   return (
     <main
       className="
-        min-h-full
+        min-h-screen w-full
         bg-slate-50
       "
     >
@@ -1509,10 +1483,8 @@ const SavingPlansPage = () => {
           mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8
         "
       >
-        {/* ---------------------------------------------------------------- */}
-        {/* Header                                                           */}
-        {/* ---------------------------------------------------------------- */}
 
+        {/* Header */}
         <PageHeader
           onCreate={handleOpenCreate}
           onRefresh={handleRefresh}
@@ -1520,37 +1492,24 @@ const SavingPlansPage = () => {
           disabled={pageDisabled}
         />
 
-        {/* ---------------------------------------------------------------- */}
-        {/* Errors                                                           */}
-        {/* ---------------------------------------------------------------- */}
-
-        {visibleActionError ? (
+        {/* Error */}
+        {pageError ? (
           <PageError
-            error={
-              actionError ||
-              error
-            }
+            error={pageError}
             onRetry={
               actionError
-                ? clearError
+                ? null
                 : handleRetry
             }
-            onDismiss={
-              actionError
-                ? () =>
-                    setActionError(
-                      null
-                    )
-                : clearError
-            }
+            onDismiss={() => {
+              setActionError(null);
+              clearError();
+            }}
             retrying={loading}
           />
         ) : null}
 
-        {/* ---------------------------------------------------------------- */}
-        {/* Filters                                                          */}
-        {/* ---------------------------------------------------------------- */}
-
+        {/* Filters */}
         <FilterBar
           search={search}
           status={status}
@@ -1560,105 +1519,202 @@ const SavingPlansPage = () => {
           onStatusChange={
             handleStatusChange
           }
-          onClear={
-            handleClearFilters
-          }
+          onApply={handleApplyFilters}
+          onClear={handleClearFilters}
           disabled={pageDisabled}
+          hasActiveFilters={
+            hasActiveFilters
+          }
         />
 
-        {/* ---------------------------------------------------------------- */}
-        {/* Initial loading                                                  */}
-        {/* ---------------------------------------------------------------- */}
-
+        {/* Initial Loading */}
         {showInitialLoading ? (
-          <SavingPlanList
-            plans={[]}
-            loading
-            onRetry={handleRetry}
-            onCreate={handleOpenCreate}
-          />
+          <section
+            aria-label="Loading saving plans"
+            aria-busy="true"
+            className="
+              p-4 sm:p-5
+              bg-white
+              rounded-2xl border border-slate-200
+              shadow-sm
+            "
+          >
+            <div
+              className="
+                flex items-center justify-between
+                mb-5
+              "
+            >
+              <div
+                className="
+                  space-y-2
+                "
+              >
+                <div
+                  className="
+                    h-4 w-32
+                    bg-slate-200
+                    rounded
+                    animate-pulse
+                  "
+                  /
+                >
+                <div
+                  className="
+                    h-3 w-48
+                    bg-slate-100
+                    rounded
+                    animate-pulse
+                  "
+                  /
+                >
+              </div>
+
+              <div
+                className="
+                  h-9 w-24
+                  bg-slate-100
+                  rounded-lg
+                  animate-pulse
+                "
+                /
+              >
+            </div>
+
+            <div
+              className="
+                grid md:grid-cols-2
+                gap-4
+              "
+            >
+              {[1, 2, 3, 4].map(
+                (item) => (
+                  <div
+                    key={item}
+                    className="
+                      p-5
+                      rounded-2xl border border-slate-100
+                    "
+                  >
+                    <div
+                      className="
+                        flex items-center justify-between
+                        mb-4
+                      "
+                    >
+                      <div
+                        className="
+                          h-4 w-36
+                          bg-slate-200
+                          rounded
+                          animate-pulse
+                        "
+                        /
+                      >
+                      <div
+                        className="
+                          h-6 w-20
+                          bg-slate-100
+                          rounded-full
+                          animate-pulse
+                        "
+                        /
+                      >
+                    </div>
+
+                    <div
+                      className="
+                        h-3 w-full
+                        mb-3
+                        bg-slate-100
+                        rounded
+                        animate-pulse
+                      "
+                      /
+                    >
+                    <div
+                      className="
+                        h-3 w-4/5
+                        mb-6
+                        bg-slate-100
+                        rounded
+                        animate-pulse
+                      "
+                      /
+                    >
+
+                    <div
+                      className="
+                        h-2 w-full
+                        bg-slate-100
+                        rounded-full
+                        animate-pulse
+                      "
+                      /
+                    >
+
+                    <div
+                      className="
+                        flex justify-between
+                        mt-5
+                      "
+                    >
+                      <div
+                        className="
+                          h-3 w-20
+                          bg-slate-100
+                          rounded
+                          animate-pulse
+                        "
+                        /
+                      >
+                      <div
+                        className="
+                          h-3 w-16
+                          bg-slate-100
+                          rounded
+                          animate-pulse
+                        "
+                        /
+                      >
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
+          </section>
         ) : null}
 
-        {/* ---------------------------------------------------------------- */}
-        {/* Empty state                                                      */}
-        {/* ---------------------------------------------------------------- */}
-
+        {/* Empty */}
         {showEmpty ? (
           <SavingPlanEmptyState
             variant={
-              search || status
+              hasActiveFilters
                 ? "noResults"
                 : "noPlans"
             }
             onAction={
-              search || status
+              hasActiveFilters
                 ? handleClearFilters
                 : handleOpenCreate
             }
             actionLabel={
-              search || status
+              hasActiveFilters
                 ? "Clear filters"
                 : "Create saving plan"
             }
           />
         ) : null}
 
-        {/* ---------------------------------------------------------------- */}
-        {/* Plans                                                            */}
-        {/* ---------------------------------------------------------------- */}
-
+        {/* Populated */}
         {!showInitialLoading &&
         !showEmpty &&
         hasPlans ? (
-          <>
-            <div
-              className="
-                flex flex-col sm:flex-row sm:justify-between sm:items-center
-                mb-4
-                gap-2
-              "
-            >
-              <div>
-                <p
-                  className="
-                    font-semibold text-slate-900 text-sm
-                  "
-                >
-                  Your saving plans
-                </p>
-
-                <p
-                  className="
-                    text-slate-500 text-xs
-                  "
-                >
-                  {totalPlans}{" "}
-                  {totalPlans === 1
-                    ? "plan"
-                    : "plans"}
-                </p>
-              </div>
-
-              {loading ? (
-                <div
-                  className="
-                    inline-flex items-center
-                    font-medium text-slate-500 text-xs
-                    gap-2
-                  "
-                >
-                  <RefreshCw
-                    aria-hidden="true"
-                    className="
-                      w-3.5 h-3.5
-                      animate-spin
-                    "
-                    /
-                  >
-                  Updating plans...
-                </div>
-              ) : null}
-            </div>
+          <section aria-label="Saving plans">
+            <PlansSummary
+              totalPlans={totalPlans}
+              loading={loading}
+            />
 
             <SavingPlanList
               plans={plans}
@@ -1668,7 +1724,7 @@ const SavingPlansPage = () => {
                 selectedPlanId
               }
               onSelect={
-                handleSelectPlan
+                handleViewPlan
               }
               onView={
                 handleViewPlan
@@ -1700,186 +1756,73 @@ const SavingPlansPage = () => {
                 actionBusy
               }
               disabled={isMutating}
-              onRetry={
-                handleRetry
-              }
+              onRetry={handleRetry}
               onCreate={
                 handleOpenCreate
               }
             />
 
             <Pagination
-              currentPage={
-                currentPage
-              }
-              totalPages={
-                totalPages
-              }
-              totalItems={
-                totalPlans
-              }
-              limit={
-                currentLimit
-              }
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={totalPlans}
+              limit={currentLimit}
               onPrevious={
                 handlePreviousPage
               }
               onNext={
                 handleNextPage
               }
-              disabled={
-                isBusy
-              }
+              disabled={isBusy}
             />
-          </>
+          </section>
         ) : null}
 
-        {/* ---------------------------------------------------------------- */}
-        {/* Selected plan information                                       */}
-        {/* ---------------------------------------------------------------- */}
-
-        {selectedPlan &&
-        detailsOpen ? (
-          <div
-            className="
-              sr-only
-            "
-          >
-            <span>
-              Selected plan:{" "}
-              {getSavingPlanName(
-                selectedPlan
-              )}
-            </span>
-
-            <span>
-              Status:{" "}
-              {selectedPlanStatusLabel}
-            </span>
-
-            {selectedPlanIsActive ? (
-              <span>
-                This plan is active.
-              </span>
-            ) : null}
-
-            {selectedPlanIsPaused ? (
-              <span>
-                This plan is paused.
-              </span>
-            ) : null}
-          </div>
-        ) : null}
-
-        {/* ---------------------------------------------------------------- */}
-        {/* Create modal                                                     */}
-        {/* ---------------------------------------------------------------- */}
-
+        {/* Create */}
         <CreateSavingPlanModal
           open={createOpen}
           onClose={
             handleCloseCreate
           }
-          onSubmit={
-            handleCreate
-          }
+          onSubmit={handleCreate}
           submitting={creating}
         />
 
-        {/* ---------------------------------------------------------------- */}
-        {/* Edit modal                                                       */}
-        {/* ---------------------------------------------------------------- */}
-
+        {/* Edit */}
         <EditSavingPlanModal
           open={editOpen}
           plan={selectedPlan}
-          onClose={
-            handleCloseEdit
-          }
-          onSubmit={
-            handleUpdate
-          }
+          onClose={handleCloseEdit}
+          onSubmit={handleUpdate}
           submitting={updating}
         />
 
-        {/* ---------------------------------------------------------------- */}
-        {/* Delete dialog                                                    */}
-        {/* ---------------------------------------------------------------- */}
-
+        {/* Delete */}
         <DeleteSavingPlanDialog
           open={deleteOpen}
           plan={selectedPlan}
           deleting={cancelling}
-          error={
-            actionError
-          }
-          onConfirm={
-            handleDelete
-          }
-          onClose={
-            handleCloseDelete
-          }
+          error={actionError}
+          onConfirm={handleDelete}
+          onClose={handleCloseDelete}
         />
 
-        {/* ---------------------------------------------------------------- */}
-        {/* Details drawer                                                   */}
-        {/* ---------------------------------------------------------------- */}
-
+        {/* Details */}
         <SavingPlanDetailsDrawer
           open={detailsOpen}
           plan={selectedPlan}
-          onClose={
-            handleCloseDetails
-          }
-          onEdit={
-            handleOpenEdit
-          }
-          onDelete={
-            handleOpenDelete
-          }
-          onPause={
-            handlePause
-          }
-          onResume={
-            handleResume
-          }
+          onClose={handleCloseDetails}
+          onEdit={handleOpenEdit}
+          onDelete={handleOpenDelete}
+          onPause={handlePause}
+          onResume={handleResume}
           deleting={cancelling}
-          updating={
-            actionBusy
-          }
-          error={
-            actionError
-          }
+          updating={actionBusy}
+          error={actionError}
         />
-
-        {/* ---------------------------------------------------------------- */}
-        {/* Supporting components                                            */}
-        {/* ---------------------------------------------------------------- */}
-
-        {selectedPlan ? (
-          <div
-            className="
-              sr-only
-            "
-          >
-            <SavingPlanCard
-              plan={selectedPlan}
-            />
-
-            <SavingPlanStats
-              plan={selectedPlan}
-            />
-
-            <SavingPlanTimeline
-              plan={selectedPlan}
-            />
-          </div>
-        ) : null}
       </div>
     </main>
   );
 };
 
-export default memo(
-  SavingPlansPage
-);
+export default memo(SavingPlansPage);

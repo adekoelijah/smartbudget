@@ -1,20 +1,21 @@
 /**
  * SavingPlanTimeline.jsx
  *
- * Production-ready timeline for SmartSave saving plans.
+ * Production-ready, presentational timeline for SmartSave saving plans.
  *
  * Responsibilities:
  * - Display important saving-plan lifecycle dates/events.
- * - Safely normalize incomplete plan data.
- * - Present current plan status visually.
+ * - Normalize incomplete or malformed plan data safely.
+ * - Present the current plan status visually.
  * - Support compact and standard layouts.
- * - Remain completely presentational.
+ * - Support optional externally supplied events.
  *
- * This component must remain:
- * - Side-effect free
- * - API independent
- * - State independent
- * - Financial-logic independent
+ * Non-responsibilities:
+ * - No API calls.
+ * - No mutations.
+ * - No financial calculations.
+ * - No business-rule enforcement.
+ * - No application-level state.
  */
 
 import {
@@ -25,6 +26,7 @@ import {
   Flag,
   PlayCircle,
   Target,
+  XCircle,
 } from "lucide-react";
 import { memo, useMemo } from "react";
 
@@ -44,7 +46,7 @@ import {
 /* Configuration                                                              */
 /* -------------------------------------------------------------------------- */
 
-const SIZE_CONFIG = {
+const SIZE_CONFIG = Object.freeze({
   sm: {
     iconWrapper: "h-7 w-7",
     icon: "h-3.5 w-3.5",
@@ -74,14 +76,14 @@ const SIZE_CONFIG = {
     description: "text-sm",
     spacing: "pb-7",
   },
-};
+});
 
-const EVENT_STYLES = {
-  completed: {
-    icon: CheckCircle2,
-    iconClassName: "text-emerald-600",
+const EVENT_STYLES = Object.freeze({
+  created: {
+    icon: CircleDot,
+    iconClassName: "text-slate-500",
     wrapperClassName:
-      "border-emerald-200 bg-emerald-50",
+      "border-slate-200 bg-slate-50",
   },
 
   active: {
@@ -98,18 +100,25 @@ const EVENT_STYLES = {
       "border-amber-200 bg-amber-50",
   },
 
+  completed: {
+    icon: CheckCircle2,
+    iconClassName: "text-emerald-600",
+    wrapperClassName:
+      "border-emerald-200 bg-emerald-50",
+  },
+
+  cancelled: {
+    icon: XCircle,
+    iconClassName: "text-red-600",
+    wrapperClassName:
+      "border-red-200 bg-red-50",
+  },
+
   target: {
     icon: Flag,
     iconClassName: "text-violet-600",
     wrapperClassName:
       "border-violet-200 bg-violet-50",
-  },
-
-  created: {
-    icon: CircleDot,
-    iconClassName: "text-slate-500",
-    wrapperClassName:
-      "border-slate-200 bg-slate-50",
   },
 
   default: {
@@ -118,11 +127,16 @@ const EVENT_STYLES = {
     wrapperClassName:
       "border-slate-200 bg-slate-50",
   },
-};
+});
 
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                    */
 /* -------------------------------------------------------------------------- */
+
+const isObject = (value) =>
+  value !== null &&
+  typeof value === "object" &&
+  !Array.isArray(value);
 
 const isValidDate = (value) => {
   if (
@@ -135,72 +149,191 @@ const isValidDate = (value) => {
 
   const date = new Date(value);
 
-  return !Number.isNaN(date.getTime());
+  return !Number.isNaN(
+    date.getTime(),
+  );
 };
 
-const getPlanDate = (plan, ...keys) => {
-  if (!plan || typeof plan !== "object") {
+const getFirstValue = (
+  object,
+  keys,
+) => {
+  if (!isObject(object)) {
     return null;
   }
 
   for (const key of keys) {
+    const value = object[key];
+
     if (
-      plan[key] !== null &&
-      plan[key] !== undefined &&
-      plan[key] !== ""
+      value !== null &&
+      value !== undefined &&
+      value !== ""
     ) {
-      return plan[key];
+      return value;
     }
   }
 
   return null;
 };
 
-const getEventStyle = (type) =>
-  EVENT_STYLES[type] ??
+const normalizeEventType = (value) => {
+  if (
+    typeof value !== "string"
+  ) {
+    return "default";
+  }
+
+  const normalized =
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[\s-]+/g, "_");
+
+  switch (normalized) {
+    case "created":
+    case "creation":
+      return "created";
+
+    case "started":
+    case "active":
+    case "in_progress":
+    case "ongoing":
+      return "active";
+
+    case "paused":
+    case "pause":
+      return "paused";
+
+    case "completed":
+    case "complete":
+    case "achieved":
+      return "completed";
+
+    case "cancelled":
+    case "canceled":
+    case "cancel":
+      return "cancelled";
+
+    case "target":
+    case "target_date":
+      return "target";
+
+    default:
+      return "default";
+  }
+};
+
+const getEventStyle = (
+  type,
+) =>
+  EVENT_STYLES[
+    normalizeEventType(type)
+  ] ??
   EVENT_STYLES.default;
 
+const normalizeEvent = (
+  event,
+  index,
+) => {
+  if (!isObject(event)) {
+    return null;
+  }
+
+  const date =
+    getFirstValue(event, [
+      "date",
+      "eventDate",
+      "timestamp",
+    ]);
+
+  if (!isValidDate(date)) {
+    return null;
+  }
+
+  const type =
+    normalizeEventType(
+      event.type,
+    );
+
+  const title =
+    typeof event.title ===
+      "string" &&
+    event.title.trim()
+      ? event.title.trim()
+      : "Saving plan event";
+
+  const description =
+    typeof event.description ===
+      "string"
+      ? event.description.trim()
+      : "";
+
+  const id =
+    event.id ??
+    event._id ??
+    `${type}-${new Date(date).getTime()}-${index}`;
+
+  return {
+    ...event,
+    id: String(id),
+    type,
+    title,
+    description,
+    date,
+    completed:
+      Boolean(event.completed),
+    isTarget:
+      Boolean(
+        event.isTarget,
+      ) || type === "target",
+  };
+};
+
 /* -------------------------------------------------------------------------- */
-/* Event builder                                                              */
+/* Timeline builder                                                           */
 /* -------------------------------------------------------------------------- */
 
-const buildTimelineEvents = (plan) => {
-  if (!plan || typeof plan !== "object") {
+const buildTimelineEvents = (
+  plan,
+) => {
+  if (!isObject(plan)) {
     return [];
   }
 
-  const status = getSavingPlanStatus(plan);
+  const status =
+    getSavingPlanStatus(plan);
 
-  const createdAt = getPlanDate(
-    plan,
-    "createdAt",
-    "createdDate",
-  );
+  const createdAt =
+    getFirstValue(plan, [
+      "createdAt",
+      "createdDate",
+    ]);
 
-  const startedAt = getPlanDate(
-    plan,
-    "startedAt",
-    "startDate",
-  );
+  const startedAt =
+    getFirstValue(plan, [
+      "startedAt",
+      "startDate",
+    ]);
 
-  const pausedAt = getPlanDate(
-    plan,
-    "pausedAt",
-    "pauseDate",
-  );
+  const pausedAt =
+    getFirstValue(plan, [
+      "pausedAt",
+      "pauseDate",
+    ]);
 
-  const completedAt = getPlanDate(
-    plan,
-    "completedAt",
-    "completionDate",
-  );
+  const completedAt =
+    getFirstValue(plan, [
+      "completedAt",
+      "completionDate",
+    ]);
 
-  const cancelledAt = getPlanDate(
-    plan,
-    "cancelledAt",
-    "canceledAt",
-    "cancellationDate",
-  );
+  const cancelledAt =
+    getFirstValue(plan, [
+      "cancelledAt",
+      "canceledAt",
+      "cancellationDate",
+    ]);
 
   const targetDate =
     getSavingPlanTargetDate(plan);
@@ -265,12 +398,14 @@ const buildTimelineEvents = (plan) => {
 
   if (
     isValidDate(cancelledAt) &&
-    (status === "cancelled" ||
-      status === "canceled")
+    (
+      status === "cancelled" ||
+      status === "canceled"
+    )
   ) {
     events.push({
       id: "cancelled",
-      type: "paused",
+      type: "cancelled",
       title: "Plan cancelled",
       description:
         "This saving plan has been cancelled.",
@@ -287,139 +422,206 @@ const buildTimelineEvents = (plan) => {
       description:
         "Your target date for completing this saving plan.",
       date: targetDate,
-      completed: isSavingPlanCompleted(plan),
+      completed:
+        isSavingPlanCompleted(plan),
       isTarget: true,
     });
   }
 
-  return events;
+  return events
+    .map(normalizeEvent)
+    .filter(Boolean)
+    .sort(
+      (a, b) =>
+        new Date(a.date).getTime() -
+        new Date(b.date).getTime(),
+    );
 };
 
 /* -------------------------------------------------------------------------- */
 /* Timeline event                                                             */
 /* -------------------------------------------------------------------------- */
 
-const TimelineEvent = ({
-  event,
-  isLast,
-  sizeConfig,
-  formatDate,
-}) => {
-  const style = getEventStyle(event.type);
-  const Icon = style.icon;
+const TimelineEvent = memo(
+  ({
+    event,
+    isLast,
+    sizeConfig,
+  }) => {
+    const style =
+      getEventStyle(event.type);
 
-  return (
-    <li
-      className={[
-        "relative flex gap-3",
-        !isLast
-          ? sizeConfig.spacing
-          : "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
-    >
-      {!isLast ? (
+    const Icon = style.icon;
+
+    const formattedDate =
+      formatSavingPlanDate(
+        event.date,
+      );
+
+    const isoDate =
+      isValidDate(event.date)
+        ? new Date(
+            event.date,
+          ).toISOString()
+        : undefined;
+
+    return (
+      <li
+        className={[
+          "relative flex gap-3",
+          !isLast
+            ? sizeConfig.spacing
+            : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      >
+        {!isLast ? (
+          <span
+            aria-hidden="true"
+            className={[
+              "absolute top-8 bottom-0 w-px",
+              "bg-slate-200",
+              sizeConfig.line,
+            ].join(" ")}
+          />
+        ) : null}
+
         <span
           aria-hidden="true"
           className={[
-            "absolute top-8 bottom-0 w-px",
-            "bg-slate-200",
-            sizeConfig.line,
+            "relative z-10 flex shrink-0",
+            "items-center justify-center",
+            "rounded-full border",
+            sizeConfig.iconWrapper,
+            style.wrapperClassName,
           ].join(" ")}
-        />
-      ) : null}
+        >
+          <Icon
+            aria-hidden="true"
+            className={[
+              sizeConfig.icon,
+              style.iconClassName,
+            ].join(" ")}
+          />
+        </span>
 
-      <span
-        aria-hidden="true"
-        className={[
-          "relative z-10 flex shrink-0 items-center",
-          "justify-center rounded-full border",
-          sizeConfig.iconWrapper,
-          style.wrapperClassName,
-        ].join(" ")}
-      >
-        <Icon
-          className={[
-            sizeConfig.icon,
-            style.iconClassName,
-          ].join(" ")}
-        />
-      </span>
-
-      <div
-        className="
-          flex-1
-          min-w-0
-          pt-0.5
-        "
-      >
         <div
           className="
-            flex flex-wrap items-center
-            gap-x-2 gap-y-1
+            flex-1
+            min-w-0
+            pt-0.5
           "
         >
-          <h4
+          <div
+            className="
+              flex flex-wrap items-center
+              gap-x-2 gap-y-1
+            "
+          >
+            <h4
+              className={[
+                "font-semibold text-slate-900",
+                sizeConfig.title,
+              ].join(" ")}
+            >
+              {event.title}
+            </h4>
+
+            {event.isTarget ? (
+              <span
+                className="
+                  inline-flex items-center
+                  px-1.5 py-0.5
+                  font-medium text-[10px] text-violet-700
+                  bg-violet-50
+                  border border-violet-200 rounded-full
+                  gap-1
+                "
+              >
+                <Target
+                  aria-hidden="true"
+                  className="
+                    w-3 h-3
+                  "
+                  /
+                >
+
+                Target
+              </span>
+            ) : null}
+          </div>
+
+          <time
+            dateTime={isoDate}
             className={[
-              "font-semibold text-slate-900",
-              sizeConfig.title,
+              "mt-1 block font-medium",
+              "text-slate-500",
+              sizeConfig.date,
             ].join(" ")}
           >
-            {event.title}
-          </h4>
+            {formattedDate}
+          </time>
 
-          {event.isTarget ? (
-            <span
-              className="
-                inline-flex items-center
-                px-1.5 py-0.5
-                font-medium text-[10px] text-violet-700
-                bg-violet-50
-                border border-violet-200 rounded-full
-                gap-1
-              "
+          {event.description ? (
+            <p
+              className={[
+                "mt-1 leading-relaxed",
+                "text-slate-500",
+                sizeConfig.description,
+              ].join(" ")}
             >
-              <Target
-                aria-hidden="true"
-                className="
-                  w-3 h-3
-                "
-                /
-              >
-              Target
-            </span>
+              {event.description}
+            </p>
           ) : null}
         </div>
+      </li>
+    );
+  },
+);
 
-        <time
-          dateTime={
-            isValidDate(event.date)
-              ? new Date(event.date).toISOString()
-              : undefined
-          }
-          className={[
-            "mt-1 block font-medium text-slate-500",
-            sizeConfig.date,
-          ].join(" ")}
-        >
-          {formatDate(event.date)}
-        </time>
+TimelineEvent.displayName =
+  "TimelineEvent";
 
-        {event.description ? (
-          <p
-            className={[
-              "mt-1 leading-relaxed text-slate-500",
-              sizeConfig.description,
-            ].join(" ")}
-          >
-            {event.description}
-          </p>
-        ) : null}
-      </div>
-    </li>
-  );
-};
+/* -------------------------------------------------------------------------- */
+/* Empty state                                                                */
+/* -------------------------------------------------------------------------- */
+
+const TimelineEmptyState = memo(
+  ({
+    message,
+  }) => (
+    <div
+      className="
+        px-4 py-5
+        text-center
+        bg-slate-50
+        border border-slate-200 rounded-xl
+      "
+    >
+      <CalendarDays
+        aria-hidden="true"
+        className="
+          w-5 h-5
+          mx-auto mb-2
+          text-slate-400
+        "
+        /
+      >
+
+      <p
+        className="
+          text-slate-500 text-xs
+        "
+      >
+        {message}
+      </p>
+    </div>
+  ),
+);
+
+TimelineEmptyState.displayName =
+  "TimelineEmptyState";
 
 /* -------------------------------------------------------------------------- */
 /* Component                                                                  */
@@ -438,33 +640,45 @@ const SavingPlanTimeline = ({
   className = "",
 }) => {
   const sizeConfig =
-    SIZE_CONFIG[size] ?? SIZE_CONFIG.md;
+    compact
+      ? SIZE_CONFIG.sm
+      : SIZE_CONFIG[size] ??
+        SIZE_CONFIG.md;
 
-  const timelineEvents = useMemo(() => {
-    if (Array.isArray(events)) {
-      return events.filter(
-        (event) =>
-          event &&
-          typeof event === "object" &&
-          isValidDate(event.date),
+  const timelineEvents =
+    useMemo(() => {
+      if (Array.isArray(events)) {
+        return events
+          .map(
+            normalizeEvent,
+          )
+          .filter(Boolean)
+          .sort(
+            (a, b) =>
+              new Date(
+                a.date,
+              ).getTime() -
+              new Date(
+                b.date,
+              ).getTime(),
+          );
+      }
+
+      return buildTimelineEvents(
+        plan,
       );
-    }
+    }, [events, plan]);
 
-    return buildTimelineEvents(plan);
-  }, [events, plan]);
+  const formattedStatus =
+    useMemo(() => {
+      if (!plan) {
+        return "";
+      }
 
-  const formattedStatus = useMemo(() => {
-    if (!plan) {
-      return "";
-    }
-
-    return formatSavingPlanStatus(
-      getSavingPlanStatus(plan),
-    );
-  }, [plan]);
-
-  const formatDate = (value) =>
-    formatSavingPlanDate(value);
+      return formatSavingPlanStatus(
+        getSavingPlanStatus(plan),
+      );
+    }, [plan]);
 
   const containerClassName = [
     "w-full",
@@ -473,47 +687,12 @@ const SavingPlanTimeline = ({
     .filter(Boolean)
     .join(" ");
 
-  if (!plan && !Array.isArray(events)) {
-    return (
-      <section
-        className={containerClassName}
-        aria-label={title}
-      >
-        {showHeader ? (
-          <div
-            className="
-              mb-4
-            "
-          >
-            <h3
-              className="
-                font-semibold text-slate-900 text-sm
-              "
-            >
-              {title}
-            </h3>
-          </div>
-        ) : null}
+  const hasTimeline =
+    timelineEvents.length > 0;
 
-        <div
-          className="
-            px-4 py-5
-            text-center
-            bg-slate-50
-            border border-slate-200 rounded-xl
-          "
-        >
-          <p
-            className="
-              text-slate-500 text-xs
-            "
-          >
-            {emptyMessage}
-          </p>
-        </div>
-      </section>
-    );
-  }
+  const hasInput =
+    isObject(plan) ||
+    Array.isArray(events);
 
   return (
     <section
@@ -532,12 +711,27 @@ const SavingPlanTimeline = ({
               gap-2
             "
           >
-            <div>
+            <div
+              className="
+                min-w-0
+              "
+            >
               <h3
                 className="
+                  flex items-center
                   font-semibold text-slate-900 text-sm
+                  gap-2
                 "
               >
+                <CalendarDays
+                  aria-hidden="true"
+                  className="
+                    w-4 h-4
+                    text-slate-400
+                  "
+                  /
+                >
+
                 {title}
               </h3>
 
@@ -569,23 +763,10 @@ const SavingPlanTimeline = ({
         </header>
       ) : null}
 
-      {timelineEvents.length === 0 ? (
-        <div
-          className="
-            px-4 py-5
-            text-center
-            bg-slate-50
-            border border-slate-200 rounded-xl
-          "
-        >
-          <p
-            className="
-              text-slate-500 text-xs
-            "
-          >
-            {emptyMessage}
-          </p>
-        </div>
+      {!hasInput || !hasTimeline ? (
+        <TimelineEmptyState
+          message={emptyMessage}
+        />
       ) : (
         <ol
           className="
@@ -596,21 +777,15 @@ const SavingPlanTimeline = ({
           {timelineEvents.map(
             (event, index) => (
               <TimelineEvent
-                key={
-                  event.id ??
-                  `${event.title ?? "event"}-${event.date}`
-                }
+                key={event.id}
                 event={event}
                 isLast={
                   index ===
                   timelineEvents.length - 1
                 }
                 sizeConfig={
-                  compact
-                    ? SIZE_CONFIG.sm
-                    : sizeConfig
+                  sizeConfig
                 }
-                formatDate={formatDate}
               />
             ),
           )}
@@ -620,9 +795,8 @@ const SavingPlanTimeline = ({
   );
 };
 
-/* -------------------------------------------------------------------------- */
-/* Export                                                                     */
-/* -------------------------------------------------------------------------- */
+SavingPlanTimeline.displayName =
+  "SavingPlanTimeline";
 
 export default memo(
   SavingPlanTimeline,
