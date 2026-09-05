@@ -15,7 +15,11 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import { useCallback, useMemo, useState } from "react";
+import {
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
 
 /* =========================================================
    ROUTES
@@ -131,28 +135,11 @@ const DesktopNavigationItem = ({
     <NavLink
       to={item.path}
       end={item.path === SMART_SAVE_ROUTES.OVERVIEW}
-      className={`
-        group
-        relative
-        inline-flex
-        items-center
-        gap-2
-        min-h-10
-        px-3
-        rounded-lg
-        text-sm
-        font-semibold
-        transition-colors
-        focus:outline-none
-        focus-visible:ring-2
-        focus-visible:ring-slate-400
-        focus-visible:ring-offset-2
-        ${
-          isActive
-            ? "bg-slate-900 text-white"
-            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-        }
-      `}
+      className={`group relative inline-flex items-center gap-2 min-h-10 px-3 rounded-lg text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 ${
+        isActive
+          ? "bg-slate-900 text-white"
+          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+      }`}
       aria-current={isActive ? "page" : undefined}
       title={item.description}
     >
@@ -188,40 +175,19 @@ const MobileNavigationItem = ({
       to={item.path}
       end={item.path === SMART_SAVE_ROUTES.OVERVIEW}
       onClick={onNavigate}
-      className={`
-        flex
-        items-center
-        w-full
-        min-h-12
-        px-3
-        rounded-xl
-        transition-colors
-        focus:outline-none
-        focus-visible:ring-2
-        focus-visible:ring-slate-400
-        ${
-          isActive
-            ? "bg-slate-900 text-white"
-            : "text-slate-700 hover:bg-slate-100"
-        }
-      `}
+      className={`flex items-center w-full min-h-12 px-3 rounded-xl transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${
+        isActive
+          ? "bg-slate-900 text-white"
+          : "text-slate-700 hover:bg-slate-100"
+      }`}
       aria-current={isActive ? "page" : undefined}
     >
       <span
-        className={`
-          flex
-          items-center
-          justify-center
-          w-9
-          h-9
-          rounded-lg
-          shrink-0
-          ${
-            isActive
-              ? "bg-white/10"
-              : "bg-slate-100"
-          }
-        `}
+        className={`flex items-center justify-center w-9 h-9 rounded-lg shrink-0 ${
+          isActive
+            ? "bg-white/10"
+            : "bg-slate-100"
+        }`}
         aria-hidden="true"
       >
         <Icon
@@ -248,17 +214,11 @@ const MobileNavigationItem = ({
         </span>
 
         <span
-          className={`
-            block
-            mt-0.5
-            text-xs
-            truncate
-            ${
-              isActive
-                ? "text-slate-300"
-                : "text-slate-500"
-            }
-          `}
+          className={`block mt-0.5 text-xs truncate ${
+            isActive
+              ? "text-slate-300"
+              : "text-slate-500"
+          }`}
         >
           {item.description}
         </span>
@@ -349,7 +309,7 @@ const SmartSaveHeader = () => {
       >
         {/* =================================================
             PRIMARY HEADER
-            ================================================= */}
+        ================================================= */}
 
         <div
           className="
@@ -360,7 +320,7 @@ const SmartSaveHeader = () => {
         >
           {/* =================================================
               BRAND
-              ================================================= */}
+          ================================================= */}
 
           <button
             type="button"
@@ -425,7 +385,7 @@ const SmartSaveHeader = () => {
 
           {/* =================================================
               DESKTOP NAVIGATION
-              ================================================= */}
+          ================================================= */}
 
           <nav
             className="
@@ -446,7 +406,7 @@ const SmartSaveHeader = () => {
 
           {/* =================================================
               TABLET CURRENT PAGE
-              ================================================= */}
+          ================================================= */}
 
           <div
             className="
@@ -496,7 +456,7 @@ const SmartSaveHeader = () => {
 
           {/* =================================================
               MOBILE MENU BUTTON
-              ================================================= */}
+          ================================================= */}
 
           <button
             type="button"
@@ -534,7 +494,7 @@ const SmartSaveHeader = () => {
 
         {/* =================================================
             MOBILE / TABLET NAVIGATION
-            ================================================= */}
+        ================================================= */}
 
         {mobileMenuOpen && (
           <div
@@ -553,7 +513,7 @@ const SmartSaveHeader = () => {
             >
               {/* =================================================
                   MOBILE NAV HEADER
-                  ================================================= */}
+              ================================================= */}
 
               <div
                 className="
@@ -603,7 +563,7 @@ const SmartSaveHeader = () => {
 
               {/* =================================================
                   MOBILE NAVIGATION
-                  ================================================= */}
+              ================================================= */}
 
               <nav
                 className="
@@ -612,18 +572,16 @@ const SmartSaveHeader = () => {
                 "
                 aria-label="SmartSave mobile navigation"
               >
-                {SMART_SAVE_NAVIGATION.map(
-                  (item) => (
-                    <MobileNavigationItem
-                      key={item.id}
-                      item={item}
-                      pathname={pathname}
-                      onNavigate={
-                        handleCloseMobileMenu
-                      }
-                    />
-                  )
-                )}
+                {SMART_SAVE_NAVIGATION.map((item) => (
+                  <MobileNavigationItem
+                    key={item.id}
+                    item={item}
+                    pathname={pathname}
+                    onNavigate={
+                      handleCloseMobileMenu
+                    }
+                  />
+                ))}
               </nav>
             </div>
           </div>
