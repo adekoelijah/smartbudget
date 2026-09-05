@@ -130,6 +130,12 @@ const SavingsInsightsPage = lazy(
       "./pages/SmartSave/components/SavingsInsights/SavingsInsightsPage.jsx"
     )
 );
+const SavingPlansPage = lazy(
+  () =>
+    import(
+      "./pages/SmartSave/components/SavingsPlan/SavingPlansPage.jsx"
+    )
+);
 
 const EmergencyFundPage = lazy(
   () =>
@@ -409,6 +415,10 @@ const App = () => {
   <Route
     path="insights"
     element={<SavingsInsightsPage />}
+  />
+  <Route
+    path="plans"
+    element={<SavingPlansPage />}
   />
 
   {/* -----------------------------------------

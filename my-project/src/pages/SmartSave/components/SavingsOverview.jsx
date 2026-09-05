@@ -332,26 +332,15 @@ const SummaryCard = ({
   const content = (
     <>
       <div
-        className="
-          flex justify-between items-start
-          gap-3
-        "
+        className="flex justify-between items-start gap-3"
       >
         <div
-          className="
-            flex justify-center items-center
-            w-10 h-10
-            bg-slate-100
-            rounded-xl
-            shrink-0
-          "
+          className="flex justify-center items-center bg-slate-100 rounded-xl w-10 h-10 shrink-0"
         >
           <Icon
             size={19}
             strokeWidth={1.9}
-            className="
-              text-slate-700
-            "
+            className="text-slate-700"
             aria-hidden="true"
           /
           >
@@ -360,11 +349,7 @@ const SummaryCard = ({
         {interactive && (
           <ArrowRight
             size={16}
-            className="
-              text-slate-300
-              transition-transform
-              group-hover:translate-x-0.5
-            "
+            className="text-slate-300 transition-transform group-hover:translate-x-0.5"
             aria-hidden="true"
           /
           >
@@ -372,34 +357,23 @@ const SummaryCard = ({
       </div>
 
       <div
-        className="
-          mt-5
-        "
+        className="mt-5"
       >
         <p
-          className="
-            font-medium text-slate-500 text-xs
-          "
+          className="font-medium text-slate-500 text-xs"
         >
           {label}
         </p>
 
         <p
-          className="
-            mt-1
-            font-bold tabular-nums text-slate-900 text-xl truncate
-            tracking-tight
-          "
+          className="mt-1 font-bold tabular-nums text-slate-900 text-xl truncate tracking-tight"
         >
           {value}
         </p>
 
         {description && (
           <p
-            className="
-              mt-1.5
-              text-[11px] text-slate-400 truncate
-            "
+            className="mt-1.5 text-[11px] text-slate-400 truncate"
           >
             {description}
           </p>
@@ -412,16 +386,7 @@ const SummaryCard = ({
     return (
       <a
         href={href}
-        className="
-          block
-          p-5
-          bg-white
-          border border-slate-200 hover:border-slate-300 rounded-2xl
-          focus:outline-none
-          focus:ring-2 focus:ring-slate-900 focus:ring-offset-2
-          shadow-sm hover:shadow-md transition
-          group hover:-translate-y-0.5
-        "
+        className="group block bg-white shadow-sm hover:shadow-md p-5 border border-slate-200 hover:border-slate-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2 transition hover:-translate-y-0.5"
       >
         {content}
       </a>
@@ -436,18 +401,7 @@ const SummaryCard = ({
       <button
         type="button"
         onClick={onClick}
-        className="
-          block
-          w-full
-          p-5
-          text-left
-          bg-white
-          border border-slate-200 hover:border-slate-300 rounded-2xl
-          focus:outline-none
-          focus:ring-2 focus:ring-slate-900 focus:ring-offset-2
-          shadow-sm hover:shadow-md transition
-          group hover:-translate-y-0.5
-        "
+        className="group block bg-white shadow-sm hover:shadow-md p-5 border border-slate-200 hover:border-slate-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2 w-full text-left transition hover:-translate-y-0.5"
       >
         {content}
       </button>
@@ -456,12 +410,7 @@ const SummaryCard = ({
 
   return (
     <div
-      className="
-        p-5
-        bg-white
-        border border-slate-200 rounded-2xl
-        shadow-sm
-      "
+      className="bg-white shadow-sm p-5 border border-slate-200 rounded-2xl"
     >
       {content}
     </div>
@@ -480,62 +429,37 @@ const ProgressOverview = ({
 }) => {
   return (
     <section
-      className="
-        p-5
-        bg-white
-        border border-slate-200 rounded-2xl
-        shadow-sm
-      "
+      className="bg-white shadow-sm p-5 border border-slate-200 rounded-2xl"
     >
       <div
-        className="
-          flex justify-between items-start
-          gap-4
-        "
+        className="flex justify-between items-start gap-4"
       >
         <div
-          className="
-            min-w-0
-          "
+          className="min-w-0"
         >
           <div
-            className="
-              flex items-center
-              gap-2
-            "
+            className="flex items-center gap-2"
           >
             <div
-              className="
-                flex justify-center items-center
-                w-9 h-9
-                bg-slate-100
-                rounded-lg
-              "
+              className="flex justify-center items-center bg-slate-100 rounded-lg w-9 h-9"
             >
               <TrendingUp
                 size={17}
-                className="
-                  text-slate-700
-                "
+                className="text-slate-700"
                 aria-hidden="true"
               /
               >
             </div>
 
             <h2
-              className="
-                font-semibold text-slate-900 text-sm
-              "
+              className="font-semibold text-slate-900 text-sm"
             >
               Savings progress
             </h2>
           </div>
 
           <p
-            className="
-              mt-3
-              text-slate-500 text-xs leading-5
-            "
+            className="mt-3 text-slate-500 text-xs leading-5"
           >
             Track how your current
             savings compare with your
@@ -544,10 +468,7 @@ const ProgressOverview = ({
         </div>
 
         <span
-          className="
-            font-bold tabular-nums text-slate-900 text-lg
-            shrink-0
-          "
+          className="font-bold tabular-nums text-slate-900 text-lg shrink-0"
         >
           {Math.round(
             progress
@@ -556,9 +477,7 @@ const ProgressOverview = ({
       </div>
 
       <div
-        className="
-          mt-5
-        "
+        className="mt-5"
       >
         <SavingsProgressBar
           progress={
@@ -574,26 +493,17 @@ const ProgressOverview = ({
       </div>
 
       <div
-        className="
-          flex justify-between items-center
-          mt-4
-          gap-4
-        "
+        className="flex justify-between items-center gap-4 mt-4"
       >
         <div>
           <p
-            className="
-              font-medium text-[10px] text-slate-400 uppercase tracking-wide
-            "
+            className="font-medium text-[10px] text-slate-400 uppercase tracking-wide"
           >
             Saved
           </p>
 
           <p
-            className="
-              mt-1
-              font-semibold tabular-nums text-slate-800 text-sm
-            "
+            className="mt-1 font-semibold tabular-nums text-slate-800 text-sm"
           >
             {safeFormatCurrency(
               totalSaved,
@@ -603,23 +513,16 @@ const ProgressOverview = ({
         </div>
 
         <div
-          className="
-            text-right
-          "
+          className="text-right"
         >
           <p
-            className="
-              font-medium text-[10px] text-slate-400 uppercase tracking-wide
-            "
+            className="font-medium text-[10px] text-slate-400 uppercase tracking-wide"
           >
             Target
           </p>
 
           <p
-            className="
-              mt-1
-              font-semibold tabular-nums text-slate-800 text-sm
-            "
+            className="mt-1 font-semibold tabular-nums text-slate-800 text-sm"
           >
             {safeFormatCurrency(
               target,
@@ -990,57 +893,34 @@ const SavingsOverview = ({
       ================================================= */}
 
       <header
-        className="
-          flex flex-col sm:flex-row sm:justify-between sm:items-center
-          gap-4
-        "
+        className="flex sm:flex-row flex-col sm:justify-between sm:items-center gap-4"
       >
         <div
-          className="
-            min-w-0
-          "
+          className="min-w-0"
         >
           <div
-            className="
-              flex items-center
-              gap-2
-            "
+            className="flex items-center gap-2"
           >
             <div
-              className="
-                flex justify-center items-center
-                w-10 h-10
-                bg-slate-900
-                rounded-xl
-                shrink-0
-              "
+              className="flex justify-center items-center bg-slate-900 rounded-xl w-10 h-10 shrink-0"
             >
               <PiggyBank
                 size={20}
-                className="
-                  text-white
-                "
+                className="text-white"
                 aria-hidden="true"
               /
               >
             </div>
 
             <h1
-              className="
-                font-bold text-slate-900 text-xl sm:text-2xl truncate
-                tracking-tight
-              "
+              className="font-bold text-slate-900 text-xl sm:text-2xl truncate tracking-tight"
             >
               {title}
             </h1>
           </div>
 
           <p
-            className="
-              max-w-2xl
-              mt-2
-              text-slate-500 text-sm leading-6
-            "
+            className="mt-2 max-w-2xl text-slate-500 text-sm leading-6"
           >
             {subtitle}
           </p>
@@ -1055,18 +935,7 @@ const SavingsOverview = ({
             disabled={
               isRefreshing
             }
-            className="
-              inline-flex justify-center items-center
-              px-4 py-2.5
-              font-semibold text-slate-700 text-sm
-              bg-white hover:bg-slate-50
-              border border-slate-200 hover:border-slate-300 rounded-xl
-              focus:outline-none
-              focus:ring-2 focus:ring-slate-900 focus:ring-offset-2
-              disabled:opacity-50 shadow-sm transition
-              disabled:cursor-not-allowed
-              gap-2 shrink-0
-            "
+            className="inline-flex justify-center items-center gap-2 bg-white hover:bg-slate-50 disabled:opacity-50 shadow-sm px-4 py-2.5 border border-slate-200 hover:border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2 font-semibold text-slate-700 text-sm transition disabled:cursor-not-allowed shrink-0"
           >
             <RefreshCw
               size={16}
@@ -1092,10 +961,7 @@ const SavingsOverview = ({
       ================================================= */}
 
       <div
-        className="
-          grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4
-          gap-4
-        "
+        className="gap-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4"
       >
         <SummaryCard
           icon={
@@ -1169,10 +1035,7 @@ const SavingsOverview = ({
       {(showHealth ||
         showSafeToSave) && (
         <div
-          className="
-            grid grid-cols-1 xl:grid-cols-2
-            gap-6
-          "
+          className="gap-6 grid grid-cols-1 xl:grid-cols-2"
         >
           {showHealth && (
             <SavingsHealthScore

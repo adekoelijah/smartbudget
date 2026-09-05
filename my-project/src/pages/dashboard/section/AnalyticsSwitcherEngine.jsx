@@ -160,7 +160,7 @@ const AnalyticsSwitcherEngine = ({ transactions = [] }) => {
       {/* ================= CHART ================= */}
       <div
         className="
-          w-full h-[260px] sm:h-[320px]
+          w-full min-w-0 h-[260px] sm:h-[320px]
         "
       >
 

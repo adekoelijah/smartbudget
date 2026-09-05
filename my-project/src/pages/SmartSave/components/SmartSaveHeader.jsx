@@ -7,77 +7,102 @@ import {
   Menu,
   Target,
   Trophy,
-  TrendingUp,
   X,
   Zap,
 } from "lucide-react";
-
 import {
   NavLink,
   useLocation,
   useNavigate,
 } from "react-router-dom";
+import { useCallback, useMemo, useState } from "react";
 
-import { useState } from "react";
+/* =========================================================
+   ROUTES
+   ========================================================= */
+
+const SMART_SAVE_ROUTES = Object.freeze({
+  OVERVIEW: "/app/smart-save",
+  PLANS: "/app/smart-save/plans",
+  GOALS: "/app/smart-save/goals",
+  ACTIVITY: "/app/smart-save/activity",
+  CHALLENGES: "/app/smart-save/challenges",
+  INSIGHTS: "/app/smart-save/insights",
+  STRATEGIES: "/app/smart-save/strategies",
+});
 
 /* =========================================================
    NAVIGATION CONFIGURATION
-========================================================= */
+   ========================================================= */
 
-const SMART_SAVE_NAVIGATION = [
-  {
+const SMART_SAVE_NAVIGATION = Object.freeze([
+  Object.freeze({
+    id: "overview",
     label: "Overview",
     description: "SmartSave dashboard",
-    path: "/app/smart-save",
+    path: SMART_SAVE_ROUTES.OVERVIEW,
     icon: BarChart3,
-  },
-  {
+  }),
+
+  Object.freeze({
+    id: "plans",
+    label: "Plans",
+    description: "Manage your savings plans",
+    path: SMART_SAVE_ROUTES.PLANS,
+    icon: Zap,
+  }),
+
+  Object.freeze({
+    id: "goals",
     label: "Goals",
-    description: "Track savings targets",
-    path: "/app/smart-save/goals",
+    description: "Track your savings targets",
+    path: SMART_SAVE_ROUTES.GOALS,
     icon: Target,
-  },
-  {
+  }),
+
+  Object.freeze({
+    id: "activity",
     label: "Activity",
     description: "Review savings activity",
-    path: "/app/smart-save/activity",
+    path: SMART_SAVE_ROUTES.ACTIVITY,
     icon: Activity,
-  },
-  {
+  }),
+
+  Object.freeze({
+    id: "challenges",
     label: "Challenges",
     description: "Build better saving habits",
-    path: "/app/smart-save/challenges",
+    path: SMART_SAVE_ROUTES.CHALLENGES,
     icon: Trophy,
-  },
-  // {
-  //   label: "Forecast",
-  //   description: "View future savings outlook",
-  //   path: "/app/smart-save/forecast",
-  //   icon: TrendingUp,
-  // },
-  {
+  }),
+
+  Object.freeze({
+    id: "insights",
     label: "Insights",
     description: "Financial intelligence",
-    path: "/app/smart-save/insights",
+    path: SMART_SAVE_ROUTES.INSIGHTS,
     icon: Lightbulb,
-  },
-  {
+  }),
+
+  Object.freeze({
+    id: "strategies",
     label: "Strategies",
     description: "Manage saving strategies",
-    path: "/app/smart-save/strategies",
+    path: SMART_SAVE_ROUTES.STRATEGIES,
     icon: Zap,
-  },
-];
+  }),
+]);
 
 /* =========================================================
    ACTIVE PATH HELPERS
-========================================================= */
+   ========================================================= */
 
-const isNavigationItemActive = (
-  pathname,
-  itemPath
-) => {
-  if (itemPath === "/app/smart-save") {
+const isNavigationItemActive = (pathname, itemPath) => {
+  if (!pathname || !itemPath) {
+    return false;
+  }
+
+  if (itemPath === SMART_SAVE_ROUTES.OVERVIEW) {
     return pathname === itemPath;
   }
 
@@ -89,7 +114,7 @@ const isNavigationItemActive = (
 
 /* =========================================================
    DESKTOP NAVIGATION ITEM
-========================================================= */
+   ========================================================= */
 
 const DesktopNavigationItem = ({
   item,
@@ -105,7 +130,7 @@ const DesktopNavigationItem = ({
   return (
     <NavLink
       to={item.path}
-      end={item.path === "/app/smart-save"}
+      end={item.path === SMART_SAVE_ROUTES.OVERVIEW}
       className={`
         group
         relative
@@ -144,7 +169,7 @@ const DesktopNavigationItem = ({
 
 /* =========================================================
    MOBILE NAVIGATION ITEM
-========================================================= */
+   ========================================================= */
 
 const MobileNavigationItem = ({
   item,
@@ -161,7 +186,7 @@ const MobileNavigationItem = ({
   return (
     <NavLink
       to={item.path}
-      end={item.path === "/app/smart-save"}
+      end={item.path === SMART_SAVE_ROUTES.OVERVIEW}
       onClick={onNavigate}
       className={`
         flex
@@ -197,11 +222,11 @@ const MobileNavigationItem = ({
               : "bg-slate-100"
           }
         `}
+        aria-hidden="true"
       >
         <Icon
           size={17}
           strokeWidth={2}
-          aria-hidden="true"
         />
       </span>
 
@@ -254,7 +279,7 @@ const MobileNavigationItem = ({
 
 /* =========================================================
    SMART SAVE HEADER
-========================================================= */
+   ========================================================= */
 
 const SmartSaveHeader = () => {
   const location = useLocation();
@@ -267,33 +292,44 @@ const SmartSaveHeader = () => {
 
   const pathname = location.pathname;
 
-  const currentNavigation =
-    SMART_SAVE_NAVIGATION.find(
-      (item) =>
+  /* -------------------------------------------------------
+     CURRENT NAVIGATION
+     ------------------------------------------------------- */
+
+  const currentNavigation = useMemo(() => {
+    return (
+      SMART_SAVE_NAVIGATION.find((item) =>
         isNavigationItemActive(
           pathname,
           item.path
         )
-    ) ??
-    SMART_SAVE_NAVIGATION[0];
-
-  const CurrentIcon =
-    currentNavigation.icon;
-
-  const handleOverviewNavigation = () => {
-    setMobileMenuOpen(false);
-    navigate("/app/smart-save");
-  };
-
-  const handleMobileMenuToggle = () => {
-    setMobileMenuOpen(
-      (current) => !current
+      ) ?? SMART_SAVE_NAVIGATION[0]
     );
-  };
+  }, [pathname]);
 
-  const handleCloseMobileMenu = () => {
+  const CurrentIcon = currentNavigation.icon;
+
+  /* -------------------------------------------------------
+     NAVIGATION HANDLERS
+     ------------------------------------------------------- */
+
+  const handleOverviewNavigation = useCallback(() => {
     setMobileMenuOpen(false);
-  };
+
+    if (
+      pathname !== SMART_SAVE_ROUTES.OVERVIEW
+    ) {
+      navigate(SMART_SAVE_ROUTES.OVERVIEW);
+    }
+  }, [navigate, pathname]);
+
+  const handleMobileMenuToggle = useCallback(() => {
+    setMobileMenuOpen((current) => !current);
+  }, []);
+
+  const handleCloseMobileMenu = useCallback(() => {
+    setMobileMenuOpen(false);
+  }, []);
 
   return (
     <header
@@ -313,7 +349,7 @@ const SmartSaveHeader = () => {
       >
         {/* =================================================
             PRIMARY HEADER
-        ================================================= */}
+            ================================================= */}
 
         <div
           className="
@@ -322,7 +358,9 @@ const SmartSaveHeader = () => {
             gap-4
           "
         >
-          {/* BRAND */}
+          {/* =================================================
+              BRAND
+              ================================================= */}
 
           <button
             type="button"
@@ -345,6 +383,7 @@ const SmartSaveHeader = () => {
                 shadow-sm
                 shrink-0
               "
+              aria-hidden="true"
             >
               <Zap
                 size={19}
@@ -352,7 +391,6 @@ const SmartSaveHeader = () => {
                   text-white
                 "
                 strokeWidth={2.2}
-                aria-hidden="true"
               /
               >
             </span>
@@ -385,7 +423,9 @@ const SmartSaveHeader = () => {
             </span>
           </button>
 
-          {/* DESKTOP NAVIGATION */}
+          {/* =================================================
+              DESKTOP NAVIGATION
+              ================================================= */}
 
           <nav
             className="
@@ -395,18 +435,18 @@ const SmartSaveHeader = () => {
             "
             aria-label="SmartSave navigation"
           >
-            {SMART_SAVE_NAVIGATION.map(
-              (item) => (
-                <DesktopNavigationItem
-                  key={item.path}
-                  item={item}
-                  pathname={pathname}
-                />
-              )
-            )}
+            {SMART_SAVE_NAVIGATION.map((item) => (
+              <DesktopNavigationItem
+                key={item.id}
+                item={item}
+                pathname={pathname}
+              />
+            ))}
           </nav>
 
-          {/* TABLET CURRENT PAGE */}
+          {/* =================================================
+              TABLET CURRENT PAGE
+              ================================================= */}
 
           <div
             className="
@@ -423,6 +463,7 @@ const SmartSaveHeader = () => {
                 border border-slate-200 rounded-xl
                 gap-2
               "
+              aria-label={`Current SmartSave page: ${currentNavigation.label}`}
             >
               <CurrentIcon
                 size={16}
@@ -453,7 +494,9 @@ const SmartSaveHeader = () => {
             </div>
           </div>
 
-          {/* MOBILE MENU BUTTON */}
+          {/* =================================================
+              MOBILE MENU BUTTON
+              ================================================= */}
 
           <button
             type="button"
@@ -464,7 +507,7 @@ const SmartSaveHeader = () => {
               text-slate-700
               bg-slate-100 hover:bg-slate-200
               rounded-xl focus:outline-none
-              transition
+              transition-colors
               focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2
             "
             aria-expanded={mobileMenuOpen}
@@ -489,7 +532,9 @@ const SmartSaveHeader = () => {
           </button>
         </div>
 
-        {/* MOBILE / TABLET NAVIGATION */}
+        {/* =================================================
+            MOBILE / TABLET NAVIGATION
+            ================================================= */}
 
         {mobileMenuOpen && (
           <div
@@ -506,6 +551,10 @@ const SmartSaveHeader = () => {
                 border border-slate-200 rounded-2xl
               "
             >
+              {/* =================================================
+                  MOBILE NAV HEADER
+                  ================================================= */}
+
               <div
                 className="
                   flex justify-between items-center
@@ -540,7 +589,7 @@ const SmartSaveHeader = () => {
                     text-slate-500 hover:text-slate-900
                     hover:bg-white
                     rounded-lg focus:outline-none
-                    transition
+                    transition-colors
                     focus-visible:ring-2 focus-visible:ring-slate-400
                   "
                   aria-label="Close navigation"
@@ -552,6 +601,10 @@ const SmartSaveHeader = () => {
                 </button>
               </div>
 
+              {/* =================================================
+                  MOBILE NAVIGATION
+                  ================================================= */}
+
               <nav
                 className="
                   flex flex-col
@@ -562,7 +615,7 @@ const SmartSaveHeader = () => {
                 {SMART_SAVE_NAVIGATION.map(
                   (item) => (
                     <MobileNavigationItem
-                      key={item.path}
+                      key={item.id}
                       item={item}
                       pathname={pathname}
                       onNavigate={
@@ -579,4 +632,5 @@ const SmartSaveHeader = () => {
     </header>
   );
 };
+
 export default SmartSaveHeader;

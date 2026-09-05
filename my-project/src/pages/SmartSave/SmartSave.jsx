@@ -1,7 +1,10 @@
 import {
   Activity,
   ArrowRight,
+  CalendarDays,
+
   Lightbulb,
+  
   RefreshCw,
   Target,
   TrendingUp,
@@ -9,20 +12,19 @@ import {
   WalletCards,
   Zap,
 } from "lucide-react";
-
-import {
-  Link,
-  useNavigate,
-} from "react-router-dom";
+import { Link } from "react-router-dom";
 
 import useSmartSave from "../../hooks/useSmartSave";
 
 import SavingsHealthScore from "../SmartSave/components/SavingsHealthScore";
 import SafeToSaveCard from "../SmartSave/components/SafeToSaveCard";
+import SavingPlanProgress from "./components/SavingsPlan/SavingPlanProgress";
+import SavingPlanStatusBadge from "./components/SavingsPlan/SavingPlanStatusBadge";
+import SavingPlanStrategyBadge from "./components/SavingsPlan/SavingPlanStrategyBadge";
 
-import SavingsEmptyState from "../SmartSave/components/shared/SavingsEmptyState";
-import SavingsSkeleton from "../SmartSave/components/shared/SavingsSkeleton";
-import SavingsErrorState from "../SmartSave/components/shared/SavingsErrorState";
+import SavingsEmptyState from "./components/shared/SavingsEmptyState";
+import SavingsSkeleton from "./components/shared/SavingsSkeleton";
+import SavingsErrorState from "./components/shared/SavingsErrorState";
 
 import {
   DEFAULT_CURRENCY,
@@ -34,14 +36,30 @@ import {
 
 const SMART_SAVE_ROUTES = Object.freeze({
   OVERVIEW: "/app/smart-save",
+  PLANS: "/app/smart-save/plans",
   GOALS: "/app/smart-save/goals",
   ACTIVITY: "/app/smart-save/activity",
   CHALLENGES: "/app/smart-save/challenges",
-  // FORECAST: "/app/smart-save/forecast",
   INSIGHTS: "/app/smart-save/insights",
   STRATEGIES: "/app/smart-save/strategies",
   EMERGENCY_FUND: "/app/smart-save/emergency-fund",
+  // FORECAST: "/app/smart-save/forecast",
 });
+
+/*
+ * Keep this array outside the component.
+ *
+ * This is important because useSmartSave compares the resource
+ * configuration across renders. Creating an inline array inside
+ * the component would create a new reference every render.
+ */
+const SMART_SAVE_OVERVIEW_RESOURCES = Object.freeze([
+  "goals",
+  "plans",
+  "executions",
+  "challenges",
+  "insights",
+]);
 
 /* =========================================================
    QUICK ACCESS
@@ -53,6 +71,12 @@ const QUICK_ACCESS_ITEMS = Object.freeze([
     description: "Track what you're building toward.",
     path: SMART_SAVE_ROUTES.GOALS,
     icon: Target,
+  },
+  {
+    label: "Savings plans",
+    description: "Manage how your savings are organized.",
+    path: SMART_SAVE_ROUTES.PLANS,
+    icon: WalletCards,
   },
   {
     label: "Savings activity",
@@ -88,14 +112,6 @@ const QUICK_ACCESS_ITEMS = Object.freeze([
 
 /* =========================================================
    NORMALIZATION HELPERS
-   ---------------------------------------------------------
-   These functions are pure.
-
-   The page does not:
-   - fetch data
-   - mutate server data
-   - mirror server state
-   - create synchronization effects
 ========================================================= */
 
 const isObject = (value) =>
@@ -149,6 +165,12 @@ const resolveGoals = (data) =>
       data?.savingsGoals
   );
 
+const resolvePlans = (data) =>
+  toArray(
+    data?.plans ??
+      data?.savingPlans
+  );
+
 const resolveChallenges = (data) =>
   toArray(
     data?.challenges ??
@@ -159,7 +181,9 @@ const resolveActivity = (data) =>
   toArray(
     data?.activity ??
       data?.activities ??
-      data?.savingsActivity
+      data?.savingsActivity ??
+      data?.executions ??
+      data?.savingExecutions
   );
 
 const resolveInsights = (data) =>
@@ -203,7 +227,10 @@ const getItemId = (item) =>
   item?._id ??
   item?.id ??
   item?.goalId ??
+  item?.planId ??
   item?.challengeId ??
+  item?.executionId ??
+  item?.activityId ??
   item?.strategyId ??
   null;
 
@@ -269,6 +296,7 @@ const getActivityDescription = (activity) =>
   activity?.title ??
   activity?.name ??
   activity?.type ??
+  activity?.action ??
   "Savings activity";
 
 const getInsightTitle = (insight) =>
@@ -280,6 +308,18 @@ const getInsightDescription = (insight) =>
   insight?.description ??
   insight?.message ??
   "Review your latest SmartSave insights to understand your savings position.";
+
+const getPlanId = (plan) =>
+  plan?._id ??
+  plan?.id ??
+  plan?.planId ??
+  null;
+
+const getPlanName = (plan) =>
+  plan?.name ??
+  plan?.title ??
+  plan?.planName ??
+  "Savings plan";
 
 /* =========================================================
    SUMMARY CARD
@@ -485,6 +525,270 @@ const GoalProgressCard = ({ goal }) => {
 };
 
 /* =========================================================
+   SAVINGS PLANS PREVIEW
+========================================================= */
+
+const SavingsPlansPreview = ({
+  plans,
+  currency,
+}) => {
+  const visiblePlans = plans.slice(0, 3);
+
+  return (
+    <section
+      className="
+        mt-8
+      "
+      aria-labelledby="smart-save-plans"
+    >
+      <div
+        className="
+          flex flex-col sm:flex-row sm:justify-between sm:items-end
+          mb-4
+          gap-3
+        "
+      >
+        <div>
+          <p
+            className="
+              font-semibold text-slate-500 text-xs uppercase tracking-wide
+            "
+          >
+            Savings plans
+          </p>
+
+          <h2
+            id="smart-save-plans"
+            className="
+              mt-1
+              font-bold text-slate-900 text-lg tracking-tight
+            "
+          >
+            Your saving strategy
+          </h2>
+
+          <p
+            className="
+              mt-1
+              text-slate-500 text-sm leading-6
+            "
+          >
+            Manage the plans that organize how you
+            reach your savings targets.
+          </p>
+        </div>
+
+        <Link
+          to={SMART_SAVE_ROUTES.PLANS}
+          className="
+            inline-flex items-center self-start sm:self-auto
+            font-semibold text-slate-600 hover:text-slate-900 text-xs
+            rounded focus:outline-none
+            gap-1 focus-visible:ring-2 focus-visible:ring-slate-400
+          "
+        >
+          View all plans
+          <ArrowRight
+            size={13}
+            aria-hidden="true"
+          />
+        </Link>
+      </div>
+
+      {visiblePlans.length === 0 ? (
+        <div
+          className="
+            p-5
+            bg-white
+            border border-slate-200 rounded-2xl
+            shadow-sm
+          "
+        >
+          <div
+            className="
+              flex items-start
+              gap-3
+            "
+          >
+            <div
+              className="
+                flex justify-center items-center
+                w-10 h-10
+                bg-slate-100
+                rounded-xl
+                shrink-0
+              "
+              aria-hidden="true"
+            >
+              <WalletCards
+                size={18}
+                className="
+                  text-slate-700
+                "
+                /
+              >
+            </div>
+
+            <div>
+              <h3
+                className="
+                  font-semibold text-slate-900 text-sm
+                "
+              >
+                No savings plans yet
+              </h3>
+
+              <p
+                className="
+                  mt-1
+                  text-slate-500 text-xs leading-5
+                "
+              >
+                Create a savings plan to organize
+                your contributions and progress.
+              </p>
+
+              <Link
+                to={SMART_SAVE_ROUTES.PLANS}
+                className="
+                  inline-flex items-center
+                  mt-4
+                  font-semibold text-slate-700 hover:text-slate-900 text-xs
+                  rounded focus:outline-none
+                  gap-1 focus-visible:ring-2 focus-visible:ring-slate-400
+                "
+              >
+                Create a savings plan
+                <ArrowRight
+                  size={13}
+                  aria-hidden="true"
+                />
+              </Link>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div
+          className="
+            grid grid-cols-1 lg:grid-cols-3
+            gap-4
+          "
+        >
+          {visiblePlans.map((plan, index) => {
+            const planId = getPlanId(plan);
+            const key = planId
+              ? `plan-${String(planId)}`
+              : `plan-${index}`;
+
+            return (
+              <Link
+                key={key}
+                to={SMART_SAVE_ROUTES.PLANS}
+                state={{
+                  planId,
+                }}
+                className="
+                  block
+                  p-5
+                  bg-white
+                  border border-slate-200 hover:border-slate-300 rounded-2xl
+                  focus:outline-none
+                  shadow-sm transition
+                  focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2
+                "
+                aria-label={`Open ${getPlanName(plan)}`}
+              >
+                <div
+                  className="
+                    flex justify-between items-start
+                    gap-3
+                  "
+                >
+                  <div
+                    className="
+                      min-w-0
+                    "
+                  >
+                    <h3
+                      className="
+                        font-semibold text-slate-900 text-sm truncate
+                      "
+                    >
+                      {getPlanName(plan)}
+                    </h3>
+
+                    <div
+                      className="
+                        mt-2
+                      "
+                    >
+                      <SavingPlanStatusBadge
+                        plan={plan}
+                        size="sm"
+                      />
+                    </div>
+                  </div>
+
+                  <ArrowRight
+                    size={15}
+                    className="
+                      text-slate-400
+                      shrink-0
+                    "
+                    aria-hidden="true"
+                  /
+                  >
+                </div>
+
+                <div
+                  className="
+                    mt-4
+                  "
+                >
+                  <SavingPlanProgress
+                    plan={plan}
+                    currency={currency}
+                    compact
+                  />
+                </div>
+
+                <div
+                  className="
+                    flex justify-between items-center
+                    mt-4 pt-4
+                    border-slate-100 border-t
+                    gap-3
+                  "
+                >
+                  <SavingPlanStrategyBadge
+                    plan={plan}
+                    size="sm"
+                  />
+
+                  <span
+                    className="
+                      inline-flex items-center
+                      text-[11px] text-slate-400
+                      gap-1
+                    "
+                  >
+                    <CalendarDays
+                      size={12}
+                      aria-hidden="true"
+                    />
+                    Plan
+                  </span>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+};
+
+/* =========================================================
    ACTIVITY PREVIEW
 ========================================================= */
 
@@ -593,7 +897,6 @@ const ActivityPreview = ({ activity }) => {
             "
           >
             View all
-
             <ArrowRight
               size={13}
               aria-hidden="true"
@@ -675,7 +978,9 @@ const ActivityPreview = ({ activity }) => {
 ========================================================= */
 
 const QuickAccess = () => (
-  <section aria-labelledby="smart-save-quick-access">
+  <section
+    aria-labelledby="smart-save-quick-access"
+  >
     <div
       className="
         mb-4
@@ -866,7 +1171,6 @@ const EmergencyFundPreview = () => (
         "
       >
         Details
-
         <ArrowRight
           size={13}
           aria-hidden="true"
@@ -1183,7 +1487,6 @@ const InsightsPreview = ({ insights }) => {
           "
         >
           View all
-
           <ArrowRight
             size={13}
             aria-hidden="true"
@@ -1238,47 +1541,65 @@ const InsightsPreview = ({ insights }) => {
 ========================================================= */
 
 const SmartSaveOverviewPage = () => {
-  const navigate = useNavigate();
-
   /*
-   * SmartSave data ownership remains centralized.
+   * IMPORTANT:
    *
-   * This page:
-   * - does not fetch
-   * - does not use effects
-   * - does not create local server state
-   * - does not synchronize state manually
+   * Do not call useSavingPlans() here.
    *
-   * SmartSaveLayout/useSmartSave remains responsible
-   * for the SmartSave data lifecycle.
+   * useSmartSave already owns SmartSave resource
+   * fetching. Adding another plans hook here would
+   * create an independent request lifecycle and can
+   * lead to duplicate API requests.
    */
-
   const {
-    data = null,
-    loading = false,
+    data = {},
+    isLoading = false,
     error = null,
     refresh,
-    isRefreshing = false,
-  } = useSmartSave() ?? {};
+    refreshing = false,
+  } = useSmartSave({
+    autoFetch: true,
+    resources: SMART_SAVE_OVERVIEW_RESOURCES,
+  }) ?? {};
 
-  const currency = DEFAULT_CURRENCY || "NGN";
+  const currency =
+    DEFAULT_CURRENCY || "NGN";
 
   /* =======================================================
-     NORMALIZE SERVER RESPONSE
+     NORMALIZE SERVER DATA
   ======================================================= */
 
   const savingsData = resolveData(data);
 
-  const goals = resolveGoals(savingsData);
-  const challenges = resolveChallenges(savingsData);
-  const activity = resolveActivity(savingsData);
-  const insights = resolveInsights(savingsData);
-  const strategies = resolveStrategies(savingsData);
+  const goals =
+    resolveGoals(savingsData);
 
-  const forecast = resolveForecast(savingsData);
-  const health = resolveHealth(savingsData);
-  const safeToSave = resolveSafeToSave(savingsData);
-  const emergencyFund = resolveEmergencyFund(savingsData);
+  const plans =
+    resolvePlans(savingsData);
+
+  const challenges =
+    resolveChallenges(savingsData);
+
+  const activity =
+    resolveActivity(savingsData);
+
+  const insights =
+    resolveInsights(savingsData);
+
+  const strategies =
+    resolveStrategies(savingsData);
+
+  const forecast =
+    resolveForecast(savingsData);
+
+  const health =
+    resolveHealth(savingsData);
+
+  const safeToSave =
+    resolveSafeToSave(savingsData);
+
+  const emergencyFund =
+    resolveEmergencyFund(savingsData);
 
   /* =======================================================
      WORKSPACE STATE
@@ -1286,6 +1607,7 @@ const SmartSaveOverviewPage = () => {
 
   const hasSavingsContent =
     goals.length > 0 ||
+    plans.length > 0 ||
     challenges.length > 0 ||
     activity.length > 0 ||
     insights.length > 0 ||
@@ -1308,9 +1630,9 @@ const SmartSaveOverviewPage = () => {
       await refresh();
     } catch {
       /*
-       * The hook owns the actual error state.
+       * useSmartSave owns the error state.
        *
-       * Intentionally do not create local error state here.
+       * No local error state is created here.
        */
     }
   };
@@ -1319,7 +1641,7 @@ const SmartSaveOverviewPage = () => {
      INITIAL LOADING
   ======================================================= */
 
-  if (loading && !data) {
+  if (isLoading && !hasSavingsContent) {
     return (
       <main
         className="
@@ -1343,14 +1665,13 @@ const SmartSaveOverviewPage = () => {
 
   /* =======================================================
      INITIAL ERROR
-     -------------------------------------------------------
-     SmartSaveLayout owns the persistent header.
-
-     Therefore this page intentionally renders ONLY
-     its content state here.
   ======================================================= */
 
-  if (error && !data) {
+  if (
+    error &&
+    !hasSavingsContent &&
+    !isLoading
+  ) {
     return (
       <main
         className="
@@ -1401,7 +1722,7 @@ const SmartSaveOverviewPage = () => {
             REFRESH STATUS
         ================================================= */}
 
-        {isRefreshing && (
+        {refreshing && (
           <div
             className="
               flex items-center
@@ -1522,6 +1843,28 @@ const SmartSaveOverviewPage = () => {
               </Link>
 
               <Link
+                to={SMART_SAVE_ROUTES.PLANS}
+                className="
+                  inline-flex justify-center items-center
+                  min-h-10
+                  px-4 py-2.5
+                  font-semibold text-white text-sm
+                  bg-white/10 hover:bg-white/15
+                  border border-white/10 rounded-xl focus:outline-none
+                  transition
+                  gap-2
+                  focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900
+                "
+              >
+                <WalletCards
+                  size={16}
+                  aria-hidden="true"
+                />
+
+                View plans
+              </Link>
+
+              <Link
                 to={SMART_SAVE_ROUTES.INSIGHTS}
                 className="
                   inline-flex justify-center items-center
@@ -1550,7 +1893,7 @@ const SmartSaveOverviewPage = () => {
             PARTIAL DATA WARNING
         ================================================= */}
 
-        {error && data && (
+        {error && hasSavingsContent && (
           <div
             className="
               flex flex-col sm:flex-row sm:justify-between sm:items-center
@@ -1586,7 +1929,7 @@ const SmartSaveOverviewPage = () => {
               type="button"
               onClick={handleRefresh}
               disabled={
-                isRefreshing ||
+                refreshing ||
                 typeof refresh !== "function"
               }
               className="
@@ -1604,7 +1947,7 @@ const SmartSaveOverviewPage = () => {
               <RefreshCw
                 size={13}
                 className={
-                  isRefreshing
+                  refreshing
                     ? "animate-spin"
                     : undefined
                 }
@@ -1620,7 +1963,7 @@ const SmartSaveOverviewPage = () => {
             EMPTY WORKSPACE
         ================================================= */}
 
-        {!hasSavingsContent && (
+        {!hasSavingsContent && !isLoading && (
           <section
             className="
               mt-6
@@ -1628,13 +1971,13 @@ const SmartSaveOverviewPage = () => {
           >
             <SavingsEmptyState
               title="Your SmartSave workspace is ready"
-              description="Create your first savings goal and start building a smarter savings plan."
+              description="Create your first savings goal or savings plan and start building a smarter saving system."
               actionLabel="Explore savings goals"
-              onAction={() =>
-                navigate(
+              onAction={() => {
+                window.location.assign(
                   SMART_SAVE_ROUTES.GOALS
-                )
-              }
+                );
+              }}
             />
           </section>
         )}
@@ -1687,10 +2030,18 @@ const SmartSaveOverviewPage = () => {
               >
                 <SummaryCard
                   icon={Target}
-                  label="Active goals"
+                  label="Savings goals"
                   value={goals.length}
                   description="Savings targets you're currently building."
                   to={SMART_SAVE_ROUTES.GOALS}
+                />
+
+                <SummaryCard
+                  icon={WalletCards}
+                  label="Savings plans"
+                  value={plans.length}
+                  description="Plans organizing how you save."
+                  to={SMART_SAVE_ROUTES.PLANS}
                 />
 
                 <SummaryCard
@@ -1708,16 +2059,17 @@ const SmartSaveOverviewPage = () => {
                   description="Savings challenges available in your workspace."
                   to={SMART_SAVE_ROUTES.CHALLENGES}
                 />
-
-                <SummaryCard
-                  icon={Zap}
-                  label="Strategies"
-                  value={strategies.length}
-                  description="Saving strategies currently available to you."
-                  to={SMART_SAVE_ROUTES.STRATEGIES}
-                />
               </div>
             </section>
+
+            {/* =============================================
+                SAVINGS PLANS
+            ============================================= */}
+
+            <SavingsPlansPreview
+              plans={plans}
+              currency={currency}
+            />
 
             {/* =============================================
                 PRIMARY PROGRESS
@@ -1827,9 +2179,7 @@ const SmartSaveOverviewPage = () => {
                           getItemId(goal);
 
                         const key = goalId
-                          ? `goal-${String(
-                              goalId
-                            )}`
+                          ? `goal-${String(goalId)}`
                           : `goal-${index}`;
 
                         return (
@@ -2003,9 +2353,9 @@ const SmartSaveOverviewPage = () => {
             "
           >
             <p>
-              SmartSave keeps your goals, progress,
-              activity and financial intelligence
-              connected.
+              SmartSave keeps your goals, plans,
+              progress, activity and financial
+              intelligence connected.
             </p>
 
             <p
