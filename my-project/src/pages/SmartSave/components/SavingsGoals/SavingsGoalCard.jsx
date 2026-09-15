@@ -1,3 +1,4 @@
+
 import {
   ArrowRight,
   CalendarDays,
@@ -6,643 +7,382 @@ import {
   MoreHorizontal,
   Pencil,
   Target,
-  TrendingUp,
   WalletCards,
 } from "lucide-react";
-
 import {
   memo,
   useCallback,
   useEffect,
   useId,
-  useMemo,
   useRef,
   useState,
 } from "react";
 
-import {
-  DEFAULT_CURRENCY,
-} from "../../../../constants/smartSaveConstants";
-
-import {
-  formatSavingsCurrency,
-  formatSavingsDate,
-} from "../../../../utils/smartSave/savingsFormatters";
-
-/* =========================================================
-   CONSTANTS
-========================================================= */
-
-const DEFAULT_GOAL_NAME = "Savings Goal";
-const DEFAULT_STATUS = "active";
-
-/* =========================================================
-   STATUS CONFIGURATION
-========================================================= */
-
-const STATUS_CONFIG = {
-  active: {
-    label: "Active",
-    icon: Clock3,
-    className:
-      "border-blue-200 bg-blue-50 text-blue-700",
-  },
-
-  paused: {
-    label: "Paused",
-    icon: Clock3,
-    className:
-      "border-amber-200 bg-amber-50 text-amber-700",
-  },
-
-  completed: {
-    label: "Completed",
-    icon: CheckCircle2,
-    className:
-      "border-emerald-200 bg-emerald-50 text-emerald-700",
-  },
-
-  cancelled: {
-    label: "Cancelled",
-    icon: Clock3,
-    className:
-      "border-slate-200 bg-slate-100 text-slate-600",
-  },
-
-  failed: {
-    label: "Failed",
-    icon: Clock3,
-    className:
-      "border-red-200 bg-red-50 text-red-700",
-  },
-
-  draft: {
-    label: "Draft",
-    icon: Target,
-    className:
-      "border-slate-200 bg-slate-50 text-slate-600",
-  },
-};
-
-/* =========================================================
-   SAFE HELPERS
-========================================================= */
-
-const getGoalId = (goal) => {
-  if (!goal || typeof goal !== "object") {
-    return null;
-  }
-
-  return (
-    goal._id ||
-    goal.id ||
-    goal.goalId ||
-    null
-  );
-};
-
-const getGoalName = (goal) => {
-  if (!goal || typeof goal !== "object") {
-    return DEFAULT_GOAL_NAME;
-  }
-
-  const value =
-    goal.name ||
-    goal.title ||
-    DEFAULT_GOAL_NAME;
-
-  return typeof value === "string" &&
-    value.trim()
-    ? value.trim()
-    : DEFAULT_GOAL_NAME;
-};
-
-const getGoalCurrency = (goal) => {
-  if (!goal || typeof goal !== "object") {
-    return DEFAULT_CURRENCY;
-  }
-
-  const currency =
-    goal.currency ||
-    DEFAULT_CURRENCY;
-
-  return typeof currency === "string" &&
-    currency.trim()
-    ? currency.trim().toUpperCase()
-    : DEFAULT_CURRENCY;
-};
-
-const getSafeNumber = (
-  value,
-  fallback = 0
-) => {
-  if (
-    value === null ||
-    value === undefined ||
-    value === ""
-  ) {
-    return fallback;
-  }
-
-  const number = Number(value);
-
-  return Number.isFinite(number)
-    ? number
-    : fallback;
-};
-
-const clampProgress = (value) => {
-  const progress =
-    getSafeNumber(value);
-
-  return Math.min(
-    100,
-    Math.max(0, progress)
-  );
-};
-
-const getGoalStatus = (goal) => {
-  const status = String(
-    goal?.status ||
-      DEFAULT_STATUS
-  )
-    .trim()
-    .toLowerCase();
-
-  return status || DEFAULT_STATUS;
-};
-
-const getGoalTargetDate = (goal) =>
-  goal?.targetDate ||
-  goal?.deadline ||
-  goal?.endDate ||
-  null;
-
-const calculateProgress = (
-  goal,
-  currentAmount,
-  targetAmount
-) => {
-  const explicitProgress =
-    goal?.progress ??
-    goal?.progressPercentage ??
-    goal?.percentage;
-
-  if (
-    explicitProgress !==
-      null &&
-    explicitProgress !==
-      undefined &&
-    explicitProgress !== ""
-  ) {
-    return clampProgress(
-      explicitProgress
-    );
-  }
-
-  if (
-    targetAmount <= 0
-  ) {
-    return 0;
-  }
-
-  return clampProgress(
-    (currentAmount /
-      targetAmount) *
-      100
-  );
-};
-
-const formatAmount = (
-  amount,
-  currency
-) => {
-  const safeAmount =
-    getSafeNumber(amount);
-
-  try {
-    return formatSavingsCurrency(
-      safeAmount,
-      currency
-    );
-  } catch {
-    try {
-      return `${currency} ${safeAmount.toLocaleString()}`;
-    } catch {
-      return `${currency} 0`;
-    }
-  }
-};
-
-const formatTargetDate = (
-  value
-) => {
-  if (!value) {
-    return null;
-  }
-
-  try {
-    return formatSavingsDate(value);
-  } catch {
-    return null;
-  }
-};
-
-/* =========================================================
-   COMPONENT
-========================================================= */
+/**
+ * ---------------------------------------------------------------------------
+ * SavingsGoalCard
+ * ---------------------------------------------------------------------------
+ * Presentation component for an individual savings goal.
+ *
+ * Responsibilities:
+ * - Display normalized goal information.
+ * - Calculate safe presentation values.
+ * - Provide view/edit/delete actions.
+ * - Display compact savings progress.
+ *
+ * Business logic should remain in:
+ *   hook -> service -> API
+ *
+ * This component intentionally does NOT:
+ * - Fetch data.
+ * - Mutate server state directly.
+ * - Contain API/business rules.
+ * - Render a separate progress component.
+ * ---------------------------------------------------------------------------
+ */
 
 const SavingsGoalCard = ({
-  goal = null,
-
-  onClick,
+  goal,
+  onView,
   onEdit,
   onDelete,
-  onViewDetails,
-
-  showMenu = true,
-  compact = false,
-
-  className = "",
 }) => {
-  const [menuOpen, setMenuOpen] =
-    useState(false);
+  /* ------------------------------------------------------------------------ */
+  /* State and refs                                                           */
+  /* ------------------------------------------------------------------------ */
+
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const menuRef = useRef(null);
-
   const menuId = useId();
 
-  /* =======================================================
-     DERIVED VALUES
-  ======================================================= */
-
-  const display = useMemo(() => {
-    if (!goal) {
-      return null;
-    }
-
-    const goalId =
-      getGoalId(goal);
-
-    const name =
-      getGoalName(goal);
-
-    const currency =
-      getGoalCurrency(goal);
-
-    const currentAmount =
-      getSafeNumber(
-        goal.currentAmount ??
-          goal.savedAmount ??
-          goal.amountSaved
-      );
-
-    const targetAmount =
-      getSafeNumber(
-        goal.targetAmount ??
-          goal.target
-      );
-
-    const remainingAmount =
-      getSafeNumber(
-        goal.remainingAmount,
-        Math.max(
-          0,
-          targetAmount -
-            currentAmount
-        )
-      );
-
-    const progress =
-      calculateProgress(
-        goal,
-        currentAmount,
-        targetAmount
-      );
-
-    const status =
-      getGoalStatus(goal);
-
-    const targetDate =
-      getGoalTargetDate(goal);
-
-    const healthLabel =
-      typeof goal.healthLabel ===
-        "string"
-        ? goal.healthLabel
-        : typeof goal.health?.label ===
-            "string"
-          ? goal.health.label
-          : typeof goal.health?.status ===
-              "string"
-            ? goal.health.status
-            : typeof goal.health?.name ===
-                "string"
-              ? goal.health.name
-              : "";
-
-    const isCompleted =
-      status === "completed" ||
-      progress >= 100;
-
-    const statusConfig =
-      STATUS_CONFIG[status] ||
-      STATUS_CONFIG.active;
-
-    return {
-      goalId,
-      name,
-      description:
-        typeof goal.description ===
-        "string"
-          ? goal.description.trim()
-          : "",
-
-      currency,
-
-      currentAmount,
-      targetAmount,
-      remainingAmount,
-
-      progress,
-      roundedProgress:
-        Math.round(progress),
-
-      status,
-      statusConfig,
-
-      isCompleted,
-
-      targetDate,
-      formattedTargetDate:
-        formatTargetDate(
-          targetDate
-        ),
-
-      healthLabel,
-
-      formattedCurrentAmount:
-        formatAmount(
-          currentAmount,
-          currency
-        ),
-
-      formattedTargetAmount:
-        formatAmount(
-          targetAmount,
-          currency
-        ),
-
-      formattedRemainingAmount:
-        formatAmount(
-          remainingAmount,
-          currency
-        ),
-    };
-  }, [goal]);
-
-  /* =======================================================
-     MENU LIFECYCLE
-  ======================================================= */
+  /* ------------------------------------------------------------------------ */
+  /* Close menu when clicking outside                                         */
+  /* ------------------------------------------------------------------------ */
 
   useEffect(() => {
     if (!menuOpen) {
       return undefined;
     }
 
-    const handlePointerDown = (
-      event
-    ) => {
-      if (
-        !menuRef.current ||
-        menuRef.current.contains(
-          event.target
-        )
-      ) {
-        return;
-      }
-
-      setMenuOpen(false);
-    };
-
-    const handleKeyDown = (
-      event
-    ) => {
-      if (
-        event.key === "Escape"
-      ) {
+    const handlePointerDown = (event) => {
+      if (!menuRef.current?.contains(event.target)) {
         setMenuOpen(false);
       }
     };
 
-    document.addEventListener(
-      "mousedown",
-      handlePointerDown
-    );
-
-    document.addEventListener(
-      "keydown",
-      handleKeyDown
-    );
+    document.addEventListener("pointerdown", handlePointerDown);
 
     return () => {
-      document.removeEventListener(
-        "mousedown",
-        handlePointerDown
-      );
-
-      document.removeEventListener(
-        "keydown",
-        handleKeyDown
-      );
+      document.removeEventListener("pointerdown", handlePointerDown);
     };
   }, [menuOpen]);
 
-  /* =======================================================
-     HANDLERS
-  ======================================================= */
+  /* ------------------------------------------------------------------------ */
+  /* Event handlers                                                           */
+  /* ------------------------------------------------------------------------ */
 
   const closeMenu = useCallback(() => {
     setMenuOpen(false);
   }, []);
 
-  const handleCardClick =
-    useCallback(() => {
-      if (!goal) {
-        return;
-      }
+  const handleViewDetails = useCallback(() => {
+    if (!goal) {
+      return;
+    }
 
-      onClick?.(goal);
-    }, [goal, onClick]);
+    closeMenu();
+    onView?.(goal);
+  }, [closeMenu, goal, onView]);
 
-  const handleViewDetails =
-    useCallback(
-      (event) => {
-        event?.stopPropagation();
+  const handleEdit = useCallback(() => {
+    if (!goal) {
+      return;
+    }
 
-        closeMenu();
+    closeMenu();
+    onEdit?.(goal);
+  }, [closeMenu, goal, onEdit]);
 
-        if (!goal) {
-          return;
-        }
+  const handleDelete = useCallback(() => {
+    if (!goal) {
+      return;
+    }
 
-        if (
-          typeof onViewDetails ===
-          "function"
-        ) {
-          onViewDetails(goal);
-          return;
-        }
+    closeMenu();
+    onDelete?.(goal);
+  }, [closeMenu, goal, onDelete]);
 
-        onClick?.(goal);
-      },
-      [
-        closeMenu,
-        goal,
-        onClick,
-        onViewDetails,
-      ]
-    );
+  const handleMenuToggle = useCallback(() => {
+    setMenuOpen((previous) => !previous);
+  }, []);
 
-  const handleEdit =
-    useCallback(
-      (event) => {
-        event?.stopPropagation();
+  /* ------------------------------------------------------------------------ */
+  /* Render guard                                                             */
+  /* ------------------------------------------------------------------------ */
+  /*
+   * IMPORTANT:
+   *
+   * This conditional return MUST come after every hook.
+   *
+   * React requires hooks to execute in the same order on every render.
+   */
 
-        closeMenu();
-
-        if (!goal) {
-          return;
-        }
-
-        onEdit?.(goal);
-      },
-      [closeMenu, goal, onEdit]
-    );
-
-  const handleDelete =
-    useCallback(
-      (event) => {
-        event?.stopPropagation();
-
-        closeMenu();
-
-        if (!goal) {
-          return;
-        }
-
-        onDelete?.(goal);
-      },
-      [closeMenu, goal, onDelete]
-    );
-
-  const handleMenuToggle =
-    useCallback(
-      (event) => {
-        event?.stopPropagation();
-
-        setMenuOpen(
-          (current) => !current
-        );
-      },
-      []
-    );
-
-  /* =======================================================
-     RENDER GUARD
-  ======================================================= */
-
-  if (!display) {
+  if (!goal) {
     return null;
   }
 
-  const {
-    goalId,
-    name,
-    description,
-    statusConfig,
-    isCompleted,
-    healthLabel,
-    formattedCurrentAmount,
-    formattedTargetAmount,
-    formattedRemainingAmount,
-    formattedTargetDate,
-    roundedProgress,
-    progress,
-  } = display;
+  /* ------------------------------------------------------------------------ */
+  /* Safe value helpers                                                       */
+  /* ------------------------------------------------------------------------ */
 
-  const StatusIcon =
-    statusConfig.icon;
+  const toFiniteNumber = (value, fallback = 0) => {
+    const number = Number(value);
 
-  /* =======================================================
-     RENDER
-  ======================================================= */
+    return Number.isFinite(number) ? number : fallback;
+  };
+
+  const getFirstDefined = (...values) => {
+    return values.find(
+      (value) => value !== undefined && value !== null,
+    );
+  };
+
+  /* ------------------------------------------------------------------------ */
+  /* Goal identity                                                             */
+  /* ------------------------------------------------------------------------ */
+
+  const goalId = getFirstDefined(
+    goal._id,
+    goal.id,
+    goal.goalId,
+  );
+
+  /* ------------------------------------------------------------------------ */
+  /* Basic goal information                                                   */
+  /* ------------------------------------------------------------------------ */
+
+  const name =
+    getFirstDefined(
+      goal.name,
+      goal.title,
+      goal.goalName,
+    ) || "Savings Goal";
+
+  const currency =
+    getFirstDefined(
+      goal.currency,
+      goal.targetCurrency,
+    ) || "NGN";
+
+  /* ------------------------------------------------------------------------ */
+  /* Financial values                                                         */
+  /* ------------------------------------------------------------------------ */
+
+  const currentAmount = Math.max(
+    toFiniteNumber(
+      getFirstDefined(
+        goal.currentAmount,
+        goal.savedAmount,
+        goal.amountSaved,
+        goal.totalSaved,
+      ),
+    ),
+    0,
+  );
+
+  const targetAmount = Math.max(
+    toFiniteNumber(
+      getFirstDefined(
+        goal.targetAmount,
+        goal.target,
+        goal.amount,
+      ),
+    ),
+    0,
+  );
+
+  /*
+   * Remaining amount is derived from the authoritative target/current values
+   * rather than blindly trusting a potentially stale backend field.
+   *
+   * This prevents cases where:
+   *
+   * target = ₦500,000
+   * saved  = ₦300,000
+   * remainingAmount = ₦500,000
+   *
+   * from being displayed incorrectly.
+   */
+
+  const remainingAmount = Math.max(
+    targetAmount - currentAmount,
+    0,
+  );
+
+  /* ------------------------------------------------------------------------ */
+  /* Progress                                                                 */
+  /* ------------------------------------------------------------------------ */
+
+  const calculatedProgress =
+    targetAmount > 0
+      ? (currentAmount / targetAmount) * 100
+      : 0;
+
+  const backendProgress = toFiniteNumber(
+    getFirstDefined(
+      goal.progressPercentage,
+      goal.progress,
+      goal.percentage,
+    ),
+    calculatedProgress,
+  );
+
+  /*
+   * Prefer calculated financial progress because it keeps the visual state
+   * synchronized with the displayed saved and target amounts.
+   */
+
+  const progress = Math.min(
+    Math.max(
+      targetAmount > 0
+        ? calculatedProgress
+        : backendProgress,
+      0,
+    ),
+    100,
+  );
+
+  /* ------------------------------------------------------------------------ */
+  /* Status                                                                   */
+  /* ------------------------------------------------------------------------ */
+
+  const rawStatus =
+    getFirstDefined(
+      goal.status,
+      goal.state,
+    ) || "active";
+
+  const normalizedStatus = String(rawStatus)
+    .trim()
+    .toLowerCase();
+
+  const isCompleted =
+    normalizedStatus === "completed" ||
+    normalizedStatus === "complete" ||
+    progress >= 100 ||
+    (targetAmount > 0 && currentAmount >= targetAmount);
+
+  const isPaused =
+    normalizedStatus === "paused" ||
+    normalizedStatus === "pause";
+
+  const isCancelled =
+    normalizedStatus === "cancelled" ||
+    normalizedStatus === "canceled";
+
+  const statusLabel = isCompleted
+    ? "Completed"
+    : isPaused
+      ? "Paused"
+      : isCancelled
+        ? "Cancelled"
+        : "Active";
+
+  const statusClassName = isCompleted
+    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+    : isPaused
+      ? "border-amber-200 bg-amber-50 text-amber-700"
+      : isCancelled
+        ? "border-rose-200 bg-rose-50 text-rose-700"
+        : "border-blue-200 bg-blue-50 text-blue-700";
+
+  /* ------------------------------------------------------------------------ */
+  /* Target date                                                              */
+  /* ------------------------------------------------------------------------ */
+
+  const targetDate = getFirstDefined(
+    goal.targetDate,
+    goal.deadline,
+    goal.endDate,
+  );
+
+  const formattedTargetDate = targetDate
+    ? new Intl.DateTimeFormat("en-NG", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }).format(new Date(targetDate))
+    : "No target date";
+
+  /* ------------------------------------------------------------------------ */
+  /* Currency formatter                                                       */
+  /* ------------------------------------------------------------------------ */
+
+  const formatCurrency = (amount) => {
+    try {
+      return new Intl.NumberFormat("en-NG", {
+        style: "currency",
+        currency,
+        maximumFractionDigits: 0,
+      }).format(amount);
+    } catch {
+      return `${currency} ${amount.toLocaleString("en-NG")}`;
+    }
+  };
+
+  /* ------------------------------------------------------------------------ */
+  /* Render                                                                   */
+  /* ------------------------------------------------------------------------ */
 
   return (
     <article
-      data-goal-id={
-        goalId || undefined
-      }
-      className={`
-        group relative
-        overflow-visible
-        rounded-2xl
-        border border-slate-200
+      className="
+        relative flex flex-col overflow-visible
+        h-full
         bg-white
-        shadow-sm
-        transition-all duration-200
-        hover:-translate-y-0.5
-        hover:shadow-md
-        ${className}
-      `}
+        border border-slate-200 rounded-2xl
+        shadow-sm hover:shadow-md transition-shadow duration-200
+        group
+      "
+      data-goal-id={goalId}
     >
-      {/* =================================================
-          HEADER
-      ================================================= */}
+      {/* ------------------------------------------------------------------ */}
+      {/* Header                                                             */}
+      {/* ------------------------------------------------------------------ */}
 
       <div
         className="
-          flex items-start justify-between
-          p-5
-          gap-3
+          flex justify-between items-start
+          p-5 pb-4
+          gap-4
         "
       >
-        <button
-          type="button"
-          onClick={
-            handleCardClick
-          }
+        <div
           className="
-            flex flex-1 items-start
+            flex items-center
             min-w-0
-            text-left
-            outline-none rounded-xl
-            gap-3 focus-visible:ring-2 focus-visible:ring-blue-500/30
+            gap-3
           "
-          aria-label={`View ${name}`}
         >
           <div
             className="
               flex justify-center items-center
-              w-11 h-11
+              w-10 h-10
               text-blue-600
               bg-blue-50
               rounded-xl
               shrink-0
             "
-            aria-hidden="true"
           >
-            {isCompleted ? (
-              <CheckCircle2
-                size={21}
-                strokeWidth={2}
-              />
-            ) : (
-              <Target
-                size={21}
-                strokeWidth={2}
-              />
-            )}
+            <Target
+              className="
+                w-5 h-5
+              "
+              strokeWidth={2}
+              aria-hidden="true"
+            /
+            >
           </div>
 
           <div
@@ -652,227 +392,183 @@ const SavingsGoalCard = ({
           >
             <h3
               className="
-                font-semibold text-slate-900 text-base truncate
+                font-semibold text-slate-900 text-sm truncate
               "
+              title={name}
             >
               {name}
             </h3>
 
-            {!compact &&
-              description && (
-                <p
+            <span
+              className={`
+                mt-1
+                inline-flex
+                items-center
+                rounded-full
+                border
+                px-2
+                py-0.5
+                text-[11px]
+                font-medium
+                ${statusClassName}
+              `}
+            >
+              {isCompleted && (
+                <CheckCircle2
                   className="
-                    mt-1
-                    text-slate-500 text-sm leading-5 line-clamp-2
+                    w-3 h-3
+                    mr-1
                   "
+                  aria-hidden="true"
+                /
                 >
-                  {description}
-                </p>
               )}
+
+              {statusLabel}
+            </span>
           </div>
-        </button>
+        </div>
 
-        {/* =================================================
-            ACTION MENU
-        ================================================= */}
+        {/* -------------------------------------------------------------- */}
+        {/* Actions menu                                                    */}
+        {/* -------------------------------------------------------------- */}
 
-        {showMenu && (
-          <div
-            ref={menuRef}
+        <div
+          ref={menuRef}
+          className="
+            relative
+            shrink-0
+          "
+        >
+          <button
+            type="button"
+            onClick={handleMenuToggle}
+            aria-label={`Actions for ${name}`}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            aria-controls={menuOpen ? menuId : undefined}
             className="
-              relative
-              shrink-0
+              inline-flex justify-center items-center
+              w-9 h-9
+              text-slate-500 hover:text-slate-900
+              hover:bg-slate-100
+              rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30
+              transition-colors
             "
           >
-            <button
-              type="button"
-              onClick={
-                handleMenuToggle
-              }
-              aria-label={`Actions for ${name}`}
-              aria-expanded={
-                menuOpen
-              }
-              aria-haspopup="menu"
-              aria-controls={
-                menuOpen
-                  ? menuId
-                  : undefined
-              }
+            <MoreHorizontal
               className="
-                flex justify-center items-center
-                w-9 h-9
-                text-slate-500 hover:text-slate-700
-                hover:bg-slate-100
-                rounded-lg focus:outline-none
-                transition
-                focus-visible:ring-2 focus-visible:ring-blue-500/30
+                w-5 h-5
+              "
+              aria-hidden="true"
+            /
+            >
+          </button>
+
+          {menuOpen && (
+            <div
+              id={menuId}
+              role="menu"
+              className="
+                top-11 right-0 z-50 absolute overflow-hidden
+                w-40
+                py-1
+                bg-white
+                border border-slate-200 rounded-xl
+                shadow-xl
               "
             >
-              <MoreHorizontal
-                size={19}
-                aria-hidden="true"
-              />
-            </button>
-
-            {menuOpen && (
-              <div
-                id={menuId}
-                role="menu"
-                aria-label={`Actions for ${name}`}
+              <button
+                type="button"
+                role="menuitem"
+                onClick={handleViewDetails}
                 className="
-                  absolute top-10 right-0 z-30 overflow-hidden
-                  w-44
-                  py-1
-                  bg-white
-                  border border-slate-200 rounded-xl
-                  shadow-xl
+                  flex items-center
+                  w-full
+                  px-3 py-2.5
+                  text-slate-700 text-sm text-left
+                  hover:bg-slate-50
+                  gap-2
                 "
               >
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={
-                    handleViewDetails
-                  }
+                <ArrowRight
                   className="
-                    flex items-center
-                    w-full
-                    px-3.5 py-2.5
-                    text-slate-700 text-sm text-left
-                    hover:bg-slate-50
-                    transition
-                    gap-2.5
+                    w-4 h-4
                   "
+                  aria-hidden="true"
+                /
                 >
-                  <ArrowRight
-                    size={16}
-                    aria-hidden="true"
-                  />
+                View details
+              </button>
 
-                  View details
-                </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={handleEdit}
+                className="
+                  flex items-center
+                  w-full
+                  px-3 py-2.5
+                  text-slate-700 text-sm text-left
+                  hover:bg-slate-50
+                  gap-2
+                "
+              >
+                <Pencil
+                  className="
+                    w-4 h-4
+                  "
+                  aria-hidden="true"
+                /
+                >
+                Edit goal
+              </button>
 
-                {typeof onEdit ===
-                  "function" && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={
-                      handleEdit
-                    }
-                    className="
-                      flex items-center
-                      w-full
-                      px-3.5 py-2.5
-                      text-slate-700 text-sm text-left
-                      hover:bg-slate-50
-                      transition
-                      gap-2.5
-                    "
-                  >
-                    <Pencil
-                      size={16}
-                      aria-hidden="true"
-                    />
-
-                    Edit goal
-                  </button>
-                )}
-
-                {typeof onDelete ===
-                  "function" && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={
-                      handleDelete
-                    }
-                    className="
-                      flex items-center
-                      w-full
-                      px-3.5 py-2.5
-                      text-red-600 text-sm text-left
-                      hover:bg-red-50
-                      transition
-                      gap-2.5
-                    "
-                  >
-                    Delete goal
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+              <button
+                type="button"
+                role="menuitem"
+                onClick={handleDelete}
+                className="
+                  flex items-center
+                  w-full
+                  px-3 py-2.5
+                  text-rose-600 text-sm text-left
+                  hover:bg-rose-50
+                  gap-2
+                "
+              >
+                Delete goal
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* =================================================
-          STATUS
-      ================================================= */}
+      {/* ------------------------------------------------------------------ */}
+      {/* Financial summary                                                  */}
+      {/* ------------------------------------------------------------------ */}
 
       <div
         className="
           px-5
         "
       >
-        <span
-          className={`
-            inline-flex items-center
-            gap-1.5
-            rounded-full
-            border
-            px-2.5 py-1
-            text-xs font-medium
-            ${statusConfig.className}
-          `}
-        >
-          <StatusIcon
-            size={13}
-            aria-hidden="true"
-          />
-
-          {statusConfig.label}
-        </span>
-
-        {healthLabel && (
-          <span
-            className="
-              inline-flex items-center
-              ml-2 px-2.5 py-1
-              text-slate-600 text-xs font-medium
-              bg-slate-100
-              rounded-full
-            "
-          >
-            {healthLabel}
-          </span>
-        )}
-      </div>
-
-      {/* =================================================
-          AMOUNTS
-      ================================================= */}
-
-      <div
-        className="
-          px-5 pt-5
-        "
-      >
         <div
           className="
-            flex items-end justify-between
-            gap-4
+            grid grid-cols-2
+            gap-3
           "
         >
           <div
             className="
-              min-w-0
+              p-3
+              bg-slate-50
+              border border-slate-100 rounded-xl
             "
           >
             <p
               className="
-                font-medium text-slate-500 text-xs uppercase tracking-wide
+                font-medium text-[11px] text-slate-500 uppercase tracking-wide
               "
             >
               Saved
@@ -881,22 +577,23 @@ const SavingsGoalCard = ({
             <p
               className="
                 mt-1
-                font-bold text-slate-900 text-xl truncate tracking-tight
+                font-bold text-slate-900 text-sm truncate
               "
             >
-              {formattedCurrentAmount}
+              {formatCurrency(currentAmount)}
             </p>
           </div>
 
           <div
             className="
-              min-w-0
-              text-right
+              p-3
+              bg-slate-50
+              border border-slate-100 rounded-xl
             "
           >
             <p
               className="
-                font-medium text-slate-500 text-xs uppercase tracking-wide
+                font-medium text-[11px] text-slate-500 uppercase tracking-wide
               "
             >
               Target
@@ -905,34 +602,34 @@ const SavingsGoalCard = ({
             <p
               className="
                 mt-1
-                font-semibold text-slate-700 text-sm truncate
+                font-bold text-slate-900 text-sm truncate
               "
             >
-              {formattedTargetAmount}
+              {formatCurrency(targetAmount)}
             </p>
           </div>
         </div>
       </div>
 
-      {/* =================================================
-          PROGRESS
-      ================================================= */}
+      {/* ------------------------------------------------------------------ */}
+      {/* Progress                                                           */}
+      {/* ------------------------------------------------------------------ */}
 
       <div
         className="
-          px-5 pt-4
+          px-5 pt-5
         "
       >
         <div
           className="
-            flex items-center justify-between
+            flex justify-between items-center
             mb-2
             gap-3
           "
         >
           <span
             className="
-              font-medium text-slate-500 text-xs
+              font-medium text-slate-600 text-xs
             "
           >
             Progress
@@ -940,10 +637,10 @@ const SavingsGoalCard = ({
 
           <span
             className="
-              font-semibold text-slate-900 text-sm
+              font-bold text-slate-900 text-xs
             "
           >
-            {roundedProgress}%
+            {Math.round(progress)}%
           </span>
         </div>
 
@@ -955,19 +652,17 @@ const SavingsGoalCard = ({
             rounded-full
           "
           role="progressbar"
-          aria-valuenow={
-            roundedProgress
-          }
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-label={`${name} progress`}
+          aria-valuenow={Math.round(progress)}
+          aria-label={`${name} savings progress`}
         >
           <div
             className="
               h-full
               bg-blue-600
               rounded-full
-              transition-[width] duration-500 ease-out
+              transition-[width] duration-300
             "
             style={{
               width: `${progress}%`,
@@ -977,154 +672,160 @@ const SavingsGoalCard = ({
         </div>
       </div>
 
-      {/* =================================================
-          META
-      ================================================= */}
-
-      {!compact && (
-        <div
-          className="
-            grid grid-cols-2
-            px-5 pt-5
-            gap-3
-          "
-        >
-          <div
-            className="
-              min-w-0
-              p-3
-              bg-slate-50
-              rounded-xl
-            "
-          >
-            <div
-              className="
-                flex items-center
-                text-slate-500 text-xs
-                gap-2
-              "
-            >
-              <WalletCards
-                size={14}
-                aria-hidden="true"
-              />
-
-              Remaining
-            </div>
-
-            <p
-              className="
-                mt-1
-                font-semibold text-slate-800 text-sm truncate
-              "
-            >
-              {formattedRemainingAmount}
-            </p>
-          </div>
-
-          <div
-            className="
-              min-w-0
-              p-3
-              bg-slate-50
-              rounded-xl
-            "
-          >
-            <div
-              className="
-                flex items-center
-                text-slate-500 text-xs
-                gap-2
-              "
-            >
-              <CalendarDays
-                size={14}
-                aria-hidden="true"
-              />
-
-              Target date
-            </div>
-
-            <p
-              className="
-                mt-1
-                font-semibold text-slate-800 text-sm truncate
-              "
-            >
-              {formattedTargetDate ||
-                "Not set"}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* =================================================
-          FOOTER
-      ================================================= */}
+      {/* ------------------------------------------------------------------ */}
+      {/* Remaining + target date                                            */}
+      {/* ------------------------------------------------------------------ */}
 
       <div
         className="
-          flex items-center justify-between
-          mt-5 px-5 py-4
-          border-t border-slate-100
+          grid grid-cols-2
+          px-5 pt-5
           gap-3
         "
       >
         <div
           className="
-            flex items-center
             min-w-0
+          "
+        >
+          <div
+            className="
+              flex items-center
+              text-slate-500
+              gap-1.5
+            "
+          >
+            <WalletCards
+              className="
+                w-3.5 h-3.5
+                shrink-0
+              "
+              aria-hidden="true"
+            /
+            >
+
+            <span
+              className="
+                font-medium text-[11px] uppercase tracking-wide
+              "
+            >
+              Remaining
+            </span>
+          </div>
+
+          <p
+            className="
+              mt-1
+              font-semibold text-slate-900 text-sm truncate
+            "
+          >
+            {isCompleted
+              ? "Goal reached"
+              : formatCurrency(remainingAmount)}
+          </p>
+        </div>
+
+        <div
+          className="
+            min-w-0
+          "
+        >
+          <div
+            className="
+              flex items-center
+              text-slate-500
+              gap-1.5
+            "
+          >
+            <CalendarDays
+              className="
+                w-3.5 h-3.5
+                shrink-0
+              "
+              aria-hidden="true"
+            /
+            >
+
+            <span
+              className="
+                font-medium text-[11px] uppercase tracking-wide
+              "
+            >
+              Target date
+            </span>
+          </div>
+
+          <p
+            className="
+              mt-1
+              font-semibold text-slate-900 text-sm truncate
+            "
+          >
+            {formattedTargetDate}
+          </p>
+        </div>
+      </div>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Footer                                                             */}
+      {/* ------------------------------------------------------------------ */}
+
+      <div
+        className="
+          flex justify-between items-center
+          mt-5 px-5 py-4
+          border-slate-100 border-t
+        "
+      >
+        <div
+          className="
+            flex items-center
             text-slate-500 text-xs
             gap-1.5
           "
         >
-          <TrendingUp
-            size={14}
+          <Clock3
             className="
-              shrink-0
+              w-3.5 h-3.5
             "
             aria-hidden="true"
           /
           >
 
-          <span
-            className="
-              truncate
-            "
-          >
+          <span>
             {isCompleted
-              ? "Goal completed"
-              : `${roundedProgress}% of target`}
+              ? "Completed"
+              : targetDate
+                ? "Target set"
+                : "No deadline"}
           </span>
         </div>
 
         <button
           type="button"
-          onClick={
-            handleViewDetails
-          }
+          onClick={handleViewDetails}
           className="
             inline-flex items-center
-            px-2.5 py-2
-            font-medium text-blue-600 text-sm
-            hover:bg-blue-50
-            rounded-lg focus:outline-none
-            transition
-            shrink-0 focus-visible:ring-2 focus-visible:ring-blue-500/30 gap-1.5
+            font-semibold text-blue-600 hover:text-blue-700 text-xs
+            focus:outline-none
+            focus:ring-2 focus:ring-blue-500/30 focus:ring-offset-2
+            transition-colors
+            gap-1
           "
         >
           View details
 
           <ArrowRight
-            size={15}
+            className="
+              w-3.5 h-3.5
+            "
             aria-hidden="true"
-          />
+          /
+          >
         </button>
       </div>
     </article>
   );
 };
 
-export default memo(
-  SavingsGoalCard
-);
+export default memo(SavingsGoalCard);

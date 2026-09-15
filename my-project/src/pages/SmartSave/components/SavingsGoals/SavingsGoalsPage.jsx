@@ -1,3 +1,4 @@
+
 import {
   AlertCircle,
   CheckCircle2,
@@ -18,7 +19,6 @@ import useSavingsGoals from "../../../../hooks/useSavingsGoals";
 
 import SavingsGoalCard from "./SavingsGoalCard";
 import SavingsGoalEmptyState from "./SavingsGoalEmptyState";
-import SavingsGoalProgress from "./SavingsGoalProgress";
 import CreateSavingsGoalModal from "./CreateSavingsGoalModal";
 import EditSavingsGoalModal from "./EditSavingsGoalModal";
 import DeleteSavingsGoalModal from "./DeleteSavingsGoalModal";
@@ -43,11 +43,13 @@ const DEFAULT_CURRENCY = "NGN";
 const MAX_DISPLAY_LIMIT = 100;
 
 /* ============================================================================
-   HELPERS
+   DATA HELPERS
 ============================================================================ */
 
 /**
- * Safely convert a value to a finite number.
+ * Converts a value into a finite number.
+ *
+ * Financial UI should never expose NaN or Infinity.
  */
 const toFiniteNumber = (value, fallback = 0) => {
   const number = Number(value);
@@ -58,10 +60,10 @@ const toFiniteNumber = (value, fallback = 0) => {
 };
 
 /**
- * Resolve the canonical savings-goal ID.
+ * Resolves the canonical goal identifier.
  *
- * Supports the common Mongo/API shapes while keeping
- * the rest of the UI independent from persistence details.
+ * Persistence-specific identifiers are normalized at the page boundary so
+ * child components do not need to understand Mongo/API response variants.
  */
 const getGoalId = (goal) => {
   if (!goal) {
@@ -81,11 +83,11 @@ const getGoalId = (goal) => {
 };
 
 /**
- * Resolve supported goal collection response shapes.
+ * Resolves supported collection response shapes.
  *
- * Ideally useSavingsGoals already returns an array.
- * This fallback prevents the page from crashing if an
- * older API response is still deployed.
+ * The preferred contract is an array from useSavingsGoals().
+ * These fallbacks provide backward compatibility while the service layer
+ * remains the long-term normalization boundary.
  */
 const normalizeGoals = (value) => {
   if (Array.isArray(value)) {
@@ -133,11 +135,11 @@ const normalizeGoals = (value) => {
 };
 
 /**
- * Resolve a safe user-facing error message.
+ * Extracts a safe user-facing error message.
  */
 const getErrorMessage = (
   error,
-  fallback
+  fallback,
 ) => {
   if (!error) {
     return null;
@@ -167,7 +169,7 @@ const getErrorMessage = (
 };
 
 /**
- * Normalize goal status for comparisons.
+ * Normalizes goal status.
  */
 const getGoalStatus = (goal) =>
   String(goal?.status ?? "")
@@ -175,50 +177,38 @@ const getGoalStatus = (goal) =>
     .toLowerCase();
 
 /**
- * Resolve the target amount.
+ * Resolves target amount.
  */
 const getTargetAmount = (goal) =>
-  toFiniteNumber(
-    goal?.targetAmount ??
-      goal?.target ??
-      goal?.amount
+  Math.max(
+    0,
+    toFiniteNumber(
+      goal?.targetAmount ??
+        goal?.target ??
+        goal?.amount,
+    ),
   );
 
 /**
- * Resolve the amount currently saved.
+ * Resolves saved/current amount.
  */
 const getSavedAmount = (goal) =>
-  toFiniteNumber(
-    goal?.currentAmount ??
-      goal?.savedAmount ??
-      goal?.amountSaved ??
-      goal?.progressAmount
+  Math.max(
+    0,
+    toFiniteNumber(
+      goal?.currentAmount ??
+        goal?.savedAmount ??
+        goal?.amountSaved ??
+        goal?.progressAmount,
+    ),
   );
 
 /**
- * Resolve currency.
- */
-const getGoalCurrency = (goal) => {
-  const currency = goal?.currency;
-
-  if (
-    typeof currency !== "string" ||
-    !currency.trim()
-  ) {
-    return DEFAULT_CURRENCY;
-  }
-
-  return currency
-    .trim()
-    .toUpperCase();
-};
-
-/**
- * Safely calculate percentage progress.
+ * Calculates aggregate savings progress.
  */
 const calculatePercentage = (
   current,
-  target
+  target,
 ) => {
   if (
     !Number.isFinite(current) ||
@@ -232,13 +222,13 @@ const calculatePercentage = (
     100,
     Math.max(
       0,
-      (current / target) * 100
-    )
+      (current / target) * 100,
+    ),
   );
 };
 
 /**
- * Resolve display limit once.
+ * Resolves the maximum number of goals displayed by the page.
  */
 const resolveLimit = (limit) => {
   if (
@@ -250,7 +240,7 @@ const resolveLimit = (limit) => {
 
   return Math.min(
     limit,
-    MAX_DISPLAY_LIMIT
+    MAX_DISPLAY_LIMIT,
   );
 };
 
@@ -263,66 +253,64 @@ const SummaryStat = memo(
     label,
     value,
     icon: Icon,
-  }) => {
-    return (
+  }) => (
+    <div
+      className="
+        min-w-0
+        p-4
+        bg-white
+        border border-slate-200/80 rounded-2xl
+        shadow-sm
+      "
+    >
       <div
         className="
-          min-w-0
-          p-4
-          bg-white
-          border border-slate-200/80 rounded-2xl
-          shadow-sm
+          flex justify-between items-start
+          gap-3
         "
       >
         <div
           className="
-            flex justify-between items-start
-            gap-3
+            min-w-0
           "
         >
-          <div
+          <p
             className="
-              min-w-0
+              font-semibold text-[11px] text-slate-400 truncate uppercase
+              tracking-[0.08em]
             "
           >
-            <p
-              className="
-                font-semibold text-[11px] text-slate-400 truncate uppercase
-                tracking-[0.08em]
-              "
-            >
-              {label}
-            </p>
+            {label}
+          </p>
 
-            <p
-              className="
-                mt-1
-                font-bold text-slate-950 text-xl truncate tracking-tight
-              "
-            >
-              {value}
-            </p>
-          </div>
-
-          {Icon ? (
-            <div
-              className="
-                flex justify-center items-center
-                w-9 h-9
-                text-slate-500
-                bg-slate-50
-                rounded-xl
-                shrink-0
-              "
-              aria-hidden="true"
-            >
-              <Icon size={17} />
-            </div>
-          ) : null}
+          <p
+            className="
+              mt-1
+              font-bold text-slate-950 text-xl truncate tracking-tight
+            "
+          >
+            {value}
+          </p>
         </div>
+
+        {Icon ? (
+          <div
+            className="
+              flex justify-center items-center
+              w-9 h-9
+              text-slate-500
+              bg-slate-50
+              rounded-xl
+              shrink-0
+            "
+            aria-hidden="true"
+          >
+            <Icon size={17} />
+          </div>
+        ) : null}
       </div>
-    );
-  }
+    </div>
+  ),
 );
 
 SummaryStat.displayName = "SummaryStat";
@@ -341,166 +329,164 @@ const GoalsHeader = memo(
     canRefresh,
     onRefresh,
     onCreate,
-  }) => {
-    return (
-      <header
+  }) => (
+    <header
+      className="
+        flex flex-col lg:flex-row lg:justify-between lg:items-center
+        gap-4
+      "
+    >
+      <div
         className="
-          flex flex-col lg:flex-row lg:justify-between lg:items-center
-          gap-4
+          flex items-start
+          min-w-0
+          gap-3
         "
       >
         <div
           className="
-            flex items-start
-            min-w-0
-            gap-3
+            flex justify-center items-center
+            w-10 h-10
+            text-blue-600
+            bg-blue-50
+            rounded-xl
+            shrink-0
           "
+          aria-hidden="true"
         >
-          <div
-            className="
-              flex justify-center items-center
-              w-10 h-10
-              text-blue-600
-              bg-blue-50
-              rounded-xl
-              shrink-0
-            "
-            aria-hidden="true"
-          >
-            <Target size={19} />
-          </div>
-
-          <div
-            className="
-              min-w-0
-            "
-          >
-            <div
-              className="
-                flex items-center
-                min-w-0
-                gap-2
-              "
-            >
-              <h2
-                id="savings-goals-title"
-                className="
-                  font-bold text-slate-950 text-lg truncate tracking-tight
-                "
-              >
-                {title}
-              </h2>
-
-              <span
-                className="
-                  px-2 py-0.5
-                  font-semibold text-[11px] text-slate-600
-                  bg-slate-100
-                  rounded-full
-                  shrink-0
-                "
-              >
-                {count}
-              </span>
-            </div>
-
-            {description ? (
-              <p
-                className="
-                  max-w-2xl
-                  mt-1
-                  text-slate-500 text-sm leading-5
-                "
-              >
-                {description}
-              </p>
-            ) : null}
-          </div>
+          <Target size={19} />
         </div>
 
         <div
           className="
-            flex
-            w-full sm:w-auto
-            gap-2
+            min-w-0
           "
         >
-          {canRefresh ? (
-            <button
-              type="button"
-              onClick={onRefresh}
-              disabled={loading}
+          <div
+            className="
+              flex items-center
+              min-w-0
+              gap-2
+            "
+          >
+            <h2
+              id="savings-goals-title"
               className="
-                inline-flex flex-1 sm:flex-none justify-center items-center
-                h-10
-                px-3
-                font-semibold text-slate-700 text-sm
-                bg-white hover:bg-slate-50
-                border border-slate-200 rounded-xl
-                disabled:opacity-60 shadow-sm transition
-                disabled:cursor-not-allowed
-                gap-2
+                font-bold text-slate-950 text-lg truncate tracking-tight
               "
             >
-              <RefreshCw
-                size={15}
-                className={
-                  loading
-                    ? "animate-spin"
-                    : undefined
-                }
-                aria-hidden="true"
-              />
+              {title}
+            </h2>
 
-              <span
-                className="
-                  hidden sm:inline
-                "
-              >
-                {loading
-                  ? "Refreshing"
-                  : "Refresh"}
-              </span>
-
-              <span
-                className="
-                  sm:hidden
-                "
-              >
-                Refresh
-              </span>
-            </button>
-          ) : null}
-
-          {allowCreate ? (
-            <button
-              type="button"
-              onClick={onCreate}
-              disabled={loading}
+            <span
               className="
-                inline-flex flex-1 sm:flex-none justify-center items-center
-                h-10
-                px-4
-                font-semibold text-white text-sm
-                bg-slate-950 hover:bg-slate-800
-                rounded-xl
-                disabled:opacity-60 transition
-                disabled:cursor-not-allowed
-                gap-2
+                px-2 py-0.5
+                font-semibold text-[11px] text-slate-600
+                bg-slate-100
+                rounded-full
+                shrink-0
               "
             >
-              <Plus
-                size={16}
-                aria-hidden="true"
-              />
+              {count}
+            </span>
+          </div>
 
-              <span>New goal</span>
-            </button>
+          {description ? (
+            <p
+              className="
+                max-w-2xl
+                mt-1
+                text-slate-500 text-sm leading-5
+              "
+            >
+              {description}
+            </p>
           ) : null}
         </div>
-      </header>
-    );
-  }
+      </div>
+
+      <div
+        className="
+          flex
+          w-full sm:w-auto
+          gap-2
+        "
+      >
+        {canRefresh ? (
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={loading}
+            className="
+              inline-flex flex-1 sm:flex-none justify-center items-center
+              h-10
+              px-3
+              font-semibold text-slate-700 text-sm
+              bg-white hover:bg-slate-50
+              border border-slate-200 rounded-xl
+              disabled:opacity-60 shadow-sm transition
+              disabled:cursor-not-allowed
+              gap-2
+            "
+          >
+            <RefreshCw
+              size={15}
+              className={
+                loading
+                  ? "animate-spin"
+                  : undefined
+              }
+              aria-hidden="true"
+            />
+
+            <span
+              className="
+                hidden sm:inline
+              "
+            >
+              {loading
+                ? "Refreshing"
+                : "Refresh"}
+            </span>
+
+            <span
+              className="
+                sm:hidden
+              "
+            >
+              Refresh
+            </span>
+          </button>
+        ) : null}
+
+        {allowCreate ? (
+          <button
+            type="button"
+            onClick={onCreate}
+            disabled={loading}
+            className="
+              inline-flex flex-1 sm:flex-none justify-center items-center
+              h-10
+              px-4
+              font-semibold text-white text-sm
+              bg-slate-950 hover:bg-slate-800
+              rounded-xl
+              disabled:opacity-60 transition
+              disabled:cursor-not-allowed
+              gap-2
+            "
+          >
+            <Plus
+              size={16}
+              aria-hidden="true"
+            />
+
+            <span>New goal</span>
+          </button>
+        ) : null}
+      </div>
+    </header>
+  ),
 );
 
 GoalsHeader.displayName = "GoalsHeader";
@@ -509,108 +495,97 @@ GoalsHeader.displayName = "GoalsHeader";
    LOADING STATE
 ============================================================================ */
 
-const GoalsLoadingState = memo(() => {
-  return (
-    <section
+const GoalsLoadingState = memo(() => (
+  <section
+    aria-busy="true"
+    aria-label="Loading savings goals"
+  >
+    <div
       className="
-        w-full
+        grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3
+        gap-4
       "
-      aria-busy="true"
-      aria-label="Loading savings goals"
     >
-      <div
-        className="
-          grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3
-          gap-4
-        "
-      >
-        {[1, 2, 3].map((item) => (
+      {[1, 2, 3].map((item) => (
+        <div
+          key={item}
+          className="
+            min-h-[250px]
+            p-5
+            bg-white
+            border border-slate-100 rounded-2xl
+            shadow-sm
+          "
+        >
           <div
-            key={item}
             className="
-              min-h-[250px]
-              p-5
-              bg-white
-              border border-slate-100 rounded-2xl
-              shadow-sm
+              w-10 h-10
+              bg-slate-100
+              rounded-xl
             "
+            /
           >
-            <div
-              className="
-                w-10 h-10
-                bg-slate-100
-                rounded-xl
-                animate-pulse
-              "
-              /
-            >
 
-            <div
-              className="
-                w-2/3 h-5
-                mt-5
-                bg-slate-100
-                rounded
-                animate-pulse
-              "
-              /
-            >
+          <div
+            className="
+              w-2/3 h-5
+              mt-5
+              bg-slate-100
+              rounded
+            "
+            /
+          >
 
-            <div
-              className="
-                w-full h-3
-                mt-3
-                bg-slate-100
-                rounded
-                animate-pulse
-              "
-              /
-            >
+          <div
+            className="
+              w-full h-3
+              mt-4
+              bg-slate-100
+              rounded
+            "
+            /
+          >
 
-            <div
-              className="
-                w-4/5 h-3
-                mt-2
-                bg-slate-100
-                rounded
-                animate-pulse
-              "
-              /
-            >
+          <div
+            className="
+              w-4/5 h-3
+              mt-2
+              bg-slate-100
+              rounded
+            "
+            /
+          >
 
-            <div
-              className="
-                w-full h-2
-                mt-7
-                bg-slate-100
-                rounded-full
-                animate-pulse
-              "
-              /
-            >
+          <div
+            className="
+              w-full h-2
+              mt-7
+              bg-slate-100
+              rounded-full
+            "
+            /
+          >
 
-            <div
-              className="
-                w-full h-10
-                mt-5
-                bg-slate-100
-                rounded-xl
-                animate-pulse
-              "
-              /
-            >
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-});
+          <div
+            className="
+              w-full h-10
+              mt-5
+              bg-slate-100
+              rounded-xl
+            "
+            /
+          >
+        </div>
+      ))}
+    </div>
+  </section>
+));
 
 GoalsLoadingState.displayName =
   "GoalsLoadingState";
 
 /* ============================================================================
-   LOAD ERROR
+   ERROR STATE
 ============================================================================ */
 
 const ErrorState = memo(
@@ -618,89 +593,86 @@ const ErrorState = memo(
     message,
     onRetry,
     loading,
-  }) => {
-    return (
+  }) => (
+    <div
+      className="
+        mt-5 p-5
+        bg-red-50
+        border border-red-200 rounded-2xl
+      "
+      role="alert"
+    >
       <div
         className="
-          mt-5 p-5
-          bg-red-50
-          border border-red-200 rounded-2xl
+          flex items-start
+          gap-3
         "
-        role="alert"
       >
+        <AlertCircle
+          size={19}
+          className="
+            mt-0.5
+            text-red-600
+            shrink-0
+          "
+          aria-hidden="true"
+        /
+        >
+
         <div
           className="
-            flex items-start
-            gap-3
+            flex-1
+            min-w-0
           "
         >
-          <AlertCircle
-            size={19}
+          <p
             className="
-              mt-0.5
-              text-red-600
-              shrink-0
-            "
-            aria-hidden="true"
-          /
-          >
-
-          <div
-            className="
-              flex-1
-              min-w-0
+              font-semibold text-red-900 text-sm
             "
           >
-            <p
+            Unable to load savings goals
+          </p>
+
+          <p
+            className="
+              mt-1
+              text-red-700 text-sm leading-5
+            "
+          >
+            {message}
+          </p>
+
+          {onRetry ? (
+            <button
+              type="button"
+              onClick={onRetry}
+              disabled={loading}
               className="
-                font-semibold text-red-900 text-sm
+                inline-flex items-center
+                mt-3
+                font-semibold text-red-800 text-sm underline underline-offset-2
+                disabled:opacity-50
+                disabled:cursor-not-allowed
+                gap-2
               "
             >
-              Unable to load savings goals
-            </p>
+              <RefreshCw
+                size={14}
+                className={
+                  loading
+                    ? "animate-spin"
+                    : undefined
+                }
+                aria-hidden="true"
+              />
 
-            <p
-              className="
-                mt-1
-                text-red-700 text-sm leading-5
-              "
-            >
-              {message}
-            </p>
-
-            {onRetry ? (
-              <button
-                type="button"
-                onClick={onRetry}
-                disabled={loading}
-                className="
-                  inline-flex items-center
-                  mt-3
-                  font-semibold text-red-800 text-sm
-                  underline underline-offset-2
-                  disabled:opacity-50
-                  disabled:cursor-not-allowed
-                  gap-2
-                "
-              >
-                <RefreshCw
-                  size={14}
-                  className={
-                    loading
-                      ? "animate-spin"
-                      : undefined
-                  }
-                  aria-hidden="true"
-                />
-
-                Try again
-              </button>
-            ) : null}
-          </div>
+              Try again
+            </button>
+          ) : null}
         </div>
       </div>
-    );
-  }
+    </div>
+  ),
 );
 
 ErrorState.displayName = "ErrorState";
@@ -764,19 +736,21 @@ const MutationError = memo(
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={onDismiss}
-          className="
-            font-semibold text-red-700 hover:text-red-900 text-xs
-            shrink-0
-          "
-        >
-          Dismiss
-        </button>
+        {onDismiss ? (
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="
+              font-semibold text-red-700 hover:text-red-900 text-xs
+              shrink-0
+            "
+          >
+            Dismiss
+          </button>
+        ) : null}
       </div>
     );
-  }
+  },
 );
 
 MutationError.displayName =
@@ -857,7 +831,6 @@ const BackgroundRefreshNotice = memo(
             disabled={loading}
             className="
               self-start
-              sm:mt-0
               font-semibold text-amber-800 hover:text-amber-950 text-sm
               underline underline-offset-2
               disabled:opacity-50
@@ -869,99 +842,11 @@ const BackgroundRefreshNotice = memo(
         ) : null}
       </div>
     );
-  }
+  },
 );
 
 BackgroundRefreshNotice.displayName =
   "BackgroundRefreshNotice";
-
-/* ============================================================================
-   GOAL CARD CONTAINER
-============================================================================ */
-
-/**
- * Owns the presentation contract between the page and the two goal
- * presentation components.
- *
- * This keeps calculations out of the main page render loop and makes
- * SavingsGoalCard/SavingsGoalProgress receive stable, explicit props.
- */
-const SavingsGoalGridItem = memo(
-  ({
-    goal,
-    compact,
-    onSelect,
-    onEdit,
-    onDelete,
-  }) => {
-    const currentAmount =
-      getSavedAmount(goal);
-
-    const targetAmount =
-      getTargetAmount(goal);
-
-    const currency =
-      getGoalCurrency(goal);
-
-    const status =
-      getGoalStatus(goal);
-
-    const progress =
-      calculatePercentage(
-        currentAmount,
-        targetAmount
-      );
-
-    const isCompleted =
-      status === "completed" ||
-      (
-        targetAmount > 0 &&
-        currentAmount >= targetAmount
-      );
-
-    return (
-      <article
-        className="
-          overflow-hidden
-          min-w-0
-          bg-white
-          border border-slate-200/80 hover:border-slate-300 rounded-2xl
-          shadow-sm hover:shadow-md transition
-        "
-      >
-        <SavingsGoalCard
-          goal={goal}
-          compact={compact}
-          onClick={onSelect}
-          onEdit={onEdit}
-          onDelete={onDelete}
-        />
-
-        <div
-          className="
-            px-4 sm:px-5 py-4
-            border-slate-100 border-t
-          "
-        >
-          <SavingsGoalProgress
-            currentAmount={currentAmount}
-            targetAmount={targetAmount}
-            currency={currency}
-            progress={progress}
-            isCompleted={isCompleted}
-            showAmounts
-            showPercentage
-            showRemaining
-            showStatus
-          />
-        </div>
-      </article>
-    );
-  }
-);
-
-SavingsGoalGridItem.displayName =
-  "SavingsGoalGridItem";
 
 /* ============================================================================
    GOAL GRID
@@ -970,7 +855,6 @@ SavingsGoalGridItem.displayName =
 const SavingsGoalsGrid = memo(
   ({
     goals,
-    compact,
     onSelect,
     onEdit,
     onDelete,
@@ -988,15 +872,13 @@ const SavingsGoalsGrid = memo(
         "
       >
         {goals.map((goal) => {
-          const goalId =
-            getGoalId(goal);
+          const goalId = getGoalId(goal);
 
           return (
-            <SavingsGoalGridItem
+            <SavingsGoalCard
               key={String(goalId)}
               goal={goal}
-              compact={compact}
-              onSelect={onSelect}
+              onView={onSelect}
               onEdit={onEdit}
               onDelete={onDelete}
             />
@@ -1004,7 +886,7 @@ const SavingsGoalsGrid = memo(
         })}
       </div>
     );
-  }
+  },
 );
 
 SavingsGoalsGrid.displayName =
@@ -1018,8 +900,14 @@ const OverallProgress = memo(
   ({
     progress,
   }) => {
-    const percentage = Math.round(
-      progress
+    const percentage = Math.min(
+      100,
+      Math.max(
+        0,
+        Math.round(
+          toFiniteNumber(progress),
+        ),
+      ),
     );
 
     return (
@@ -1071,6 +959,11 @@ const OverallProgress = memo(
         </div>
 
         <div
+          role="progressbar"
+          aria-label="Overall savings progress"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={percentage}
           className="
             overflow-hidden
             h-2
@@ -1078,13 +971,9 @@ const OverallProgress = memo(
             bg-slate-100
             rounded-full
           "
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={percentage}
-          aria-label="Overall savings progress"
         >
           <div
+            aria-hidden="true"
             className="
               h-full
               bg-slate-900
@@ -1099,7 +988,7 @@ const OverallProgress = memo(
         </div>
       </section>
     );
-  }
+  },
 );
 
 OverallProgress.displayName =
@@ -1112,43 +1001,39 @@ OverallProgress.displayName =
 const GoalsSummary = memo(
   ({
     summary,
-  }) => {
-    return (
-      <div
-        className="
-          grid grid-cols-2 lg:grid-cols-4
-          mt-5
-          gap-3
-        "
-      >
-        <SummaryStat
-          label="Total goals"
-          value={summary.total}
-          icon={Target}
-        />
+  }) => (
+    <div
+      className="
+        grid grid-cols-2 lg:grid-cols-4
+        mt-5
+        gap-3
+      "
+    >
+      <SummaryStat
+        label="Total goals"
+        value={summary.total}
+        icon={Target}
+      />
 
-        <SummaryStat
-          label="Active"
-          value={summary.active}
-          icon={WalletCards}
-        />
+      <SummaryStat
+        label="Active"
+        value={summary.active}
+        icon={WalletCards}
+      />
 
-        <SummaryStat
-          label="Completed"
-          value={summary.completed}
-          icon={CheckCircle2}
-        />
+      <SummaryStat
+        label="Completed"
+        value={summary.completed}
+        icon={CheckCircle2}
+      />
 
-        <SummaryStat
-          label="Overall progress"
-          value={`${Math.round(
-            summary.progress
-          )}%`}
-          icon={TrendingUp}
-        />
-      </div>
-    );
-  }
+      <SummaryStat
+        label="Overall progress"
+        value={`${Math.round(summary.progress)}%`}
+        icon={TrendingUp}
+      />
+    </div>
+  ),
 );
 
 GoalsSummary.displayName =
@@ -1167,6 +1052,10 @@ const SavingsGoalsPage = ({
   compact = false,
   onGoalSelect,
 }) => {
+  /* ------------------------------------------------------------------------ */
+  /* HOOK                                                                     */
+  /* ------------------------------------------------------------------------ */
+
   const {
     goals: hookGoals = [],
     loading = false,
@@ -1177,9 +1066,9 @@ const SavingsGoalsPage = ({
     deleteGoal,
   } = useSavingsGoals() || {};
 
-  /* --------------------------------------------------------------------------
-     LOCAL UI STATE
-  -------------------------------------------------------------------------- */
+  /* ------------------------------------------------------------------------ */
+  /* LOCAL UI STATE                                                           */
+  /* ------------------------------------------------------------------------ */
 
   const [createOpen, setCreateOpen] =
     useState(false);
@@ -1196,22 +1085,24 @@ const SavingsGoalsPage = ({
   const [mutationError, setMutationError] =
     useState(null);
 
-  /* --------------------------------------------------------------------------
-     NORMALIZED SERVER DATA
-  -------------------------------------------------------------------------- */
+  /* ------------------------------------------------------------------------ */
+  /* NORMALIZED GOALS                                                         */
+  /* ------------------------------------------------------------------------ */
 
-  const goals = useMemo(
-    () =>
-      normalizeGoals(
-        hookGoals
-      ).filter((goal) =>
-        Boolean(getGoalId(goal))
-      ),
-    [hookGoals]
+  const goals = useMemo(() => {
+    return normalizeGoals(hookGoals).filter(
+      (goal) => Boolean(getGoalId(goal)),
+    );
+  }, [hookGoals]);
+
+  /* ------------------------------------------------------------------------ */
+  /* DISPLAY LIMIT                                                            */
+  /* ------------------------------------------------------------------------ */
+
+  const resolvedLimit = useMemo(
+    () => resolveLimit(limit),
+    [limit],
   );
-
-  const resolvedLimit =
-    resolveLimit(limit);
 
   const visibleGoals = useMemo(() => {
     if (!resolvedLimit) {
@@ -1220,28 +1111,25 @@ const SavingsGoalsPage = ({
 
     return goals.slice(
       0,
-      resolvedLimit
+      resolvedLimit,
     );
   }, [
     goals,
     resolvedLimit,
   ]);
 
-  /* --------------------------------------------------------------------------
-     SUMMARY
-  -------------------------------------------------------------------------- */
+  /* ------------------------------------------------------------------------ */
+  /* SUMMARY                                                                  */
+  /* ------------------------------------------------------------------------ */
 
   const summary = useMemo(() => {
     let active = 0;
     let completed = 0;
-    let paused = 0;
-
     let totalTarget = 0;
     let totalSaved = 0;
 
     for (const goal of goals) {
-      const status =
-        getGoalStatus(goal);
+      const status = getGoalStatus(goal);
 
       const target =
         getTargetAmount(goal);
@@ -1252,16 +1140,19 @@ const SavingsGoalsPage = ({
       totalTarget += target;
       totalSaved += saved;
 
-      if (status === "active") {
-        active += 1;
-      }
+      const completedByAmount =
+        target > 0 &&
+        saved >= target;
 
-      if (status === "completed") {
+      if (
+        status === "completed" ||
+        completedByAmount
+      ) {
         completed += 1;
-      }
-
-      if (status === "paused") {
-        paused += 1;
+      } else if (
+        status === "active"
+      ) {
+        active += 1;
       }
     }
 
@@ -1269,36 +1160,34 @@ const SavingsGoalsPage = ({
       total: goals.length,
       active,
       completed,
-      paused,
       totalTarget,
       totalSaved,
-      progress:
-        calculatePercentage(
-          totalSaved,
-          totalTarget
-        ),
+      progress: calculatePercentage(
+        totalSaved,
+        totalTarget,
+      ),
     };
   }, [goals]);
 
-  /* --------------------------------------------------------------------------
-     ERROR STATE
-  -------------------------------------------------------------------------- */
+  /* ------------------------------------------------------------------------ */
+  /* ERRORS                                                                   */
+  /* ------------------------------------------------------------------------ */
 
   const loadErrorMessage =
     getErrorMessage(
       error,
-      DEFAULT_LOAD_ERROR
+      DEFAULT_LOAD_ERROR,
     );
 
   const mutationErrorMessage =
     getErrorMessage(
       mutationError,
-      DEFAULT_MUTATION_ERROR
+      DEFAULT_MUTATION_ERROR,
     );
 
-  /* --------------------------------------------------------------------------
-     MUTATION STATE
-  -------------------------------------------------------------------------- */
+  /* ------------------------------------------------------------------------ */
+  /* MUTATION STATE                                                           */
+  /* ------------------------------------------------------------------------ */
 
   const mutationInProgress =
     action !== null;
@@ -1306,9 +1195,9 @@ const SavingsGoalsPage = ({
   const canRefresh =
     typeof refreshGoals === "function";
 
-  /* --------------------------------------------------------------------------
-     REFRESH
-  -------------------------------------------------------------------------- */
+  /* ------------------------------------------------------------------------ */
+  /* REFRESH                                                                  */
+  /* ------------------------------------------------------------------------ */
 
   const handleRefresh =
     useCallback(async () => {
@@ -1324,7 +1213,9 @@ const SavingsGoalsPage = ({
       try {
         await refreshGoals();
       } catch {
-        // useSavingsGoals owns the canonical server error.
+        /*
+         * useSavingsGoals remains responsible for the canonical load error.
+         */
       }
     }, [
       mutationInProgress,
@@ -1332,9 +1223,9 @@ const SavingsGoalsPage = ({
       refreshGoals,
     ]);
 
-  /* --------------------------------------------------------------------------
-     CREATE
-  -------------------------------------------------------------------------- */
+  /* ------------------------------------------------------------------------ */
+  /* CREATE                                                                   */
+  /* ------------------------------------------------------------------------ */
 
   const handleOpenCreate =
     useCallback(() => {
@@ -1364,32 +1255,28 @@ const SavingsGoalsPage = ({
   const handleCreate =
     useCallback(
       async (payload) => {
-        if (
-          mutationInProgress ||
-          typeof createGoal !== "function"
-        ) {
+        if (mutationInProgress) {
           return;
+        }
+
+        if (
+          typeof createGoal !==
+          "function"
+        ) {
+          const errorValue =
+            new Error(
+              "Savings goal creation is currently unavailable.",
+            );
+
+          setMutationError(errorValue);
+
+          throw errorValue;
         }
 
         setMutationError(null);
         setAction("create");
 
         try {
-          /*
-           * The create modal owns form construction and
-           * validation. The page deliberately passes the
-           * canonical flat payload directly to the hook.
-           *
-           * Expected contract:
-           *
-           * {
-           *   name,
-           *   targetAmount,
-           *   currency,
-           *   targetDate,
-           *   description?
-           * }
-           */
           const result =
             await createGoal(payload);
 
@@ -1406,12 +1293,12 @@ const SavingsGoalsPage = ({
       [
         createGoal,
         mutationInProgress,
-      ]
+      ],
     );
 
-  /* --------------------------------------------------------------------------
-     EDIT
-  -------------------------------------------------------------------------- */
+  /* ------------------------------------------------------------------------ */
+  /* EDIT                                                                     */
+  /* ------------------------------------------------------------------------ */
 
   const handleEdit =
     useCallback(
@@ -1424,19 +1311,19 @@ const SavingsGoalsPage = ({
         }
 
         if (!getGoalId(goal)) {
-          setMutationError(
+          const errorValue =
             new Error(
-              "This savings goal could not be identified."
-            )
-          );
+              "This savings goal could not be identified.",
+            );
 
+          setMutationError(errorValue);
           return;
         }
 
         setMutationError(null);
         setEditingGoal(goal);
       },
-      [mutationInProgress]
+      [mutationInProgress],
     );
 
   const handleCloseEdit =
@@ -1451,11 +1338,22 @@ const SavingsGoalsPage = ({
   const handleUpdate =
     useCallback(
       async (payload) => {
-        if (
-          mutationInProgress ||
-          typeof updateGoal !== "function"
-        ) {
+        if (mutationInProgress) {
           return;
+        }
+
+        if (
+          typeof updateGoal !==
+          "function"
+        ) {
+          const errorValue =
+            new Error(
+              "Savings goal updates are currently unavailable.",
+            );
+
+          setMutationError(errorValue);
+
+          throw errorValue;
         }
 
         const goalId =
@@ -1464,7 +1362,7 @@ const SavingsGoalsPage = ({
         if (!goalId) {
           const errorValue =
             new Error(
-              "This savings goal could not be identified."
+              "This savings goal could not be identified.",
             );
 
           setMutationError(errorValue);
@@ -1479,17 +1377,14 @@ const SavingsGoalsPage = ({
           const result =
             await updateGoal(
               goalId,
-              payload
+              payload,
             );
 
           setEditingGoal(null);
 
           return result;
         } catch (updateError) {
-          setMutationError(
-            updateError
-          );
-
+          setMutationError(updateError);
           throw updateError;
         } finally {
           setAction(null);
@@ -1497,14 +1392,14 @@ const SavingsGoalsPage = ({
       },
       [
         editingGoal,
-        updateGoal,
         mutationInProgress,
-      ]
+        updateGoal,
+      ],
     );
 
-  /* --------------------------------------------------------------------------
-     DELETE REQUEST
-  -------------------------------------------------------------------------- */
+  /* ------------------------------------------------------------------------ */
+  /* DELETE REQUEST                                                           */
+  /* ------------------------------------------------------------------------ */
 
   const handleDeleteRequest =
     useCallback(
@@ -1517,19 +1412,19 @@ const SavingsGoalsPage = ({
         }
 
         if (!getGoalId(goal)) {
-          setMutationError(
+          const errorValue =
             new Error(
-              "This savings goal could not be identified."
-            )
-          );
+              "This savings goal could not be identified.",
+            );
 
+          setMutationError(errorValue);
           return;
         }
 
         setMutationError(null);
         setDeletingGoal(goal);
       },
-      [mutationInProgress]
+      [mutationInProgress],
     );
 
   const handleCloseDelete =
@@ -1541,17 +1436,28 @@ const SavingsGoalsPage = ({
       setDeletingGoal(null);
     }, [action]);
 
-  /* --------------------------------------------------------------------------
-     DELETE
-  -------------------------------------------------------------------------- */
+  /* ------------------------------------------------------------------------ */
+  /* DELETE                                                                   */
+  /* ------------------------------------------------------------------------ */
 
   const handleDelete =
     useCallback(async () => {
-      if (
-        mutationInProgress ||
-        typeof deleteGoal !== "function"
-      ) {
+      if (mutationInProgress) {
         return;
+      }
+
+      if (
+        typeof deleteGoal !==
+        "function"
+      ) {
+        const errorValue =
+          new Error(
+            "Savings goal deletion is currently unavailable.",
+          );
+
+        setMutationError(errorValue);
+
+        throw errorValue;
       }
 
       const goalId =
@@ -1560,7 +1466,7 @@ const SavingsGoalsPage = ({
       if (!goalId) {
         const errorValue =
           new Error(
-            "This savings goal could not be identified."
+            "This savings goal could not be identified.",
           );
 
         setMutationError(errorValue);
@@ -1579,10 +1485,7 @@ const SavingsGoalsPage = ({
 
         return result;
       } catch (deleteError) {
-        setMutationError(
-          deleteError
-        );
-
+        setMutationError(deleteError);
         throw deleteError;
       } finally {
         setAction(null);
@@ -1593,9 +1496,31 @@ const SavingsGoalsPage = ({
       mutationInProgress,
     ]);
 
-  /* --------------------------------------------------------------------------
-     RENDER
-  -------------------------------------------------------------------------- */
+  /* ------------------------------------------------------------------------ */
+  /* DERIVED UI STATES                                                        */
+  /* ------------------------------------------------------------------------ */
+
+  const initialLoading =
+    Boolean(loading) &&
+    goals.length === 0;
+
+  const initialLoadFailed =
+    !loading &&
+    goals.length === 0 &&
+    Boolean(loadErrorMessage);
+
+  const showEmptyState =
+    !loading &&
+    !loadErrorMessage &&
+    goals.length === 0;
+
+  const backgroundRefreshing =
+    Boolean(loading) &&
+    goals.length > 0;
+
+  /* ------------------------------------------------------------------------ */
+  /* RENDER                                                                   */
+  /* ------------------------------------------------------------------------ */
 
   return (
     <>
@@ -1603,6 +1528,8 @@ const SavingsGoalsPage = ({
         className={`w-full ${className}`.trim()}
         aria-labelledby="savings-goals-title"
       >
+        {/* Header */}
+
         <GoalsHeader
           title={title}
           description={description}
@@ -1617,6 +1544,8 @@ const SavingsGoalsPage = ({
           onCreate={handleOpenCreate}
         />
 
+        {/* Mutation error */}
+
         <MutationError
           message={mutationErrorMessage}
           onDismiss={() =>
@@ -1624,9 +1553,9 @@ const SavingsGoalsPage = ({
           }
         />
 
-        {/* INITIAL LOADING */}
-        {loading &&
-        goals.length === 0 &&
+        {/* Initial loading */}
+
+        {initialLoading &&
         !loadErrorMessage ? (
           <div
             className="
@@ -1637,10 +1566,9 @@ const SavingsGoalsPage = ({
           </div>
         ) : null}
 
-        {/* INITIAL LOAD ERROR */}
-        {!loading &&
-        goals.length === 0 &&
-        loadErrorMessage ? (
+        {/* Initial load error */}
+
+        {initialLoadFailed ? (
           <ErrorState
             message={loadErrorMessage}
             onRetry={
@@ -1652,7 +1580,8 @@ const SavingsGoalsPage = ({
           />
         ) : null}
 
-        {/* BACKGROUND REFRESH ERROR */}
+        {/* Background refresh error */}
+
         {goals.length > 0 ? (
           <BackgroundRefreshNotice
             message={loadErrorMessage}
@@ -1662,7 +1591,8 @@ const SavingsGoalsPage = ({
           />
         ) : null}
 
-        {/* SUMMARY */}
+        {/* Summary */}
+
         {!compact &&
         goals.length > 0 ? (
           <GoalsSummary
@@ -1670,7 +1600,8 @@ const SavingsGoalsPage = ({
           />
         ) : null}
 
-        {/* OVERALL PROGRESS */}
+        {/* Overall progress */}
+
         {!compact &&
         goals.length > 0 ? (
           <OverallProgress
@@ -1678,10 +1609,9 @@ const SavingsGoalsPage = ({
           />
         ) : null}
 
-        {/* EMPTY STATE */}
-        {!loading &&
-        !loadErrorMessage &&
-        goals.length === 0 ? (
+        {/* Empty state */}
+
+        {showEmptyState ? (
           <div
             className="
               mt-5
@@ -1697,16 +1627,17 @@ const SavingsGoalsPage = ({
           </div>
         ) : null}
 
-        {/* GOALS */}
+        {/* Goals */}
+
         <SavingsGoalsGrid
           goals={visibleGoals}
-          compact={compact}
           onSelect={onGoalSelect}
           onEdit={handleEdit}
           onDelete={handleDeleteRequest}
         />
 
-        {/* DISPLAY LIMIT */}
+        {/* Display limit */}
+
         {resolvedLimit &&
         goals.length >
           visibleGoals.length ? (
@@ -1722,9 +1653,9 @@ const SavingsGoalsPage = ({
           </p>
         ) : null}
 
-        {/* BACKGROUND LOADING */}
-        {loading &&
-        goals.length > 0 ? (
+        {/* Background refresh */}
+
+        {backgroundRefreshing ? (
           <div
             className="
               flex justify-center items-center
@@ -1749,7 +1680,8 @@ const SavingsGoalsPage = ({
         ) : null}
       </section>
 
-      {/* CREATE */}
+      {/* Create modal */}
+
       {createOpen ? (
         <CreateSavingsGoalModal
           open={createOpen}
@@ -1759,7 +1691,8 @@ const SavingsGoalsPage = ({
         />
       ) : null}
 
-      {/* EDIT */}
+      {/* Edit modal */}
+
       {editingGoal ? (
         <EditSavingsGoalModal
           open={Boolean(editingGoal)}
@@ -1770,7 +1703,8 @@ const SavingsGoalsPage = ({
         />
       ) : null}
 
-      {/* DELETE */}
+      {/* Delete modal */}
+
       {deletingGoal ? (
         <DeleteSavingsGoalModal
           open={Boolean(deletingGoal)}
