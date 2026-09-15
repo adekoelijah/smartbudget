@@ -334,29 +334,13 @@ const SummaryCard = ({
 }) => {
   const content = (
     <div
-      className="
-        h-full
-        p-4 sm:p-5
-        bg-white
-        border border-slate-200 hover:border-slate-300 rounded-2xl
-        shadow-sm transition
-      "
+      className="bg-white shadow-sm p-4 sm:p-5 border border-slate-200 hover:border-slate-300 rounded-2xl h-full transition"
     >
       <div
-        className="
-          flex justify-between items-start
-          gap-3
-        "
+        className="flex justify-between items-start gap-3"
       >
         <div
-          className="
-            flex justify-center items-center
-            w-10 h-10
-            text-slate-700
-            bg-slate-100
-            rounded-xl
-            shrink-0
-          "
+          className="flex justify-center items-center bg-slate-100 rounded-xl w-10 h-10 text-slate-700 shrink-0"
           aria-hidden="true"
         >
           <Icon
@@ -368,9 +352,7 @@ const SummaryCard = ({
         {to && (
           <ArrowRight
             size={15}
-            className="
-              text-slate-400
-            "
+            className="text-slate-400"
             aria-hidden="true"
           /
           >
@@ -378,28 +360,19 @@ const SummaryCard = ({
       </div>
 
       <p
-        className="
-          mt-4
-          font-medium text-slate-500 text-xs
-        "
+        className="mt-4 font-medium text-slate-500 text-xs"
       >
         {label}
       </p>
 
       <p
-        className="
-          mt-1
-          font-bold text-slate-900 text-xl tracking-tight
-        "
+        className="mt-1 font-bold text-slate-900 text-xl tracking-tight"
       >
         {value}
       </p>
 
       <p
-        className="
-          mt-1
-          text-slate-500 text-xs leading-5
-        "
+        className="mt-1 text-slate-500 text-xs leading-5"
       >
         {description}
       </p>
@@ -413,12 +386,7 @@ const SummaryCard = ({
   return (
     <Link
       to={to}
-      className="
-        block
-        h-full
-        rounded-2xl focus:outline-none
-        focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2
-      "
+      className="block rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 h-full"
       aria-label={`${label}: ${value}`}
     >
       {content}
@@ -441,66 +409,37 @@ const GoalProgressCard = ({ goal }) => {
       state={{
         goalId,
       }}
-      className="
-        block
-        w-full
-        p-4
-        text-left
-        bg-white
-        border border-slate-200 hover:border-slate-300 rounded-2xl
-        focus:outline-none
-        shadow-sm transition
-        focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2
-      "
+      className="block bg-white shadow-sm p-4 border border-slate-200 hover:border-slate-300 rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 w-full text-left transition"
       aria-label={`Open ${goalName}`}
     >
       <div
-        className="
-          flex justify-between items-center
-          gap-3
-        "
+        className="flex justify-between items-center gap-3"
       >
         <div
-          className="
-            min-w-0
-          "
+          className="min-w-0"
         >
           <p
-            className="
-              font-semibold text-slate-900 text-sm truncate
-            "
+            className="font-semibold text-slate-900 text-sm truncate"
           >
             {goalName}
           </p>
 
           <p
-            className="
-              mt-1
-              text-slate-500 text-xs
-            "
+            className="mt-1 text-slate-500 text-xs"
           >
             {progress.toFixed(0)}% complete
           </p>
         </div>
 
         <span
-          className="
-            font-bold text-slate-700 text-sm
-            shrink-0
-          "
+          className="font-bold text-slate-700 text-sm shrink-0"
         >
           {progress.toFixed(0)}%
         </span>
       </div>
 
       <div
-        className="
-          overflow-hidden
-          h-2
-          mt-4
-          bg-slate-100
-          rounded-full
-        "
+        className="bg-slate-100 mt-4 rounded-full h-2 overflow-hidden"
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={100}
@@ -508,12 +447,7 @@ const GoalProgressCard = ({ goal }) => {
         aria-label={`${goalName} progress`}
       >
         <div
-          className="
-            h-full
-            bg-slate-900
-            rounded-full
-            transition-[width] duration-300
-          "
+          className="bg-slate-900 rounded-full h-full transition-[width] duration-300"
           style={{
             width: `${progress}%`,
           }}
@@ -536,42 +470,28 @@ const SavingsPlansPreview = ({
 
   return (
     <section
-      className="
-        mt-8
-      "
+      className="mt-8"
       aria-labelledby="smart-save-plans"
     >
       <div
-        className="
-          flex flex-col sm:flex-row sm:justify-between sm:items-end
-          mb-4
-          gap-3
-        "
+        className="flex sm:flex-row flex-col sm:justify-between sm:items-end gap-3 mb-4"
       >
         <div>
           <p
-            className="
-              font-semibold text-slate-500 text-xs uppercase tracking-wide
-            "
+            className="font-semibold text-slate-500 text-xs uppercase tracking-wide"
           >
             Savings plans
           </p>
 
           <h2
             id="smart-save-plans"
-            className="
-              mt-1
-              font-bold text-slate-900 text-lg tracking-tight
-            "
+            className="mt-1 font-bold text-slate-900 text-lg tracking-tight"
           >
             Your saving strategy
           </h2>
 
           <p
-            className="
-              mt-1
-              text-slate-500 text-sm leading-6
-            "
+            className="mt-1 text-slate-500 text-sm leading-6"
           >
             Manage the plans that organize how you
             reach your savings targets.
@@ -580,12 +500,7 @@ const SavingsPlansPreview = ({
 
         <Link
           to={SMART_SAVE_ROUTES.PLANS}
-          className="
-            inline-flex items-center self-start sm:self-auto
-            font-semibold text-slate-600 hover:text-slate-900 text-xs
-            rounded focus:outline-none
-            gap-1 focus-visible:ring-2 focus-visible:ring-slate-400
-          "
+          className="inline-flex items-center self-start sm:self-auto gap-1 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 font-semibold text-slate-600 hover:text-slate-900 text-xs"
         >
           View all plans
           <ArrowRight
@@ -597,52 +512,31 @@ const SavingsPlansPreview = ({
 
       {visiblePlans.length === 0 ? (
         <div
-          className="
-            p-5
-            bg-white
-            border border-slate-200 rounded-2xl
-            shadow-sm
-          "
+          className="bg-white shadow-sm p-5 border border-slate-200 rounded-2xl"
         >
           <div
-            className="
-              flex items-start
-              gap-3
-            "
+            className="flex items-start gap-3"
           >
             <div
-              className="
-                flex justify-center items-center
-                w-10 h-10
-                bg-slate-100
-                rounded-xl
-                shrink-0
-              "
+              className="flex justify-center items-center bg-slate-100 rounded-xl w-10 h-10 shrink-0"
               aria-hidden="true"
             >
               <WalletCards
                 size={18}
-                className="
-                  text-slate-700
-                "
+                className="text-slate-700"
                 /
               >
             </div>
 
             <div>
               <h3
-                className="
-                  font-semibold text-slate-900 text-sm
-                "
+                className="font-semibold text-slate-900 text-sm"
               >
                 No savings plans yet
               </h3>
 
               <p
-                className="
-                  mt-1
-                  text-slate-500 text-xs leading-5
-                "
+                className="mt-1 text-slate-500 text-xs leading-5"
               >
                 Create a savings plan to organize
                 your contributions and progress.
@@ -650,13 +544,7 @@ const SavingsPlansPreview = ({
 
               <Link
                 to={SMART_SAVE_ROUTES.PLANS}
-                className="
-                  inline-flex items-center
-                  mt-4
-                  font-semibold text-slate-700 hover:text-slate-900 text-xs
-                  rounded focus:outline-none
-                  gap-1 focus-visible:ring-2 focus-visible:ring-slate-400
-                "
+                className="inline-flex items-center gap-1 mt-4 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 font-semibold text-slate-700 hover:text-slate-900 text-xs"
               >
                 Create a savings plan
                 <ArrowRight
@@ -669,10 +557,7 @@ const SavingsPlansPreview = ({
         </div>
       ) : (
         <div
-          className="
-            grid grid-cols-1 lg:grid-cols-3
-            gap-4
-          "
+          className="gap-4 grid grid-cols-1 lg:grid-cols-3"
         >
           {visiblePlans.map((plan, index) => {
             const planId = getPlanId(plan);
@@ -687,40 +572,23 @@ const SavingsPlansPreview = ({
                 state={{
                   planId,
                 }}
-                className="
-                  block
-                  p-5
-                  bg-white
-                  border border-slate-200 hover:border-slate-300 rounded-2xl
-                  focus:outline-none
-                  shadow-sm transition
-                  focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2
-                "
+                className="block bg-white shadow-sm p-5 border border-slate-200 hover:border-slate-300 rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 transition"
                 aria-label={`Open ${getPlanName(plan)}`}
               >
                 <div
-                  className="
-                    flex justify-between items-start
-                    gap-3
-                  "
+                  className="flex justify-between items-start gap-3"
                 >
                   <div
-                    className="
-                      min-w-0
-                    "
+                    className="min-w-0"
                   >
                     <h3
-                      className="
-                        font-semibold text-slate-900 text-sm truncate
-                      "
+                      className="font-semibold text-slate-900 text-sm truncate"
                     >
                       {getPlanName(plan)}
                     </h3>
 
                     <div
-                      className="
-                        mt-2
-                      "
+                      className="mt-2"
                     >
                       <SavingPlanStatusBadge
                         plan={plan}
@@ -731,19 +599,14 @@ const SavingsPlansPreview = ({
 
                   <ArrowRight
                     size={15}
-                    className="
-                      text-slate-400
-                      shrink-0
-                    "
+                    className="text-slate-400 shrink-0"
                     aria-hidden="true"
                   /
                   >
                 </div>
 
                 <div
-                  className="
-                    mt-4
-                  "
+                  className="mt-4"
                 >
                   <SavingPlanProgress
                     plan={plan}
@@ -753,12 +616,7 @@ const SavingsPlansPreview = ({
                 </div>
 
                 <div
-                  className="
-                    flex justify-between items-center
-                    mt-4 pt-4
-                    border-slate-100 border-t
-                    gap-3
-                  "
+                  className="flex justify-between items-center gap-3 mt-4 pt-4 border-slate-100 border-t"
                 >
                   <SavingPlanStrategyBadge
                     plan={plan}
@@ -766,11 +624,7 @@ const SavingsPlansPreview = ({
                   />
 
                   <span
-                    className="
-                      inline-flex items-center
-                      text-[11px] text-slate-400
-                      gap-1
-                    "
+                    className="inline-flex items-center gap-1 text-[11px] text-slate-400"
                   >
                     <CalendarDays
                       size={12}
@@ -798,47 +652,27 @@ const ActivityPreview = ({ activity }) => {
   if (visibleActivity.length === 0) {
     return (
       <div
-        className="
-          flex flex-col justify-center
-          min-h-48
-          p-5
-          bg-white
-          border border-slate-200 rounded-2xl
-          shadow-sm
-        "
+        className="flex flex-col justify-center bg-white shadow-sm p-5 border border-slate-200 rounded-2xl min-h-48"
       >
         <div
-          className="
-            flex justify-center items-center
-            w-10 h-10
-            bg-slate-100
-            rounded-xl
-          "
+          className="flex justify-center items-center bg-slate-100 rounded-xl w-10 h-10"
           aria-hidden="true"
         >
           <Activity
             size={18}
-            className="
-              text-slate-700
-            "
+            className="text-slate-700"
             /
           >
         </div>
 
         <h3
-          className="
-            mt-4
-            font-semibold text-slate-900 text-sm
-          "
+          className="mt-4 font-semibold text-slate-900 text-sm"
         >
           No savings activity yet
         </h3>
 
         <p
-          className="
-            mt-1
-            text-slate-500 text-xs leading-5
-          "
+          className="mt-1 text-slate-500 text-xs leading-5"
         >
           Your latest savings activity will appear
           here as you build your savings.
@@ -849,39 +683,23 @@ const ActivityPreview = ({ activity }) => {
 
   return (
     <div
-      className="
-        overflow-hidden
-        bg-white
-        border border-slate-200 rounded-2xl
-        shadow-sm
-      "
+      className="bg-white shadow-sm border border-slate-200 rounded-2xl overflow-hidden"
     >
       <div
-        className="
-          p-5
-          border-slate-100 border-b
-        "
+        className="p-5 border-slate-100 border-b"
       >
         <div
-          className="
-            flex justify-between items-center
-            gap-3
-          "
+          className="flex justify-between items-center gap-3"
         >
           <div>
             <h3
-              className="
-                font-semibold text-slate-900 text-sm
-              "
+              className="font-semibold text-slate-900 text-sm"
             >
               Recent activity
             </h3>
 
             <p
-              className="
-                mt-1
-                text-slate-500 text-xs
-              "
+              className="mt-1 text-slate-500 text-xs"
             >
               Your latest savings movements.
             </p>
@@ -889,12 +707,7 @@ const ActivityPreview = ({ activity }) => {
 
           <Link
             to={SMART_SAVE_ROUTES.ACTIVITY}
-            className="
-              inline-flex items-center
-              font-semibold text-slate-700 hover:text-slate-900 text-xs
-              rounded focus:outline-none
-              gap-1 focus-visible:ring-2 focus-visible:ring-slate-400
-            "
+            className="inline-flex items-center gap-1 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 font-semibold text-slate-700 hover:text-slate-900 text-xs"
           >
             View all
             <ArrowRight
@@ -916,51 +729,30 @@ const ActivityPreview = ({ activity }) => {
           return (
             <div
               key={key}
-              className="
-                flex items-center
-                px-5 py-4
-                border-slate-100 border-b last:border-b-0
-                gap-3
-              "
+              className="flex items-center gap-3 px-5 py-4 border-slate-100 border-b last:border-b-0"
             >
               <div
-                className="
-                  flex justify-center items-center
-                  w-9 h-9
-                  bg-slate-100
-                  rounded-lg
-                  shrink-0
-                "
+                className="flex justify-center items-center bg-slate-100 rounded-lg w-9 h-9 shrink-0"
                 aria-hidden="true"
               >
                 <WalletCards
                   size={16}
-                  className="
-                    text-slate-700
-                  "
+                  className="text-slate-700"
                   /
                 >
               </div>
 
               <div
-                className="
-                  flex-1
-                  min-w-0
-                "
+                className="flex-1 min-w-0"
               >
                 <p
-                  className="
-                    font-medium text-slate-800 text-xs truncate
-                  "
+                  className="font-medium text-slate-800 text-xs truncate"
                 >
                   {getActivityDescription(item)}
                 </p>
 
                 <p
-                  className="
-                    mt-0.5
-                    text-[11px] text-slate-400
-                  "
+                  className="mt-0.5 text-[11px] text-slate-400"
                 >
                   Savings activity
                 </p>
@@ -982,34 +774,24 @@ const QuickAccess = () => (
     aria-labelledby="smart-save-quick-access"
   >
     <div
-      className="
-        mb-4
-      "
+      className="mb-4"
     >
       <p
-        className="
-          font-semibold text-slate-500 text-xs uppercase tracking-wide
-        "
+        className="font-semibold text-slate-500 text-xs uppercase tracking-wide"
       >
         Workspace
       </p>
 
       <h2
         id="smart-save-quick-access"
-        className="
-          mt-1
-          font-bold text-slate-900 text-lg tracking-tight
-        "
+        className="mt-1 font-bold text-slate-900 text-lg tracking-tight"
       >
         Explore SmartSave
       </h2>
     </div>
 
     <div
-      className="
-        grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3
-        gap-3
-      "
+      className="gap-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"
     >
       {QUICK_ACCESS_ITEMS.map(
         ({
@@ -1021,50 +803,26 @@ const QuickAccess = () => (
           <Link
             key={path}
             to={path}
-            className="
-              flex items-center
-              p-4
-              bg-white
-              border border-slate-200 hover:border-slate-300 rounded-xl
-              focus:outline-none
-              shadow-sm transition
-              group gap-3
-              focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2
-            "
+            className="group flex items-center gap-3 bg-white shadow-sm p-4 border border-slate-200 hover:border-slate-300 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 transition"
           >
             <div
-              className="
-                flex justify-center items-center
-                w-10 h-10
-                text-slate-700
-                bg-slate-100
-                rounded-xl
-                shrink-0
-              "
+              className="flex justify-center items-center bg-slate-100 rounded-xl w-10 h-10 text-slate-700 shrink-0"
               aria-hidden="true"
             >
               <Icon size={17} />
             </div>
 
             <div
-              className="
-                flex-1
-                min-w-0
-              "
+              className="flex-1 min-w-0"
             >
               <p
-                className="
-                  font-semibold text-slate-800 text-sm
-                "
+                className="font-semibold text-slate-800 text-sm"
               >
                 {label}
               </p>
 
               <p
-                className="
-                  mt-0.5
-                  text-slate-500 text-xs leading-5
-                "
+                className="mt-0.5 text-slate-500 text-xs leading-5"
               >
                 {description}
               </p>
@@ -1072,11 +830,7 @@ const QuickAccess = () => (
 
             <ArrowRight
               size={15}
-              className="
-                text-slate-400
-                transition
-                group-hover:text-slate-700 group-hover:translate-x-0.5 shrink-0
-              "
+              className="text-slate-400 group-hover:text-slate-700 transition group-hover:translate-x-0.5 shrink-0"
               aria-hidden="true"
             /
             >
@@ -1093,68 +847,40 @@ const QuickAccess = () => (
 
 const EmergencyFundPreview = () => (
   <div
-    className="
-      overflow-hidden
-      bg-white
-      border border-slate-200 rounded-2xl
-      shadow-sm
-    "
+    className="bg-white shadow-sm border border-slate-200 rounded-2xl overflow-hidden"
   >
     <div
-      className="
-        flex justify-between items-start
-        p-5
-        gap-4
-      "
+      className="flex justify-between items-start gap-4 p-5"
     >
       <div
-        className="
-          flex items-start
-          gap-3
-        "
+        className="flex items-start gap-3"
       >
         <div
-          className="
-            flex justify-center items-center
-            w-10 h-10
-            bg-slate-100
-            rounded-xl
-            shrink-0
-          "
+          className="flex justify-center items-center bg-slate-100 rounded-xl w-10 h-10 shrink-0"
           aria-hidden="true"
         >
           <WalletCards
             size={18}
-            className="
-              text-slate-700
-            "
+            className="text-slate-700"
             /
           >
         </div>
 
         <div>
           <p
-            className="
-              font-semibold text-slate-500 text-xs uppercase tracking-wide
-            "
+            className="font-semibold text-slate-500 text-xs uppercase tracking-wide"
           >
             Safety net
           </p>
 
           <h3
-            className="
-              mt-1
-              font-bold text-slate-900 text-lg
-            "
+            className="mt-1 font-bold text-slate-900 text-lg"
           >
             Emergency fund
           </h3>
 
           <p
-            className="
-              mt-1
-              text-slate-500 text-xs leading-5
-            "
+            className="mt-1 text-slate-500 text-xs leading-5"
           >
             Your emergency savings position.
           </p>
@@ -1163,12 +889,7 @@ const EmergencyFundPreview = () => (
 
       <Link
         to={SMART_SAVE_ROUTES.EMERGENCY_FUND}
-        className="
-          inline-flex items-center
-          font-semibold text-slate-600 hover:text-slate-900 text-xs
-          rounded focus:outline-none
-          gap-1 focus-visible:ring-2 focus-visible:ring-slate-400 shrink-0
-        "
+        className="inline-flex items-center gap-1 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 font-semibold text-slate-600 hover:text-slate-900 text-xs shrink-0"
       >
         Details
         <ArrowRight
@@ -1179,21 +900,13 @@ const EmergencyFundPreview = () => (
     </div>
 
     <div
-      className="
-        px-5 pb-5
-      "
+      className="px-5 pb-5"
     >
       <div
-        className="
-          p-4
-          bg-slate-50
-          rounded-xl
-        "
+        className="bg-slate-50 p-4 rounded-xl"
       >
         <p
-          className="
-            text-slate-600 text-xs leading-5
-          "
+          className="text-slate-600 text-xs leading-5"
         >
           Your emergency fund data is available.
           Open the dedicated page for detailed
@@ -1211,71 +924,38 @@ const EmergencyFundPreview = () => (
 const ForecastPreview = () => (
   <Link
     to={SMART_SAVE_ROUTES.FORECAST}
-    className="
-      block
-      p-5
-      bg-white
-      border border-slate-200 hover:border-slate-300 rounded-2xl
-      focus:outline-none
-      shadow-sm transition
-      group
-      focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2
-    "
+    className="group block bg-white shadow-sm p-5 border border-slate-200 hover:border-slate-300 rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 transition"
   >
     <div
-      className="
-        flex justify-between items-start
-        gap-4
-      "
+      className="flex justify-between items-start gap-4"
     >
       <div
-        className="
-          flex items-start
-          gap-3
-        "
+        className="flex items-start gap-3"
       >
         <div
-          className="
-            flex justify-center items-center
-            w-10 h-10
-            text-slate-700
-            bg-slate-100
-            rounded-xl
-            shrink-0
-          "
+          className="flex justify-center items-center bg-slate-100 rounded-xl w-10 h-10 text-slate-700 shrink-0"
           aria-hidden="true"
         >
           <TrendingUp size={18} />
         </div>
 
         <div
-          className="
-            min-w-0
-          "
+          className="min-w-0"
         >
           <p
-            className="
-              font-semibold text-slate-500 text-xs uppercase tracking-wide
-            "
+            className="font-semibold text-slate-500 text-xs uppercase tracking-wide"
           >
             Savings forecast
           </p>
 
           <h3
-            className="
-              mt-1
-              font-bold text-slate-900 text-lg
-            "
+            className="mt-1 font-bold text-slate-900 text-lg"
           >
             See where your savings are heading
           </h3>
 
           <p
-            className="
-              max-w-xl
-              mt-1
-              text-slate-500 text-xs leading-5
-            "
+            className="mt-1 max-w-xl text-slate-500 text-xs leading-5"
           >
             Explore your projected savings,
             timelines, milestones and future
@@ -1286,36 +966,23 @@ const ForecastPreview = () => (
 
       <ArrowRight
         size={17}
-        className="
-          mt-1
-          text-slate-400
-          transition
-          group-hover:text-slate-700 group-hover:translate-x-0.5 shrink-0
-        "
+        className="mt-1 text-slate-400 group-hover:text-slate-700 transition group-hover:translate-x-0.5 shrink-0"
         aria-hidden="true"
       /
       >
     </div>
 
     <div
-      className="
-        flex justify-between items-center
-        mt-5 pt-4
-        border-slate-100 border-t
-      "
+      className="flex justify-between items-center mt-5 pt-4 border-slate-100 border-t"
     >
       <span
-        className="
-          font-medium text-slate-500 text-xs
-        "
+        className="font-medium text-slate-500 text-xs"
       >
         Open forecast
       </span>
 
       <span
-        className="
-          font-semibold text-slate-700 text-xs
-        "
+        className="font-semibold text-slate-700 text-xs"
       >
         View details
       </span>
@@ -1343,40 +1010,27 @@ const IntelligenceSection = ({
 
   return (
     <section
-      className="
-        mt-8
-      "
+      className="mt-8"
       aria-labelledby="smart-save-intelligence"
     >
       <div
-        className="
-          mb-4
-        "
+        className="mb-4"
       >
         <p
-          className="
-            font-semibold text-slate-500 text-xs uppercase tracking-wide
-          "
+          className="font-semibold text-slate-500 text-xs uppercase tracking-wide"
         >
           Intelligence
         </p>
 
         <h2
           id="smart-save-intelligence"
-          className="
-            mt-1
-            font-bold text-slate-900 text-lg tracking-tight
-          "
+          className="mt-1 font-bold text-slate-900 text-lg tracking-tight"
         >
           Know before you save
         </h2>
 
         <p
-          className="
-            max-w-2xl
-            mt-1
-            text-slate-500 text-sm leading-6
-          "
+          className="mt-1 max-w-2xl text-slate-500 text-sm leading-6"
         >
           SmartSave turns your savings data into
           signals that help you make better decisions.
@@ -1384,10 +1038,7 @@ const IntelligenceSection = ({
       </div>
 
       <div
-        className="
-          grid grid-cols-1 xl:grid-cols-2
-          gap-4
-        "
+        className="gap-4 grid grid-cols-1 xl:grid-cols-2"
       >
         {health && (
           <SavingsHealthScore
@@ -1418,58 +1069,34 @@ const InsightsPreview = ({ insights }) => {
 
   return (
     <div
-      className="
-        p-5
-        bg-white
-        border border-slate-200 rounded-2xl
-        shadow-sm
-      "
+      className="bg-white shadow-sm p-5 border border-slate-200 rounded-2xl"
     >
       <div
-        className="
-          flex justify-between items-start
-          gap-4
-        "
+        className="flex justify-between items-start gap-4"
       >
         <div
-          className="
-            flex items-start
-            gap-3
-          "
+          className="flex items-start gap-3"
         >
           <div
-            className="
-              flex justify-center items-center
-              w-10 h-10
-              bg-slate-100
-              rounded-xl
-              shrink-0
-            "
+            className="flex justify-center items-center bg-slate-100 rounded-xl w-10 h-10 shrink-0"
             aria-hidden="true"
           >
             <Lightbulb
               size={18}
-              className="
-                text-slate-700
-              "
+              className="text-slate-700"
               /
             >
           </div>
 
           <div>
             <h3
-              className="
-                font-semibold text-slate-900 text-sm
-              "
+              className="font-semibold text-slate-900 text-sm"
             >
               Savings intelligence
             </h3>
 
             <p
-              className="
-                mt-1
-                text-slate-500 text-xs leading-5
-              "
+              className="mt-1 text-slate-500 text-xs leading-5"
             >
               Personalized signals from your
               savings data.
@@ -1479,12 +1106,7 @@ const InsightsPreview = ({ insights }) => {
 
         <Link
           to={SMART_SAVE_ROUTES.INSIGHTS}
-          className="
-            inline-flex items-center
-            font-semibold text-slate-600 hover:text-slate-900 text-xs
-            rounded focus:outline-none
-            gap-1 focus-visible:ring-2 focus-visible:ring-slate-400
-          "
+          className="inline-flex items-center gap-1 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 font-semibold text-slate-600 hover:text-slate-900 text-xs"
         >
           View all
           <ArrowRight
@@ -1495,36 +1117,25 @@ const InsightsPreview = ({ insights }) => {
       </div>
 
       <div
-        className="
-          mt-5 p-4
-          bg-slate-50
-          rounded-xl
-        "
+        className="bg-slate-50 mt-5 p-4 rounded-xl"
       >
         {firstInsight ? (
           <>
             <p
-              className="
-                font-semibold text-slate-800 text-sm
-              "
+              className="font-semibold text-slate-800 text-sm"
             >
               {getInsightTitle(firstInsight)}
             </p>
 
             <p
-              className="
-                mt-1
-                text-slate-500 text-xs leading-5
-              "
+              className="mt-1 text-slate-500 text-xs leading-5"
             >
               {getInsightDescription(firstInsight)}
             </p>
           </>
         ) : (
           <p
-            className="
-              text-slate-500 text-xs leading-5
-            "
+            className="text-slate-500 text-xs leading-5"
           >
             Your savings insights will appear here
             as SmartSave gathers enough information
@@ -1644,18 +1255,12 @@ const SmartSaveOverviewPage = () => {
   if (isLoading && !hasSavingsContent) {
     return (
       <main
-        className="
-          w-full min-h-screen
-          bg-slate-50
-        "
+        className="bg-slate-50 w-full min-h-screen"
         aria-busy="true"
         aria-label="Loading SmartSave"
       >
         <div
-          className="
-            w-full max-w-7xl
-            mx-auto px-4 sm:px-6 lg:px-8 py-6
-          "
+          className="mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full max-w-7xl"
         >
           <SavingsSkeleton module="page" />
         </div>
@@ -1674,22 +1279,13 @@ const SmartSaveOverviewPage = () => {
   ) {
     return (
       <main
-        className="
-          w-full min-h-screen
-          bg-slate-50
-        "
+        className="bg-slate-50 w-full min-h-screen"
       >
         <div
-          className="
-            flex items-center
-            w-full max-w-7xl min-h-[70vh]
-            mx-auto px-4 sm:px-6 lg:px-8
-          "
+          className="flex items-center mx-auto px-4 sm:px-6 lg:px-8 w-full max-w-7xl min-h-[70vh]"
         >
           <div
-            className="
-              w-full
-            "
+            className="w-full"
           >
             <SavingsErrorState
               error={error}
@@ -1707,16 +1303,10 @@ const SmartSaveOverviewPage = () => {
 
   return (
     <main
-      className="
-        w-full min-h-screen
-        bg-slate-50
-      "
+      className="bg-slate-50 w-full min-h-screen"
     >
       <div
-        className="
-          w-full max-w-7xl
-          mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-7 lg:py-8
-        "
+        className="mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-7 lg:py-8 w-full max-w-7xl"
       >
         {/* =================================================
             REFRESH STATUS
@@ -1724,22 +1314,13 @@ const SmartSaveOverviewPage = () => {
 
         {refreshing && (
           <div
-            className="
-              flex items-center
-              mb-4 px-4 py-2.5
-              font-medium text-slate-500 text-xs
-              bg-white
-              border border-slate-200 rounded-xl
-              gap-2
-            "
+            className="flex items-center gap-2 bg-white mb-4 px-4 py-2.5 border border-slate-200 rounded-xl font-medium text-slate-500 text-xs"
             role="status"
             aria-live="polite"
           >
             <RefreshCw
               size={13}
-              className="
-                animate-spin
-              "
+              className="animate-spin"
               aria-hidden="true"
             /
             >
@@ -1753,35 +1334,17 @@ const SmartSaveOverviewPage = () => {
         ================================================= */}
 
         <section
-          className="
-            relative overflow-hidden
-            p-5 sm:p-7
-            bg-slate-900
-            rounded-2xl
-            shadow-sm
-          "
+          className="relative bg-slate-900 shadow-sm p-5 sm:p-7 rounded-2xl overflow-hidden"
           aria-labelledby="smart-save-overview-title"
         >
           <div
-            className="
-              flex flex-col lg:flex-row lg:justify-between lg:items-center
-              gap-6
-            "
+            className="flex lg:flex-row flex-col lg:justify-between lg:items-center gap-6"
           >
             <div
-              className="
-                max-w-2xl
-              "
+              className="max-w-2xl"
             >
               <div
-                className="
-                  inline-flex items-center
-                  px-2.5 py-1.5
-                  font-semibold text-[11px] text-slate-200
-                  bg-white/10
-                  border border-white/10 rounded-lg
-                  gap-2
-                "
+                className="inline-flex items-center gap-2 bg-white/10 px-2.5 py-1.5 border border-white/10 rounded-lg font-semibold text-[11px] text-slate-200"
               >
                 <Zap
                   size={13}
@@ -1793,20 +1356,13 @@ const SmartSaveOverviewPage = () => {
 
               <h1
                 id="smart-save-overview-title"
-                className="
-                  mt-4
-                  font-bold text-white text-2xl sm:text-3xl tracking-tight
-                "
+                className="mt-4 font-bold text-white text-2xl sm:text-3xl tracking-tight"
               >
                 Your savings, at a glance.
               </h1>
 
               <p
-                className="
-                  max-w-xl
-                  mt-2
-                  text-slate-300 text-sm leading-6
-                "
+                className="mt-2 max-w-xl text-slate-300 text-sm leading-6"
               >
                 See your progress, understand your
                 financial position, and move quickly
@@ -1815,24 +1371,11 @@ const SmartSaveOverviewPage = () => {
             </div>
 
             <div
-              className="
-                flex flex-wrap items-center
-                gap-2
-              "
+              className="flex flex-wrap items-center gap-2"
             >
               <Link
                 to={SMART_SAVE_ROUTES.GOALS}
-                className="
-                  inline-flex justify-center items-center
-                  min-h-10
-                  px-4 py-2.5
-                  font-semibold text-slate-900 text-sm
-                  bg-white hover:bg-slate-100
-                  rounded-xl focus:outline-none
-                  transition
-                  gap-2
-                  focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900
-                "
+                className="inline-flex justify-center items-center gap-2 bg-white hover:bg-slate-100 px-4 py-2.5 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 min-h-10 font-semibold text-slate-900 text-sm transition"
               >
                 <Target
                   size={16}
@@ -1844,17 +1387,7 @@ const SmartSaveOverviewPage = () => {
 
               <Link
                 to={SMART_SAVE_ROUTES.PLANS}
-                className="
-                  inline-flex justify-center items-center
-                  min-h-10
-                  px-4 py-2.5
-                  font-semibold text-white text-sm
-                  bg-white/10 hover:bg-white/15
-                  border border-white/10 rounded-xl focus:outline-none
-                  transition
-                  gap-2
-                  focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900
-                "
+                className="inline-flex justify-center items-center gap-2 bg-white/10 hover:bg-white/15 px-4 py-2.5 border border-white/10 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 min-h-10 font-semibold text-white text-sm transition"
               >
                 <WalletCards
                   size={16}
@@ -1866,17 +1399,7 @@ const SmartSaveOverviewPage = () => {
 
               <Link
                 to={SMART_SAVE_ROUTES.INSIGHTS}
-                className="
-                  inline-flex justify-center items-center
-                  min-h-10
-                  px-4 py-2.5
-                  font-semibold text-white text-sm
-                  bg-white/10 hover:bg-white/15
-                  border border-white/10 rounded-xl focus:outline-none
-                  transition
-                  gap-2
-                  focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900
-                "
+                className="inline-flex justify-center items-center gap-2 bg-white/10 hover:bg-white/15 px-4 py-2.5 border border-white/10 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 min-h-10 font-semibold text-white text-sm transition"
               >
                 <Lightbulb
                   size={16}
@@ -1895,30 +1418,19 @@ const SmartSaveOverviewPage = () => {
 
         {error && hasSavingsContent && (
           <div
-            className="
-              flex flex-col sm:flex-row sm:justify-between sm:items-center
-              mt-4 p-4
-              bg-amber-50
-              border border-amber-200 rounded-xl
-              gap-3
-            "
+            className="flex sm:flex-row flex-col sm:justify-between sm:items-center gap-3 bg-amber-50 mt-4 p-4 border border-amber-200 rounded-xl"
             role="alert"
           >
             <div>
               <p
-                className="
-                  font-semibold text-amber-900 text-sm
-                "
+                className="font-semibold text-amber-900 text-sm"
               >
                 Some SmartSave data could not be
                 updated.
               </p>
 
               <p
-                className="
-                  mt-1
-                  text-amber-700 text-xs
-                "
+                className="mt-1 text-amber-700 text-xs"
               >
                 Your previously loaded information
                 remains available.
@@ -1932,17 +1444,7 @@ const SmartSaveOverviewPage = () => {
                 refreshing ||
                 typeof refresh !== "function"
               }
-              className="
-                inline-flex justify-center items-center
-                min-h-9
-                px-3 py-2
-                font-semibold text-amber-800 text-xs
-                bg-white hover:bg-amber-100
-                border border-amber-200 rounded-lg
-                disabled:opacity-50
-                disabled:cursor-not-allowed
-                gap-2
-              "
+              className="inline-flex justify-center items-center gap-2 bg-white hover:bg-amber-100 disabled:opacity-50 px-3 py-2 border border-amber-200 rounded-lg min-h-9 font-semibold text-amber-800 text-xs disabled:cursor-not-allowed"
             >
               <RefreshCw
                 size={13}
@@ -1965,9 +1467,7 @@ const SmartSaveOverviewPage = () => {
 
         {!hasSavingsContent && !isLoading && (
           <section
-            className="
-              mt-6
-            "
+            className="mt-6"
           >
             <SavingsEmptyState
               title="Your SmartSave workspace is ready"
@@ -1993,40 +1493,28 @@ const SmartSaveOverviewPage = () => {
             ============================================= */}
 
             <section
-              className="
-                mt-6
-              "
+              className="mt-6"
               aria-labelledby="smart-save-at-a-glance"
             >
               <div
-                className="
-                  mb-4
-                "
+                className="mb-4"
               >
                 <p
-                  className="
-                    font-semibold text-slate-500 text-xs uppercase tracking-wide
-                  "
+                  className="font-semibold text-slate-500 text-xs uppercase tracking-wide"
                 >
                   Financial position
                 </p>
 
                 <h2
                   id="smart-save-at-a-glance"
-                  className="
-                    mt-1
-                    font-bold text-slate-900 text-lg tracking-tight
-                  "
+                  className="mt-1 font-bold text-slate-900 text-lg tracking-tight"
                 >
                   At a glance
                 </h2>
               </div>
 
               <div
-                className="
-                  grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4
-                  gap-4
-                "
+                className="gap-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4"
               >
                 <SummaryCard
                   icon={Target}
@@ -2076,72 +1564,46 @@ const SmartSaveOverviewPage = () => {
             ============================================= */}
 
             <section
-              className="
-                mt-8
-              "
+              className="mt-8"
               aria-labelledby="smart-save-progress"
             >
               <div
-                className="
-                  mb-4
-                "
+                className="mb-4"
               >
                 <p
-                  className="
-                    font-semibold text-slate-500 text-xs uppercase tracking-wide
-                  "
+                  className="font-semibold text-slate-500 text-xs uppercase tracking-wide"
                 >
                   Progress
                 </p>
 
                 <h2
                   id="smart-save-progress"
-                  className="
-                    mt-1
-                    font-bold text-slate-900 text-lg tracking-tight
-                  "
+                  className="mt-1 font-bold text-slate-900 text-lg tracking-tight"
                 >
                   What you're building
                 </h2>
               </div>
 
               <div
-                className="
-                  grid grid-cols-1 lg:grid-cols-2
-                  gap-4
-                "
+                className="gap-4 grid grid-cols-1 lg:grid-cols-2"
               >
                 {/* GOALS */}
 
                 <div
-                  className="
-                    p-5
-                    bg-slate-900
-                    rounded-2xl
-                    shadow-sm
-                  "
+                  className="bg-slate-900 shadow-sm p-5 rounded-2xl"
                 >
                   <div
-                    className="
-                      flex justify-between items-center
-                      gap-3
-                    "
+                    className="flex justify-between items-center gap-3"
                   >
                     <div>
                       <p
-                        className="
-                          font-semibold text-slate-300 text-xs uppercase
-                          tracking-wide
-                        "
+                        className="font-semibold text-slate-300 text-xs uppercase tracking-wide"
                       >
                         Savings goals
                       </p>
 
                       <h3
-                        className="
-                          mt-1
-                          font-bold text-white text-lg
-                        "
+                        className="mt-1 font-bold text-white text-lg"
                       >
                         Goal progress
                       </h3>
@@ -2149,12 +1611,7 @@ const SmartSaveOverviewPage = () => {
 
                     <Link
                       to={SMART_SAVE_ROUTES.GOALS}
-                      className="
-                        inline-flex items-center
-                        font-semibold text-slate-300 hover:text-white text-xs
-                        rounded focus:outline-none
-                        gap-1 focus-visible:ring-2 focus-visible:ring-white
-                      "
+                      className="inline-flex items-center gap-1 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-white font-semibold text-slate-300 hover:text-white text-xs"
                     >
                       View all
 
@@ -2166,11 +1623,7 @@ const SmartSaveOverviewPage = () => {
                   </div>
 
                   <div
-                    className="
-                      grid grid-cols-1 sm:grid-cols-2
-                      mt-5
-                      gap-3
-                    "
+                    className="gap-3 grid grid-cols-1 sm:grid-cols-2 mt-5"
                   >
                     {goals
                       .slice(0, 2)
@@ -2192,26 +1645,16 @@ const SmartSaveOverviewPage = () => {
 
                     {goals.length === 0 && (
                       <div
-                        className="
-                          p-5
-                          bg-white/10
-                          border border-white/10 rounded-xl
-                          sm:col-span-2
-                        "
+                        className="sm:col-span-2 bg-white/10 p-5 border border-white/10 rounded-xl"
                       >
                         <p
-                          className="
-                            font-semibold text-white text-sm
-                          "
+                          className="font-semibold text-white text-sm"
                         >
                           No savings goals yet
                         </p>
 
                         <p
-                          className="
-                            mt-1
-                            text-slate-300 text-xs leading-5
-                          "
+                          className="mt-1 text-slate-300 text-xs leading-5"
                         >
                           Create your first goal to
                           start tracking progress.
@@ -2227,38 +1670,22 @@ const SmartSaveOverviewPage = () => {
                   <EmergencyFundPreview />
                 ) : (
                   <div
-                    className="
-                      flex flex-col justify-center
-                      p-5
-                      bg-white
-                      border border-slate-200 rounded-2xl
-                      shadow-sm
-                    "
+                    className="flex flex-col justify-center bg-white shadow-sm p-5 border border-slate-200 rounded-2xl"
                   >
                     <p
-                      className="
-                        font-semibold text-slate-500 text-xs uppercase
-                        tracking-wide
-                      "
+                      className="font-semibold text-slate-500 text-xs uppercase tracking-wide"
                     >
                       Safety net
                     </p>
 
                     <h3
-                      className="
-                        mt-1
-                        font-bold text-slate-900 text-lg
-                      "
+                      className="mt-1 font-bold text-slate-900 text-lg"
                     >
                       Build your emergency fund
                     </h3>
 
                     <p
-                      className="
-                        max-w-lg
-                        mt-2
-                        text-slate-500 text-xs leading-5
-                      "
+                      className="mt-2 max-w-lg text-slate-500 text-xs leading-5"
                     >
                       Set up an emergency fund to
                       create a financial safety buffer.
@@ -2268,14 +1695,7 @@ const SmartSaveOverviewPage = () => {
                       to={
                         SMART_SAVE_ROUTES.EMERGENCY_FUND
                       }
-                      className="
-                        inline-flex items-center
-                        mt-5
-                        font-semibold
-                        text-slate-700 hover:text-slate-900 text-xs
-                        rounded focus:outline-none
-                        gap-1 focus-visible:ring-2 focus-visible:ring-slate-400
-                      "
+                      className="inline-flex items-center gap-1 mt-5 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 font-semibold text-slate-700 hover:text-slate-900 text-xs"
                     >
                       Explore emergency fund
 
@@ -2305,11 +1725,7 @@ const SmartSaveOverviewPage = () => {
             ============================================= */}
 
             <section
-              className="
-                grid grid-cols-1 xl:grid-cols-2
-                mt-8
-                gap-4
-              "
+              className="gap-4 grid grid-cols-1 xl:grid-cols-2 mt-8"
               aria-label="Savings activity and insights"
             >
               <ActivityPreview
@@ -2326,9 +1742,7 @@ const SmartSaveOverviewPage = () => {
             ============================================= */}
 
             <div
-              className="
-                mt-8
-              "
+              className="mt-8"
             >
               <QuickAccess />
             </div>
@@ -2340,17 +1754,10 @@ const SmartSaveOverviewPage = () => {
         ================================================= */}
 
         <footer
-          className="
-            mt-10 pt-5
-            border-slate-200 border-t
-          "
+          className="mt-10 pt-5 border-slate-200 border-t"
         >
           <div
-            className="
-              flex flex-col sm:flex-row sm:justify-between sm:items-center
-              text-slate-400 text-xs
-              gap-2
-            "
+            className="flex sm:flex-row flex-col sm:justify-between sm:items-center gap-2 text-slate-400 text-xs"
           >
             <p>
               SmartSave keeps your goals, plans,
@@ -2359,9 +1766,7 @@ const SmartSaveOverviewPage = () => {
             </p>
 
             <p
-              className="
-                font-medium
-              "
+              className="font-medium"
             >
               Currency: {currency}
             </p>

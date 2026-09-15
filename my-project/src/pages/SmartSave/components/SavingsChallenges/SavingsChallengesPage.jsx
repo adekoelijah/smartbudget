@@ -1,6 +1,3 @@
-
-// pages/.../SavingsChallengesPage.jsx
-
 import {
   AlertCircle,
   CheckCircle2,
@@ -11,8 +8,8 @@ import {
   Target,
   Trophy,
   Sparkles,
+  TrendingUp,
 } from "lucide-react";
-
 import {
   memo,
   useCallback,
@@ -25,6 +22,7 @@ import SavingsChallengeCard from "./SavingsChallengeCard";
 import ChallengeEmptyState from "./ChallengeEmptyState";
 import ChallengeDetailsModal from "./ChallengeDetailsModal";
 import CreateChallengeModal from "./CreateChallengeModal";
+
 import SavingsSkeleton from "../shared/SavingsSkeleton";
 import SavingsErrorState from "../shared/SavingsErrorState";
 
@@ -38,9 +36,9 @@ import {
   normalizeSavingsChallenge,
 } from "../../../../utils/smartSave/savingsNormalizers";
 
-/* ============================================================
+/* ==========================================================================
    CONSTANTS
-============================================================ */
+============================================================================ */
 
 const DEFAULT_TITLE = "Savings Challenges";
 
@@ -75,9 +73,9 @@ const STATUS = Object.freeze({
     .toLowerCase(),
 });
 
-/* ============================================================
+/* ==========================================================================
    HELPERS
-============================================================ */
+============================================================================ */
 
 const getEntityId = (entity) => {
   if (entity == null) {
@@ -116,8 +114,10 @@ const getErrorMessage = (error) => {
 
   const message =
     error?.response?.data?.message ??
+    error?.response?.data?.error?.message ??
     error?.response?.data?.error ??
     error?.data?.message ??
+    error?.data?.error?.message ??
     error?.data?.error ??
     error?.message ??
     error?.error;
@@ -177,11 +177,11 @@ const sanitizeLimit = (value) => {
   );
 };
 
-/* ============================================================
-   SECTION HEADER
-============================================================ */
+/* ==========================================================================
+   PAGE HEADER
+============================================================================ */
 
-const SectionHeader = memo(
+const PageHeader = memo(
   ({
     title,
     description,
@@ -191,51 +191,113 @@ const SectionHeader = memo(
     showCreate,
     showRefresh,
     refreshing,
+    disabled,
   }) => {
     return (
       <header
-        className="relative bg-white shadow-sm p-5 sm:p-6 lg:p-7 border border-slate-200 rounded-3xl overflow-hidden"
+        className="
+          relative overflow-hidden
+          bg-white
+          border border-slate-200 rounded-[28px]
+          shadow-[0_12px_40px_rgba(15,23,42,0.06)]
+        "
+        aria-labelledby="savings-challenges-title"
       >
         <div
-          className="-top-20 -right-20 absolute bg-blue-100/60 blur-3xl rounded-full w-48 h-48 pointer-events-none"
+          className="
+            absolute
+            w-64 h-64
+            bg-blue-100/60
+            rounded-full
+            blur-3xl
+            pointer-events-none
+            -top-24 -right-24
+          "
           aria-hidden="true"
         /
         >
 
         <div
-          className="relative flex lg:flex-row flex-col lg:justify-between lg:items-center gap-6"
+          className="
+            absolute
+            w-52 h-52
+            bg-indigo-50
+            rounded-full
+            blur-3xl
+            pointer-events-none
+            -bottom-28 -left-20
+          "
+          aria-hidden="true"
+        /
+        >
+
+        <div
+          className="
+            relative flex flex-col lg:flex-row lg:justify-between
+            lg:items-center
+            p-5 sm:p-7 lg:p-8
+            gap-7
+          "
         >
           <div
-            className="min-w-0"
+            className="
+              min-w-0
+            "
           >
             <div
-              className="flex items-start gap-4"
+              className="
+                flex items-start
+                gap-4
+              "
             >
               <div
-                className="flex justify-center items-center bg-blue-50 rounded-2xl ring-1 ring-blue-100 w-12 h-12 text-blue-600 shrink-0"
+                className="
+                  flex justify-center items-center
+                  w-12 h-12
+                  text-white
+                  bg-gradient-to-br from-blue-600 to-indigo-600
+                  rounded-2xl ring-4 ring-blue-50
+                  shadow-blue-600/20 shadow-lg
+                  shrink-0
+                "
                 aria-hidden="true"
               >
                 <Target
                   size={22}
-                  strokeWidth={1.8}
+                  strokeWidth={2}
                 />
               </div>
 
               <div
-                className="min-w-0"
+                className="
+                  min-w-0
+                "
               >
                 <div
-                  className="flex flex-wrap items-center gap-2"
+                  className="
+                    flex flex-wrap items-center
+                    gap-2.5
+                  "
                 >
                   <h1
                     id="savings-challenges-title"
-                    className="font-bold text-slate-950 text-2xl sm:text-3xl tracking-tight"
+                    className="
+                      font-bold text-slate-950 text-2xl sm:text-3xl
+                      tracking-tight
+                    "
                   >
                     {title}
                   </h1>
 
                   <span
-                    className="inline-flex items-center bg-slate-50 px-2.5 border border-slate-200 rounded-full min-h-6 font-semibold text-slate-600 text-xs"
+                    className="
+                      inline-flex items-center
+                      min-h-6
+                      px-2.5
+                      font-bold text-blue-700 text-xs
+                      bg-blue-50
+                      border border-blue-100 rounded-full
+                    "
                   >
                     {count}
                   </span>
@@ -243,24 +305,86 @@ const SectionHeader = memo(
 
                 {description ? (
                   <p
-                    className="mt-2 max-w-2xl text-slate-500 text-sm leading-6"
+                    className="
+                      max-w-2xl
+                      mt-2
+                      text-slate-500 text-sm leading-6
+                    "
                   >
                     {description}
                   </p>
                 ) : null}
+
+                <div
+                  className="
+                    flex flex-wrap items-center
+                    mt-4
+                    gap-2
+                  "
+                >
+                  <span
+                    className="
+                      inline-flex items-center
+                      px-2.5 py-1
+                      font-semibold text-[11px] text-emerald-700
+                      bg-emerald-50
+                      rounded-full
+                      gap-1.5
+                    "
+                  >
+                    <span
+                      className="
+                        w-1.5 h-1.5
+                        bg-emerald-500
+                        rounded-full
+                      "
+                      aria-hidden="true"
+                    /
+                    >
+                    Build saving consistency
+                  </span>
+
+                  <span
+                    className="
+                      inline-flex items-center
+                      px-2.5 py-1
+                      font-semibold text-[11px] text-slate-500
+                      bg-slate-50
+                      rounded-full
+                      gap-1.5
+                    "
+                  >
+                    Structured savings goals
+                  </span>
+                </div>
               </div>
             </div>
           </div>
 
           <div
-            className="flex sm:flex-row flex-col gap-2 w-full lg:w-auto"
+            className="
+              flex flex-col sm:flex-row
+              w-full lg:w-auto
+              gap-2
+            "
           >
             {showRefresh ? (
               <button
                 type="button"
                 onClick={onRefresh}
-                disabled={refreshing}
-                className="inline-flex justify-center items-center gap-2 bg-white hover:bg-slate-50 disabled:opacity-60 shadow-sm px-4 border border-slate-200 hover:border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 min-h-11 font-semibold text-slate-700 text-sm transition disabled:cursor-not-allowed"
+                disabled={refreshing || disabled}
+                className="
+                  inline-flex justify-center items-center
+                  min-h-11
+                  px-4
+                  font-semibold text-slate-700 text-sm
+                  bg-white hover:bg-slate-50
+                  border border-slate-200 hover:border-slate-300 rounded-xl
+                  focus:outline-none focus:ring-2 focus:ring-blue-500/20
+                  disabled:opacity-60 shadow-sm transition
+                  disabled:cursor-not-allowed
+                  gap-2
+                "
               >
                 <RefreshCw
                   size={16}
@@ -282,14 +406,24 @@ const SectionHeader = memo(
               <button
                 type="button"
                 onClick={onCreate}
-                className="group inline-flex justify-center items-center gap-2 bg-slate-950 hover:bg-slate-800 shadow-lg shadow-slate-950/10 px-5 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-950/20 focus:ring-offset-2 min-h-11 font-semibold text-white text-sm transition hover:-translate-y-0.5"
+                disabled={disabled}
+                className="
+                  inline-flex justify-center items-center
+                  min-h-11
+                  px-5
+                  font-semibold text-white text-sm
+                  bg-slate-950 hover:bg-slate-800
+                  rounded-xl focus:outline-none
+                  focus:ring-2 focus:ring-slate-950/20 focus:ring-offset-2
+                  disabled:opacity-60 shadow-lg shadow-slate-950/15 transition
+                  disabled:cursor-not-allowed
+                  group gap-2
+                "
               >
                 <Plus
                   size={17}
-                  className="group-hover:rotate-90 transition-transform"
                   aria-hidden="true"
-                /
-                >
+                />
 
                 New challenge
               </button>
@@ -301,12 +435,39 @@ const SectionHeader = memo(
   }
 );
 
-SectionHeader.displayName =
-  "SavingsChallengesSectionHeader";
+PageHeader.displayName =
+  "SavingsChallengesPageHeader";
 
-/* ============================================================
+/* ==========================================================================
    SUMMARY METRIC
-============================================================ */
+============================================================================ */
+
+const SUMMARY_STYLES = Object.freeze({
+  blue: {
+    icon: "bg-blue-50 text-blue-600",
+    ring: "ring-blue-100",
+  },
+
+  green: {
+    icon: "bg-emerald-50 text-emerald-600",
+    ring: "ring-emerald-100",
+  },
+
+  amber: {
+    icon: "bg-amber-50 text-amber-600",
+    ring: "ring-amber-100",
+  },
+
+  violet: {
+    icon: "bg-violet-50 text-violet-600",
+    ring: "ring-violet-100",
+  },
+
+  slate: {
+    icon: "bg-slate-100 text-slate-700",
+    ring: "ring-slate-200",
+  },
+});
 
 const SummaryMetric = memo(
   ({
@@ -316,34 +477,25 @@ const SummaryMetric = memo(
     description,
     accent = "slate",
   }) => {
-    const accentClasses = {
-      blue: {
-        icon: "bg-blue-50 text-blue-600",
-      },
-      green: {
-        icon: "bg-emerald-50 text-emerald-600",
-      },
-      amber: {
-        icon: "bg-amber-50 text-amber-600",
-      },
-      violet: {
-        icon: "bg-violet-50 text-violet-600",
-      },
-      slate: {
-        icon: "bg-slate-100 text-slate-700",
-      },
-    };
-
     const styles =
-      accentClasses[accent] ??
-      accentClasses.slate;
+      SUMMARY_STYLES[accent] ??
+      SUMMARY_STYLES.slate;
 
     return (
-      <div
-        className="group bg-white shadow-sm hover:shadow-md p-4 sm:p-5 border border-slate-200 rounded-2xl transition hover:-translate-y-0.5"
+      <article
+        className="
+          p-4 sm:p-5
+          bg-white
+          border border-slate-200 rounded-2xl
+          shadow-sm hover:shadow-md transition
+          group hover:-translate-y-0.5
+        "
       >
         <div
-          className="flex items-start gap-3"
+          className="
+            flex justify-between items-start
+            gap-3
+          "
         >
           <div
             className={`
@@ -351,36 +503,59 @@ const SummaryMetric = memo(
               shrink-0
               items-center justify-center
               rounded-xl
+              ring-1
               ${styles.icon}
+              ${styles.ring}
             `}
             aria-hidden="true"
           >
-            <Icon size={18} />
+            <Icon
+              size={18}
+              strokeWidth={2}
+            />
           </div>
 
-          <div
-            className="min-w-0"
+          <span
+            className="
+              font-bold text-[10px] text-slate-400 uppercase tracking-wider
+            "
           >
-            <p
-              className="font-medium text-slate-500 text-xs"
-            >
-              {label}
-            </p>
-
-            <p
-              className="mt-1 font-bold text-slate-950 text-2xl tracking-tight"
-            >
-              {value}
-            </p>
-
-            <p
-              className="mt-0.5 text-[11px] text-slate-400"
-            >
-              {description}
-            </p>
-          </div>
+            SmartSave
+          </span>
         </div>
-      </div>
+
+        <div
+          className="
+            mt-5
+          "
+        >
+          <p
+            className="
+              font-semibold text-slate-500 text-xs
+            "
+          >
+            {label}
+          </p>
+
+          <p
+            className="
+              mt-1
+              font-bold text-slate-950 text-2xl tracking-tight
+            "
+          >
+            {value}
+          </p>
+
+          <p
+            className="
+              mt-1
+              text-[11px] text-slate-400 leading-5
+            "
+          >
+            {description}
+          </p>
+        </div>
+      </article>
     );
   }
 );
@@ -388,9 +563,9 @@ const SummaryMetric = memo(
 SummaryMetric.displayName =
   "SavingsChallengeSummaryMetric";
 
-/* ============================================================
+/* ==========================================================================
    REFRESH WARNING
-============================================================ */
+============================================================================ */
 
 const RefreshWarning = memo(
   ({
@@ -400,28 +575,49 @@ const RefreshWarning = memo(
     canRetry,
   }) => (
     <div
-      className="flex items-start gap-3 bg-amber-50 p-4 border border-amber-200 rounded-2xl"
+      className="
+        flex items-start
+        p-4
+        bg-amber-50
+        border border-amber-200 rounded-2xl
+        gap-3
+      "
       role="status"
       aria-live="polite"
     >
       <div
-        className="flex justify-center items-center bg-amber-100 rounded-xl w-9 h-9 text-amber-700 shrink-0"
+        className="
+          flex justify-center items-center
+          w-9 h-9
+          text-amber-700
+          bg-amber-100
+          rounded-xl
+          shrink-0
+        "
         aria-hidden="true"
       >
         <AlertCircle size={17} />
       </div>
 
       <div
-        className="flex-1 min-w-0"
+        className="
+          flex-1
+          min-w-0
+        "
       >
         <p
-          className="font-semibold text-amber-900 text-sm"
+          className="
+            font-semibold text-amber-900 text-sm
+          "
         >
           Your challenge data may be outdated.
         </p>
 
         <p
-          className="mt-1 text-amber-700 text-xs leading-5"
+          className="
+            mt-1
+            text-amber-700 text-xs leading-5
+          "
         >
           {message}
         </p>
@@ -432,7 +628,12 @@ const RefreshWarning = memo(
           type="button"
           onClick={onRetry}
           disabled={refreshing}
-          className="disabled:opacity-50 font-semibold text-amber-800 text-xs underline underline-offset-2 disabled:cursor-not-allowed shrink-0"
+          className="
+            font-semibold text-amber-800 text-xs underline underline-offset-2
+            disabled:opacity-50
+            disabled:cursor-not-allowed
+            shrink-0
+          "
         >
           {refreshing
             ? "Retrying..."
@@ -446,9 +647,9 @@ const RefreshWarning = memo(
 RefreshWarning.displayName =
   "SavingsChallengesRefreshWarning";
 
-/* ============================================================
+/* ==========================================================================
    PAGE
-============================================================ */
+============================================================================ */
 
 const SavingsChallengesPage = ({
   title = DEFAULT_TITLE,
@@ -463,9 +664,9 @@ const SavingsChallengesPage = ({
   onChallengeClick,
   className = "",
 }) => {
-  /* ==========================================================
-     HOOK
-  ========================================================== */
+  /* ------------------------------------------------------------------------
+     QUERY
+  ------------------------------------------------------------------------ */
 
   const safeInitialLimit = useMemo(
     () => sanitizeLimit(limit),
@@ -484,6 +685,10 @@ const SavingsChallengesPage = ({
     }),
     [safeInitialLimit, status]
   );
+
+  /* ------------------------------------------------------------------------
+     DATA
+  ------------------------------------------------------------------------ */
 
   const {
     items = [],
@@ -505,21 +710,25 @@ const SavingsChallengesPage = ({
     initialQuery,
   });
 
-  /* ==========================================================
-     LOCAL UI STATE
-  ========================================================== */
+  /* ------------------------------------------------------------------------
+     UI STATE
+  ------------------------------------------------------------------------ */
 
-  const [selectedChallenge, setSelectedChallenge] =
-    useState(null);
+  const [
+    selectedChallenge,
+    setSelectedChallenge,
+  ] = useState(null);
 
-  const [createModalOpen, setCreateModalOpen] =
-    useState(false);
+  const [
+    createModalOpen,
+    setCreateModalOpen,
+  ] = useState(false);
 
   const mutationLockRef = useRef(false);
 
-  /* ==========================================================
-     NORMALIZED CHALLENGES
-  ========================================================== */
+  /* ------------------------------------------------------------------------
+     NORMALIZATION
+  ------------------------------------------------------------------------ */
 
   const challenges = useMemo(() => {
     if (!Array.isArray(items)) {
@@ -530,7 +739,9 @@ const SavingsChallengesPage = ({
       (result, challenge) => {
         try {
           const normalized =
-            normalizeSavingsChallenge(challenge);
+            normalizeSavingsChallenge(
+              challenge
+            );
 
           if (normalized) {
             result.push(normalized);
@@ -548,9 +759,9 @@ const SavingsChallengesPage = ({
     );
   }, [items]);
 
-  /* ==========================================================
+  /* ------------------------------------------------------------------------
      FILTER
-  ========================================================== */
+  ------------------------------------------------------------------------ */
 
   const normalizedStatus = useMemo(
     () =>
@@ -575,27 +786,21 @@ const SavingsChallengesPage = ({
     normalizedStatus,
   ]);
 
-  /* ==========================================================
-     VISIBLE CHALLENGES
-  ========================================================== */
+  const visibleChallenges = useMemo(
+    () =>
+      filteredChallenges.slice(
+        0,
+        safeInitialLimit
+      ),
+    [
+      filteredChallenges,
+      safeInitialLimit,
+    ]
+  );
 
-  const visibleChallenges = useMemo(() => {
-    if (!safeInitialLimit) {
-      return filteredChallenges;
-    }
-
-    return filteredChallenges.slice(
-      0,
-      safeInitialLimit
-    );
-  }, [
-    filteredChallenges,
-    safeInitialLimit,
-  ]);
-
-  /* ==========================================================
+  /* ------------------------------------------------------------------------
      SUMMARY
-  ========================================================== */
+  ------------------------------------------------------------------------ */
 
   const summary = useMemo(() => {
     let active = 0;
@@ -606,18 +811,21 @@ const SavingsChallengesPage = ({
       const challengeStatus =
         getChallengeStatus(challenge);
 
-      if (challengeStatus === STATUS.ACTIVE) {
-        active += 1;
-      }
+      switch (challengeStatus) {
+        case STATUS.ACTIVE:
+          active += 1;
+          break;
 
-      if (challengeStatus === STATUS.PAUSED) {
-        paused += 1;
-      }
+        case STATUS.PAUSED:
+          paused += 1;
+          break;
 
-      if (
-        challengeStatus === STATUS.COMPLETED
-      ) {
-        completed += 1;
+        case STATUS.COMPLETED:
+          completed += 1;
+          break;
+
+        default:
+          break;
       }
     }
 
@@ -629,9 +837,9 @@ const SavingsChallengesPage = ({
     };
   }, [filteredChallenges]);
 
-  /* ==========================================================
+  /* ------------------------------------------------------------------------
      CAPABILITIES
-  ========================================================== */
+  ------------------------------------------------------------------------ */
 
   const canRefresh =
     typeof refresh === "function" ||
@@ -655,19 +863,15 @@ const SavingsChallengesPage = ({
   const canCancel =
     typeof cancelChallenge === "function";
 
-  /* ==========================================================
-     LOADING
-  ========================================================== */
+  /* ------------------------------------------------------------------------
+     VIEW STATE
+  ------------------------------------------------------------------------ */
 
   const initialLoading =
     loading && challenges.length === 0;
 
   const refreshing =
     loading && challenges.length > 0;
-
-  /* ==========================================================
-     ERROR
-  ========================================================== */
 
   const errorMessage = useMemo(
     () =>
@@ -677,9 +881,23 @@ const SavingsChallengesPage = ({
     [error]
   );
 
-  /* ==========================================================
+  const showInitialError =
+    Boolean(error) &&
+    !initialLoading &&
+    challenges.length === 0;
+
+  const hasChallenges =
+    visibleChallenges.length > 0;
+
+  const showEmpty =
+    !initialLoading &&
+    !showInitialError &&
+    !hasChallenges;
+
+
+  /* ------------------------------------------------------------------------
      REFRESH
-  ========================================================== */
+  ------------------------------------------------------------------------ */
 
   const handleRefresh = useCallback(
     async () => {
@@ -717,9 +935,9 @@ const SavingsChallengesPage = ({
     ]
   );
 
-  /* ==========================================================
-     OPEN CREATE MODAL
-  ========================================================== */
+  /* ------------------------------------------------------------------------
+     CREATE
+  ------------------------------------------------------------------------ */
 
   const handleOpenCreate = useCallback(() => {
     if (mutationLockRef.current) {
@@ -734,10 +952,6 @@ const SavingsChallengesPage = ({
     setCreateModalOpen(true);
   }, [onCreate]);
 
-  /* ==========================================================
-     CLOSE CREATE MODAL
-  ========================================================== */
-
   const handleCloseCreate = useCallback(() => {
     if (mutationLockRef.current) {
       return;
@@ -745,10 +959,6 @@ const SavingsChallengesPage = ({
 
     setCreateModalOpen(false);
   }, []);
-
-  /* ==========================================================
-     CREATE CHALLENGE
-  ========================================================== */
 
   const handleCreateChallenge =
     useCallback(
@@ -764,6 +974,7 @@ const SavingsChallengesPage = ({
           console.error(
             "[SavingsChallengesPage] createChallenge() is unavailable."
           );
+
           return;
         }
 
@@ -771,11 +982,6 @@ const SavingsChallengesPage = ({
 
         try {
           await createChallenge(payload);
-
-          /*
-           * The hook owns the server refresh.
-           * The page does not call refresh again.
-           */
 
           setCreateModalOpen(false);
         } catch (createError) {
@@ -792,9 +998,9 @@ const SavingsChallengesPage = ({
       [createChallenge]
     );
 
-  /* ==========================================================
-     OPEN DETAILS
-  ========================================================== */
+  /* ------------------------------------------------------------------------
+     DETAILS
+  ------------------------------------------------------------------------ */
 
   const handleChallengeClick =
     useCallback(
@@ -812,10 +1018,6 @@ const SavingsChallengesPage = ({
       [onChallengeClick]
     );
 
-  /* ==========================================================
-     CLOSE DETAILS
-  ========================================================== */
-
   const handleCloseDetails =
     useCallback(() => {
       if (mutationLockRef.current) {
@@ -825,9 +1027,9 @@ const SavingsChallengesPage = ({
       setSelectedChallenge(null);
     }, []);
 
-  /* ==========================================================
-     GENERIC MUTATION
-  ========================================================== */
+  /* ------------------------------------------------------------------------
+     MUTATIONS
+  ------------------------------------------------------------------------ */
 
   const executeMutation = useCallback(
     async (
@@ -870,10 +1072,6 @@ const SavingsChallengesPage = ({
     },
     []
   );
-
-  /* ==========================================================
-     ACTION HANDLERS
-  ========================================================== */
 
   const handleActivate = useCallback(
     (challenge) =>
@@ -937,29 +1135,12 @@ const SavingsChallengesPage = ({
     ]
   );
 
-  /* ==========================================================
-     VIEW FLAGS
-  ========================================================== */
-
-  const hasChallenges =
-    visibleChallenges.length > 0;
-
-  const showInitialError =
-    Boolean(error) &&
-    !initialLoading &&
-    challenges.length === 0;
-
-  const showEmpty =
-    !initialLoading &&
-    !showInitialError &&
-    !hasChallenges;
-
-  /* ==========================================================
-     HEADER
-  ========================================================== */
+  /* ------------------------------------------------------------------------
+     SHARED COMPONENTS
+  ------------------------------------------------------------------------ */
 
   const header = showHeader ? (
-    <SectionHeader
+    <PageHeader
       title={title}
       description={description}
       count={summary.total}
@@ -967,22 +1148,17 @@ const SavingsChallengesPage = ({
       onRefresh={handleRefresh}
       showCreate={
         showCreateButton &&
-        (
-          canCreate ||
-          typeof onCreate === "function"
-        )
+        (canCreate ||
+          typeof onCreate === "function")
       }
       showRefresh={
         showRefreshButton &&
         canRefresh
       }
       refreshing={refreshing}
+      disabled={mutating}
     />
   ) : null;
-
-  /* ==========================================================
-     CREATE MODAL
-  ========================================================== */
 
   const createModal = (
     <CreateChallengeModal
@@ -994,9 +1170,9 @@ const SavingsChallengesPage = ({
     />
   );
 
-  /* ==========================================================
+  /* ------------------------------------------------------------------------
      INITIAL LOADING
-  ========================================================== */
+  ------------------------------------------------------------------------ */
 
   if (initialLoading) {
     return (
@@ -1008,12 +1184,14 @@ const SavingsChallengesPage = ({
             ${className}
           `}
           aria-labelledby="savings-challenges-title"
-          aria-busy="true"
-        >
+          aria-busy="true">
           {header}
 
           <div
-            className="gap-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3"
+            className="
+              grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3
+              gap-4
+            "
           >
             <SavingsSkeleton
               count={compact ? 2 : 3}
@@ -1026,9 +1204,9 @@ const SavingsChallengesPage = ({
     );
   }
 
-  /* ==========================================================
+  /* ------------------------------------------------------------------------
      INITIAL ERROR
-  ========================================================== */
+  ------------------------------------------------------------------------ */
 
   if (showInitialError) {
     return (
@@ -1059,9 +1237,9 @@ const SavingsChallengesPage = ({
     );
   }
 
-  /* ==========================================================
-     EMPTY STATE
-  ========================================================== */
+  /* ------------------------------------------------------------------------
+     EMPTY
+  ------------------------------------------------------------------------ */
 
   if (showEmpty) {
     return (
@@ -1079,10 +1257,8 @@ const SavingsChallengesPage = ({
           <ChallengeEmptyState
             onCreate={
               showCreateButton &&
-              (
-                canCreate ||
-                typeof onCreate === "function"
-              )
+              (canCreate ||
+                typeof onCreate === "function")
                 ? handleOpenCreate
                 : undefined
             }
@@ -1094,9 +1270,9 @@ const SavingsChallengesPage = ({
     );
   }
 
-  /* ==========================================================
+  /* ------------------------------------------------------------------------
      MAIN PAGE
-  ========================================================== */
+  ------------------------------------------------------------------------ */
 
   return (
     <>
@@ -1111,12 +1287,15 @@ const SavingsChallengesPage = ({
       >
         {header}
 
-        {/* ==================================================
+        {/* ================================================================
             SUMMARY
-        ================================================== */}
+        ================================================================= */}
 
         <section
-          className="gap-3 sm:gap-4 grid grid-cols-2 lg:grid-cols-4"
+          className="
+            grid grid-cols-2 lg:grid-cols-4
+            gap-3 sm:gap-4
+          "
           aria-label="Savings challenge summary"
         >
           <SummaryMetric
@@ -1152,9 +1331,9 @@ const SavingsChallengesPage = ({
           />
         </section>
 
-        {/* ==================================================
+        {/* ================================================================
             BACKGROUND ERROR
-        ================================================== */}
+        ================================================================= */}
 
         {errorMessage ? (
           <RefreshWarning
@@ -1165,75 +1344,124 @@ const SavingsChallengesPage = ({
           />
         ) : null}
 
-        {/* ==================================================
-            LIST INTRO
-        ================================================== */}
+        {/* ================================================================
+            LIST HEADER
+        ================================================================= */}
 
         <div
-          className="flex sm:flex-row flex-col sm:justify-between sm:items-end gap-3"
+          className="
+            flex flex-col sm:flex-row sm:justify-between sm:items-end
+            gap-3
+          "
         >
           <div>
             <div
-              className="flex items-center gap-2"
+              className="
+                flex items-center
+                gap-2
+              "
             >
-              <Sparkles
-                size={17}
-                className="text-blue-600"
+              <div
+                className="
+                  flex justify-center items-center
+                  w-8 h-8
+                  text-blue-600
+                  bg-blue-50
+                  rounded-lg
+                "
                 aria-hidden="true"
-              /
               >
+                <Sparkles size={16} />
+              </div>
 
               <h2
-                className="font-bold text-slate-950 text-lg"
+                className="
+                  font-bold text-slate-950 text-lg
+                "
               >
                 Your challenges
               </h2>
             </div>
 
             <p
-              className="mt-1 text-slate-500 text-sm"
+              className="
+                mt-1
+                text-slate-500 text-sm
+              "
             >
-              Stay consistent and make progress
-              toward your savings goals.
+              Stay consistent and make measurable
+              progress toward your savings goals.
             </p>
           </div>
 
-          <span
-            className="inline-flex items-center gap-1 bg-white shadow-sm px-3 py-1.5 border border-slate-200 rounded-full w-fit font-semibold text-slate-600 text-xs"
+          <div
+            className="
+              inline-flex items-center
+              w-fit
+              px-3 py-1.5
+              font-semibold text-slate-600 text-xs
+              bg-white
+              border border-slate-200 rounded-full
+              shadow-sm
+              gap-2
+            "
           >
-            {visibleChallenges.length}
+            <TrendingUp
+              size={13}
+              className="
+                text-emerald-600
+              "
+              aria-hidden="true"
+            /
+            >
+
+            <span>
+              {visibleChallenges.length}
+            </span>
 
             <span
-              className="text-slate-400"
+              className="
+                text-slate-400
+              "
             >
               {visibleChallenges.length === 1
                 ? "challenge"
                 : "challenges"}
             </span>
 
-            {safeInitialLimit &&
-            filteredChallenges.length >
-              safeInitialLimit ? (
+            {filteredChallenges.length >
+            safeInitialLimit ? (
               <>
                 <ChevronRight
                   size={12}
+                  className="
+                    text-slate-300
+                  "
                   aria-hidden="true"
-                />
+                /
+                >
 
-                <span>
+                <span
+                  className="
+                    text-slate-400
+                  "
+                >
                   showing {safeInitialLimit}
                 </span>
               </>
             ) : null}
-          </span>
+          </div>
         </div>
 
-        {/* ==================================================
+        {/* ================================================================
             CHALLENGE GRID
-        ================================================== */}
+        ================================================================= */}
 
         <div
-          className="gap-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3"
+          className="
+            grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3
+            gap-4
+          "
         >
           {visibleChallenges.map(
             (challenge, index) => (
@@ -1242,7 +1470,9 @@ const SavingsChallengesPage = ({
                   challenge,
                   index
                 )}
-                className="min-w-0"
+                className="
+                  min-w-0
+                "
               >
                 <SavingsChallengeCard
                   challenge={challenge}
@@ -1281,19 +1511,26 @@ const SavingsChallengesPage = ({
           )}
         </div>
 
-        {/* ==================================================
+        {/* ================================================================
             BACKGROUND REFRESH
-        ================================================== */}
+        ================================================================= */}
 
         {refreshing ? (
           <div
-            className="flex justify-center items-center gap-2 pt-1 text-slate-400 text-xs"
+            className="
+              flex justify-center items-center
+              pt-1
+              text-slate-400 text-xs
+              gap-2
+            "
             role="status"
             aria-live="polite"
           >
             <RefreshCw
               size={13}
-              className="animate-spin"
+              className="
+                animate-spin
+              "
               aria-hidden="true"
             /
             >
@@ -1302,28 +1539,32 @@ const SavingsChallengesPage = ({
           </div>
         ) : null}
 
-        {/* ==================================================
-            MUTATION STATUS
-        ================================================== */}
+        {/* ================================================================
+            MUTATION ACCESSIBILITY STATUS
+        ================================================================= */}
 
         {mutating ? (
           <span
-            className="sr-only"
+            className="
+              sr-only
+            "
+            role="status"
+            aria-live="polite"
           >
             Updating savings challenge...
           </span>
         ) : null}
       </section>
 
-      {/* ====================================================
+      {/* ====================================================================
           CREATE MODAL
-      ==================================================== */}
+      ================================================================= */}
 
       {createModal}
 
-      {/* ====================================================
+      {/* ====================================================================
           DETAILS MODAL
-      ==================================================== */}
+      ================================================================= */}
 
       <ChallengeDetailsModal
         open={Boolean(selectedChallenge)}
