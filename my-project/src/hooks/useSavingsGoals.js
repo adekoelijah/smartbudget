@@ -164,66 +164,261 @@ const normalizePagination = (
 };
 
 /* =========================================================
-   RESPONSE NORMALIZATION
+   RESPONSE EXTRACTION
 ========================================================= */
 
-const normalizeGoals = (response) => {
+const extractGoals = (response) => {
   if (Array.isArray(response)) {
     return response;
   }
 
   if (
-    response &&
-    typeof response === "object"
+    !response ||
+    typeof response !== "object"
   ) {
-    if (Array.isArray(response.goals)) {
-      return response.goals;
+    return [];
+  }
+
+  if (Array.isArray(response.goals)) {
+    return response.goals;
+  }
+
+  if (Array.isArray(response.items)) {
+    return response.items;
+  }
+
+  if (Array.isArray(response.results)) {
+    return response.results;
+  }
+
+  if (Array.isArray(response.data)) {
+    return response.data;
+  }
+
+  if (
+    response.data &&
+    typeof response.data === "object"
+  ) {
+    if (Array.isArray(response.data.goals)) {
+      return response.data.goals;
     }
 
-    if (Array.isArray(response.items)) {
-      return response.items;
-    }
-
-    if (Array.isArray(response.results)) {
-      return response.results;
-    }
-
-    if (Array.isArray(response.data)) {
-      return response.data;
+    if (Array.isArray(response.data.items)) {
+      return response.data.items;
     }
 
     if (
-      response.data &&
-      typeof response.data === "object"
+      Array.isArray(response.data.results)
     ) {
-      if (
-        Array.isArray(
-          response.data.goals
-        )
-      ) {
-        return response.data.goals;
-      }
-
-      if (
-        Array.isArray(
-          response.data.items
-        )
-      ) {
-        return response.data.items;
-      }
-
-      if (
-        Array.isArray(
-          response.data.results
-        )
-      ) {
-        return response.data.results;
-      }
+      return response.data.results;
     }
   }
 
   return [];
 };
+
+/* =========================================================
+   GOAL VALUE HELPERS
+========================================================= */
+
+const toFiniteNumber = (
+  value,
+  fallback = 0
+) => {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return fallback;
+  }
+
+  const number = Number(value);
+
+  return Number.isFinite(number)
+    ? number
+    : fallback;
+};
+
+const getGoalId = (goal) =>
+  goal?._id ??
+  goal?.id ??
+  goal?.goalId ??
+  null;
+
+const getGoalName = (goal) => {
+  const value =
+    goal?.name ??
+    goal?.title ??
+    goal?.goalName ??
+    "";
+
+  return typeof value === "string"
+    ? value.trim()
+    : "";
+};
+
+const getGoalCurrency = (goal) => {
+  const value =
+    goal?.currency ??
+    goal?.targetCurrency ??
+    "NGN";
+
+  return typeof value === "string" &&
+    value.trim()
+    ? value.trim().toUpperCase()
+    : "NGN";
+};
+
+const getGoalTargetAmount = (goal) =>
+  Math.max(
+    0,
+    toFiniteNumber(
+      goal?.targetAmount ??
+        goal?.target ??
+        goal?.amount,
+      0
+    )
+  );
+
+const getGoalCurrentAmount = (goal) =>
+  Math.max(
+    0,
+    toFiniteNumber(
+      goal?.currentAmount ??
+        goal?.savedAmount ??
+        goal?.amountSaved ??
+        goal?.totalSaved,
+      0
+    )
+  );
+
+const getGoalStatus = (goal) => {
+  const value =
+    goal?.status ?? "active";
+
+  return typeof value === "string"
+    ? value.trim().toLowerCase()
+    : "active";
+};
+
+const getGoalTargetDate = (goal) =>
+  goal?.targetDate ??
+  goal?.deadline ??
+  goal?.endDate ??
+  null;
+
+/* =========================================================
+   GOAL NORMALIZATION
+========================================================= */
+
+/**
+ * Convert the backend goal into one predictable
+ * frontend view model.
+ *
+ * Components should consume this shape instead
+ * of trying to understand multiple API field names.
+ */
+
+const normalizeGoal = (goal) => {
+  if (
+    !goal ||
+    typeof goal !== "object"
+  ) {
+    return null;
+  }
+
+  const id = getGoalId(goal);
+
+  const name = getGoalName(goal);
+
+  const currency =
+    getGoalCurrency(goal);
+
+  const targetAmount =
+    getGoalTargetAmount(goal);
+
+  const currentAmount =
+    getGoalCurrentAmount(goal);
+
+  const remainingAmount =
+    Math.max(
+      targetAmount - currentAmount,
+      0
+    );
+
+  const calculatedProgress =
+    targetAmount > 0
+      ? Math.min(
+          100,
+          Math.max(
+            0,
+            (currentAmount /
+              targetAmount) *
+              100
+          )
+        )
+      : 0;
+
+  const backendProgress =
+    toFiniteNumber(
+      goal?.progress,
+      NaN
+    );
+
+  const progress = Number.isFinite(
+    backendProgress
+  )
+    ? Math.min(
+        100,
+        Math.max(
+          0,
+          backendProgress
+        )
+      )
+    : calculatedProgress;
+
+  const normalizedStatus =
+    getGoalStatus(goal);
+
+  const isCompleted =
+    normalizedStatus ===
+      "completed" ||
+    currentAmount >=
+      targetAmount;
+
+  return {
+    ...goal,
+
+    id,
+
+    name,
+
+    currency,
+
+    targetAmount,
+
+    currentAmount,
+
+    remainingAmount,
+
+    progress,
+
+    targetDate:
+      getGoalTargetDate(goal),
+
+    status: isCompleted
+      ? "completed"
+      : normalizedStatus,
+
+    isCompleted,
+  };
+};
+
+const normalizeGoals = (response) =>
+  extractGoals(response)
+    .map(normalizeGoal)
+    .filter(Boolean);
 
 /* =========================================================
    ERROR NORMALIZATION
@@ -335,34 +530,6 @@ const getServiceMethod = (name) => {
    CREATE PAYLOAD NORMALIZATION
 ========================================================= */
 
-/**
- * The create-goal API expects a flat request body:
- *
- * {
- *   name,
- *   targetAmount,
- *   currency,
- *   targetDate,
- *   description?
- * }
- *
- * We intentionally reject nested payloads such as:
- *
- * {
- *   data: {
- *     name,
- *     targetAmount,
- *     ...
- *   }
- * }
- *
- * This keeps the contract between:
- *
- * Modal -> Page -> Hook -> Service
- *
- * explicit and predictable.
- */
-
 const normalizeCreateGoalPayload = (
   payload
 ) => {
@@ -439,10 +606,8 @@ const normalizeCreateGoalPayload = (
         `Savings goal is missing required field(s): ${missingFields.join(
           ", "
         )}.`,
-
       code:
         "SAVINGS_GOAL_REQUIRED_FIELDS",
-
       details: {
         fields: missingFields,
       },
@@ -456,10 +621,8 @@ const normalizeCreateGoalPayload = (
     throw createHookError({
       message:
         "Savings goal target amount must be greater than zero.",
-
       code:
         "INVALID_SAVINGS_GOAL_TARGET_AMOUNT",
-
       details: {
         field: "targetAmount",
       },
@@ -490,7 +653,13 @@ const useSavingsGoals = (
   ======================================================= */
 
   const normalizedInitialFilters =
-  normalizeFilters(initialFilters);
+    useMemo(
+      () =>
+        normalizeFilters(
+          initialFilters
+        ),
+      [initialFilters]
+    );
 
   /* =======================================================
      FILTER STATE
@@ -554,7 +723,8 @@ const useSavingsGoals = (
 
       abortControllerRef.current?.abort();
 
-      abortControllerRef.current = null;
+      abortControllerRef.current =
+        null;
     };
   }, []);
 
@@ -581,18 +751,6 @@ const useSavingsGoals = (
         options?.silent
       );
 
-      /*
-       * IMPORTANT:
-       *
-       * We use React state directly.
-       *
-       * There is intentionally NO:
-       *
-       * filtersRef.current
-       *
-       * anywhere in this hook.
-       */
-
       const nextFilters =
         normalizeFilters({
           ...filters,
@@ -602,10 +760,6 @@ const useSavingsGoals = (
       const requestId =
         ++requestIdRef.current;
 
-      /*
-       * Cancel the previous request before
-       * starting another one.
-       */
       abortControllerRef.current?.abort();
 
       const controller =
@@ -637,9 +791,6 @@ const useSavingsGoals = (
               controller.signal,
           });
 
-        /*
-         * Ignore stale or cancelled requests.
-         */
         if (
           controller.signal.aborted ||
           requestId !==
@@ -657,10 +808,6 @@ const useSavingsGoals = (
             nextFilters
           );
 
-        /*
-         * Component may have unmounted while
-         * the request was running.
-         */
         if (!mountedRef.current) {
           return {
             goals: nextGoals,
@@ -683,9 +830,6 @@ const useSavingsGoals = (
           raw: response,
         };
       } catch (requestError) {
-        /*
-         * Ignore cancellation and stale requests.
-         */
         if (
           controller.signal.aborted ||
           requestId !==
@@ -741,9 +885,7 @@ const useSavingsGoals = (
       try {
         await fetchGoals();
       } catch {
-        /*
-         * fetchGoals already owns error state.
-         */
+        // fetchGoals owns error state.
       }
     };
 
@@ -806,25 +948,11 @@ const useSavingsGoals = (
             "createSavingGoal"
           );
 
-        /*
-         * Send the payload flat.
-         *
-         * NOT:
-         *
-         * {
-         *   data: normalizedPayload
-         * }
-         */
-
         const response =
           await createSavingGoal(
             normalizedPayload
           );
 
-        /*
-         * Ignore refresh if another mutation
-         * has superseded this one.
-         */
         if (
           mutationId !==
           mutationIdRef.current
@@ -870,7 +998,6 @@ const useSavingsGoals = (
           createHookError({
             message:
               "A savings goal ID is required.",
-
             code:
               "SAVINGS_GOAL_ID_REQUIRED",
           });
@@ -894,10 +1021,8 @@ const useSavingsGoals = (
           createHookError({
             message:
               "Updating savings goals is not currently supported by the SmartSave service.",
-
             code:
               "SAVINGS_GOAL_UPDATE_UNAVAILABLE",
-
             details: {
               method: methodName,
             },
@@ -967,7 +1092,6 @@ const useSavingsGoals = (
           createHookError({
             message:
               "A savings goal ID is required.",
-
             code:
               "SAVINGS_GOAL_ID_REQUIRED",
           });
@@ -991,10 +1115,8 @@ const useSavingsGoals = (
           createHookError({
             message:
               "Deleting savings goals is not currently supported by the SmartSave service.",
-
             code:
               "SAVINGS_GOAL_DELETE_UNAVAILABLE",
-
             details: {
               method: methodName,
             },
@@ -1080,9 +1202,6 @@ const useSavingsGoals = (
             normalized.limit !==
             previous.limit;
 
-          /*
-           * Changing a filter starts from page 1.
-           */
           if (
             statusChanged ||
             limitChanged
@@ -1109,10 +1228,6 @@ const useSavingsGoals = (
     []
   );
 
-  /* =======================================================
-     STATUS
-  ======================================================= */
-
   const setStatus = useCallback(
     (status) => {
       const normalizedStatus =
@@ -1133,10 +1248,8 @@ const useSavingsGoals = (
 
           return {
             ...previous,
-
             status:
               normalizedStatus,
-
             page:
               DEFAULT_PAGE,
           };
@@ -1145,10 +1258,6 @@ const useSavingsGoals = (
     },
     []
   );
-
-  /* =======================================================
-     CLEAR FILTERS
-  ======================================================= */
 
   const clearFilters = useCallback(
     () => {
@@ -1218,7 +1327,6 @@ const useSavingsGoals = (
 
           return {
             ...previous,
-
             page:
               previous.page + 1,
           };
@@ -1229,27 +1337,27 @@ const useSavingsGoals = (
   );
 
   const previousPage =
-    useCallback(() => {
-      setFiltersState(
-        (previous) => {
-          if (
-            previous.page <= 1 ||
-            !pagination.hasPreviousPage
-          ) {
-            return previous;
+    useCallback(
+      () => {
+        setFiltersState(
+          (previous) => {
+            if (
+              previous.page <= 1 ||
+              !pagination.hasPreviousPage
+            ) {
+              return previous;
+            }
+
+            return {
+              ...previous,
+              page:
+                previous.page - 1,
+            };
           }
-
-          return {
-            ...previous,
-
-            page:
-              previous.page - 1,
-          };
-        }
-      );
-    }, [
-      pagination.hasPreviousPage,
-    ]);
+        );
+      },
+      [pagination.hasPreviousPage]
+    );
 
   /* =======================================================
      SINGLE GOAL
@@ -1262,7 +1370,6 @@ const useSavingsGoals = (
           createHookError({
             message:
               "A savings goal ID is required.",
-
             code:
               "SAVINGS_GOAL_ID_REQUIRED",
           });
@@ -1280,9 +1387,10 @@ const useSavingsGoals = (
             "getSavingGoal"
           );
 
-        return await method(
-          goalId
-        );
+        const response =
+          await method(goalId);
+
+        return response;
       } catch (requestError) {
         const normalized =
           normalizeError(
@@ -1311,7 +1419,6 @@ const useSavingsGoals = (
             createHookError({
               message:
                 "A savings goal ID is required.",
-
               code:
                 "SAVINGS_GOAL_ID_REQUIRED",
             });
@@ -1363,7 +1470,6 @@ const useSavingsGoals = (
             createHookError({
               message:
                 "A savings goal ID is required.",
-
               code:
                 "SAVINGS_GOAL_ID_REQUIRED",
             });
@@ -1416,7 +1522,6 @@ const useSavingsGoals = (
             createHookError({
               message:
                 "A savings goal ID is required.",
-
               code:
                 "SAVINGS_GOAL_ID_REQUIRED",
             });
@@ -1469,7 +1574,6 @@ const useSavingsGoals = (
             createHookError({
               message:
                 "A savings goal ID is required.",
-
               code:
                 "SAVINGS_GOAL_ID_REQUIRED",
             });
@@ -1511,60 +1615,46 @@ const useSavingsGoals = (
      DERIVED GOALS
   ======================================================= */
 
-  const activeGoals = useMemo(
-    () =>
-      goals.filter(
-        (goal) =>
-          String(
-            goal?.status ?? ""
-          )
-            .trim()
-            .toLowerCase() ===
-          "active"
-      ),
-    [goals]
-  );
+  const activeGoals =
+    useMemo(
+      () =>
+        goals.filter(
+          (goal) =>
+            goal.status ===
+            "active"
+        ),
+      [goals]
+    );
 
   const completedGoals =
     useMemo(
       () =>
         goals.filter(
           (goal) =>
-            String(
-              goal?.status ?? ""
-            )
-              .trim()
-              .toLowerCase() ===
+            goal.status ===
             "completed"
         ),
       [goals]
     );
 
-  const pausedGoals = useMemo(
-    () =>
-      goals.filter(
-        (goal) =>
-          String(
-            goal?.status ?? ""
-          )
-            .trim()
-            .toLowerCase() ===
-          "paused"
-      ),
-    [goals]
-  );
+  const pausedGoals =
+    useMemo(
+      () =>
+        goals.filter(
+          (goal) =>
+            goal.status ===
+            "paused"
+        ),
+      [goals]
+    );
 
   const cancelledGoals =
     useMemo(
       () =>
         goals.filter(
           (goal) =>
-            String(
-              goal?.status ?? ""
-            )
-              .trim()
-              .toLowerCase() ===
-          "cancelled"
+            goal.status ===
+            "cancelled"
         ),
       [goals]
     );
@@ -1667,41 +1757,29 @@ const useSavingsGoals = (
       filters,
 
       setFilters,
-
       setStatus,
-
       clearFilters,
 
       /* Pagination actions */
       goToPage,
-
       nextPage,
-
       previousPage,
 
       /* Single-goal operations */
       getGoal,
-
       getGoalSummary,
-
       getGoalContributions,
-
       getGoalHistory,
-
       checkEligibility,
 
       /* Mutations */
       createGoal,
-
       updateGoal,
-
       deleteGoal,
 
       /* Fetching */
       fetchGoals,
-
       refresh,
-
       refreshGoals,
 
       /* Reset */
@@ -1709,88 +1787,51 @@ const useSavingsGoals = (
 
       /* Loading */
       loading,
-
       refreshing,
-
       isLoading,
-
       isRefreshing,
 
       /* Errors */
       error,
-
       hasError,
 
       /* Convenience flags */
       hasGoals,
-
       isEmpty,
     }),
     [
       goals,
-
       activeGoals,
-
       completedGoals,
-
       pausedGoals,
-
       cancelledGoals,
-
       pagination,
-
       filters,
-
       setFilters,
-
       setStatus,
-
       clearFilters,
-
       goToPage,
-
       nextPage,
-
       previousPage,
-
       getGoal,
-
       getGoalSummary,
-
       getGoalContributions,
-
       getGoalHistory,
-
       checkEligibility,
-
       createGoal,
-
       updateGoal,
-
       deleteGoal,
-
       fetchGoals,
-
       refresh,
-
       refreshGoals,
-
       reset,
-
       loading,
-
       refreshing,
-
       isLoading,
-
       isRefreshing,
-
       error,
-
       hasError,
-
       hasGoals,
-
       isEmpty,
     ]
   );
