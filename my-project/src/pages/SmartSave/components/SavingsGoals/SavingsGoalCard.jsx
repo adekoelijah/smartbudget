@@ -19,29 +19,147 @@ import {
 } from "react";
 
 /**
- * ---------------------------------------------------------------------------
+ * ============================================================================
  * SavingsGoalCard
- * ---------------------------------------------------------------------------
- * Presentation component for an individual savings goal.
+ * ============================================================================
  *
- * Responsibilities:
- * - Display normalized goal information.
- * - Calculate safe presentation values.
- * - Provide view/edit/delete actions.
- * - Display compact savings progress.
+ * Production presentation component for an individual savings goal.
  *
- * Business logic should remain in:
- *   hook -> service -> API
+ * Architecture:
  *
- * This component intentionally does NOT:
- * - Fetch data.
- * - Mutate server state directly.
- * - Contain API/business rules.
- * - Render a separate progress component.
- * ---------------------------------------------------------------------------
+ *   Page
+ *     ↓
+ *   Hook
+ *     ↓
+ *   Service
+ *     ↓
+ *   API
+ *
+ * This component does NOT:
+ * - fetch data
+ * - call APIs
+ * - mutate server state directly
+ * - contain business rules
+ * - maintain server state
+ *
+ * It only presents the supplied goal and exposes UI actions.
+ * ============================================================================
  */
 
-const SavingsGoalCard = ({
+/* -------------------------------------------------------------------------- */
+/* Utility helpers                                                            */
+/* -------------------------------------------------------------------------- */
+
+const toFiniteNumber = (value, fallback = 0) => {
+  const number = Number(value);
+
+  return Number.isFinite(number) ? number : fallback;
+};
+
+const getFirstDefined = (...values) => {
+  return values.find(
+    (value) => value !== undefined && value !== null,
+  );
+};
+
+const formatMoney = (amount, currency) => {
+  try {
+    return new Intl.NumberFormat("en-NG", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  } catch {
+    return `${currency} ${amount.toLocaleString("en-NG")}`;
+  }
+};
+
+const formatDate = (value) => {
+  if (!value) {
+    return "No target date";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "No target date";
+  }
+
+  return new Intl.DateTimeFormat("en-NG", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+};
+
+/* -------------------------------------------------------------------------- */
+/* Status presentation                                                        */
+/* -------------------------------------------------------------------------- */
+
+const getStatusPresentation = ({
+  status,
+  progress,
+  currentAmount,
+  targetAmount,
+}) => {
+  const normalizedStatus = String(status || "active")
+    .trim()
+    .toLowerCase();
+
+  const isCompleted =
+    normalizedStatus === "completed" ||
+    normalizedStatus === "complete" ||
+    progress >= 100 ||
+    (targetAmount > 0 && currentAmount >= targetAmount);
+
+  const isPaused =
+    normalizedStatus === "paused" ||
+    normalizedStatus === "pause";
+
+  const isCancelled =
+    normalizedStatus === "cancelled" ||
+    normalizedStatus === "canceled";
+
+  if (isCompleted) {
+    return {
+      label: "Completed",
+      className:
+        "border-emerald-200 bg-emerald-50 text-emerald-700",
+      isCompleted: true,
+    };
+  }
+
+  if (isPaused) {
+    return {
+      label: "Paused",
+      className:
+        "border-amber-200 bg-amber-50 text-amber-700",
+      isCompleted: false,
+    };
+  }
+
+  if (isCancelled) {
+    return {
+      label: "Cancelled",
+      className:
+        "border-rose-200 bg-rose-50 text-rose-700",
+      isCompleted: false,
+    };
+  }
+
+  return {
+    label: "Active",
+    className:
+      "border-blue-200 bg-blue-50 text-blue-700",
+    isCompleted: false,
+  };
+};
+
+/* -------------------------------------------------------------------------- */
+/* Main card                                                                  */
+/* -------------------------------------------------------------------------- */
+
+const SavingsGoalCardContent = ({
   goal,
   onView,
   onEdit,
@@ -57,7 +175,7 @@ const SavingsGoalCard = ({
   const menuId = useId();
 
   /* ------------------------------------------------------------------------ */
-  /* Close menu when clicking outside                                         */
+  /* Close actions menu when clicking outside                                 */
   /* ------------------------------------------------------------------------ */
 
   useEffect(() => {
@@ -71,85 +189,21 @@ const SavingsGoalCard = ({
       }
     };
 
-    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener(
+      "pointerdown",
+      handlePointerDown,
+    );
 
     return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener(
+        "pointerdown",
+        handlePointerDown,
+      );
     };
   }, [menuOpen]);
 
   /* ------------------------------------------------------------------------ */
-  /* Event handlers                                                           */
-  /* ------------------------------------------------------------------------ */
-
-  const closeMenu = useCallback(() => {
-    setMenuOpen(false);
-  }, []);
-
-  const handleViewDetails = useCallback(() => {
-    if (!goal) {
-      return;
-    }
-
-    closeMenu();
-    onView?.(goal);
-  }, [closeMenu, goal, onView]);
-
-  const handleEdit = useCallback(() => {
-    if (!goal) {
-      return;
-    }
-
-    closeMenu();
-    onEdit?.(goal);
-  }, [closeMenu, goal, onEdit]);
-
-  const handleDelete = useCallback(() => {
-    if (!goal) {
-      return;
-    }
-
-    closeMenu();
-    onDelete?.(goal);
-  }, [closeMenu, goal, onDelete]);
-
-  const handleMenuToggle = useCallback(() => {
-    setMenuOpen((previous) => !previous);
-  }, []);
-
-  /* ------------------------------------------------------------------------ */
-  /* Render guard                                                             */
-  /* ------------------------------------------------------------------------ */
-  /*
-   * IMPORTANT:
-   *
-   * This conditional return MUST come after every hook.
-   *
-   * React requires hooks to execute in the same order on every render.
-   */
-
-  if (!goal) {
-    return null;
-  }
-
-  /* ------------------------------------------------------------------------ */
-  /* Safe value helpers                                                       */
-  /* ------------------------------------------------------------------------ */
-
-  const toFiniteNumber = (value, fallback = 0) => {
-    const number = Number(value);
-
-    return Number.isFinite(number) ? number : fallback;
-  };
-
-  const getFirstDefined = (...values) => {
-    return values.find(
-      (value) => value !== undefined && value !== null,
-    );
-  };
-
-  /* ------------------------------------------------------------------------ */
-  /* Goal identity                                                             */
+  /* Goal identity                                                            */
   /* ------------------------------------------------------------------------ */
 
   const goalId = getFirstDefined(
@@ -159,7 +213,7 @@ const SavingsGoalCard = ({
   );
 
   /* ------------------------------------------------------------------------ */
-  /* Basic goal information                                                   */
+  /* Goal information                                                         */
   /* ------------------------------------------------------------------------ */
 
   const name =
@@ -203,18 +257,11 @@ const SavingsGoalCard = ({
   );
 
   /*
-   * Remaining amount is derived from the authoritative target/current values
-   * rather than blindly trusting a potentially stale backend field.
+   * Remaining amount is deliberately derived from the displayed values.
    *
-   * This prevents cases where:
-   *
-   * target = ₦500,000
-   * saved  = ₦300,000
-   * remainingAmount = ₦500,000
-   *
-   * from being displayed incorrectly.
+   * Do not use goal.remainingAmount here because it is a derived value and
+   * may become stale after a contribution.
    */
-
   const remainingAmount = Math.max(
     targetAmount - currentAmount,
     0,
@@ -224,78 +271,34 @@ const SavingsGoalCard = ({
   /* Progress                                                                 */
   /* ------------------------------------------------------------------------ */
 
-  const calculatedProgress =
+  const progress =
     targetAmount > 0
-      ? (currentAmount / targetAmount) * 100
+      ? Math.min(
+          Math.max(
+            (currentAmount / targetAmount) * 100,
+            0,
+          ),
+          100,
+        )
       : 0;
 
-  const backendProgress = toFiniteNumber(
-    getFirstDefined(
-      goal.progressPercentage,
-      goal.progress,
-      goal.percentage,
-    ),
-    calculatedProgress,
-  );
-
-  /*
-   * Prefer calculated financial progress because it keeps the visual state
-   * synchronized with the displayed saved and target amounts.
-   */
-
-  const progress = Math.min(
-    Math.max(
-      targetAmount > 0
-        ? calculatedProgress
-        : backendProgress,
-      0,
-    ),
-    100,
-  );
+  const roundedProgress = Math.round(progress);
 
   /* ------------------------------------------------------------------------ */
   /* Status                                                                   */
   /* ------------------------------------------------------------------------ */
 
-  const rawStatus =
-    getFirstDefined(
-      goal.status,
-      goal.state,
-    ) || "active";
+  const rawStatus = getFirstDefined(
+    goal.status,
+    goal.state,
+  );
 
-  const normalizedStatus = String(rawStatus)
-    .trim()
-    .toLowerCase();
-
-  const isCompleted =
-    normalizedStatus === "completed" ||
-    normalizedStatus === "complete" ||
-    progress >= 100 ||
-    (targetAmount > 0 && currentAmount >= targetAmount);
-
-  const isPaused =
-    normalizedStatus === "paused" ||
-    normalizedStatus === "pause";
-
-  const isCancelled =
-    normalizedStatus === "cancelled" ||
-    normalizedStatus === "canceled";
-
-  const statusLabel = isCompleted
-    ? "Completed"
-    : isPaused
-      ? "Paused"
-      : isCancelled
-        ? "Cancelled"
-        : "Active";
-
-  const statusClassName = isCompleted
-    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-    : isPaused
-      ? "border-amber-200 bg-amber-50 text-amber-700"
-      : isCancelled
-        ? "border-rose-200 bg-rose-50 text-rose-700"
-        : "border-blue-200 bg-blue-50 text-blue-700";
+  const status = getStatusPresentation({
+    status: rawStatus,
+    progress,
+    currentAmount,
+    targetAmount,
+  });
 
   /* ------------------------------------------------------------------------ */
   /* Target date                                                              */
@@ -307,29 +310,60 @@ const SavingsGoalCard = ({
     goal.endDate,
   );
 
-  const formattedTargetDate = targetDate
-    ? new Intl.DateTimeFormat("en-NG", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      }).format(new Date(targetDate))
-    : "No target date";
+  const formattedTargetDate = formatDate(targetDate);
 
   /* ------------------------------------------------------------------------ */
-  /* Currency formatter                                                       */
+  /* Currency values                                                          */
   /* ------------------------------------------------------------------------ */
 
-  const formatCurrency = (amount) => {
-    try {
-      return new Intl.NumberFormat("en-NG", {
-        style: "currency",
-        currency,
-        maximumFractionDigits: 0,
-      }).format(amount);
-    } catch {
-      return `${currency} ${amount.toLocaleString("en-NG")}`;
-    }
-  };
+  /*
+   * These values are intentionally NOT memoized.
+   *
+   * Formatting three currency values is inexpensive, and avoiding useMemo
+   * keeps this presentation component simpler and eliminates unnecessary
+   * hook dependencies.
+   */
+  const formattedCurrentAmount = formatMoney(
+    currentAmount,
+    currency,
+  );
+
+  const formattedTargetAmount = formatMoney(
+    targetAmount,
+    currency,
+  );
+
+  const formattedRemainingAmount = formatMoney(
+    remainingAmount,
+    currency,
+  );
+
+  /* ------------------------------------------------------------------------ */
+  /* Event handlers                                                           */
+  /* ------------------------------------------------------------------------ */
+
+  const closeMenu = useCallback(() => {
+    setMenuOpen(false);
+  }, []);
+
+  const handleViewDetails = useCallback(() => {
+    closeMenu();
+    onView?.(goal);
+  }, [closeMenu, goal, onView]);
+
+  const handleEdit = useCallback(() => {
+    closeMenu();
+    onEdit?.(goal);
+  }, [closeMenu, goal, onEdit]);
+
+  const handleDelete = useCallback(() => {
+    closeMenu();
+    onDelete?.(goal);
+  }, [closeMenu, goal, onDelete]);
+
+  const handleMenuToggle = useCallback(() => {
+    setMenuOpen((previous) => !previous);
+  }, []);
 
   /* ------------------------------------------------------------------------ */
   /* Render                                                                   */
@@ -343,13 +377,12 @@ const SavingsGoalCard = ({
         bg-white
         border border-slate-200 rounded-2xl
         shadow-sm hover:shadow-md transition-shadow duration-200
-        group
       "
       data-goal-id={goalId}
     >
-      {/* ------------------------------------------------------------------ */}
+      {/* ================================================================== */}
       {/* Header                                                             */}
-      {/* ------------------------------------------------------------------ */}
+      {/* ================================================================== */}
 
       <div
         className="
@@ -406,14 +439,13 @@ const SavingsGoalCard = ({
                 items-center
                 rounded-full
                 border
-                px-2
-                py-0.5
+                px-2 py-0.5
                 text-[11px]
                 font-medium
-                ${statusClassName}
+                ${status.className}
               `}
             >
-              {isCompleted && (
+              {status.isCompleted && (
                 <CheckCircle2
                   className="
                     w-3 h-3
@@ -424,13 +456,13 @@ const SavingsGoalCard = ({
                 >
               )}
 
-              {statusLabel}
+              {status.label}
             </span>
           </div>
         </div>
 
         {/* -------------------------------------------------------------- */}
-        {/* Actions menu                                                    */}
+        {/* Actions menu                                                   */}
         {/* -------------------------------------------------------------- */}
 
         <div
@@ -446,7 +478,9 @@ const SavingsGoalCard = ({
             aria-label={`Actions for ${name}`}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
-            aria-controls={menuOpen ? menuId : undefined}
+            aria-controls={
+              menuOpen ? menuId : undefined
+            }
             className="
               inline-flex justify-center items-center
               w-9 h-9
@@ -487,7 +521,8 @@ const SavingsGoalCard = ({
                   w-full
                   px-3 py-2.5
                   text-slate-700 text-sm text-left
-                  hover:bg-slate-50
+                  hover:bg-slate-50 focus:bg-slate-50
+                  focus:outline-none
                   gap-2
                 "
               >
@@ -498,6 +533,7 @@ const SavingsGoalCard = ({
                   aria-hidden="true"
                 /
                 >
+
                 View details
               </button>
 
@@ -510,7 +546,8 @@ const SavingsGoalCard = ({
                   w-full
                   px-3 py-2.5
                   text-slate-700 text-sm text-left
-                  hover:bg-slate-50
+                  hover:bg-slate-50 focus:bg-slate-50
+                  focus:outline-none
                   gap-2
                 "
               >
@@ -521,6 +558,7 @@ const SavingsGoalCard = ({
                   aria-hidden="true"
                 /
                 >
+
                 Edit goal
               </button>
 
@@ -533,7 +571,8 @@ const SavingsGoalCard = ({
                   w-full
                   px-3 py-2.5
                   text-rose-600 text-sm text-left
-                  hover:bg-rose-50
+                  hover:bg-rose-50 focus:bg-rose-50
+                  focus:outline-none
                   gap-2
                 "
               >
@@ -544,9 +583,9 @@ const SavingsGoalCard = ({
         </div>
       </div>
 
-      {/* ------------------------------------------------------------------ */}
+      {/* ================================================================== */}
       {/* Financial summary                                                  */}
-      {/* ------------------------------------------------------------------ */}
+      {/* ================================================================== */}
 
       <div
         className="
@@ -555,65 +594,111 @@ const SavingsGoalCard = ({
       >
         <div
           className="
-            grid grid-cols-2
-            gap-3
+            p-4
+            bg-slate-50
+            border border-slate-100 rounded-xl
           "
         >
           <div
             className="
-              p-3
-              bg-slate-50
-              border border-slate-100 rounded-xl
+              flex justify-between items-start
+              gap-4
             "
           >
-            <p
-              className="
-                font-medium text-[11px] text-slate-500 uppercase tracking-wide
-              "
-            >
-              Saved
-            </p>
+            {/* ---------------------------------------------------------- */}
+            {/* Saved amount                                               */}
+            {/* ---------------------------------------------------------- */}
 
-            <p
+            <div
               className="
-                mt-1
-                font-bold text-slate-900 text-sm truncate
+                min-w-0
               "
             >
-              {formatCurrency(currentAmount)}
-            </p>
+              <p
+                className="
+                  font-medium text-[11px] text-slate-500 uppercase tracking-wide
+                "
+              >
+                Saved
+              </p>
+
+              <p
+                className="
+                  mt-1
+                  font-bold text-slate-900 text-lg truncate
+                "
+                title={formattedCurrentAmount}
+              >
+                {formattedCurrentAmount}
+              </p>
+            </div>
+
+            {/* ---------------------------------------------------------- */}
+            {/* Target amount                                              */}
+            {/* ---------------------------------------------------------- */}
+
+            <div
+              className="
+                min-w-0
+                text-right
+              "
+            >
+              <p
+                className="
+                  font-medium text-[11px] text-slate-500 uppercase tracking-wide
+                "
+              >
+                Target
+              </p>
+
+              <p
+                className="
+                  mt-1
+                  font-bold text-blue-600 text-lg truncate
+                "
+                title={formattedTargetAmount}
+              >
+                {formattedTargetAmount}
+              </p>
+            </div>
           </div>
+
+          {/* ------------------------------------------------------------ */}
+          {/* Financial relationship                                       */}
+          {/* ------------------------------------------------------------ */}
 
           <div
             className="
-              p-3
-              bg-slate-50
-              border border-slate-100 rounded-xl
+              flex justify-between items-center
+              mt-3 pt-3
+              border-slate-200/70 border-t
+              gap-3
             "
           >
-            <p
+            <span
               className="
-                font-medium text-[11px] text-slate-500 uppercase tracking-wide
+                text-slate-500 text-xs
               "
             >
-              Target
-            </p>
+              {roundedProgress}% of target
+            </span>
 
-            <p
+            <span
               className="
-                mt-1
-                font-bold text-slate-900 text-sm truncate
+                font-medium text-slate-700 text-xs truncate
               "
             >
-              {formatCurrency(targetAmount)}
-            </p>
+              {status.isCompleted
+                ? "Target reached"
+                : `${formattedRemainingAmount} left`}
+            </span>
           </div>
         </div>
       </div>
 
-      {/* ------------------------------------------------------------------ */}
+      {/* ================================================================== */}
       {/* Progress                                                           */}
-      {/* ------------------------------------------------------------------ */}
+      {/* ================================================================== */}
 
       <div
         className="
@@ -640,7 +725,7 @@ const SavingsGoalCard = ({
               font-bold text-slate-900 text-xs
             "
           >
-            {Math.round(progress)}%
+            {roundedProgress}%
           </span>
         </div>
 
@@ -654,7 +739,7 @@ const SavingsGoalCard = ({
           role="progressbar"
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-valuenow={Math.round(progress)}
+          aria-valuenow={roundedProgress}
           aria-label={`${name} savings progress`}
         >
           <div
@@ -672,9 +757,9 @@ const SavingsGoalCard = ({
         </div>
       </div>
 
-      {/* ------------------------------------------------------------------ */}
+      {/* ================================================================== */}
       {/* Remaining + target date                                            */}
-      {/* ------------------------------------------------------------------ */}
+      {/* ================================================================== */}
 
       <div
         className="
@@ -683,6 +768,10 @@ const SavingsGoalCard = ({
           gap-3
         "
       >
+        {/* -------------------------------------------------------------- */}
+        {/* Remaining                                                       */}
+        {/* -------------------------------------------------------------- */}
+
         <div
           className="
             min-w-0
@@ -718,12 +807,21 @@ const SavingsGoalCard = ({
               mt-1
               font-semibold text-slate-900 text-sm truncate
             "
+            title={
+              status.isCompleted
+                ? "Goal reached"
+                : formattedRemainingAmount
+            }
           >
-            {isCompleted
+            {status.isCompleted
               ? "Goal reached"
-              : formatCurrency(remainingAmount)}
+              : formattedRemainingAmount}
           </p>
         </div>
+
+        {/* -------------------------------------------------------------- */}
+        {/* Target date                                                    */}
+        {/* -------------------------------------------------------------- */}
 
         <div
           className="
@@ -760,21 +858,23 @@ const SavingsGoalCard = ({
               mt-1
               font-semibold text-slate-900 text-sm truncate
             "
+            title={formattedTargetDate}
           >
             {formattedTargetDate}
           </p>
         </div>
       </div>
 
-      {/* ------------------------------------------------------------------ */}
+      {/* ================================================================== */}
       {/* Footer                                                             */}
-      {/* ------------------------------------------------------------------ */}
+      {/* ================================================================== */}
 
       <div
         className="
           flex justify-between items-center
           mt-5 px-5 py-4
           border-slate-100 border-t
+          gap-3
         "
       >
         <div
@@ -793,7 +893,7 @@ const SavingsGoalCard = ({
           >
 
           <span>
-            {isCompleted
+            {status.isCompleted
               ? "Completed"
               : targetDate
                 ? "Target set"
@@ -826,6 +926,22 @@ const SavingsGoalCard = ({
       </div>
     </article>
   );
+};
+
+/* -------------------------------------------------------------------------- */
+/* Public component                                                           */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * The wrapper guarantees that the main card component is never rendered with
+ * an invalid goal. This keeps the component's hook execution deterministic.
+ */
+const SavingsGoalCard = (props) => {
+  if (!props.goal) {
+    return null;
+  }
+
+  return <SavingsGoalCardContent {...props} />;
 };
 
 export default memo(SavingsGoalCard);
