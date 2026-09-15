@@ -1,3 +1,4 @@
+
 // src/services/smartSaveService.js
 
 import api from "./api";
@@ -62,9 +63,6 @@ export const SMART_SAVE_ENDPOINTS = Object.freeze({
 
   /*
    * AutoSave is isolated from the main savings router.
-   *
-   * Backend route supplied:
-   * /api/savings/auto-save
    */
   autoSave: "/savings/auto-save",
 });
@@ -81,6 +79,13 @@ const HTTP_METHODS = Object.freeze({
   PATCH: "patch",
   DELETE: "delete",
 });
+
+
+const MUTATION_METHODS = new Set([
+  HTTP_METHODS.POST,
+  HTTP_METHODS.PUT,
+  HTTP_METHODS.PATCH,
+]);
 
 
 /* ============================================================
@@ -127,6 +132,16 @@ export class SmartSaveServiceError extends Error {
 
 
 /* ============================================================
+   OBJECT HELPERS
+============================================================ */
+
+const isPlainObject = (value) =>
+  value !== null &&
+  typeof value === "object" &&
+  !Array.isArray(value);
+
+
+/* ============================================================
    ID VALIDATION
 ============================================================ */
 
@@ -137,6 +152,10 @@ export class SmartSaveServiceError extends Error {
  * - MongoDB ObjectId
  * - UUID
  * - Other backend-generated string IDs
+ *
+ * MongoDB-specific validation intentionally does not happen
+ * here because the backend contract may support UUIDs or
+ * other string identifiers.
  */
 export const validateId = (
   value,
@@ -168,11 +187,6 @@ export const validateId = (
     });
   }
 
-  /*
-   * Do not force MongoDB ObjectId validation here.
-   *
-   * The backend contract may eventually support UUID/string IDs.
-   */
   return id;
 };
 
@@ -215,18 +229,11 @@ const normalizePositiveInteger = (
 
 
 /* ============================================================
-   PAGINATION HELPERS
+   PAGINATION
 ============================================================ */
 
 /**
  * Normalize pagination parameters.
- *
- * Example:
- *
- * normalizePagination({
- *   page: 2,
- *   limit: 50
- * });
  */
 export const normalizePagination = ({
   page = SMART_SAVE_DEFAULTS.page,
@@ -247,11 +254,18 @@ export const normalizePagination = ({
       "limit"
     );
 
+  const normalizedMaxLimit =
+    normalizePositiveInteger(
+      maxLimit,
+      SMART_SAVE_DEFAULTS.maxLimit,
+      "maxLimit"
+    );
+
   return {
     page: normalizedPage,
     limit: Math.min(
       normalizedLimit,
-      maxLimit
+      normalizedMaxLimit
     ),
   };
 };
@@ -261,14 +275,8 @@ export const normalizePagination = ({
    QUERY PARAMETER NORMALIZATION
 ============================================================ */
 
-const isPlainObject = (value) =>
-  value !== null &&
-  typeof value === "object" &&
-  !Array.isArray(value);
-
-
 /**
- * Remove undefined/null/empty query values.
+ * Remove undefined, null and empty-string query values.
  *
  * false and 0 are intentionally preserved.
  */
@@ -301,7 +309,7 @@ export const cleanQueryParams = (
 /**
  * Normalize common list-query parameters.
  *
- * This does not invent query parameters.
+ * This function does not invent query parameters.
  * It only normalizes parameters explicitly supplied
  * by the caller.
  */
@@ -341,15 +349,16 @@ export const normalizeListQuery = (
 /**
  * Recursively remove undefined values.
  *
- * null is preserved intentionally because null may be a
+ * null is intentionally preserved because null can be a
  * meaningful backend value.
  */
 export const sanitizePayload = (
   payload
 ) => {
   if (Array.isArray(payload)) {
-    return payload
-      .map(sanitizePayload);
+    return payload.map(
+      sanitizePayload
+    );
   }
 
   if (!isPlainObject(payload)) {
@@ -373,7 +382,7 @@ export const sanitizePayload = (
 
 
 /**
- * Normalize optional request body.
+ * Normalize request body.
  */
 const normalizeBody = (
   payload = {}
@@ -404,27 +413,25 @@ const normalizeBody = (
 ============================================================ */
 
 /**
- * SmartBudget APIs commonly return one of:
+ * SmartBudget APIs commonly return:
  *
  * {
  *   data: ...
  * }
+ *
+ * or:
  *
  * {
  *   success: true,
  *   data: ...
  * }
  *
- * {
- *   success: true,
- *   data: {
- *     data: [...]
- *   }
- * }
+ * This helper unwraps only the transport-level `data`
+ * property.
  *
- * This helper unwraps only transport wrappers.
- *
- * It does NOT reshape business data.
+ * It intentionally does not recursively unwrap business
+ * objects because a legitimate business response may itself
+ * contain a `data` property.
  */
 export const unwrapResponse = (
   response
@@ -439,14 +446,6 @@ export const unwrapResponse = (
     return payload;
   }
 
-  /*
-   * Axios response.data
-   *
-   * {
-   *   success: true,
-   *   data: ...
-   * }
-   */
   if (
     isPlainObject(payload) &&
     Object.prototype.hasOwnProperty.call(
@@ -462,13 +461,9 @@ export const unwrapResponse = (
 
 
 /* ============================================================
-   RESPONSE METADATA
+   RESPONSE NORMALIZATION
 ============================================================ */
 
-/**
- * Return a normalized transport response while preserving
- * backend business data.
- */
 export const normalizeResponse = (
   response
 ) => ({
@@ -492,8 +487,8 @@ export const normalizeResponse = (
 ============================================================ */
 
 /**
- * Extract backend error information without exposing
- * Axios implementation details to components/hooks.
+ * Normalize backend/Axios errors into the SmartSave service
+ * error contract.
  */
 export const normalizeError = (
   error,
@@ -540,23 +535,72 @@ export const normalizeError = (
     details,
     originalError: error,
     endpoint:
-      context.endpoint ??
-      null,
+      context.endpoint ?? null,
     method:
-      context.method ??
-      null,
+      context.method ?? null,
   });
 };
 
 
 /* ============================================================
-   REQUEST WRAPPER
+   REQUEST CONFIGURATION
 ============================================================ */
 
 /**
- * Central request executor.
+ * Build the Axios configuration object used by GET/DELETE
+ * requests and as the third argument for POST/PUT/PATCH.
+ */
+const buildRequestConfig = ({
+  params,
+  signal,
+} = {}) => {
+  const config = {};
+
+  const normalizedParams =
+    params
+      ? cleanQueryParams(params)
+      : {};
+
+  if (
+    Object.keys(normalizedParams).length > 0
+  ) {
+    config.params =
+      normalizedParams;
+  }
+
+  if (signal) {
+    config.signal = signal;
+  }
+
+  return config;
+};
+
+
+/* ============================================================
+   REQUEST EXECUTOR
+============================================================ */
+
+/**
+ * Central SmartSave HTTP executor.
  *
- * All SmartSave API calls pass through this function.
+ * IMPORTANT:
+ *
+ * Axios does NOT use the same signature for all HTTP methods.
+ *
+ * GET/DELETE:
+ *
+ *   api.get(url, config)
+ *   api.delete(url, config)
+ *
+ * POST/PUT/PATCH:
+ *
+ *   api.post(url, data, config)
+ *   api.put(url, data, config)
+ *   api.patch(url, data, config)
+ *
+ * Keeping that distinction here prevents request payloads
+ * from accidentally being placed inside an Axios config
+ * object.
  */
 const request = async ({
   method,
@@ -566,34 +610,82 @@ const request = async ({
   signal,
 }) => {
   try {
-    const config = {};
+    const config =
+      buildRequestConfig({
+        params,
+        signal,
+      });
 
-    if (params) {
-      config.params = cleanQueryParams(params);
+    const normalizedData =
+      data !== undefined
+        ? normalizeBody(data)
+        : undefined;
+
+    let response;
+
+    switch (method) {
+      case HTTP_METHODS.GET:
+        response = await api.get(
+          endpoint,
+          config
+        );
+        break;
+
+      case HTTP_METHODS.DELETE:
+        response = await api.delete(
+          endpoint,
+          config
+        );
+        break;
+
+      case HTTP_METHODS.POST:
+        response = await api.post(
+          endpoint,
+          normalizedData,
+          config
+        );
+        break;
+
+      case HTTP_METHODS.PUT:
+        response = await api.put(
+          endpoint,
+          normalizedData,
+          config
+        );
+        break;
+
+      case HTTP_METHODS.PATCH:
+        response = await api.patch(
+          endpoint,
+          normalizedData,
+          config
+        );
+        break;
+
+      default:
+        throw new SmartSaveServiceError({
+          message:
+            `Unsupported HTTP method: ${method}`,
+          code:
+            "UNSUPPORTED_HTTP_METHOD",
+          endpoint,
+          method,
+        });
     }
 
-    if (signal) {
-      config.signal = signal;
-    }
-
-    if (data !== undefined) {
-      config.data = normalizeBody(data);
-    }
-
-    const response = await api[method](
-      endpoint,
-      config
-    );
-
-    return normalizeResponse(response).data;
+    return normalizeResponse(
+      response
+    ).data;
   } catch (error) {
-    throw normalizeError(error, {
-      endpoint,
-      method,
-    });
+    throw normalizeError(
+      error,
+      {
+        endpoint,
+        method,
+      }
+    );
   }
 };
-
 
 
 /* ============================================================
@@ -759,27 +851,17 @@ export const closeSavingAccount =
 /* ============================================================
    GOALS
 ============================================================ */
+
 export const createSavingGoal =
   (payload) =>
     request({
-      method: HTTP_METHODS.POST,
-      endpoint: SMART_SAVE_ENDPOINTS.goals,
+      method:
+        HTTP_METHODS.POST,
+      endpoint:
+        SMART_SAVE_ENDPOINTS.goals,
       data: payload,
     });
-/**
- * The supplied backend routes currently expose:
- *
- * - list goals
- * - get goal
- * - summary
- * - contributions
- * - history
- * - eligibility
- *
- * No create/update/delete goal endpoints were supplied.
- *
- * Therefore none are invented here.
- */
+
 
 export const getSavingGoals =
   (params = {}) =>
@@ -913,9 +995,14 @@ export const getSavingPlans = ({
   ...params
 } = {}) =>
   request({
-    method: HTTP_METHODS.GET,
-    endpoint: SMART_SAVE_ENDPOINTS.plans,
-    params: normalizeListQuery(params),
+    method:
+      HTTP_METHODS.GET,
+    endpoint:
+      SMART_SAVE_ENDPOINTS.plans,
+    params:
+      normalizeListQuery(
+        params
+      ),
     signal,
   });
 
@@ -1129,9 +1216,14 @@ export const getSavingSchedules = ({
   ...params
 } = {}) =>
   request({
-    method: HTTP_METHODS.GET,
-    endpoint: SMART_SAVE_ENDPOINTS.schedules,
-    params: normalizeListQuery(params),
+    method:
+      HTTP_METHODS.GET,
+    endpoint:
+      SMART_SAVE_ENDPOINTS.schedules,
+    params:
+      normalizeListQuery(
+        params
+      ),
     signal,
   });
 
@@ -1721,20 +1813,16 @@ export const getGoalSavingInsights =
 ============================================================ */
 
 /**
- * IMPORTANT
- *
- * These methods correspond to the separately supplied:
+ * These methods correspond to:
  *
  * /api/savings/auto-save
  *
- * route.
- *
- * The supplied savingsRoutes.js does NOT currently mount
+ * The supplied savingsRoutes.js does not currently mount
  * autoSaveRoutes.js.
  *
- * Therefore these methods are intentionally isolated and
- * should not be used by the application until the backend
- * mounts that router.
+ * Therefore these methods remain isolated and should not be
+ * used by application features until the backend mounts the
+ * corresponding router.
  */
 
 
@@ -1762,9 +1850,14 @@ export const getAutoSaves = ({
   ...params
 } = {}) =>
   request({
-    method: HTTP_METHODS.GET,
-    endpoint: SMART_SAVE_ENDPOINTS.autoSave,
-    params: normalizeListQuery(params),
+    method:
+      HTTP_METHODS.GET,
+    endpoint:
+      SMART_SAVE_ENDPOINTS.autoSave,
+    params:
+      normalizeListQuery(
+        params
+      ),
     signal,
   });
 
