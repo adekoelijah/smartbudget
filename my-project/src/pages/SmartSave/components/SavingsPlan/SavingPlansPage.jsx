@@ -56,9 +56,9 @@ import {
   getSavingPlanId,
 } from "../../../../utils/smartSave/savingPlanHelpers";
 
-/* -------------------------------------------------------------------------- */
-/* Constants                                                                  */
-/* -------------------------------------------------------------------------- */
+/* ==========================================================================
+   CONSTANTS
+========================================================================== */
 
 const DEFAULT_FILTERS = Object.freeze({
   page: 1,
@@ -92,14 +92,17 @@ const STATUS_OPTIONS = Object.freeze([
   },
 ]);
 
-/* -------------------------------------------------------------------------- */
-/* Helpers                                                                    */
-/* -------------------------------------------------------------------------- */
+/* ==========================================================================
+   HELPERS
+========================================================================== */
 
-const normalizeSearchValue = (value) =>
-  typeof value === "string"
-    ? value.trim()
-    : "";
+const normalizeSearchValue = (value) => {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value.trim();
+};
 
 const getErrorText = (error) => {
   if (!error) {
@@ -148,9 +151,9 @@ const getMutationResultError = (result) => {
   return getErrorText(result.error);
 };
 
-/* -------------------------------------------------------------------------- */
-/* Error Banner                                                                */
-/* -------------------------------------------------------------------------- */
+/* ==========================================================================
+   ERROR BANNER
+========================================================================== */
 
 const PageError = memo(
   ({
@@ -173,12 +176,12 @@ const PageError = memo(
           overflow-hidden
           mb-6
           bg-red-50
-          rounded-2xl border border-red-200
+          border border-red-200 rounded-2xl
         "
       >
         <div
           className="
-            flex flex-col sm:flex-row sm:items-center sm:justify-between
+            flex flex-col sm:flex-row sm:justify-between sm:items-center
             p-4
             gap-4
           "
@@ -192,8 +195,8 @@ const PageError = memo(
           >
             <div
               className="
-                flex items-center justify-center
-                h-9 w-9
+                flex justify-center items-center
+                w-9 h-9
                 text-red-600
                 bg-red-100
                 rounded-full
@@ -203,7 +206,7 @@ const PageError = memo(
               <AlertCircle
                 aria-hidden="true"
                 className="
-                  h-5 w-5
+                  w-5 h-5
                 "
                 /
               >
@@ -216,7 +219,7 @@ const PageError = memo(
             >
               <p
                 className="
-                  text-sm text-red-900 font-semibold
+                  font-semibold text-red-900 text-sm
                 "
               >
                 Unable to load saving plans
@@ -225,7 +228,7 @@ const PageError = memo(
               <p
                 className="
                   mt-1
-                  text-sm text-red-700 leading-relaxed
+                  text-red-700 text-sm leading-relaxed
                 "
               >
                 {message}
@@ -245,13 +248,13 @@ const PageError = memo(
                 onClick={onDismiss}
                 disabled={retrying}
                 className="
-                  inline-flex items-center justify-center
+                  inline-flex justify-center items-center
                   min-h-9
                   px-3
-                  text-xs text-red-700 font-semibold
+                  font-semibold text-red-700 text-xs
                   hover:bg-red-100
                   rounded-lg
-                  transition disabled:opacity-50
+                  disabled:opacity-50 transition
                   disabled:cursor-not-allowed
                 "
               >
@@ -265,13 +268,13 @@ const PageError = memo(
                 onClick={onRetry}
                 disabled={retrying}
                 className="
-                  inline-flex items-center justify-center
+                  inline-flex justify-center items-center
                   min-h-9
                   px-3
-                  text-xs text-white font-semibold
+                  font-semibold text-white text-xs
                   bg-red-600 hover:bg-red-700
                   rounded-lg
-                  transition disabled:opacity-60
+                  disabled:opacity-60 transition
                   disabled:cursor-not-allowed
                   gap-2
                 "
@@ -302,9 +305,9 @@ const PageError = memo(
 
 PageError.displayName = "PageError";
 
-/* -------------------------------------------------------------------------- */
-/* Page Header                                                                 */
-/* -------------------------------------------------------------------------- */
+/* ==========================================================================
+   PAGE HEADER
+========================================================================== */
 
 const PageHeader = memo(
   ({
@@ -321,7 +324,7 @@ const PageHeader = memo(
       >
         <div
           className="
-            flex flex-col lg:flex-row lg:items-end lg:justify-between
+            flex flex-col lg:flex-row lg:justify-between lg:items-end
             gap-5
           "
         >
@@ -334,9 +337,9 @@ const PageHeader = memo(
               className="
                 inline-flex items-center
                 mb-3 px-3 py-1
-                text-[11px] text-blue-700 font-bold uppercase tracking-wider
+                font-bold text-[11px] text-blue-700 uppercase tracking-wider
                 bg-blue-50
-                rounded-full border border-blue-100
+                border border-blue-100 rounded-full
               "
             >
               SmartSave
@@ -344,7 +347,7 @@ const PageHeader = memo(
 
             <h1
               className="
-                text-2xl text-slate-950 sm:text-3xl font-bold tracking-tight
+                font-bold text-slate-950 text-2xl sm:text-3xl tracking-tight
               "
             >
               Saving Plans
@@ -354,11 +357,12 @@ const PageHeader = memo(
               className="
                 max-w-2xl
                 mt-2
-                text-sm text-slate-500 sm:text-base leading-relaxed
+                text-slate-500 text-sm sm:text-base leading-relaxed
               "
             >
-              Create structured saving plans, track your progress,
-              and manage your savings journey from one place.
+              Create structured saving plans, track your
+              progress, and manage your savings journey
+              from one place.
             </p>
           </div>
 
@@ -374,13 +378,13 @@ const PageHeader = memo(
               onClick={onRefresh}
               disabled={disabled || refreshing}
               className="
-                inline-flex items-center justify-center
+                inline-flex justify-center items-center
                 min-h-11
                 px-4
-                text-sm text-slate-700 font-semibold
+                font-semibold text-slate-700 text-sm
                 bg-white hover:bg-slate-50
-                rounded-xl border border-slate-200 hover:border-slate-300
-                shadow-sm transition disabled:opacity-50
+                border border-slate-200 hover:border-slate-300 rounded-xl
+                disabled:opacity-50 shadow-sm transition
                 disabled:cursor-not-allowed
                 gap-2
               "
@@ -407,13 +411,13 @@ const PageHeader = memo(
               onClick={onCreate}
               disabled={disabled}
               className="
-                inline-flex items-center justify-center
+                inline-flex justify-center items-center
                 min-h-11
                 px-5
-                text-sm text-white font-semibold
+                font-semibold text-white text-sm
                 bg-slate-950 hover:bg-slate-800
                 rounded-xl
-                shadow-sm transition disabled:opacity-50
+                disabled:opacity-50 shadow-sm transition
                 disabled:cursor-not-allowed
                 gap-2
               "
@@ -421,7 +425,7 @@ const PageHeader = memo(
               <Plus
                 aria-hidden="true"
                 className="
-                  h-4 w-4
+                  w-4 h-4
                 "
                 /
               >
@@ -437,9 +441,9 @@ const PageHeader = memo(
 
 PageHeader.displayName = "PageHeader";
 
-/* -------------------------------------------------------------------------- */
-/* Filters                                                                     */
-/* -------------------------------------------------------------------------- */
+/* ==========================================================================
+   FILTER BAR
+========================================================================== */
 
 const FilterBar = memo(
   ({
@@ -458,13 +462,13 @@ const FilterBar = memo(
         className="
           mb-6 p-4
           bg-white
-          rounded-2xl border border-slate-200
+          border border-slate-200 rounded-2xl
           shadow-sm
         "
       >
         <div
           className="
-            flex items-center justify-between
+            flex justify-between items-center
             mb-3
             gap-3
           "
@@ -477,8 +481,8 @@ const FilterBar = memo(
           >
             <div
               className="
-                flex items-center justify-center
-                h-8 w-8
+                flex justify-center items-center
+                w-8 h-8
                 text-slate-600
                 bg-slate-100
                 rounded-lg
@@ -487,7 +491,7 @@ const FilterBar = memo(
               <Filter
                 aria-hidden="true"
                 className="
-                  h-4 w-4
+                  w-4 h-4
                 "
                 /
               >
@@ -496,7 +500,7 @@ const FilterBar = memo(
             <div>
               <p
                 className="
-                  text-sm text-slate-900 font-semibold
+                  font-semibold text-slate-900 text-sm
                 "
               >
                 Filter plans
@@ -504,7 +508,7 @@ const FilterBar = memo(
 
               <p
                 className="
-                  text-xs text-slate-500
+                  text-slate-500 text-xs
                 "
               >
                 Search or narrow plans by status.
@@ -520,10 +524,10 @@ const FilterBar = memo(
               className="
                 inline-flex items-center
                 px-2.5 py-1.5
-                text-xs text-slate-500 hover:text-slate-800 font-semibold
+                font-semibold text-slate-500 hover:text-slate-800 text-xs
                 hover:bg-slate-100
                 rounded-lg
-                transition disabled:opacity-50
+                disabled:opacity-50 transition
                 disabled:cursor-not-allowed
                 gap-1.5
               "
@@ -531,7 +535,7 @@ const FilterBar = memo(
               <X
                 aria-hidden="true"
                 className="
-                  h-3.5 w-3.5
+                  w-3.5 h-3.5
                 "
                 /
               >
@@ -554,8 +558,8 @@ const FilterBar = memo(
             <Search
               aria-hidden="true"
               className="
-                absolute left-3 top-1/2
-                h-4 w-4
+                top-1/2 left-3 absolute
+                w-4 h-4
                 text-slate-400
                 pointer-events-none
                 -translate-y-1/2
@@ -577,7 +581,24 @@ const FilterBar = memo(
               placeholder="Search saving plans..."
               disabled={disabled}
               aria-label="Search saving plans"
-              className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-10 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+              className="
+                bg-slate-50
+                focus:bg-white
+                disabled:opacity-60
+                pr-10 pl-9
+                border border-slate-200
+                focus:border-blue-400
+                rounded-xl
+                outline-none
+                focus:ring-2
+                focus:ring-blue-100
+                w-full h-11
+                text-slate-900
+                placeholder:text-slate-400
+                text-sm
+                transition
+                disabled:cursor-not-allowed
+              "
             />
 
             {search ? (
@@ -586,12 +607,28 @@ const FilterBar = memo(
                 onClick={() => onSearchChange("")}
                 disabled={disabled}
                 aria-label="Clear search text"
-                className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-200 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="
+                  top-1/2
+                  right-2
+                  absolute
+                  flex
+                  justify-center
+                  items-center
+                  hover:bg-slate-200
+                  disabled:opacity-50
+                  rounded-lg
+                  w-7 h-7
+                  text-slate-400
+                  hover:text-slate-700
+                  transition
+                  -translate-y-1/2
+                  disabled:cursor-not-allowed
+                "
               >
                 <X
                   aria-hidden="true"
                   className="
-                    h-4 w-4
+                    w-4 h-4
                   "
                   /
                 >
@@ -606,7 +643,24 @@ const FilterBar = memo(
             }
             disabled={disabled}
             aria-label="Filter by status"
-            className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+            className="
+              bg-slate-50
+              focus:bg-white
+              disabled:opacity-60
+              px-3
+              border border-slate-200
+              focus:border-blue-400
+              rounded-xl
+              outline-none
+              focus:ring-2
+              focus:ring-blue-100
+              w-full h-11
+              font-medium
+              text-slate-700
+              text-sm
+              transition
+              disabled:cursor-not-allowed
+            "
           >
             {STATUS_OPTIONS.map((option) => (
               <option
@@ -623,13 +677,13 @@ const FilterBar = memo(
             onClick={onApply}
             disabled={disabled}
             className="
-              inline-flex items-center justify-center
+              inline-flex justify-center items-center
               h-11
               px-5
-              text-sm text-white font-semibold
+              font-semibold text-white text-sm
               bg-slate-950 hover:bg-slate-800
               rounded-xl
-              transition disabled:opacity-50
+              disabled:opacity-50 transition
               disabled:cursor-not-allowed
             "
           >
@@ -643,9 +697,9 @@ const FilterBar = memo(
 
 FilterBar.displayName = "FilterBar";
 
-/* -------------------------------------------------------------------------- */
-/* Summary Bar                                                                 */
-/* -------------------------------------------------------------------------- */
+/* ==========================================================================
+   SUMMARY
+========================================================================== */
 
 const PlansSummary = memo(
   ({
@@ -655,7 +709,7 @@ const PlansSummary = memo(
     return (
       <div
         className="
-          flex flex-col sm:flex-row sm:items-center sm:justify-between
+          flex flex-col sm:flex-row sm:justify-between sm:items-center
           mb-4
           gap-2
         "
@@ -663,7 +717,7 @@ const PlansSummary = memo(
         <div>
           <h2
             className="
-              text-sm text-slate-900 font-bold
+              font-bold text-slate-900 text-sm
             "
           >
             Your saving plans
@@ -672,7 +726,7 @@ const PlansSummary = memo(
           <p
             className="
               mt-0.5
-              text-xs text-slate-500
+              text-slate-500 text-xs
             "
           >
             {totalPlans}{" "}
@@ -687,18 +741,19 @@ const PlansSummary = memo(
           <div
             className="
               inline-flex items-center
-              text-xs text-slate-500 font-medium
+              font-medium text-slate-500 text-xs
               gap-2
             "
           >
             <RefreshCw
               aria-hidden="true"
               className="
-                h-3.5 w-3.5
+                w-3.5 h-3.5
                 animate-spin
               "
               /
             >
+
             Updating plans...
           </div>
         ) : null}
@@ -709,9 +764,9 @@ const PlansSummary = memo(
 
 PlansSummary.displayName = "PlansSummary";
 
-/* -------------------------------------------------------------------------- */
-/* Pagination                                                                  */
-/* -------------------------------------------------------------------------- */
+/* ==========================================================================
+   PAGINATION
+========================================================================== */
 
 const Pagination = memo(
   ({
@@ -735,27 +790,26 @@ const Pagination = memo(
         ? 0
         : (currentPage - 1) * limit + 1;
 
-    const lastItem =
-      Math.min(
-        currentPage * limit,
-        totalItems
-      );
+    const lastItem = Math.min(
+      currentPage * limit,
+      totalItems
+    );
 
     return (
       <nav
         aria-label="Saving plan pagination"
         className="
-          flex flex-col sm:flex-row sm:items-center sm:justify-between
+          flex flex-col sm:flex-row sm:justify-between sm:items-center
           mt-6 p-4
           bg-white
-          rounded-2xl border border-slate-200
+          border border-slate-200 rounded-2xl
           shadow-sm
           gap-3
         "
       >
         <p
           className="
-            text-xs text-slate-500
+            text-slate-500 text-xs
           "
         >
           Showing{" "}
@@ -799,13 +853,13 @@ const Pagination = memo(
               currentPage <= 1
             }
             className="
-              inline-flex items-center justify-center
+              inline-flex justify-center items-center
               h-9
               px-3
-              text-xs text-slate-700 font-semibold
+              font-semibold text-slate-700 text-xs
               bg-white hover:bg-slate-50
-              rounded-lg border border-slate-200
-              transition disabled:opacity-40
+              border border-slate-200 rounded-lg
+              disabled:opacity-40 transition
               disabled:cursor-not-allowed
               gap-1
             "
@@ -813,7 +867,7 @@ const Pagination = memo(
             <ChevronLeft
               aria-hidden="true"
               className="
-                h-4 w-4
+                w-4 h-4
               "
               /
             >
@@ -823,10 +877,10 @@ const Pagination = memo(
           <span
             aria-current="page"
             className="
-              inline-flex items-center justify-center
-              h-9 min-w-9
+              inline-flex justify-center items-center
+              min-w-9 h-9
               px-2
-              text-xs text-white font-semibold
+              font-semibold text-white text-xs
               bg-slate-950
               rounded-lg
             "
@@ -841,14 +895,31 @@ const Pagination = memo(
               disabled ||
               currentPage >= totalPages
             }
-            className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            className="
+              inline-flex
+              justify-center
+              items-center
+              gap-1
+              bg-white
+              hover:bg-slate-50
+              disabled:opacity-40
+              px-3
+              border border-slate-200
+              rounded-lg
+              h-9
+              font-semibold
+              text-slate-700
+              text-xs
+              transition
+              disabled:cursor-not-allowed
+            "
           >
             Next
 
             <ChevronRight
               aria-hidden="true"
               className="
-                h-4 w-4
+                w-4 h-4
               "
               /
             >
@@ -861,9 +932,9 @@ const Pagination = memo(
 
 Pagination.displayName = "Pagination";
 
-/* -------------------------------------------------------------------------- */
-/* Page                                                                        */
-/* -------------------------------------------------------------------------- */
+/* ==========================================================================
+   PAGE
+========================================================================== */
 
 const SavingPlansPage = () => {
   const {
@@ -916,9 +987,9 @@ const SavingPlansPage = () => {
     autoFetch: true,
   });
 
-  /* ------------------------------------------------------------------------ */
-  /* Local filter state                                                       */
-  /* ------------------------------------------------------------------------ */
+  /* ------------------------------------------------------------------------
+     Local filter state
+  ------------------------------------------------------------------------ */
 
   const [search, setSearch] = useState(
     filters?.search ?? ""
@@ -928,9 +999,9 @@ const SavingPlansPage = () => {
     filters?.status ?? ""
   );
 
-  /* ------------------------------------------------------------------------ */
-  /* UI state                                                                 */
-  /* ------------------------------------------------------------------------ */
+  /* ------------------------------------------------------------------------
+     UI state
+  ------------------------------------------------------------------------ */
 
   const [
     selectedPlanId,
@@ -962,29 +1033,24 @@ const SavingPlansPage = () => {
     setActionError,
   ] = useState(null);
 
-  /* ------------------------------------------------------------------------ */
-  /* Selected plan                                                            */
-  /* ------------------------------------------------------------------------ */
+  /* ------------------------------------------------------------------------
+     Selected plan
+  ------------------------------------------------------------------------ */
 
-  const selectedPlan = useMemo(
-    () => {
-      if (!selectedPlanId) {
-        return null;
-      }
+  const selectedPlan = useMemo(() => {
+    if (!selectedPlanId) {
+      return null;
+    }
 
-      return getPlanById(
-        selectedPlanId
-      );
-    },
-    [
-      selectedPlanId,
-      getPlanById,
-    ]
-  );
+    return getPlanById(selectedPlanId);
+  }, [
+    selectedPlanId,
+    getPlanById,
+  ]);
 
-  /* ------------------------------------------------------------------------ */
-  /* Busy states                                                              */
-  /* ------------------------------------------------------------------------ */
+  /* ------------------------------------------------------------------------
+     Busy states
+  ------------------------------------------------------------------------ */
 
   const refreshing =
     loading && hasPlans;
@@ -1001,9 +1067,9 @@ const SavingPlansPage = () => {
   const pageDisabled =
     isMutating;
 
-  /* ------------------------------------------------------------------------ */
-  /* Filter handlers                                                          */
-  /* ------------------------------------------------------------------------ */
+  /* ------------------------------------------------------------------------
+     Filter handlers
+  ------------------------------------------------------------------------ */
 
   const handleSearchChange = useCallback(
     (value) => {
@@ -1058,9 +1124,9 @@ const SavingPlansPage = () => {
     [resetFilters]
   );
 
-  /* ------------------------------------------------------------------------ */
-  /* Refresh                                                                  */
-  /* ------------------------------------------------------------------------ */
+  /* ------------------------------------------------------------------------
+     Refresh
+  ------------------------------------------------------------------------ */
 
   const handleRefresh = useCallback(
     async () => {
@@ -1074,9 +1140,9 @@ const SavingPlansPage = () => {
     [refreshPlans]
   );
 
-  /* ------------------------------------------------------------------------ */
-  /* Retry                                                                    */
-  /* ------------------------------------------------------------------------ */
+  /* ------------------------------------------------------------------------
+     Retry
+  ------------------------------------------------------------------------ */
 
   const handleRetry = useCallback(
     async () => {
@@ -1098,52 +1164,55 @@ const SavingPlansPage = () => {
     ]
   );
 
-  /* ------------------------------------------------------------------------ */
-  /* Create                                                                   */
-  /* ------------------------------------------------------------------------ */
+  /* ------------------------------------------------------------------------
+     Create
+  ------------------------------------------------------------------------ */
 
-  const handleOpenCreate =
-    useCallback(() => {
+  const handleOpenCreate = useCallback(
+    () => {
       setActionError(null);
       setCreateOpen(true);
-    }, []);
+    },
+    []
+  );
 
-  const handleCloseCreate =
-    useCallback(() => {
+  const handleCloseCreate = useCallback(
+    () => {
       if (creating) {
         return;
       }
 
       setCreateOpen(false);
-    }, [creating]);
+    },
+    [creating]
+  );
 
-  const handleCreate =
-    useCallback(
-      async (payload) => {
-        setActionError(null);
+  const handleCreate = useCallback(
+    async (payload) => {
+      setActionError(null);
 
-        const result =
-          await createPlan(payload);
+      const result =
+        await createPlan(payload);
 
-        if (result?.success) {
-          setCreateOpen(false);
-        } else if (result) {
-          setActionError(
-            getMutationResultError(result)
-          );
-        }
+      if (result?.success) {
+        setCreateOpen(false);
+      } else if (result) {
+        setActionError(
+          getMutationResultError(result)
+        );
+      }
 
-        return result;
-      },
-      [createPlan]
-    );
+      return result;
+    },
+    [createPlan]
+  );
 
-  /* ------------------------------------------------------------------------ */
-  /* View                                                                     */
-  /* ------------------------------------------------------------------------ */
+  /* ------------------------------------------------------------------------
+     View
+  ------------------------------------------------------------------------ */
 
-  const handleViewPlan =
-    useCallback((plan) => {
+  const handleViewPlan = useCallback(
+    (plan) => {
       const planId =
         getSavingPlanId(plan);
 
@@ -1157,7 +1226,9 @@ const SavingPlansPage = () => {
 
       setDetailsOpen(true);
       setActionError(null);
-    }, []);
+    },
+    []
+  );
 
   const handleCloseDetails =
     useCallback(() => {
@@ -1168,12 +1239,12 @@ const SavingPlansPage = () => {
       setDetailsOpen(false);
     }, [actionBusy]);
 
-  /* ------------------------------------------------------------------------ */
-  /* Edit                                                                     */
-  /* ------------------------------------------------------------------------ */
+  /* ------------------------------------------------------------------------
+     Edit
+  ------------------------------------------------------------------------ */
 
-  const handleOpenEdit =
-    useCallback((plan) => {
+  const handleOpenEdit = useCallback(
+    (plan) => {
       const planId =
         getSavingPlanId(plan);
 
@@ -1188,47 +1259,50 @@ const SavingPlansPage = () => {
       setEditOpen(true);
       setDetailsOpen(false);
       setActionError(null);
-    }, []);
+    },
+    []
+  );
 
-  const handleCloseEdit =
-    useCallback(() => {
+  const handleCloseEdit = useCallback(
+    () => {
       if (updating) {
         return;
       }
 
       setEditOpen(false);
-    }, [updating]);
+    },
+    [updating]
+  );
 
-  const handleUpdate =
-    useCallback(
-      async (
-        planId,
-        payload
-      ) => {
-        setActionError(null);
+  const handleUpdate = useCallback(
+    async (
+      planId,
+      payload
+    ) => {
+      setActionError(null);
 
-        const result =
-          await updatePlan(
-            planId,
-            payload
-          );
+      const result =
+        await updatePlan(
+          planId,
+          payload
+        );
 
-        if (result?.success) {
-          setEditOpen(false);
-        } else if (result) {
-          setActionError(
-            getMutationResultError(result)
-          );
-        }
+      if (result?.success) {
+        setEditOpen(false);
+      } else if (result) {
+        setActionError(
+          getMutationResultError(result)
+        );
+      }
 
-        return result;
-      },
-      [updatePlan]
-    );
+      return result;
+    },
+    [updatePlan]
+  );
 
-  /* ------------------------------------------------------------------------ */
-  /* Delete                                                                   */
-  /* ------------------------------------------------------------------------ */
+  /* ------------------------------------------------------------------------
+     Delete
+  ------------------------------------------------------------------------ */
 
   const handleOpenDelete =
     useCallback((plan) => {
@@ -1297,9 +1371,9 @@ const SavingPlansPage = () => {
       selectedPlanId,
     ]);
 
-  /* ------------------------------------------------------------------------ */
-  /* Lifecycle actions                                                        */
-  /* ------------------------------------------------------------------------ */
+  /* ------------------------------------------------------------------------
+     Lifecycle actions
+  ------------------------------------------------------------------------ */
 
   const runPlanAction =
     useCallback(
@@ -1333,74 +1407,69 @@ const SavingPlansPage = () => {
       []
     );
 
-  const handlePause =
-    useCallback(
-      (plan) =>
-        runPlanAction(
-          plan,
-          pausePlan
-        ),
-      [
-        pausePlan,
-        runPlanAction,
-      ]
-    );
+  const handlePause = useCallback(
+    (plan) =>
+      runPlanAction(
+        plan,
+        pausePlan
+      ),
+    [
+      pausePlan,
+      runPlanAction,
+    ]
+  );
 
-  const handleResume =
-    useCallback(
-      (plan) =>
-        runPlanAction(
-          plan,
-          resumePlan
-        ),
-      [
-        resumePlan,
-        runPlanAction,
-      ]
-    );
+  const handleResume = useCallback(
+    (plan) =>
+      runPlanAction(
+        plan,
+        resumePlan
+      ),
+    [
+      resumePlan,
+      runPlanAction,
+    ]
+  );
 
-  const handleActivate =
-    useCallback(
-      (plan) =>
-        runPlanAction(
-          plan,
-          activatePlan
-        ),
-      [
-        activatePlan,
-        runPlanAction,
-      ]
-    );
+  const handleActivate = useCallback(
+    (plan) =>
+      runPlanAction(
+        plan,
+        activatePlan
+      ),
+    [
+      activatePlan,
+      runPlanAction,
+    ]
+  );
 
-  const handleComplete =
-    useCallback(
-      (plan) =>
-        runPlanAction(
-          plan,
-          completePlan
-        ),
-      [
-        completePlan,
-        runPlanAction,
-      ]
-    );
+  const handleComplete = useCallback(
+    (plan) =>
+      runPlanAction(
+        plan,
+        completePlan
+      ),
+    [
+      completePlan,
+      runPlanAction,
+    ]
+  );
 
-  const handleCancel =
-    useCallback(
-      (plan) =>
-        runPlanAction(
-          plan,
-          cancelPlan
-        ),
-      [
-        cancelPlan,
-        runPlanAction,
-      ]
-    );
+  const handleCancel = useCallback(
+    (plan) =>
+      runPlanAction(
+        plan,
+        cancelPlan
+      ),
+    [
+      cancelPlan,
+      runPlanAction,
+    ]
+  );
 
-  /* ------------------------------------------------------------------------ */
-  /* Pagination                                                               */
-  /* ------------------------------------------------------------------------ */
+  /* ------------------------------------------------------------------------
+     Pagination
+  ------------------------------------------------------------------------ */
 
   const handlePreviousPage =
     useCallback(() => {
@@ -1445,9 +1514,9 @@ const SavingPlansPage = () => {
       setPage,
     ]);
 
-  /* ------------------------------------------------------------------------ */
-  /* Derived state                                                            */
-  /* ------------------------------------------------------------------------ */
+  /* ------------------------------------------------------------------------
+     Derived state
+  ------------------------------------------------------------------------ */
 
   const showInitialLoading =
     loading && !hasPlans;
@@ -1466,14 +1535,14 @@ const SavingPlansPage = () => {
   const pageError =
     actionError || error;
 
-  /* ------------------------------------------------------------------------ */
-  /* Render                                                                   */
-  /* ------------------------------------------------------------------------ */
+  /* ------------------------------------------------------------------------
+     Render
+  ------------------------------------------------------------------------ */
 
   return (
     <main
       className="
-        min-h-screen w-full
+        w-full min-h-screen
         bg-slate-50
       "
     >
@@ -1483,8 +1552,6 @@ const SavingPlansPage = () => {
           mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8
         "
       >
-
-        {/* Header */}
         <PageHeader
           onCreate={handleOpenCreate}
           onRefresh={handleRefresh}
@@ -1492,7 +1559,6 @@ const SavingPlansPage = () => {
           disabled={pageDisabled}
         />
 
-        {/* Error */}
         {pageError ? (
           <PageError
             error={pageError}
@@ -1509,7 +1575,6 @@ const SavingPlansPage = () => {
           />
         ) : null}
 
-        {/* Filters */}
         <FilterBar
           search={search}
           status={status}
@@ -1519,15 +1584,18 @@ const SavingPlansPage = () => {
           onStatusChange={
             handleStatusChange
           }
-          onApply={handleApplyFilters}
-          onClear={handleClearFilters}
+          onApply={
+            handleApplyFilters
+          }
+          onClear={
+            handleClearFilters
+          }
           disabled={pageDisabled}
           hasActiveFilters={
             hasActiveFilters
           }
         />
 
-        {/* Initial Loading */}
         {showInitialLoading ? (
           <section
             aria-label="Loading saving plans"
@@ -1535,13 +1603,13 @@ const SavingPlansPage = () => {
             className="
               p-4 sm:p-5
               bg-white
-              rounded-2xl border border-slate-200
+              border border-slate-200 rounded-2xl
               shadow-sm
             "
           >
             <div
               className="
-                flex items-center justify-between
+                flex justify-between items-center
                 mb-5
               "
             >
@@ -1552,16 +1620,17 @@ const SavingPlansPage = () => {
               >
                 <div
                   className="
-                    h-4 w-32
+                    w-32 h-4
                     bg-slate-200
                     rounded
                     animate-pulse
                   "
                   /
                 >
+
                 <div
                   className="
-                    h-3 w-48
+                    w-48 h-3
                     bg-slate-100
                     rounded
                     animate-pulse
@@ -1572,7 +1641,7 @@ const SavingPlansPage = () => {
 
               <div
                 className="
-                  h-9 w-24
+                  w-24 h-9
                   bg-slate-100
                   rounded-lg
                   animate-pulse
@@ -1593,27 +1662,28 @@ const SavingPlansPage = () => {
                     key={item}
                     className="
                       p-5
-                      rounded-2xl border border-slate-100
+                      border border-slate-100 rounded-2xl
                     "
                   >
                     <div
                       className="
-                        flex items-center justify-between
+                        flex justify-between items-center
                         mb-4
                       "
                     >
                       <div
                         className="
-                          h-4 w-36
+                          w-36 h-4
                           bg-slate-200
                           rounded
                           animate-pulse
                         "
                         /
                       >
+
                       <div
                         className="
-                          h-6 w-20
+                          w-20 h-6
                           bg-slate-100
                           rounded-full
                           animate-pulse
@@ -1624,7 +1694,7 @@ const SavingPlansPage = () => {
 
                     <div
                       className="
-                        h-3 w-full
+                        w-full h-3
                         mb-3
                         bg-slate-100
                         rounded
@@ -1632,9 +1702,10 @@ const SavingPlansPage = () => {
                       "
                       /
                     >
+
                     <div
                       className="
-                        h-3 w-4/5
+                        w-4/5 h-3
                         mb-6
                         bg-slate-100
                         rounded
@@ -1645,7 +1716,7 @@ const SavingPlansPage = () => {
 
                     <div
                       className="
-                        h-2 w-full
+                        w-full h-2
                         bg-slate-100
                         rounded-full
                         animate-pulse
@@ -1661,16 +1732,17 @@ const SavingPlansPage = () => {
                     >
                       <div
                         className="
-                          h-3 w-20
+                          w-20 h-3
                           bg-slate-100
                           rounded
                           animate-pulse
                         "
                         /
                       >
+
                       <div
                         className="
-                          h-3 w-16
+                          w-16 h-3
                           bg-slate-100
                           rounded
                           animate-pulse
@@ -1685,7 +1757,6 @@ const SavingPlansPage = () => {
           </section>
         ) : null}
 
-        {/* Empty */}
         {showEmpty ? (
           <SavingPlanEmptyState
             variant={
@@ -1706,7 +1777,6 @@ const SavingPlansPage = () => {
           />
         ) : null}
 
-        {/* Populated */}
         {!showInitialLoading &&
         !showEmpty &&
         hasPlans ? (
@@ -1756,7 +1826,9 @@ const SavingPlansPage = () => {
                 actionBusy
               }
               disabled={isMutating}
-              onRetry={handleRetry}
+              onRetry={
+                handleRetry
+              }
               onCreate={
                 handleOpenCreate
               }
@@ -1778,48 +1850,74 @@ const SavingPlansPage = () => {
           </section>
         ) : null}
 
-        {/* Create */}
-        <CreateSavingPlanModal
-          open={createOpen}
-          onClose={
-            handleCloseCreate
-          }
-          onSubmit={handleCreate}
-          submitting={creating}
-        />
+        {/* ------------------------------------------------------------------
+            IMPORTANT:
+            These components are mounted only when they are actually open.
+            This prevents an invalid imported component from crashing the
+            entire page during the initial render while all overlays are
+            closed.
+        ------------------------------------------------------------------ */}
 
-        {/* Edit */}
-        <EditSavingPlanModal
-          open={editOpen}
-          plan={selectedPlan}
-          onClose={handleCloseEdit}
-          onSubmit={handleUpdate}
-          submitting={updating}
-        />
+        {createOpen ? (
+          <CreateSavingPlanModal
+            open={createOpen}
+            onClose={
+              handleCloseCreate
+            }
+            onSubmit={handleCreate}
+            submitting={creating}
+          />
+        ) : null}
 
-        {/* Delete */}
-        <DeleteSavingPlanDialog
-          open={deleteOpen}
-          plan={selectedPlan}
-          deleting={cancelling}
-          error={actionError}
-          onConfirm={handleDelete}
-          onClose={handleCloseDelete}
-        />
+        {editOpen ? (
+          <EditSavingPlanModal
+            open={editOpen}
+            plan={selectedPlan}
+            onClose={
+              handleCloseEdit
+            }
+            onSubmit={handleUpdate}
+            submitting={updating}
+          />
+        ) : null}
 
-        {/* Details */}
-        <SavingPlanDetailsDrawer
-          open={detailsOpen}
-          plan={selectedPlan}
-          onClose={handleCloseDetails}
-          onEdit={handleOpenEdit}
-          onDelete={handleOpenDelete}
-          onPause={handlePause}
-          onResume={handleResume}
-          deleting={cancelling}
-          updating={actionBusy}
-          error={actionError}
-        />
+        {deleteOpen ? (
+          <DeleteSavingPlanDialog
+            open={deleteOpen}
+            plan={selectedPlan}
+            deleting={cancelling}
+            error={actionError}
+            onConfirm={handleDelete}
+            onClose={
+              handleCloseDelete
+            }
+          />
+        ) : null}
+
+        {detailsOpen ? (
+          <SavingPlanDetailsDrawer
+            open={detailsOpen}
+            plan={selectedPlan}
+            onClose={
+              handleCloseDetails
+            }
+            onEdit={
+              handleOpenEdit
+            }
+            onDelete={
+              handleOpenDelete
+            }
+            onPause={
+              handlePause
+            }
+            onResume={
+              handleResume
+            }
+            deleting={cancelling}
+            updating={actionBusy}
+            error={actionError}
+          />
+        ) : null}
       </div>
     </main>
   );
