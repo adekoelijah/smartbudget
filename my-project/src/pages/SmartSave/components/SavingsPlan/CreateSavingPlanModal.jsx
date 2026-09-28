@@ -1,1250 +1,1528 @@
-
 /**
- * savingPlanFormatters.js
+ * CreateSavingPlanModal.jsx
  *
- * Pure formatting and normalization utilities for SmartSave saving plans.
+ * SmartSave — Create Saving Plan
  *
  * Responsibilities:
- * - Normalize saving-plan values received from the API.
- * - Format monetary values for display.
- * - Format target dates consistently.
- * - Format plan names and descriptions.
- * - Format plan status and progress.
- * - Extract common plan identifiers.
- * - Convert saving-plan data between API, form, and display shapes.
+ * - Render the create-saving-plan modal.
+ * - Manage local form state.
+ * - Validate user input.
+ * - Normalize the form payload.
+ * - Delegate creation to the parent through onSubmit().
  *
- * This module intentionally contains:
- * - No React dependencies.
- * - No state.
- * - No API calls.
- * - No side effects.
- * - No financial calculations.
- * - No validation rules.
+ * Architecture:
  *
- * The backend remains the source of truth for financial calculations
- * and domain-level business rules.
- */
-
-/* -------------------------------------------------------------------------- */
-/* Constants                                                                  */
-/* -------------------------------------------------------------------------- */
-
-export const DEFAULT_SAVING_PLAN_CURRENCY =
-  "NGN";
-
-export const DEFAULT_LOCALE =
-  "en-NG";
-
-export const DEFAULT_DATE_LOCALE =
-  "en-NG";
-
-/* -------------------------------------------------------------------------- */
-/* Generic helpers                                                            */
-/* -------------------------------------------------------------------------- */
-
-const isObject = (value) =>
-  value !== null &&
-  typeof value === "object" &&
-  !Array.isArray(value);
-
-const isFiniteNumber = (value) =>
-  typeof value === "number" &&
-  Number.isFinite(value);
-
-const toStringValue = (value) => {
-  if (
-    value === null ||
-    value === undefined
-  ) {
-    return "";
-  }
-
-  return String(value);
-};
-
-const normalizeWhitespace = (
-  value
-) =>
-  toStringValue(value)
-    .replace(/\s+/g, " ")
-    .trim();
-
-/* -------------------------------------------------------------------------- */
-/* Currency                                                                   */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Normalize a currency code.
+ * CreateSavingPlanModal
+ *        ↓
+ * onSubmit(payload)
+ *        ↓
+ * SavingPlansPage
+ *        ↓
+ * useSavingPlans
+ *        ↓
+ * smartSaveService
+ *        ↓
+ * SmartSave API
  *
- * Examples:
- * normalizeCurrency("ngn") → "NGN"
- * normalizeCurrency(" NGN ") → "NGN"
- * normalizeCurrency(null) → "NGN"
+ * This component does NOT:
+ * - Call APIs directly.
+ * - Contain financial business logic.
+ * - Manage saving-plan server state.
+ * - Import useSavingPlans.
  */
-export const normalizeCurrency = (
-  currency,
-  fallback = DEFAULT_SAVING_PLAN_CURRENCY
-) => {
-  const normalized =
-    toStringValue(currency)
-      .trim()
-      .toUpperCase();
 
-  if (!normalized) {
-    const normalizedFallback =
-      toStringValue(fallback)
-        .trim()
-        .toUpperCase();
+import {
+  AlertCircle,
+  CalendarDays,
+  Check,
+  FileText,
+  Loader2,
+  PiggyBank,
+  Target,
+  Wallet,
+  X,
+} from "lucide-react";
 
-    return (
-      normalizedFallback ||
-      DEFAULT_SAVING_PLAN_CURRENCY
-    );
-  }
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
-  return normalized;
-};
+import {
+  formatSavingPlanPayload,
+} from "../../../../utils/smartSave/savingPlanFormatters";
+
+/* ==========================================================================
+   CONSTANTS
+========================================================================== */
+
+const DEFAULT_CURRENCY = "NGN";
+
+const DEFAULT_FORM = Object.freeze({
+  name: "",
+  targetAmount: "",
+  currency: DEFAULT_CURRENCY,
+  targetDate: "",
+  description: "",
+});
+
+const MAX_NAME_LENGTH = 100;
+const MAX_DESCRIPTION_LENGTH = 500;
+
+/* ==========================================================================
+   HELPERS
+========================================================================== */
 
 /**
- * Safely obtain a currency symbol.
- */
-export const getCurrencySymbol = (
-  currency,
-  locale = DEFAULT_LOCALE
-) => {
-  const normalizedCurrency =
-    normalizeCurrency(currency);
-
-  try {
-    const parts =
-      new Intl.NumberFormat(
-        locale,
-        {
-          style: "currency",
-          currency:
-            normalizedCurrency,
-          currencyDisplay:
-            "narrowSymbol",
-        }
-      ).formatToParts(0);
-
-    return (
-      parts.find(
-        (part) =>
-          part.type === "currency"
-      )?.value ||
-      normalizedCurrency
-    );
-  } catch {
-    return normalizedCurrency;
-  }
-};
-
-/* -------------------------------------------------------------------------- */
-/* Amount normalization                                                       */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Convert an amount into a safe numeric value.
+ * Return today's date in local YYYY-MM-DD format.
  *
- * Invalid values return null instead of silently becoming zero.
- *
- * Examples:
- * normalizeAmount("100,000") → 100000
- * normalizeAmount("100000") → 100000
- * normalizeAmount(100000) → 100000
- * normalizeAmount("") → null
- * normalizeAmount("abc") → null
+ * Using local time instead of toISOString() prevents UTC timezone
+ * conversion from producing the previous/next calendar day.
  */
-export const normalizeAmount = (
-  value
-) => {
-  if (
-    value === null ||
-    value === undefined ||
-    value === ""
-  ) {
-    return null;
-  }
+const getTodayInputValue = () => {
+  const date = new Date();
 
-  if (isFiniteNumber(value)) {
-    return value;
-  }
+  const year = date.getFullYear();
 
-  const normalized =
-    toStringValue(value)
-      .replace(/,/g, "")
-      .trim();
+  const month = String(
+    date.getMonth() + 1
+  ).padStart(2, "0");
 
-  if (!normalized) {
-    return null;
-  }
+  const day = String(
+    date.getDate()
+  ).padStart(2, "0");
 
-  const numericValue =
-    Number(normalized);
-
-  return Number.isFinite(
-    numericValue
-  )
-    ? numericValue
-    : null;
+  return `${year}-${month}-${day}`;
 };
 
 /**
- * Format a monetary amount.
- *
- * Invalid or missing amounts return an em dash instead of
- * displaying misleading financial information.
+ * Convert unknown errors into a user-readable message.
  */
-export const formatSavingPlanAmount = (
-  amount,
-  currency = DEFAULT_SAVING_PLAN_CURRENCY,
-  options = {}
-) => {
-  const numericAmount =
-    normalizeAmount(amount);
-
-  if (
-    numericAmount === null
-  ) {
-    return "—";
-  }
-
-  const {
-    locale = DEFAULT_LOCALE,
-    minimumFractionDigits = 2,
-    maximumFractionDigits = 2,
-    currencyDisplay = "symbol",
-    useGrouping = true,
-  } = options;
-
-  const normalizedCurrency =
-    normalizeCurrency(currency);
-
-  try {
-    return new Intl.NumberFormat(
-      locale,
-      {
-        style: "currency",
-        currency:
-          normalizedCurrency,
-        currencyDisplay,
-        minimumFractionDigits,
-        maximumFractionDigits,
-        useGrouping,
-      }
-    ).format(numericAmount);
-  } catch {
-    return `${normalizedCurrency} ${numericAmount.toFixed(
-      maximumFractionDigits
-    )}`;
-  }
-};
-
-/**
- * Format an amount without a currency symbol.
- */
-export const formatSavingPlanNumber = (
-  amount,
-  options = {}
-) => {
-  const numericAmount =
-    normalizeAmount(amount);
-
-  if (
-    numericAmount === null
-  ) {
-    return "—";
-  }
-
-  const {
-    locale = DEFAULT_LOCALE,
-    minimumFractionDigits = 2,
-    maximumFractionDigits = 2,
-    useGrouping = true,
-  } = options;
-
-  try {
-    return new Intl.NumberFormat(
-      locale,
-      {
-        minimumFractionDigits,
-        maximumFractionDigits,
-        useGrouping,
-      }
-    ).format(numericAmount);
-  } catch {
-    return numericAmount.toFixed(
-      maximumFractionDigits
-    );
-  }
-};
-
-/* -------------------------------------------------------------------------- */
-/* Percentage                                                                 */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Normalize a percentage for presentation.
- *
- * This helper clamps the display value between 0 and 100.
- * It does not calculate financial progress.
- */
-export const normalizePercentage = (
-  value
-) => {
-  const numericValue =
-    normalizeAmount(value);
-
-  if (
-    numericValue === null
-  ) {
-    return null;
-  }
-
-  return Math.min(
-    100,
-    Math.max(0, numericValue)
-  );
-};
-
-/**
- * Format a percentage for display.
- */
-export const formatPercentage = (
-  value,
-  options = {}
-) => {
-  const percentage =
-    normalizePercentage(value);
-
-  if (
-    percentage === null
-  ) {
-    return "—";
-  }
-
-  const {
-    locale = DEFAULT_LOCALE,
-    maximumFractionDigits = 1,
-    minimumFractionDigits = 0,
-  } = options;
-
-  try {
-    return new Intl.NumberFormat(
-      locale,
-      {
-        style: "percent",
-        minimumFractionDigits,
-        maximumFractionDigits,
-      }
-    ).format(
-      percentage / 100
-    );
-  } catch {
-    return `${percentage}%`;
-  }
-};
-
-/* -------------------------------------------------------------------------- */
-/* Dates                                                                      */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Safely convert a value to a Date.
- */
-export const toDate = (
-  value
-) => {
-  if (!value) {
-    return null;
-  }
-
-  if (
-    value instanceof Date
-  ) {
-    return Number.isNaN(
-      value.getTime()
-    )
-      ? null
-      : value;
-  }
-
-  const date =
-    new Date(value);
-
-  return Number.isNaN(
-    date.getTime()
-  )
-    ? null
-    : date;
-};
-
-/**
- * Convert an API date into a YYYY-MM-DD input value.
- *
- * Handles:
- * - ISO timestamps
- * - YYYY-MM-DD
- * - Date instances
- */
-export const formatDateForInput = (
-  value
-) => {
-  if (!value) {
+const getErrorMessage = (error) => {
+  if (!error) {
     return "";
   }
 
   if (
-    value instanceof Date
+    typeof error === "string" &&
+    error.trim()
   ) {
-    if (
-      Number.isNaN(
-        value.getTime()
-      )
-    ) {
-      return "";
-    }
-
-    const year =
-      value.getFullYear();
-
-    const month = String(
-      value.getMonth() + 1
-    ).padStart(2, "0");
-
-    const day = String(
-      value.getDate()
-    ).padStart(2, "0");
-
-    return `${year}-${month}-${day}`;
+    return error.trim();
   }
 
-  const stringValue =
-    toStringValue(value).trim();
-
-  if (!stringValue) {
-    return "";
-  }
-
-  const match =
-    stringValue.match(
-      /^(\d{4})-(\d{2})-(\d{2})/
-    );
-
-  if (match) {
-    return `${match[1]}-${match[2]}-${match[3]}`;
-  }
-
-  const parsedDate =
-    new Date(stringValue);
+  const responseMessage =
+    error?.response?.data?.message;
 
   if (
-    Number.isNaN(
-      parsedDate.getTime()
-    )
+    typeof responseMessage === "string" &&
+    responseMessage.trim()
   ) {
-    return "";
+    return responseMessage.trim();
   }
 
-  return formatDateForInput(
-    parsedDate
-  );
+  const responseError =
+    error?.response?.data?.error;
+
+  if (
+    typeof responseError === "string" &&
+    responseError.trim()
+  ) {
+    return responseError.trim();
+  }
+
+  const dataMessage =
+    error?.data?.message;
+
+  if (
+    typeof dataMessage === "string" &&
+    dataMessage.trim()
+  ) {
+    return dataMessage.trim();
+  }
+
+  if (
+    typeof error?.message === "string" &&
+    error.message.trim()
+  ) {
+    return error.message.trim();
+  }
+
+  return "Unable to create the saving plan. Please try again.";
 };
 
 /**
- * Format a saving-plan target date.
+ * Build a fresh form object.
  */
-export const formatSavingPlanDate = (
-  value,
-  options = {}
-) => {
-  const date = toDate(value);
-
-  if (!date) {
-    return "—";
-  }
-
-  const {
-    locale = DEFAULT_DATE_LOCALE,
-    dateStyle = "medium",
-  } = options;
-
-  try {
-    return new Intl.DateTimeFormat(
-      locale,
-      {
-        dateStyle,
-      }
-    ).format(date);
-  } catch {
-    return formatDateForInput(
-      date
-    );
-  }
-};
+const createInitialForm = () => ({
+  name: "",
+  targetAmount: "",
+  currency: DEFAULT_CURRENCY,
+  targetDate: "",
+  description: "",
+});
 
 /**
- * Format a target date for compact UI elements.
+ * Validate the form before submission.
  */
-export const formatSavingPlanDateShort = (
-  value,
-  locale = DEFAULT_DATE_LOCALE
-) => {
-  const date = toDate(value);
+const validateForm = (form) => {
+  const errors = {};
 
-  if (!date) {
-    return "—";
-  }
+  const name =
+    typeof form.name === "string"
+      ? form.name.trim()
+      : "";
 
-  try {
-    return new Intl.DateTimeFormat(
-      locale,
-      {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }
-    ).format(date);
-  } catch {
-    return formatDateForInput(
-      date
-    );
-  }
-};
+  const description =
+    typeof form.description === "string"
+      ? form.description.trim()
+      : "";
 
-/* -------------------------------------------------------------------------- */
-/* Relative date information                                                  */
-/* -------------------------------------------------------------------------- */
+  const targetAmount =
+    typeof form.targetAmount === "string"
+      ? form.targetAmount.trim()
+      : String(form.targetAmount ?? "").trim();
 
-/**
- * Determine whether a target date has passed.
- *
- * This is a presentation helper only.
- * It does not determine whether a plan is expired according to
- * backend business rules.
- */
-export const isSavingPlanDatePast = (
-  value,
-  referenceDate = new Date()
-) => {
+  const currency =
+    typeof form.currency === "string"
+      ? form.currency.trim().toUpperCase()
+      : "";
+
   const targetDate =
-    toDate(value);
+    typeof form.targetDate === "string"
+      ? form.targetDate.trim()
+      : "";
 
-  const reference =
-    toDate(referenceDate);
+  /* ------------------------------------------------------------------------
+     NAME
+  ------------------------------------------------------------------------ */
 
-  if (
-    !targetDate ||
-    !reference
+  if (!name) {
+    errors.name =
+      "Please enter a name for your saving plan.";
+  } else if (
+    name.length < 2
   ) {
-    return false;
-  }
-
-  return (
-    targetDate.getTime() <
-    reference.getTime()
-  );
-};
-
-/**
- * Calculate whole calendar days between two dates.
- *
- * This helper is intended for presentation only.
- */
-export const getDaysUntilSavingPlanDate = (
-  value,
-  referenceDate = new Date()
-) => {
-  const targetDate =
-    toDate(value);
-
-  const reference =
-    toDate(referenceDate);
-
-  if (
-    !targetDate ||
-    !reference
+    errors.name =
+      "Saving plan name must contain at least 2 characters.";
+  } else if (
+    name.length > MAX_NAME_LENGTH
   ) {
-    return null;
+    errors.name =
+      `Saving plan name cannot exceed ${MAX_NAME_LENGTH} characters.`;
   }
 
-  const targetDay =
-    new Date(
-      targetDate.getFullYear(),
-      targetDate.getMonth(),
-      targetDate.getDate()
-    );
+  /* ------------------------------------------------------------------------
+     TARGET AMOUNT
+  ------------------------------------------------------------------------ */
 
-  const referenceDay =
-    new Date(
-      reference.getFullYear(),
-      reference.getMonth(),
-      reference.getDate()
-    );
-
-  const difference =
-    targetDay.getTime() -
-    referenceDay.getTime();
-
-  return Math.ceil(
-    difference /
-      (1000 * 60 * 60 * 24)
-  );
-};
-
-/**
- * Format remaining days for presentation.
- */
-export const formatSavingPlanRemainingDays = (
-  value,
-  referenceDate = new Date()
-) => {
-  const days =
-    getDaysUntilSavingPlanDate(
-      value,
-      referenceDate
-    );
-
-  if (days === null) {
-    return "—";
-  }
-
-  if (days < 0) {
-    const elapsed =
-      Math.abs(days);
-
-    return elapsed === 1
-      ? "1 day overdue"
-      : `${elapsed} days overdue`;
-  }
-
-  if (days === 0) {
-    return "Due today";
-  }
-
-  if (days === 1) {
-    return "1 day remaining";
-  }
-
-  return `${days} days remaining`;
-};
-
-/* -------------------------------------------------------------------------- */
-/* Plan identity                                                              */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Extract a saving-plan identifier from an API response.
- */
-export const getSavingPlanId = (
-  plan
-) => {
-  if (!isObject(plan)) {
-    return null;
-  }
-
-  return (
-    plan._id ??
-    plan.id ??
-    plan.planId ??
-    null
-  );
-};
-
-/**
- * Normalize a plan identifier.
- */
-export const normalizeSavingPlanId = (
-  value
-) => {
-  if (
-    value === null ||
-    value === undefined
-  ) {
-    return null;
-  }
-
-  const normalized =
-    toStringValue(value).trim();
-
-  return normalized || null;
-};
-
-/* -------------------------------------------------------------------------- */
-/* Text formatting                                                             */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Format a saving-plan name.
- */
-export const formatSavingPlanName = (
-  value,
-  fallback = "Untitled saving plan"
-) => {
-  const normalized =
-    normalizeWhitespace(value);
-
-  return (
-    normalized ||
-    fallback
-  );
-};
-
-/**
- * Format a saving-plan description.
- */
-export const formatSavingPlanDescription = (
-  value,
-  fallback = "No description provided."
-) => {
-  const normalized =
-    normalizeWhitespace(value);
-
-  return (
-    normalized ||
-    fallback
-  );
-};
-
-/**
- * Create a shortened description for cards and lists.
- */
-export const truncateSavingPlanDescription = (
-  value,
-  maxLength = 120
-) => {
-  const normalized =
-    normalizeWhitespace(value);
-
-  if (!normalized) {
-    return "";
-  }
-
-  if (
-    normalized.length <=
-    maxLength
-  ) {
-    return normalized;
-  }
-
-  return `${normalized
-    .slice(
-      0,
-      Math.max(
-        0,
-        maxLength - 1
-      )
-    )
-    .trimEnd()}…`;
-};
-
-/* -------------------------------------------------------------------------- */
-/* Status                                                                      */
-/* -------------------------------------------------------------------------- */
-
-const STATUS_LABELS = {
-  active: "Active",
-  paused: "Paused",
-  completed: "Completed",
-  cancelled: "Cancelled",
-  canceled: "Cancelled",
-  draft: "Draft",
-  pending: "Pending",
-  failed: "Failed",
-  expired: "Expired",
-  archived: "Archived",
-};
-
-export const normalizeSavingPlanStatus = (
-  status
-) => {
-  const normalized =
-    normalizeWhitespace(
-      status
-    ).toLowerCase();
-
-  return normalized || null;
-};
-
-export const formatSavingPlanStatus = (
-  status
-) => {
-  const normalized =
-    normalizeSavingPlanStatus(
-      status
-    );
-
-  if (!normalized) {
-    return "Unknown";
-  }
-
-  return (
-    STATUS_LABELS[
-      normalized
-    ] ||
-    normalized
-      .replace(
-        /[_-]+/g,
-        " "
-      )
-      .replace(
-        /\b\w/g,
-        (character) =>
-          character.toUpperCase()
-      )
-  );
-};
-
-/**
- * Return a predictable semantic status category
- * for presentation components.
- */
-export const getSavingPlanStatusTone = (
-  status
-) => {
-  const normalized =
-    normalizeSavingPlanStatus(
-      status
-    );
-
-  switch (normalized) {
-    case "active":
-    case "completed":
-      return "success";
-
-    case "paused":
-      return "warning";
-
-    case "pending":
-    case "draft":
-      return "info";
-
-    case "failed":
-    case "cancelled":
-    case "canceled":
-    case "expired":
-      return "danger";
-
-    default:
-      return "neutral";
-  }
-};
-
-/* -------------------------------------------------------------------------- */
-/* Progress                                                                    */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Extract backend-provided progress.
- *
- * The backend remains authoritative for the progress value.
- */
-export const getSavingPlanProgress = (
-  plan
-) => {
-  if (!isObject(plan)) {
-    return null;
-  }
-
-  const candidates = [
-    plan.progress,
-    plan.progressPercentage,
-    plan.percentage,
-    plan.completionPercentage,
-  ];
-
-  for (const value of candidates) {
-    const normalized =
-      normalizePercentage(
-        value
+  if (!targetAmount) {
+    errors.targetAmount =
+      "Please enter your savings target.";
+  } else {
+    const numericAmount =
+      Number(
+        targetAmount.replace(/,/g, "")
       );
 
     if (
-      normalized !== null
+      !Number.isFinite(numericAmount)
     ) {
-      return normalized;
+      errors.targetAmount =
+        "Enter a valid target amount.";
+    } else if (
+      numericAmount <= 0
+    ) {
+      errors.targetAmount =
+        "Target amount must be greater than zero.";
     }
   }
 
-  return null;
+  /* ------------------------------------------------------------------------
+     CURRENCY
+  ------------------------------------------------------------------------ */
+
+  if (!currency) {
+    errors.currency =
+      "Please select a currency.";
+  }
+
+  /* ------------------------------------------------------------------------
+     TARGET DATE
+  ------------------------------------------------------------------------ */
+
+  if (!targetDate) {
+    errors.targetDate =
+      "Please select a target date.";
+  } else {
+    const parsedDate =
+      new Date(
+        `${targetDate}T00:00:00`
+      );
+
+    if (
+      Number.isNaN(
+        parsedDate.getTime()
+      )
+    ) {
+      errors.targetDate =
+        "Please enter a valid target date.";
+    } else if (
+      targetDate < getTodayInputValue()
+    ) {
+      errors.targetDate =
+        "Target date cannot be in the past.";
+    }
+  }
+
+  /* ------------------------------------------------------------------------
+     DESCRIPTION
+  ------------------------------------------------------------------------ */
+
+  if (
+    description.length >
+    MAX_DESCRIPTION_LENGTH
+  ) {
+    errors.description =
+      `Description cannot exceed ${MAX_DESCRIPTION_LENGTH} characters.`;
+  }
+
+  return errors;
 };
 
-/**
- * Format backend-provided progress.
- */
-export const formatSavingPlanProgress = (
-  plan
-) => {
-  const progress =
-    getSavingPlanProgress(
-      plan
-    );
+/* ==========================================================================
+   SMALL UI COMPONENTS
+========================================================================== */
 
-  return formatPercentage(
-    progress
+const FieldLabel = ({
+  htmlFor,
+  children,
+  required = false,
+}) => (
+  <label
+    htmlFor={htmlFor}
+    className="
+      block
+      mb-2
+      font-semibold text-slate-700 text-sm
+    "
+  >
+    {children}
+
+    {required ? (
+      <span
+        className="
+          ml-1
+          text-red-500
+        "
+        aria-hidden="true"
+      >
+        *
+      </span>
+    ) : null}
+  </label>
+);
+
+const FieldError = ({
+  children,
+}) => {
+  if (!children) {
+    return null;
+  }
+
+  return (
+    <p
+      className="
+        flex items-start
+        mt-2
+        font-medium text-red-600 text-xs
+        gap-1.5
+      "
+      role="alert"
+    >
+      <AlertCircle
+        size={14}
+        className="
+          mt-0.5
+          shrink-0
+        "
+        aria-hidden="true"
+      /
+      >
+
+      <span>
+        {children}
+      </span>
+    </p>
   );
 };
 
-/* -------------------------------------------------------------------------- */
-/* Plan normalization                                                          */
-/* -------------------------------------------------------------------------- */
+/* ==========================================================================
+   COMPONENT
+========================================================================== */
 
-/**
- * Normalize a raw saving plan for safe UI consumption.
- *
- * This function standardizes representation only.
- * It does not calculate financial values.
- */
-export const normalizeSavingPlan = (
-  plan,
-  fallbackCurrency = DEFAULT_SAVING_PLAN_CURRENCY
-) => {
-  if (!isObject(plan)) {
-    return null;
-  }
+const CreateSavingPlanModal = ({
+  open = false,
+  onClose,
+  onSubmit,
+  submitting = false,
+}) => {
+  const [form, setForm] = useState(
+    createInitialForm
+  );
 
-  const id =
-    getSavingPlanId(plan);
+  const [errors, setErrors] =
+    useState({});
 
-  const currency =
-    normalizeCurrency(
-      plan.currency,
-      fallbackCurrency
-    );
+  const [
+    submitError,
+    setSubmitError,
+  ] = useState("");
 
-  const targetAmount =
-    normalizeAmount(
-      plan.targetAmount ??
-        plan.amount ??
-        plan.target
-    );
+  const nameInputRef =
+    useRef(null);
 
-  const name =
-    formatSavingPlanName(
-      plan.name ??
-        plan.title
-    );
+  const mountedRef =
+    useRef(true);
 
-  const description =
-    normalizeWhitespace(
-      plan.description
-    );
+  const submissionIdRef =
+    useRef(0);
 
-  const targetDate =
-    formatDateForInput(
-      plan.targetDate ??
-        plan.deadline ??
-        plan.endDate
-    );
+  /* ========================================================================
+     MOUNT TRACKING
+  ======================================================================== */
 
-  const status =
-    normalizeSavingPlanStatus(
-      plan.status
-    );
+  useEffect(() => {
+    mountedRef.current = true;
 
-  return {
-    ...plan,
-
-    id,
-
-    planId:
-      normalizeSavingPlanId(
-        id
-      ),
-
-    name,
-
-    description,
-
-    targetAmount,
-
-    currency,
-
-    targetDate,
-
-    status,
-
-    progress:
-      getSavingPlanProgress(
-        plan
-      ),
-  };
-};
-
-/* -------------------------------------------------------------------------- */
-/* Display model                                                               */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Convert a raw saving plan into a UI-friendly display object.
- *
- * Useful for:
- * - Saving plan cards
- * - Tables
- * - Dashboard summaries
- * - Detail views
- */
-export const formatSavingPlanForDisplay = (
-  plan,
-  options = {}
-) => {
-  const normalized =
-    normalizeSavingPlan(
-      plan,
-      options.currency ||
-        DEFAULT_SAVING_PLAN_CURRENCY
-    );
-
-  if (!normalized) {
-    return null;
-  }
-
-  const {
-    locale = DEFAULT_LOCALE,
-    dateLocale = DEFAULT_DATE_LOCALE,
-  } = options;
-
-  return {
-    ...normalized,
-
-    displayName:
-      formatSavingPlanName(
-        normalized.name
-      ),
-
-    displayDescription:
-      formatSavingPlanDescription(
-        normalized.description
-      ),
-
-    displayTargetAmount:
-      formatSavingPlanAmount(
-        normalized.targetAmount,
-        normalized.currency,
-        {
-          locale,
-        }
-      ),
-
-    displayTargetDate:
-      formatSavingPlanDate(
-        normalized.targetDate,
-        {
-          locale:
-            dateLocale,
-        }
-      ),
-
-    displayTargetDateShort:
-      formatSavingPlanDateShort(
-        normalized.targetDate,
-        dateLocale
-      ),
-
-    displayStatus:
-      formatSavingPlanStatus(
-        normalized.status
-      ),
-
-    displayProgress:
-      formatSavingPlanProgress(
-        normalized
-      ),
-
-    displayRemainingDays:
-      formatSavingPlanRemainingDays(
-        normalized.targetDate
-      ),
-  };
-};
-
-/* -------------------------------------------------------------------------- */
-/* Form normalization                                                          */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Convert a saving plan into values suitable for a form.
- */
-export const savingPlanToFormValues = (
-  plan,
-  fallbackCurrency = DEFAULT_SAVING_PLAN_CURRENCY
-) => {
-  if (!isObject(plan)) {
-    return {
-      name: "",
-      targetAmount: "",
-      currency:
-        normalizeCurrency(
-          fallbackCurrency
-        ),
-      targetDate: "",
-      description: "",
+    return () => {
+      mountedRef.current = false;
     };
-  }
+  }, []);
 
-  return {
-    name: toStringValue(
-      plan.name ??
-        plan.title
-    ),
+  /* ========================================================================
+     BODY SCROLL LOCK
+  ======================================================================== */
 
-    targetAmount:
-      plan.targetAmount ??
-      plan.amount ??
-      plan.target ??
-      "",
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
 
-    currency:
-      normalizeCurrency(
-        plan.currency,
-        fallbackCurrency
+    const previousOverflow =
+      document.body.style.overflow;
+
+    document.body.style.overflow =
+      "hidden";
+
+    return () => {
+      document.body.style.overflow =
+        previousOverflow;
+    };
+  }, [open]);
+
+  /* ========================================================================
+     ESCAPE KEY
+  ======================================================================== */
+
+  const handleClose = useCallback(() => {
+    if (submitting) {
+      return;
+    }
+
+    ++submissionIdRef.current;
+
+    setErrors({});
+    setSubmitError("");
+    setForm(createInitialForm());
+
+    if (
+      typeof onClose === "function"
+    ) {
+      onClose();
+    }
+  }, [
+    onClose,
+    submitting,
+  ]);
+
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+
+    const handleKeyDown = (
+      event
+    ) => {
+      if (
+        event.key !== "Escape"
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+
+      handleClose();
+    };
+
+    document.addEventListener(
+      "keydown",
+      handleKeyDown
+    );
+
+    return () => {
+      document.removeEventListener(
+        "keydown",
+        handleKeyDown
+      );
+    };
+  }, [
+    open,
+    handleClose,
+  ]);
+
+  /* ========================================================================
+     INITIAL FOCUS
+  ======================================================================== */
+
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+
+    const timer =
+      window.setTimeout(() => {
+        nameInputRef.current?.focus();
+      }, 50);
+
+    return () => {
+      window.clearTimeout(
+        timer
+      );
+    };
+  }, [open]);
+
+  /* ========================================================================
+     FORM HANDLING
+  ======================================================================== */
+
+  const handleChange = useCallback(
+    (event) => {
+      const {
+        name,
+        value,
+      } = event.target;
+
+      setForm((current) => ({
+        ...current,
+        [name]: value,
+      }));
+
+      setErrors((current) => {
+        if (!current[name]) {
+          return current;
+        }
+
+        const next = {
+          ...current,
+        };
+
+        delete next[name];
+
+        return next;
+      });
+
+      if (submitError) {
+        setSubmitError("");
+      }
+    },
+    [submitError]
+  );
+
+  /* ========================================================================
+     PAYLOAD
+  ======================================================================== */
+
+  const payload = useMemo(
+    () =>
+      formatSavingPlanPayload(
+        form,
+        DEFAULT_CURRENCY
       ),
+    [form]
+  );
 
-    targetDate:
-      formatDateForInput(
-        plan.targetDate ??
-          plan.deadline ??
-          plan.endDate
-      ),
+  /* ========================================================================
+     SUBMIT
+  ======================================================================== */
 
-    description:
-      toStringValue(
-        plan.description
-      ),
-  };
-};
+  const handleSubmit =
+    useCallback(
+      async (event) => {
+        event.preventDefault();
 
-/* -------------------------------------------------------------------------- */
-/* Payload formatting                                                          */
-/* -------------------------------------------------------------------------- */
+        if (
+          submitting ||
+          !open
+        ) {
+          return;
+        }
 
-/**
- * Normalize form values before handing them to the API layer.
- *
- * This function does not validate the payload.
- * Validation belongs to the form/domain validation layer.
- */
-export const formatSavingPlanPayload = (
-  values,
-  fallbackCurrency = DEFAULT_SAVING_PLAN_CURRENCY
-) => {
-  if (!isObject(values)) {
+        setSubmitError("");
+
+        const validationErrors =
+          validateForm(form);
+
+        if (
+          Object.keys(
+            validationErrors
+          ).length > 0
+        ) {
+          setErrors(
+            validationErrors
+          );
+          return;
+        }
+
+        if (
+          !payload
+        ) {
+          setSubmitError(
+            "Unable to prepare the saving plan data."
+          );
+          return;
+        }
+
+        if (
+          typeof onSubmit !==
+          "function"
+        ) {
+          setSubmitError(
+            "Saving plan creation is currently unavailable."
+          );
+          return;
+        }
+
+        setErrors({});
+
+        const submissionId =
+          ++submissionIdRef.current;
+
+        try {
+          const result =
+            await onSubmit(
+              payload
+            );
+
+          if (
+            result === false
+          ) {
+            throw new Error(
+              "The saving plan could not be created."
+            );
+          }
+
+          if (
+            !mountedRef.current ||
+            submissionId !==
+              submissionIdRef.current
+          ) {
+            return;
+          }
+
+          /*
+           * The parent page controls closing the modal.
+           *
+           * We still reset local form state here so that if the
+           * component remains mounted, the next create operation
+           * starts clean.
+           */
+          setForm(
+            createInitialForm()
+          );
+
+          setErrors({});
+          setSubmitError("");
+        } catch (error) {
+          if (
+            !mountedRef.current ||
+            submissionId !==
+              submissionIdRef.current
+          ) {
+            return;
+          }
+
+          setSubmitError(
+            getErrorMessage(error)
+          );
+        }
+      },
+      [
+        form,
+        onSubmit,
+        open,
+        payload,
+        submitting,
+      ]
+    );
+
+  /* ========================================================================
+     OVERLAY CLICK
+  ======================================================================== */
+
+  const handleOverlayClick =
+    useCallback(
+      (event) => {
+        if (
+          event.target !==
+          event.currentTarget
+        ) {
+          return;
+        }
+
+        handleClose();
+      },
+      [handleClose]
+    );
+
+  /* ========================================================================
+     RENDER GUARD
+  ======================================================================== */
+
+  if (!open) {
     return null;
   }
 
-  return {
-    name: normalizeWhitespace(
-      values.name
-    ),
+  const nameError =
+    errors.name;
 
-    targetAmount:
-      normalizeAmount(
-        values.targetAmount
-      ),
+  const targetAmountError =
+    errors.targetAmount;
 
-    currency:
-      normalizeCurrency(
-        values.currency,
-        fallbackCurrency
-      ),
+  const currencyError =
+    errors.currency;
 
-    targetDate:
-      formatDateForInput(
-        values.targetDate
-      ),
+  const targetDateError =
+    errors.targetDate;
 
-    description:
-      normalizeWhitespace(
-        values.description
-      ),
-  };
+  const descriptionError =
+    errors.description;
+
+  const today =
+    getTodayInputValue();
+
+  /* ========================================================================
+     RENDER
+  ======================================================================== */
+
+ const handleModalMouseDown = (event) => {
+  event.stopPropagation();
+};
+    return (
+    <div
+      className="
+        z-[100] fixed inset-0 flex justify-center items-center
+        p-4 sm:p-6
+        bg-slate-950/60
+        backdrop-blur-sm
+      "
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="create-saving-plan-title"
+      onMouseDown={
+        handleOverlayClick
+      }
+    >
+      <div
+        className="
+          flex flex-col overflow-hidden
+          w-full max-w-2xl max-h-[92vh]
+          bg-white
+          border border-slate-200 rounded-3xl
+          shadow-2xl
+        "
+        onMouseDown={handleModalMouseDown}
+      >
+        {/* ================================================================
+            HEADER
+        ================================================================ */}
+
+        <div
+          className="
+            flex justify-between items-start
+            px-5 sm:px-7 py-5
+            bg-white
+            border-slate-200 border-b
+            gap-4 shrink-0
+          "
+        >
+          <div
+            className="
+              flex items-center
+              min-w-0
+              gap-3
+            "
+          >
+            <div
+              className="
+                flex justify-center items-center
+                w-12 h-12
+                text-blue-600
+                bg-blue-50
+                rounded-2xl
+                shrink-0
+              "
+            >
+              <PiggyBank
+                size={24}
+                aria-hidden="true"
+              />
+            </div>
+
+            <div
+              className="
+                min-w-0
+              "
+            >
+              <h2
+                id="create-saving-plan-title"
+                className="
+                  font-bold text-slate-950 text-lg sm:text-xl tracking-tight
+                "
+              >
+                Create saving plan
+              </h2>
+
+              <p
+                className="
+                  mt-1
+                  text-slate-500 text-sm leading-5
+                "
+              >
+                Set a clear savings target
+                and a deadline for achieving it.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleClose}
+            disabled={submitting}
+            aria-label="Close create saving plan"
+            className="
+              flex justify-center items-center
+              w-10 h-10
+              text-slate-500 hover:text-slate-900
+              hover:bg-slate-100
+              rounded-xl
+              disabled:opacity-50 transition
+              disabled:cursor-not-allowed
+              shrink-0
+            "
+          >
+            <X
+              size={20}
+              aria-hidden="true"
+            />
+          </button>
+        </div>
+
+        {/* ================================================================
+            FORM CONTENT
+        ================================================================ */}
+
+        <form
+          onSubmit={handleSubmit}
+          noValidate
+          className="
+            flex-1 overflow-y-auto
+            min-h-0
+          "
+        >
+          <div
+            className="
+              space-y-6 px-5 sm:px-7 py-6
+            "
+          >
+            {/* ============================================================
+                GENERAL INFORMATION
+            ============================================================ */}
+
+            <section>
+              <div
+                className="
+                  flex items-center
+                  mb-4
+                  gap-2
+                "
+              >
+                <FileText
+                  size={17}
+                  className="
+                    text-blue-600
+                  "
+                  aria-hidden="true"
+                /
+                >
+
+                <h3
+                  className="
+                    font-bold text-slate-900 text-sm
+                  "
+                >
+                  Plan information
+                </h3>
+              </div>
+
+              <div
+                className="
+                  space-y-5
+                "
+              >
+                {/* NAME */}
+
+                <div>
+                  <FieldLabel
+                    htmlFor="saving-plan-name"
+                    required
+                  >
+                    Plan name
+                  </FieldLabel>
+
+                  <input
+                    ref={nameInputRef}
+                    id="saving-plan-name"
+                    name="name"
+                    type="text"
+                    value={form.name}
+                    onChange={
+                      handleChange
+                    }
+                    disabled={
+                      submitting
+                    }
+                    maxLength={
+                      MAX_NAME_LENGTH
+                    }
+                    placeholder="e.g. Emergency fund"
+                    autoComplete="off"
+                    aria-invalid={
+                      Boolean(
+                        nameError
+                      )
+                    }
+                    aria-describedby={
+                      nameError
+                        ? "saving-plan-name-error"
+                        : undefined
+                    }
+                    className={`
+                      h-12
+                      w-full
+                      rounded-xl
+                      border
+                      bg-white
+                      px-4
+                      text-sm
+                      font-medium
+                      text-slate-950
+                      outline-none
+                      transition
+                      placeholder:text-slate-400
+                      disabled:cursor-not-allowed
+                      disabled:bg-slate-50
+                      ${
+                        nameError
+                          ? "border-red-400 focus:border-red-500 focus:ring-4 focus:ring-red-100"
+                          : "border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                      }
+                    `}
+                  />
+
+                  <div
+                    className="
+                      flex justify-between items-center
+                      mt-2
+                      gap-3
+                    "
+                  >
+                    <div
+                      id="saving-plan-name-error"
+                    >
+                      <FieldError>
+                        {nameError}
+                      </FieldError>
+                    </div>
+
+                    <span
+                      className="
+                        ml-auto
+                        text-slate-400 text-xs
+                      "
+                    >
+                      {form.name.length}/
+                      {MAX_NAME_LENGTH}
+                    </span>
+                  </div>
+                </div>
+
+                {/* DESCRIPTION */}
+
+                <div>
+                  <FieldLabel
+                    htmlFor="saving-plan-description"
+                  >
+                    Description
+                  </FieldLabel>
+
+                  <textarea
+                    id="saving-plan-description"
+                    name="description"
+                    value={
+                      form.description
+                    }
+                    onChange={
+                      handleChange
+                    }
+                    disabled={
+                      submitting
+                    }
+                    maxLength={
+                      MAX_DESCRIPTION_LENGTH
+                    }
+                    rows={4}
+                    placeholder="What are you saving for?"
+                    className={`
+                      w-full
+                      resize-none
+                      rounded-xl
+                      border
+                      bg-white
+                      px-4
+                      py-3
+                      text-sm
+                      font-medium
+                      leading-6
+                      text-slate-950
+                      outline-none
+                      transition
+                      placeholder:text-slate-400
+                      disabled:cursor-not-allowed
+                      disabled:bg-slate-50
+                      ${
+                        descriptionError
+                          ? "border-red-400 focus:border-red-500 focus:ring-4 focus:ring-red-100"
+                          : "border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                      }
+                    `}
+                  />
+
+                  <div
+                    className="
+                      flex justify-between items-start
+                      mt-2
+                      gap-3
+                    "
+                  >
+                    <FieldError>
+                      {descriptionError}
+                    </FieldError>
+
+                    <span
+                      className="
+                        ml-auto
+                        text-slate-400 text-xs
+                        shrink-0
+                      "
+                    >
+                      {
+                        form.description
+                          .length
+                      }
+                      /
+                      {
+                        MAX_DESCRIPTION_LENGTH
+                      }
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* ============================================================
+                TARGET
+            ============================================================ */}
+
+            <section
+              className="
+                p-4 sm:p-5
+                bg-slate-50/70
+                border border-slate-200 rounded-2xl
+              "
+            >
+              <div
+                className="
+                  flex items-center
+                  mb-5
+                  gap-2
+                "
+              >
+                <Target
+                  size={18}
+                  className="
+                    text-blue-600
+                  "
+                  aria-hidden="true"
+                /
+                >
+
+                <div>
+                  <h3
+                    className="
+                      font-bold text-slate-900 text-sm
+                    "
+                  >
+                    Savings target
+                  </h3>
+
+                  <p
+                    className="
+                      mt-0.5
+                      text-slate-500 text-xs
+                    "
+                  >
+                    Define how much you want
+                    to save and when you want
+                    to reach it.
+                  </p>
+                </div>
+              </div>
+
+              <div
+                className="
+                  grid grid-cols-1 sm:grid-cols-2
+                  gap-5
+                "
+              >
+                {/* TARGET AMOUNT */}
+
+                <div>
+                  <FieldLabel
+                    htmlFor="saving-plan-target-amount"
+                    required
+                  >
+                    Target amount
+                  </FieldLabel>
+
+                  <div
+                    className="
+                      relative
+                    "
+                  >
+                    <span
+                      className="
+                        top-1/2 left-4 absolute
+                        font-bold text-slate-500 text-sm
+                        pointer-events-none
+                        -translate-y-1/2
+                      "
+                    >
+                      ₦
+                    </span>
+
+                    <input
+                      id="saving-plan-target-amount"
+                      name="targetAmount"
+                      type="number"
+                      inputMode="decimal"
+                      min="0.01"
+                      step="0.01"
+                      value={
+                        form.targetAmount
+                      }
+                      onChange={
+                        handleChange
+                      }
+                      disabled={
+                        submitting
+                      }
+                      placeholder="0.00"
+                      aria-invalid={
+                        Boolean(
+                          targetAmountError
+                        )
+                      }
+                      className={`
+                        h-12
+                        w-full
+                        rounded-xl
+                        border
+                        bg-white
+                        py-2
+                        pr-4
+                        pl-10
+                        text-sm
+                        font-semibold
+                        text-slate-950
+                        outline-none
+                        transition
+                        placeholder:text-slate-400
+                        disabled:cursor-not-allowed
+                        disabled:bg-slate-50
+                        ${
+                          targetAmountError
+                            ? "border-red-400 focus:border-red-500 focus:ring-4 focus:ring-red-100"
+                            : "border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                        }
+                      `}
+                    />
+                  </div>
+
+                  <FieldError>
+                    {targetAmountError}
+                  </FieldError>
+                </div>
+
+                {/* CURRENCY */}
+
+                <div>
+                  <FieldLabel
+                    htmlFor="saving-plan-currency"
+                    required
+                  >
+                    Currency
+                  </FieldLabel>
+
+                  <div
+                    className="
+                      relative
+                    "
+                  >
+                    <Wallet
+                      size={16}
+                      className="
+                        top-1/2 left-4 absolute
+                        text-slate-400
+                        pointer-events-none
+                        -translate-y-1/2
+                      "
+                      aria-hidden="true"
+                    /
+                    >
+
+                    <select
+                      id="saving-plan-currency"
+                      name="currency"
+                      value={
+                        form.currency
+                      }
+                      onChange={
+                        handleChange
+                      }
+                      disabled={
+                        submitting
+                      }
+                      aria-invalid={
+                        Boolean(
+                          currencyError
+                        )
+                      }
+                      className={`
+                        h-12
+                        w-full
+                        appearance-none
+                        rounded-xl
+                        border
+                        bg-white
+                        px-4
+                        pl-11
+                        text-sm
+                        font-semibold
+                        text-slate-950
+                        outline-none
+                        transition
+                        disabled:cursor-not-allowed
+                        disabled:bg-slate-50
+                        ${
+                          currencyError
+                            ? "border-red-400 focus:border-red-500 focus:ring-4 focus:ring-red-100"
+                            : "border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                        }
+                      `}
+                    >
+                      <option value="NGN">
+                        Nigerian Naira (NGN)
+                      </option>
+                    </select>
+                  </div>
+
+                  <FieldError>
+                    {currencyError}
+                  </FieldError>
+                </div>
+
+                {/* TARGET DATE */}
+
+                <div
+                  className="
+                    sm:col-span-2
+                  "
+                >
+                  <FieldLabel
+                    htmlFor="saving-plan-target-date"
+                    required
+                  >
+                    Target date
+                  </FieldLabel>
+
+                  <div
+                    className="
+                      relative
+                    "
+                  >
+                    <CalendarDays
+                      size={17}
+                      className="
+                        top-1/2 left-4 absolute
+                        text-slate-400
+                        pointer-events-none
+                        -translate-y-1/2
+                      "
+                      aria-hidden="true"
+                    /
+                    >
+
+                    <input
+                      id="saving-plan-target-date"
+                      name="targetDate"
+                      type="date"
+                      min={today}
+                      value={
+                        form.targetDate
+                      }
+                      onChange={
+                        handleChange
+                      }
+                      disabled={
+                        submitting
+                      }
+                      aria-invalid={
+                        Boolean(
+                          targetDateError
+                        )
+                      }
+                      className={`
+                        h-12
+                        w-full
+                        rounded-xl
+                        border
+                        bg-white
+                        px-4
+                        pl-11
+                        text-sm
+                        font-medium
+                        text-slate-950
+                        outline-none
+                        transition
+                        disabled:cursor-not-allowed
+                        disabled:bg-slate-50
+                        ${
+                          targetDateError
+                            ? "border-red-400 focus:border-red-500 focus:ring-4 focus:ring-red-100"
+                            : "border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                        }
+                      `}
+                    />
+                  </div>
+
+                  <FieldError>
+                    {targetDateError}
+                  </FieldError>
+
+                  <p
+                    className="
+                      mt-2
+                      text-slate-500 text-xs
+                    "
+                  >
+                    Choose the date by which
+                    you want to reach this
+                    savings target.
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            {/* ============================================================
+                SUBMIT ERROR
+            ============================================================ */}
+
+            {submitError ? (
+              <div
+                className="
+                  flex items-start
+                  px-4 py-3.5
+                  text-red-700 text-sm
+                  bg-red-50
+                  border border-red-200 rounded-2xl
+                  gap-3
+                "
+                role="alert"
+              >
+                <AlertCircle
+                  size={18}
+                  className="
+                    mt-0.5
+                    text-red-600
+                    shrink-0
+                  "
+                  aria-hidden="true"
+                /
+                >
+
+                <div>
+                  <p
+                    className="
+                      font-semibold
+                    "
+                  >
+                    Could not create saving plan
+                  </p>
+
+                  <p
+                    className="
+                      mt-0.5
+                      leading-5
+                    "
+                  >
+                    {submitError}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            {/* ============================================================
+                INFORMATION
+            ============================================================ */}
+
+            <div
+              className="
+                flex items-start
+                px-4 py-3.5
+                bg-blue-50/70
+                border border-blue-100 rounded-2xl
+                gap-3
+              "
+            >
+              <Check
+                size={17}
+                className="
+                  mt-0.5
+                  text-blue-600
+                  shrink-0
+                "
+                aria-hidden="true"
+              /
+              >
+
+              <p
+                className="
+                  text-slate-600 text-xs leading-5
+                "
+              >
+                Your saving plan defines
+                the target configuration.
+                Contributions and automated
+                saving activity are managed
+                separately by SmartSave.
+              </p>
+            </div>
+          </div>
+
+          {/* ==============================================================
+              FOOTER
+          ============================================================== */}
+
+          <div
+            className="
+              bottom-0 sticky flex flex-col-reverse sm:flex-row sm:justify-end
+              px-5 sm:px-7 py-4
+              bg-white
+              border-slate-200 border-t
+              gap-3 shrink-0
+            "
+          >
+            <button
+              type="button"
+              onClick={handleClose}
+              disabled={submitting}
+              className="
+                h-12
+                px-5
+                font-semibold text-slate-700 hover:text-slate-950 text-sm
+                bg-white hover:bg-slate-50
+                border border-slate-300 rounded-xl
+                disabled:opacity-50 transition
+                disabled:cursor-not-allowed
+              "
+            >
+              Cancel
+            </button>
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="
+                flex justify-center items-center
+                h-12
+                px-6
+                font-bold text-white text-sm
+                bg-blue-600 hover:bg-blue-700
+                rounded-xl
+                disabled:opacity-60 shadow-blue-600/20 shadow-lg transition
+                disabled:cursor-not-allowed
+                gap-2
+              "
+            >
+              {submitting ? (
+                <>
+                  <Loader2
+                    size={17}
+                    className="
+                      animate-spin
+                    "
+                    aria-hidden="true"
+                  /
+                  >
+
+                  <span>
+                    Creating plan...
+                  </span>
+                </>
+              ) : (
+                <>
+                  <PiggyBank
+                    size={17}
+                    aria-hidden="true"
+                  />
+
+                  <span>
+                    Create saving plan
+                  </span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 };
 
-/* -------------------------------------------------------------------------- */
-/* Safe labels                                                                 */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Return a compact plan label suitable for:
- * - Navigation
- * - Select controls
- * - Activity lists
- * - Empty-state fallbacks
- */
-export const getSavingPlanLabel = (
-  plan
-) => {
-  if (!isObject(plan)) {
-    return "Saving plan";
-  }
-
-  const name =
-    formatSavingPlanName(
-      plan.name ??
-        plan.title,
-      ""
-    );
-
-  if (name) {
-    return name;
-  }
-
-  const id =
-    getSavingPlanId(plan);
-
-  if (id) {
-    return `Saving plan ${String(
-      id
-    ).slice(-6)}`;
-  }
-
-  return "Saving plan";
-};
-
-/* -------------------------------------------------------------------------- */
-/* Default export                                                              */
-/* -------------------------------------------------------------------------- */
-
-export default {
-  normalizeCurrency,
-  getCurrencySymbol,
-
-  normalizeAmount,
-  formatSavingPlanAmount,
-  formatSavingPlanNumber,
-
-  normalizePercentage,
-  formatPercentage,
-
-  toDate,
-  formatDateForInput,
-  formatSavingPlanDate,
-  formatSavingPlanDateShort,
-
-  isSavingPlanDatePast,
-  getDaysUntilSavingPlanDate,
-  formatSavingPlanRemainingDays,
-
-  getSavingPlanId,
-  normalizeSavingPlanId,
-
-  formatSavingPlanName,
-  formatSavingPlanDescription,
-  truncateSavingPlanDescription,
-
-  normalizeSavingPlanStatus,
-  formatSavingPlanStatus,
-  getSavingPlanStatusTone,
-
-  getSavingPlanProgress,
-  formatSavingPlanProgress,
-
-  normalizeSavingPlan,
-  formatSavingPlanForDisplay,
-
-  savingPlanToFormValues,
-  formatSavingPlanPayload,
-
-  getSavingPlanLabel,
-};
+export default memo(
+  CreateSavingPlanModal
+);
