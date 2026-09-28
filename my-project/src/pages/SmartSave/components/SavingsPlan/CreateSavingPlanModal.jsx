@@ -1,315 +1,416 @@
-/**
- * CreateSavingPlanModal.jsx
- *
- * SmartSave — Create Saving Plan
- *
- * Responsibilities:
- * - Render the create-saving-plan modal.
- * - Manage local form state.
- * - Validate user input.
- * - Normalize the form payload.
- * - Delegate creation to the parent through onSubmit().
- *
- * Architecture:
- *
- * CreateSavingPlanModal
- *        ↓
- * onSubmit(payload)
- *        ↓
- * SavingPlansPage
- *        ↓
- * useSavingPlans
- *        ↓
- * smartSaveService
- *        ↓
- * SmartSave API
- *
- * This component does NOT:
- * - Call APIs directly.
- * - Contain financial business logic.
- * - Manage saving-plan server state.
- * - Import useSavingPlans.
- */
-
 import {
   AlertCircle,
   CalendarDays,
-  Check,
+  CheckCircle2,
+  ChevronDown,
   FileText,
+  Info,
   Loader2,
   PiggyBank,
   Target,
-  Wallet,
+  WalletCards,
   X,
 } from "lucide-react";
-
 import {
   memo,
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
 } from "react";
 
-import {
-  formatSavingPlanPayload,
-} from "../../../../utils/smartSave/savingPlanFormatters";
-
-/* ==========================================================================
+/* =========================================================
    CONSTANTS
-========================================================================== */
+========================================================= */
 
 const DEFAULT_CURRENCY = "NGN";
-
-const DEFAULT_FORM = Object.freeze({
-  name: "",
-  targetAmount: "",
-  currency: DEFAULT_CURRENCY,
-  targetDate: "",
-  description: "",
-});
 
 const MAX_NAME_LENGTH = 100;
 const MAX_DESCRIPTION_LENGTH = 500;
 
-/* ==========================================================================
-   HELPERS
-========================================================================== */
-
-/**
- * Return today's date in local YYYY-MM-DD format.
- *
- * Using local time instead of toISOString() prevents UTC timezone
- * conversion from producing the previous/next calendar day.
- */
-const getTodayInputValue = () => {
-  const date = new Date();
-
-  const year = date.getFullYear();
-
-  const month = String(
-    date.getMonth() + 1
-  ).padStart(2, "0");
-
-  const day = String(
-    date.getDate()
-  ).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-};
-
-/**
- * Convert unknown errors into a user-readable message.
- */
-const getErrorMessage = (error) => {
-  if (!error) {
-    return "";
-  }
-
-  if (
-    typeof error === "string" &&
-    error.trim()
-  ) {
-    return error.trim();
-  }
-
-  const responseMessage =
-    error?.response?.data?.message;
-
-  if (
-    typeof responseMessage === "string" &&
-    responseMessage.trim()
-  ) {
-    return responseMessage.trim();
-  }
-
-  const responseError =
-    error?.response?.data?.error;
-
-  if (
-    typeof responseError === "string" &&
-    responseError.trim()
-  ) {
-    return responseError.trim();
-  }
-
-  const dataMessage =
-    error?.data?.message;
-
-  if (
-    typeof dataMessage === "string" &&
-    dataMessage.trim()
-  ) {
-    return dataMessage.trim();
-  }
-
-  if (
-    typeof error?.message === "string" &&
-    error.message.trim()
-  ) {
-    return error.message.trim();
-  }
-
-  return "Unable to create the saving plan. Please try again.";
-};
-
-/**
- * Build a fresh form object.
- */
-const createInitialForm = () => ({
+const DEFAULT_FORM = Object.freeze({
   name: "",
-  targetAmount: "",
-  currency: DEFAULT_CURRENCY,
-  targetDate: "",
   description: "",
+  planType: "fixed_amount",
+  contributionMethod: "manual",
+  contributionFrequency: "monthly",
+  contributionAmount: "",
+  contributionPercentage: "",
+  dayOfWeek: "",
+  dayOfMonth: "",
+  customIntervalDays: "",
 });
 
-/**
- * Validate the form before submission.
- */
-const validateForm = (form) => {
-  const errors = {};
+const PLAN_TYPES = Object.freeze([
+  {
+    value: "fixed_amount",
+    label: "Fixed amount",
+    description: "Save a specific amount on every contribution.",
+  },
+  {
+    value: "percentage_income",
+    label: "Percentage of income",
+    description: "Save a percentage of each income amount.",
+  },
+  {
+    value: "round_up",
+    label: "Round up",
+    description: "Automatically save spare change from transactions.",
+  },
+  {
+    value: "target_date",
+    label: "Target date",
+    description: "Structure contributions around your goal deadline.",
+  },
+  {
+    value: "flexible",
+    label: "Flexible",
+    description: "Save toward the goal with a flexible contribution strategy.",
+  },
+  {
+    value: "custom",
+    label: "Custom",
+    description: "Use a customized saving strategy.",
+  },
+]);
 
-  const name =
-    typeof form.name === "string"
-      ? form.name.trim()
-      : "";
+const CONTRIBUTION_METHODS = Object.freeze([
+  {
+    value: "manual",
+    label: "Manual",
+  },
+  {
+    value: "bank_transfer",
+    label: "Bank transfer",
+  },
+]);
 
-  const description =
-    typeof form.description === "string"
-      ? form.description.trim()
-      : "";
+const FREQUENCIES = Object.freeze([
+  {
+    value: "daily",
+    label: "Daily",
+  },
+  {
+    value: "weekly",
+    label: "Weekly",
+  },
+  {
+    value: "biweekly",
+    label: "Every 2 weeks",
+  },
+  {
+    value: "monthly",
+    label: "Monthly",
+  },
+  {
+    value: "quarterly",
+    label: "Quarterly",
+  },
+  {
+    value: "custom",
+    label: "Custom interval",
+  },
+]);
 
-  const targetAmount =
-    typeof form.targetAmount === "string"
-      ? form.targetAmount.trim()
-      : String(form.targetAmount ?? "").trim();
+const DAYS_OF_WEEK = Object.freeze([
+  { value: 0, label: "Sunday" },
+  { value: 1, label: "Monday" },
+  { value: 2, label: "Tuesday" },
+  { value: 3, label: "Wednesday" },
+  { value: 4, label: "Thursday" },
+  { value: 5, label: "Friday" },
+  { value: 6, label: "Saturday" },
+]);
 
-  const currency =
-    typeof form.currency === "string"
-      ? form.currency.trim().toUpperCase()
-      : "";
+const INPUT_CLASS =
+  "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400";
 
-  const targetDate =
-    typeof form.targetDate === "string"
-      ? form.targetDate.trim()
-      : "";
+const SELECT_CLASS = `${INPUT_CLASS} appearance-none pr-11`;
 
-  /* ------------------------------------------------------------------------
-     NAME
-  ------------------------------------------------------------------------ */
+const ERROR_INPUT_CLASS =
+  "border-red-300 focus:border-red-500 focus:ring-red-500/10";
 
-  if (!name) {
-    errors.name =
-      "Please enter a name for your saving plan.";
-  } else if (
-    name.length < 2
-  ) {
-    errors.name =
-      "Saving plan name must contain at least 2 characters.";
-  } else if (
-    name.length > MAX_NAME_LENGTH
-  ) {
-    errors.name =
-      `Saving plan name cannot exceed ${MAX_NAME_LENGTH} characters.`;
+const LABEL_CLASS =
+  "mb-2 block text-sm font-semibold text-slate-800";
+
+const HELPER_CLASS = "mt-1.5 text-xs leading-5 text-slate-500";
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+const getGoalId = (goal) =>
+  goal?._id || goal?.id || goal?.goalId || "";
+
+const getGoalAccountId = (goal) =>
+  goal?.savingAccount?._id ||
+  goal?.savingAccount?.id ||
+  goal?.savingAccount ||
+  "";
+
+const getGoalName = (goal) => goal?.name || "Unnamed goal";
+
+const getGoalCurrency = (goal) =>
+  String(goal?.currency || DEFAULT_CURRENCY).toUpperCase();
+
+const getGoalTargetAmount = (goal) =>
+  Number(goal?.targetAmount ?? goal?.target?.amount ?? 0);
+
+const getGoalCurrentAmount = (goal) =>
+  Number(goal?.currentAmount ?? 0);
+
+const getGoalRemainingAmount = (goal) => {
+  const explicitRemaining = Number(goal?.remainingAmount);
+
+  if (Number.isFinite(explicitRemaining)) {
+    return Math.max(explicitRemaining, 0);
   }
 
-  /* ------------------------------------------------------------------------
-     TARGET AMOUNT
-  ------------------------------------------------------------------------ */
+  return Math.max(
+    getGoalTargetAmount(goal) - getGoalCurrentAmount(goal),
+    0,
+  );
+};
 
-  if (!targetAmount) {
-    errors.targetAmount =
-      "Please enter your savings target.";
+const getGoalProgress = (goal) => {
+  const explicitProgress = Number(
+    goal?.progress ?? goal?.progressPercentage,
+  );
+
+  if (Number.isFinite(explicitProgress)) {
+    return Math.min(Math.max(explicitProgress, 0), 100);
+  }
+
+  const target = getGoalTargetAmount(goal);
+  const current = getGoalCurrentAmount(goal);
+
+  if (!target) {
+    return 0;
+  }
+
+  return Math.min(Math.max((current / target) * 100, 0), 100);
+};
+
+const formatCurrency = (amount, currency = DEFAULT_CURRENCY) => {
+  const numericAmount = Number(amount);
+
+  if (!Number.isFinite(numericAmount)) {
+    return "—";
+  }
+
+  try {
+    return new Intl.NumberFormat("en-NG", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 2,
+    }).format(numericAmount);
+  } catch {
+    return `${currency} ${numericAmount.toLocaleString("en-NG")}`;
+  }
+};
+
+const formatDate = (value) => {
+  if (!value) {
+    return "No target date";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Invalid date";
+  }
+
+  return new Intl.DateTimeFormat("en-NG", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+};
+
+
+const isValidAmount = (value) => {
+  const amount = Number(value);
+
+  return Number.isFinite(amount) && amount > 0;
+};
+
+const isValidPercentage = (value) => {
+  const percentage = Number(value);
+
+  return (
+    Number.isFinite(percentage) &&
+    percentage > 0 &&
+    percentage <= 100
+  );
+};
+
+const buildSavingPlanPayload = ({
+  form,
+  goal,
+  savingAccountId,
+}) => {
+  const targetAmount = getGoalTargetAmount(goal);
+  const currency = getGoalCurrency(goal);
+  const targetDate = goal?.targetDate || goal?.target?.targetDate || null;
+
+  const contribution = {
+    method: form.contributionMethod,
+    frequency: form.contributionFrequency,
+  };
+
+  if (form.planType === "percentage_income") {
+    contribution.percentage = Number(form.contributionPercentage);
+  } else if (form.planType === "round_up") {
+    contribution.method = "round_up";
   } else {
-    const numericAmount =
-      Number(
-        targetAmount.replace(/,/g, "")
-      );
-
-    if (
-      !Number.isFinite(numericAmount)
-    ) {
-      errors.targetAmount =
-        "Enter a valid target amount.";
-    } else if (
-      numericAmount <= 0
-    ) {
-      errors.targetAmount =
-        "Target amount must be greater than zero.";
-    }
+    contribution.amount = Number(form.contributionAmount);
   }
-
-  /* ------------------------------------------------------------------------
-     CURRENCY
-  ------------------------------------------------------------------------ */
-
-  if (!currency) {
-    errors.currency =
-      "Please select a currency.";
-  }
-
-  /* ------------------------------------------------------------------------
-     TARGET DATE
-  ------------------------------------------------------------------------ */
-
-  if (!targetDate) {
-    errors.targetDate =
-      "Please select a target date.";
-  } else {
-    const parsedDate =
-      new Date(
-        `${targetDate}T00:00:00`
-      );
-
-    if (
-      Number.isNaN(
-        parsedDate.getTime()
-      )
-    ) {
-      errors.targetDate =
-        "Please enter a valid target date.";
-    } else if (
-      targetDate < getTodayInputValue()
-    ) {
-      errors.targetDate =
-        "Target date cannot be in the past.";
-    }
-  }
-
-  /* ------------------------------------------------------------------------
-     DESCRIPTION
-  ------------------------------------------------------------------------ */
 
   if (
-    description.length >
-    MAX_DESCRIPTION_LENGTH
+    form.contributionFrequency === "weekly" ||
+    form.contributionFrequency === "biweekly"
   ) {
-    errors.description =
-      `Description cannot exceed ${MAX_DESCRIPTION_LENGTH} characters.`;
+    contribution.dayOfWeek = Number(form.dayOfWeek);
+  }
+
+  if (
+    form.contributionFrequency === "monthly" ||
+    form.contributionFrequency === "quarterly"
+  ) {
+    contribution.dayOfMonth = Number(form.dayOfMonth);
+  }
+
+  if (form.contributionFrequency === "custom") {
+    contribution.customIntervalDays = Number(
+      form.customIntervalDays,
+    );
+  }
+
+  return {
+    name: form.name.trim(),
+    description: form.description.trim(),
+    goal: getGoalId(goal),
+    savingAccount: savingAccountId,
+    planType: form.planType,
+
+    target: {
+      amount: targetAmount,
+      currency,
+      targetDate,
+    },
+
+    contribution,
+  };
+};
+
+const validateForm = ({
+  form,
+  goal,
+  savingAccountId,
+}) => {
+  const errors = {};
+
+  if (!goal) {
+    errors.goal = "Select a saving goal before creating a plan.";
+  }
+
+  if (!getGoalId(goal)) {
+    errors.goal =
+      "The selected goal does not have a valid ID.";
+  }
+
+  if (!savingAccountId) {
+    errors.savingAccount =
+      "This goal is not connected to a saving account.";
+  }
+
+  if (!form.name.trim()) {
+    errors.name = "Enter a name for this saving plan.";
+  } else if (form.name.trim().length < 2) {
+    errors.name =
+      "The plan name must contain at least 2 characters.";
+  } else if (form.name.trim().length > MAX_NAME_LENGTH) {
+    errors.name = `The plan name cannot exceed ${MAX_NAME_LENGTH} characters.`;
+  }
+
+  if (form.description.length > MAX_DESCRIPTION_LENGTH) {
+    errors.description = `The description cannot exceed ${MAX_DESCRIPTION_LENGTH} characters.`;
+  }
+
+  if (!getGoalTargetAmount(goal)) {
+    errors.goalTarget =
+      "The selected goal does not have a valid target amount.";
+  }
+
+  if (form.planType === "round_up") {
+    if (form.contributionMethod !== "round_up") {
+      errors.contributionMethod =
+        "Round-up plans must use the round-up contribution method.";
+    }
+  }
+
+  if (form.planType === "percentage_income") {
+    if (!isValidPercentage(form.contributionPercentage)) {
+      errors.contributionPercentage =
+        "Enter a percentage between 0 and 100.";
+    }
+  } else if (form.planType !== "round_up") {
+    if (!isValidAmount(form.contributionAmount)) {
+      errors.contributionAmount =
+        "Enter a contribution amount greater than zero.";
+    }
+  }
+
+  if (
+    form.contributionFrequency === "weekly" ||
+    form.contributionFrequency === "biweekly"
+  ) {
+    if (form.dayOfWeek === "") {
+      errors.dayOfWeek =
+        "Select the day of the week for this contribution.";
+    }
+  }
+
+  if (
+    form.contributionFrequency === "monthly" ||
+    form.contributionFrequency === "quarterly"
+  ) {
+    const dayOfMonth = Number(form.dayOfMonth);
+
+    if (
+      !Number.isInteger(dayOfMonth) ||
+      dayOfMonth < 1 ||
+      dayOfMonth > 31
+    ) {
+      errors.dayOfMonth =
+        "Enter a valid day between 1 and 31.";
+    }
+  }
+
+  if (form.contributionFrequency === "custom") {
+    const interval = Number(form.customIntervalDays);
+
+    if (!Number.isInteger(interval) || interval < 1) {
+      errors.customIntervalDays =
+        "Enter a custom interval of at least 1 day.";
+    }
   }
 
   return errors;
 };
 
-/* ==========================================================================
+/* =========================================================
    SMALL UI COMPONENTS
-========================================================================== */
+========================================================= */
 
 const FieldLabel = ({
-  htmlFor,
   children,
+  htmlFor,
   required = false,
 }) => (
-  <label
-    htmlFor={htmlFor}
-    className="
-      block
-      mb-2
-      font-semibold text-slate-700 text-sm
-    "
-  >
+  <label htmlFor={htmlFor} className={LABEL_CLASS}>
     {children}
 
     {required ? (
@@ -326,10 +427,8 @@ const FieldLabel = ({
   </label>
 );
 
-const FieldError = ({
-  children,
-}) => {
-  if (!children) {
+const FieldError = ({ message }) => {
+  if (!message) {
     return null;
   }
 
@@ -337,11 +436,10 @@ const FieldError = ({
     <p
       className="
         flex items-start
-        mt-2
-        font-medium text-red-600 text-xs
+        mt-1.5
+        text-xs text-red-600 font-medium
         gap-1.5
       "
-      role="alert"
     >
       <AlertCircle
         size={14}
@@ -352,432 +450,671 @@ const FieldError = ({
         aria-hidden="true"
       /
       >
-
-      <span>
-        {children}
-      </span>
+      <span>{message}</span>
     </p>
   );
 };
 
-/* ==========================================================================
-   COMPONENT
-========================================================================== */
+const SelectIcon = () => (
+  <ChevronDown
+    size={17}
+    className="
+      absolute right-4 top-1/2
+      text-slate-400
+      pointer-events-none
+      -translate-y-1/2
+    "
+    aria-hidden="true"
+  /
+  >
+);
 
-const CreateSavingPlanModal = ({
-  open = false,
+const SectionHeader = ({
+  icon: Icon,
+  title,
+  description,
+}) => (
+  <div
+    className="
+      flex items-start
+      mb-5
+      gap-3
+    "
+  >
+    <div
+      className="
+        flex items-center justify-center
+        h-10 w-10
+        text-blue-600
+        bg-blue-50
+        rounded-xl
+        shrink-0
+      "
+    >
+      <Icon size={19} aria-hidden="true" />
+    </div>
+
+    <div
+      className="
+        min-w-0
+      "
+    >
+      <h3
+        className="
+          text-sm text-slate-900 font-bold
+        "
+      >
+        {title}
+      </h3>
+
+      {description ? (
+        <p
+          className="
+            mt-1
+            text-xs text-slate-500 leading-5
+          "
+        >
+          {description}
+        </p>
+      ) : null}
+    </div>
+  </div>
+);
+
+/* =========================================================
+   GOAL SUMMARY
+========================================================= */
+
+const GoalSummary = memo(function GoalSummary({
+  goal,
+}) {
+  const currency = getGoalCurrency(goal);
+  const targetAmount = getGoalTargetAmount(goal);
+  const currentAmount = getGoalCurrentAmount(goal);
+  const remainingAmount = getGoalRemainingAmount(goal);
+  const progress = getGoalProgress(goal);
+  const targetDate =
+    goal?.targetDate || goal?.target?.targetDate;
+
+  return (
+    <div
+      className="
+        p-4
+        bg-blue-50/60
+        rounded-2xl border border-blue-100
+      "
+    >
+      <div
+        className="
+          flex items-start justify-between
+          gap-4
+        "
+      >
+        <div
+          className="
+            flex items-start
+            min-w-0
+            gap-3
+          "
+        >
+          <div
+            className="
+              flex items-center justify-center
+              h-10 w-10
+              text-blue-600
+              bg-white
+              rounded-xl
+              shadow-sm
+              shrink-0
+            "
+          >
+            <Target size={19} aria-hidden="true" />
+          </div>
+
+          <div
+            className="
+              min-w-0
+            "
+          >
+            <p
+              className="
+                text-xs text-blue-600 font-semibold uppercase tracking-wide
+              "
+            >
+              Selected goal
+            </p>
+
+            <h4
+              className="
+                mt-1
+                truncate text-sm text-slate-900 font-bold
+              "
+            >
+              {getGoalName(goal)}
+            </h4>
+          </div>
+        </div>
+
+        <div
+          className="
+            flex items-center
+            px-2.5 py-1
+            text-xs text-emerald-700 font-semibold
+            bg-emerald-50
+            rounded-full
+            shrink-0 gap-1.5
+          "
+        >
+          <CheckCircle2 size={13} aria-hidden="true" />
+          Active
+        </div>
+      </div>
+
+      <div
+        className="
+          grid grid-cols-2 sm:grid-cols-4
+          mt-4
+          gap-3
+        "
+      >
+        <div>
+          <p
+            className="
+              text-[11px] text-slate-500 font-medium
+            "
+          >
+            Target
+          </p>
+          <p
+            className="
+              mt-1
+              text-sm text-slate-900 font-bold
+            "
+          >
+            {formatCurrency(targetAmount, currency)}
+          </p>
+        </div>
+
+        <div>
+          <p
+            className="
+              text-[11px] text-slate-500 font-medium
+            "
+          >
+            Saved
+          </p>
+          <p
+            className="
+              mt-1
+              text-sm text-slate-900 font-bold
+            "
+          >
+            {formatCurrency(currentAmount, currency)}
+          </p>
+        </div>
+
+        <div>
+          <p
+            className="
+              text-[11px] text-slate-500 font-medium
+            "
+          >
+            Remaining
+          </p>
+          <p
+            className="
+              mt-1
+              text-sm text-slate-900 font-bold
+            "
+          >
+            {formatCurrency(remainingAmount, currency)}
+          </p>
+        </div>
+
+        <div>
+          <p
+            className="
+              text-[11px] text-slate-500 font-medium
+            "
+          >
+            Target date
+          </p>
+          <p
+            className="
+              mt-1
+              text-sm text-slate-900 font-bold
+            "
+          >
+            {formatDate(targetDate)}
+          </p>
+        </div>
+      </div>
+
+      <div
+        className="
+          mt-4
+        "
+      >
+        <div
+          className="
+            flex items-center justify-between
+            mb-1.5
+            gap-3
+          "
+        >
+          <span
+            className="
+              text-[11px] text-slate-500 font-medium
+            "
+          >
+            Goal progress
+          </span>
+
+          <span
+            className="
+              text-[11px] text-blue-700 font-bold
+            "
+          >
+            {progress.toFixed(0)}%
+          </span>
+        </div>
+
+        <div
+          className="
+            overflow-hidden
+            h-2
+            bg-white
+            rounded-full
+          "
+          aria-label={`Goal progress ${progress.toFixed(0)} percent`}
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={progress}
+        >
+          <div
+            className="
+              h-full
+              bg-blue-600
+              rounded-full
+              transition-[width] duration-300
+            "
+            style={{ width: `${progress}%` }}
+          /
+          >
+        </div>
+      </div>
+    </div>
+  );
+});
+
+/* =========================================================
+   ACCOUNT STATUS
+========================================================= */
+
+const AccountStatus = memo(function AccountStatus({
+  hasAccount,
+}) {
+  return (
+    <div
+      className={`mt-3 flex items-start gap-3 rounded-xl border p-3 ${
+        hasAccount
+          ? "border-emerald-100 bg-emerald-50/70"
+          : "border-amber-200 bg-amber-50"
+      }`}
+    >
+      <div
+        className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+          hasAccount
+            ? "bg-white text-emerald-600"
+            : "bg-white text-amber-600"
+        }`}
+      >
+        {hasAccount ? (
+          <WalletCards size={16} aria-hidden="true" />
+        ) : (
+          <AlertCircle size={16} aria-hidden="true" />
+        )}
+      </div>
+
+      <div
+        className="
+          min-w-0
+        "
+      >
+        <p
+          className={`text-xs font-bold ${
+            hasAccount
+              ? "text-emerald-800"
+              : "text-amber-800"
+          }`}
+        >
+          {hasAccount
+            ? "Saving account connected"
+            : "Saving account required"}
+        </p>
+
+        <p
+          className={`mt-0.5 text-xs leading-5 ${
+            hasAccount
+              ? "text-emerald-700"
+              : "text-amber-700"
+          }`}
+        >
+          {hasAccount
+            ? "This plan will use the saving account connected to the selected goal."
+            : "The selected goal must have a saving account before a saving plan can be created."}
+        </p>
+      </div>
+    </div>
+  );
+});
+
+/* =========================================================
+   MAIN MODAL
+========================================================= */
+
+function CreateSavingPlanModal({
+  open,
   onClose,
   onSubmit,
   submitting = false,
-}) => {
-  const [form, setForm] = useState(
-    createInitialForm
+  goals = [],
+  selectedGoal = null,
+  onGoalChange,
+}) {
+  const [form, setForm] = useState(() => ({
+    ...DEFAULT_FORM,
+  }));
+
+  const [errors, setErrors] = useState({});
+
+  const dialogRef = useRef(null);
+  const firstInputRef = useRef(null);
+
+  const titleId = useId();
+  const descriptionId = useId();
+
+  const availableGoals = useMemo(
+    () =>
+      Array.isArray(goals)
+        ? goals.filter((goal) => getGoalId(goal))
+        : [],
+    [goals],
   );
 
-  const [errors, setErrors] =
-    useState({});
+  const selectedGoalId = getGoalId(selectedGoal);
 
-  const [
-    submitError,
-    setSubmitError,
-  ] = useState("");
+  const savingAccountId = getGoalAccountId(selectedGoal);
 
-  const nameInputRef =
-    useRef(null);
+  const planTypeConfig = useMemo(
+    () =>
+      PLAN_TYPES.find(
+        (item) => item.value === form.planType,
+      ) || PLAN_TYPES[0],
+    [form.planType],
+  );
 
-  const mountedRef =
-    useRef(true);
+  const requiresPercentage =
+    form.planType === "percentage_income";
 
-  const submissionIdRef =
-    useRef(0);
+  const requiresAmount =
+    form.planType !== "percentage_income" &&
+    form.planType !== "round_up";
 
-  /* ========================================================================
-     MOUNT TRACKING
-  ======================================================================== */
+  const requiresDayOfWeek =
+    form.contributionFrequency === "weekly" ||
+    form.contributionFrequency === "biweekly";
 
-  useEffect(() => {
-    mountedRef.current = true;
+  const requiresDayOfMonth =
+    form.contributionFrequency === "monthly" ||
+    form.contributionFrequency === "quarterly";
 
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
+  const requiresCustomInterval =
+    form.contributionFrequency === "custom";
 
-  /* ========================================================================
-     BODY SCROLL LOCK
-  ======================================================================== */
+  const handleChange = useCallback((event) => {
+    const { name, value } = event.target;
 
-  useEffect(() => {
-    if (!open) {
-      return undefined;
-    }
+    setForm((current) => ({
+      ...current,
+      [name]: value,
+    }));
 
-    const previousOverflow =
-      document.body.style.overflow;
-
-    document.body.style.overflow =
-      "hidden";
-
-    return () => {
-      document.body.style.overflow =
-        previousOverflow;
-    };
-  }, [open]);
-
-  /* ========================================================================
-     ESCAPE KEY
-  ======================================================================== */
-
-  const handleClose = useCallback(() => {
-    if (submitting) {
-      return;
-    }
-
-    ++submissionIdRef.current;
-
-    setErrors({});
-    setSubmitError("");
-    setForm(createInitialForm());
-
-    if (
-      typeof onClose === "function"
-    ) {
-      onClose();
-    }
-  }, [
-    onClose,
-    submitting,
-  ]);
-
-  useEffect(() => {
-    if (!open) {
-      return undefined;
-    }
-
-    const handleKeyDown = (
-      event
-    ) => {
-      if (
-        event.key !== "Escape"
-      ) {
-        return;
+    setErrors((current) => {
+      if (!current[name]) {
+        return current;
       }
 
-      event.preventDefault();
+      const next = { ...current };
+      delete next[name];
 
-      handleClose();
-    };
+      return next;
+    });
+  }, []);
 
-    document.addEventListener(
-      "keydown",
-      handleKeyDown
-    );
+  const handlePlanTypeChange = useCallback((event) => {
+    const { value } = event.target;
 
-    return () => {
-      document.removeEventListener(
-        "keydown",
-        handleKeyDown
-      );
-    };
-  }, [
-    open,
-    handleClose,
-  ]);
+    setForm((current) => ({
+      ...current,
+      planType: value,
+      contributionMethod:
+        value === "round_up"
+          ? "round_up"
+          : value === "percentage_income"
+            ? "manual"
+            : current.contributionMethod === "round_up"
+              ? "manual"
+              : current.contributionMethod,
+      contributionAmount:
+        value === "percentage_income"
+          ? ""
+          : current.contributionAmount,
+      contributionPercentage:
+        value === "percentage_income"
+          ? current.contributionPercentage
+          : "",
+    }));
 
-  /* ========================================================================
-     INITIAL FOCUS
-  ======================================================================== */
+    setErrors((current) => {
+      const next = { ...current };
 
-  useEffect(() => {
-    if (!open) {
-      return undefined;
-    }
+      delete next.contributionMethod;
+      delete next.contributionAmount;
+      delete next.contributionPercentage;
 
-    const timer =
-      window.setTimeout(() => {
-        nameInputRef.current?.focus();
-      }, 50);
+      return next;
+    });
+  }, []);
 
-    return () => {
-      window.clearTimeout(
-        timer
-      );
-    };
-  }, [open]);
-
-  /* ========================================================================
-     FORM HANDLING
-  ======================================================================== */
-
-  const handleChange = useCallback(
+  const handleGoalChange = useCallback(
     (event) => {
-      const {
-        name,
-        value,
-      } = event.target;
+      const goalId = event.target.value;
 
-      setForm((current) => ({
-        ...current,
-        [name]: value,
-      }));
+      const nextGoal =
+        availableGoals.find(
+          (goal) => getGoalId(goal) === goalId,
+        ) || null;
+
+      onGoalChange?.(nextGoal);
 
       setErrors((current) => {
-        if (!current[name]) {
-          return current;
-        }
+        const next = { ...current };
 
-        const next = {
-          ...current,
-        };
-
-        delete next[name];
+        delete next.goal;
+        delete next.savingAccount;
+        delete next.goalTarget;
 
         return next;
       });
-
-      if (submitError) {
-        setSubmitError("");
-      }
     },
-    [submitError]
+    [availableGoals, onGoalChange],
   );
 
-  /* ========================================================================
-     PAYLOAD
-  ======================================================================== */
+  const handleSubmit = useCallback(
+    async (event) => {
+      event.preventDefault();
 
-  const payload = useMemo(
-    () =>
-      formatSavingPlanPayload(
+      if (submitting) {
+        return;
+      }
+
+      const validationErrors = validateForm({
         form,
-        DEFAULT_CURRENCY
-      ),
-    [form]
+        goal: selectedGoal,
+        savingAccountId,
+      });
+
+      if (Object.keys(validationErrors).length > 0) {
+        setErrors(validationErrors);
+        return;
+      }
+
+      const payload = buildSavingPlanPayload({
+        form,
+        goal: selectedGoal,
+        savingAccountId,
+      });
+
+      await onSubmit?.(payload);
+    },
+    [
+      form,
+      onSubmit,
+      savingAccountId,
+      selectedGoal,
+      submitting,
+    ],
   );
 
-  /* ========================================================================
-     SUBMIT
-  ======================================================================== */
+  const handleOverlayMouseDown = useCallback((event) => {
+    if (event.target === event.currentTarget) {
+      onClose?.();
+    }
+  }, [onClose]);
 
-  const handleSubmit =
-    useCallback(
-      async (event) => {
-        event.preventDefault();
+  const handleDialogMouseDown = useCallback((event) => {
+    event.stopPropagation();
+  }, []);
 
-        if (
-          submitting ||
-          !open
-        ) {
-          return;
-        }
+  /* -------------------------------------------------------
+     ESCAPE + BODY SCROLL LOCK
+  ------------------------------------------------------- */
 
-        setSubmitError("");
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
 
-        const validationErrors =
-          validateForm(form);
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape" && !submitting) {
+        onClose?.();
+      }
+    };
 
-        if (
-          Object.keys(
-            validationErrors
-          ).length > 0
-        ) {
-          setErrors(
-            validationErrors
-          );
-          return;
-        }
+    const previousOverflow = document.body.style.overflow;
 
-        if (
-          !payload
-        ) {
-          setSubmitError(
-            "Unable to prepare the saving plan data."
-          );
-          return;
-        }
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", handleKeyDown);
 
-        if (
-          typeof onSubmit !==
-          "function"
-        ) {
-          setSubmitError(
-            "Saving plan creation is currently unavailable."
-          );
-          return;
-        }
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener(
+        "keydown",
+        handleKeyDown,
+      );
+    };
+  }, [onClose, open, submitting]);
 
-        setErrors({});
+  /* -------------------------------------------------------
+     INITIAL FOCUS
+  ------------------------------------------------------- */
 
-        const submissionId =
-          ++submissionIdRef.current;
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
 
-        try {
-          const result =
-            await onSubmit(
-              payload
-            );
+    const frame = requestAnimationFrame(() => {
+      firstInputRef.current?.focus();
+    });
 
-          if (
-            result === false
-          ) {
-            throw new Error(
-              "The saving plan could not be created."
-            );
-          }
-
-          if (
-            !mountedRef.current ||
-            submissionId !==
-              submissionIdRef.current
-          ) {
-            return;
-          }
-
-          /*
-           * The parent page controls closing the modal.
-           *
-           * We still reset local form state here so that if the
-           * component remains mounted, the next create operation
-           * starts clean.
-           */
-          setForm(
-            createInitialForm()
-          );
-
-          setErrors({});
-          setSubmitError("");
-        } catch (error) {
-          if (
-            !mountedRef.current ||
-            submissionId !==
-              submissionIdRef.current
-          ) {
-            return;
-          }
-
-          setSubmitError(
-            getErrorMessage(error)
-          );
-        }
-      },
-      [
-        form,
-        onSubmit,
-        open,
-        payload,
-        submitting,
-      ]
-    );
-
-  /* ========================================================================
-     OVERLAY CLICK
-  ======================================================================== */
-
-  const handleOverlayClick =
-    useCallback(
-      (event) => {
-        if (
-          event.target !==
-          event.currentTarget
-        ) {
-          return;
-        }
-
-        handleClose();
-      },
-      [handleClose]
-    );
-
-  /* ========================================================================
-     RENDER GUARD
-  ======================================================================== */
+    return () => cancelAnimationFrame(frame);
+  }, [open]);
 
   if (!open) {
     return null;
   }
 
-  const nameError =
-    errors.name;
+  const hasGoals = availableGoals.length > 0;
+  const hasSelectedGoal = Boolean(selectedGoal);
+  const hasSavingAccount = Boolean(savingAccountId);
 
-  const targetAmountError =
-    errors.targetAmount;
+  const canSubmit =
+    !submitting &&
+    hasGoals &&
+    hasSelectedGoal &&
+    hasSavingAccount;
 
-  const currencyError =
-    errors.currency;
-
-  const targetDateError =
-    errors.targetDate;
-
-  const descriptionError =
-    errors.description;
-
-  const today =
-    getTodayInputValue();
-
-  /* ========================================================================
-     RENDER
-  ======================================================================== */
-
- const handleModalMouseDown = (event) => {
-  event.stopPropagation();
-};
-    return (
+  return (
     <div
       className="
-        z-[100] fixed inset-0 flex justify-center items-center
-        p-4 sm:p-6
-        bg-slate-950/60
+        fixed inset-0 z-[100] flex items-center justify-center
+        p-4
+        bg-slate-950/55
         backdrop-blur-sm
       "
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="create-saving-plan-title"
-      onMouseDown={
-        handleOverlayClick
-      }
+      onMouseDown={handleOverlayMouseDown}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={descriptionId}
         className="
           flex flex-col overflow-hidden
-          w-full max-w-2xl max-h-[92vh]
+          w-full max-w-3xl max-h-[94vh]
           bg-white
-          border border-slate-200 rounded-3xl
+          rounded-3xl border border-slate-200
           shadow-2xl
         "
-        onMouseDown={handleModalMouseDown}
+        onMouseDown={handleDialogMouseDown}
       >
-        {/* ================================================================
+        {/* =================================================
             HEADER
-        ================================================================ */}
+        ================================================= */}
 
         <div
           className="
-            flex justify-between items-start
+            flex items-start justify-between
             px-5 sm:px-7 py-5
-            bg-white
-            border-slate-200 border-b
-            gap-4 shrink-0
+            border-b border-slate-100
+            shrink-0 gap-4
           "
         >
           <div
             className="
-              flex items-center
+              flex items-start
               min-w-0
               gap-3
             "
           >
             <div
               className="
-                flex justify-center items-center
-                w-12 h-12
-                text-blue-600
-                bg-blue-50
+                flex items-center justify-center
+                h-11 w-11
+                text-white
+                bg-blue-600
                 rounded-2xl
+                shadow-lg shadow-blue-600/20
                 shrink-0
               "
             >
               <PiggyBank
-                size={24}
+                size={21}
+                strokeWidth={2.2}
                 aria-hidden="true"
               />
             </div>
@@ -788,56 +1125,55 @@ const CreateSavingPlanModal = ({
               "
             >
               <h2
-                id="create-saving-plan-title"
+                id={titleId}
                 className="
-                  font-bold text-slate-950 text-lg sm:text-xl tracking-tight
+                  text-lg text-slate-950 sm:text-xl font-bold tracking-tight
                 "
               >
                 Create saving plan
               </h2>
 
               <p
+                id={descriptionId}
                 className="
+                  max-w-xl
                   mt-1
-                  text-slate-500 text-sm leading-5
+                  text-xs text-slate-500 sm:text-sm leading-5
                 "
               >
-                Set a clear savings target
-                and a deadline for achieving it.
+                Turn an active saving goal into a structured
+                contribution strategy.
               </p>
             </div>
           </div>
 
           <button
             type="button"
-            onClick={handleClose}
+            onClick={onClose}
             disabled={submitting}
-            aria-label="Close create saving plan"
+            aria-label="Close create saving plan modal"
             className="
-              flex justify-center items-center
-              w-10 h-10
-              text-slate-500 hover:text-slate-900
+              flex items-center justify-center
+              h-9 w-9
+              text-slate-400 hover:text-slate-700
               hover:bg-slate-100
-              rounded-xl
-              disabled:opacity-50 transition
+              rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500/10
+              transition disabled:opacity-50
               disabled:cursor-not-allowed
               shrink-0
             "
           >
-            <X
-              size={20}
-              aria-hidden="true"
-            />
+            <X size={19} aria-hidden="true" />
           </button>
         </div>
 
-        {/* ================================================================
-            FORM CONTENT
-        ================================================================ */}
+        {/* =================================================
+            BODY
+        ================================================= */}
 
         <form
+          id="create-saving-plan-form"
           onSubmit={handleSubmit}
-          noValidate
           className="
             flex-1 overflow-y-auto
             min-h-0
@@ -845,46 +1181,156 @@ const CreateSavingPlanModal = ({
         >
           <div
             className="
-              space-y-6 px-5 sm:px-7 py-6
+              space-y-7 px-5 sm:px-7 py-6
             "
           >
-            {/* ============================================================
-                GENERAL INFORMATION
-            ============================================================ */}
+            {/* =============================================
+                GOAL CONNECTION
+            ============================================= */}
 
             <section>
-              <div
-                className="
-                  flex items-center
-                  mb-4
-                  gap-2
-                "
-              >
-                <FileText
-                  size={17}
-                  className="
-                    text-blue-600
-                  "
-                  aria-hidden="true"
-                /
-                >
+              <SectionHeader
+                icon={Target}
+                title="Connect a saving goal"
+                description="A saving plan must belong to an existing goal. The goal remains the source of truth for the financial target."
+              />
 
-                <h3
+              {!hasGoals ? (
+                <div
                   className="
-                    font-bold text-slate-900 text-sm
+                    p-4
+                    bg-amber-50
+                    rounded-2xl border border-amber-200
                   "
                 >
-                  Plan information
-                </h3>
-              </div>
+                  <div
+                    className="
+                      flex items-start
+                      gap-3
+                    "
+                  >
+                    <AlertCircle
+                      size={19}
+                      className="
+                        mt-0.5
+                        text-amber-600
+                        shrink-0
+                      "
+                      aria-hidden="true"
+                    /
+                    >
+
+                    <div>
+                      <p
+                        className="
+                          text-sm text-amber-900 font-bold
+                        "
+                      >
+                        No active saving goals available
+                      </p>
+
+                      <p
+                        className="
+                          mt-1
+                          text-xs text-amber-800 leading-5
+                        "
+                      >
+                        Create an active saving goal first. A
+                        saving plan cannot exist independently
+                        of a goal.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <FieldLabel
+                      htmlFor="saving-plan-goal"
+                      required
+                    >
+                      Saving goal
+                    </FieldLabel>
+
+                    <div
+                      className="
+                        relative
+                      "
+                    >
+                      <select
+                        ref={firstInputRef}
+                        id="saving-plan-goal"
+                        name="goal"
+                        value={selectedGoalId}
+                        onChange={handleGoalChange}
+                        disabled={
+                          submitting ||
+                          availableGoals.length <= 1
+                        }
+                        className={`${SELECT_CLASS} ${
+                          errors.goal
+                            ? ERROR_INPUT_CLASS
+                            : ""
+                        }`}
+                        aria-invalid={Boolean(errors.goal)}
+                        aria-describedby={
+                          errors.goal
+                            ? "saving-plan-goal-error"
+                            : undefined
+                        }
+                      >
+                        <option value="" disabled>
+                          Select a saving goal
+                        </option>
+
+                        {availableGoals.map((goal) => (
+                          <option
+                            key={getGoalId(goal)}
+                            value={getGoalId(goal)}
+                          >
+                            {getGoalName(goal)}
+                          </option>
+                        ))}
+                      </select>
+
+                      <SelectIcon />
+                    </div>
+
+                    <FieldError message={errors.goal} />
+                  </div>
+
+                  {selectedGoal ? (
+                    <GoalSummary goal={selectedGoal} />
+                  ) : null}
+
+                  <AccountStatus
+                    hasAccount={hasSavingAccount}
+                  />
+
+                  <FieldError
+                    message={errors.savingAccount}
+                  />
+                </>
+              )}
+            </section>
+
+            {/* =============================================
+                PLAN INFORMATION
+            ============================================= */}
+
+            <section>
+              <SectionHeader
+                icon={FileText}
+                title="Plan information"
+                description="Give this strategy a clear identity so it is easy to understand and manage later."
+              />
 
               <div
                 className="
-                  space-y-5
+                  grid
+                  gap-5
                 "
               >
-                {/* NAME */}
-
                 <div>
                   <FieldLabel
                     htmlFor="saving-plan-name"
@@ -894,228 +1340,115 @@ const CreateSavingPlanModal = ({
                   </FieldLabel>
 
                   <input
-                    ref={nameInputRef}
                     id="saving-plan-name"
                     name="name"
                     type="text"
                     value={form.name}
-                    onChange={
-                      handleChange
-                    }
-                    disabled={
-                      submitting
-                    }
-                    maxLength={
-                      MAX_NAME_LENGTH
-                    }
-                    placeholder="e.g. Emergency fund"
-                    autoComplete="off"
-                    aria-invalid={
-                      Boolean(
-                        nameError
-                      )
-                    }
-                    aria-describedby={
-                      nameError
-                        ? "saving-plan-name-error"
-                        : undefined
-                    }
-                    className={`
-                      h-12
-                      w-full
-                      rounded-xl
-                      border
-                      bg-white
-                      px-4
-                      text-sm
-                      font-medium
-                      text-slate-950
-                      outline-none
-                      transition
-                      placeholder:text-slate-400
-                      disabled:cursor-not-allowed
-                      disabled:bg-slate-50
-                      ${
-                        nameError
-                          ? "border-red-400 focus:border-red-500 focus:ring-4 focus:ring-red-100"
-                          : "border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                      }
-                    `}
+                    onChange={handleChange}
+                    maxLength={MAX_NAME_LENGTH}
+                    placeholder="e.g. Monthly house savings"
+                    disabled={submitting}
+                    className={`${INPUT_CLASS} ${
+                      errors.name
+                        ? ERROR_INPUT_CLASS
+                        : ""
+                    }`}
+                    aria-invalid={Boolean(errors.name)}
                   />
 
                   <div
                     className="
-                      flex justify-between items-center
-                      mt-2
+                      flex justify-between
+                      mt-1.5
                       gap-3
                     "
                   >
-                    <div
-                      id="saving-plan-name-error"
-                    >
-                      <FieldError>
-                        {nameError}
-                      </FieldError>
-                    </div>
+                    <FieldError message={errors.name} />
 
                     <span
                       className="
                         ml-auto
-                        text-slate-400 text-xs
+                        text-[11px] text-slate-400
                       "
                     >
-                      {form.name.length}/
-                      {MAX_NAME_LENGTH}
+                      {form.name.length}/{MAX_NAME_LENGTH}
                     </span>
                   </div>
                 </div>
 
-                {/* DESCRIPTION */}
-
                 <div>
-                  <FieldLabel
-                    htmlFor="saving-plan-description"
-                  >
+                  <FieldLabel htmlFor="saving-plan-description">
                     Description
                   </FieldLabel>
 
                   <textarea
                     id="saving-plan-description"
                     name="description"
-                    value={
-                      form.description
-                    }
-                    onChange={
-                      handleChange
-                    }
-                    disabled={
-                      submitting
-                    }
-                    maxLength={
-                      MAX_DESCRIPTION_LENGTH
-                    }
-                    rows={4}
-                    placeholder="What are you saving for?"
-                    className={`
-                      w-full
-                      resize-none
-                      rounded-xl
-                      border
-                      bg-white
-                      px-4
-                      py-3
-                      text-sm
-                      font-medium
-                      leading-6
-                      text-slate-950
-                      outline-none
-                      transition
-                      placeholder:text-slate-400
-                      disabled:cursor-not-allowed
-                      disabled:bg-slate-50
-                      ${
-                        descriptionError
-                          ? "border-red-400 focus:border-red-500 focus:ring-4 focus:ring-red-100"
-                          : "border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                      }
-                    `}
+                    value={form.description}
+                    onChange={handleChange}
+                    maxLength={MAX_DESCRIPTION_LENGTH}
+                    rows={3}
+                    placeholder="Describe how this plan will help you reach the goal."
+                    disabled={submitting}
+                    className={`${INPUT_CLASS} min-h-[96px] resize-none ${
+                      errors.description
+                        ? ERROR_INPUT_CLASS
+                        : ""
+                    }`}
+                    aria-invalid={Boolean(
+                      errors.description,
+                    )}
                   />
 
                   <div
                     className="
-                      flex justify-between items-start
-                      mt-2
+                      flex justify-between
+                      mt-1.5
                       gap-3
                     "
                   >
-                    <FieldError>
-                      {descriptionError}
-                    </FieldError>
+                    <FieldError
+                      message={errors.description}
+                    />
 
                     <span
                       className="
                         ml-auto
-                        text-slate-400 text-xs
-                        shrink-0
+                        text-[11px] text-slate-400
                       "
                     >
-                      {
-                        form.description
-                          .length
-                      }
-                      /
-                      {
-                        MAX_DESCRIPTION_LENGTH
-                      }
+                      {form.description.length}/
+                      {MAX_DESCRIPTION_LENGTH}
                     </span>
                   </div>
                 </div>
               </div>
             </section>
 
-            {/* ============================================================
-                TARGET
-            ============================================================ */}
+            {/* =============================================
+                SAVING STRATEGY
+            ============================================= */}
 
-            <section
-              className="
-                p-4 sm:p-5
-                bg-slate-50/70
-                border border-slate-200 rounded-2xl
-              "
-            >
-              <div
-                className="
-                  flex items-center
-                  mb-5
-                  gap-2
-                "
-              >
-                <Target
-                  size={18}
-                  className="
-                    text-blue-600
-                  "
-                  aria-hidden="true"
-                /
-                >
-
-                <div>
-                  <h3
-                    className="
-                      font-bold text-slate-900 text-sm
-                    "
-                  >
-                    Savings target
-                  </h3>
-
-                  <p
-                    className="
-                      mt-0.5
-                      text-slate-500 text-xs
-                    "
-                  >
-                    Define how much you want
-                    to save and when you want
-                    to reach it.
-                  </p>
-                </div>
-              </div>
+            <section>
+              <SectionHeader
+                icon={PiggyBank}
+                title="Saving strategy"
+                description="Configure how contributions will be made toward the selected goal."
+              />
 
               <div
                 className="
-                  grid grid-cols-1 sm:grid-cols-2
+                  grid sm:grid-cols-2
                   gap-5
                 "
               >
-                {/* TARGET AMOUNT */}
-
+                {/* Plan type */}
                 <div>
                   <FieldLabel
-                    htmlFor="saving-plan-target-amount"
+                    htmlFor="saving-plan-type"
                     required
                   >
-                    Target amount
+                    Plan type
                   </FieldLabel>
 
                   <div
@@ -1123,350 +1456,607 @@ const CreateSavingPlanModal = ({
                       relative
                     "
                   >
-                    <span
-                      className="
-                        top-1/2 left-4 absolute
-                        font-bold text-slate-500 text-sm
-                        pointer-events-none
-                        -translate-y-1/2
-                      "
-                    >
-                      ₦
-                    </span>
-
-                    <input
-                      id="saving-plan-target-amount"
-                      name="targetAmount"
-                      type="number"
-                      inputMode="decimal"
-                      min="0.01"
-                      step="0.01"
-                      value={
-                        form.targetAmount
-                      }
-                      onChange={
-                        handleChange
-                      }
-                      disabled={
-                        submitting
-                      }
-                      placeholder="0.00"
-                      aria-invalid={
-                        Boolean(
-                          targetAmountError
-                        )
-                      }
-                      className={`
-                        h-12
-                        w-full
-                        rounded-xl
-                        border
-                        bg-white
-                        py-2
-                        pr-4
-                        pl-10
-                        text-sm
-                        font-semibold
-                        text-slate-950
-                        outline-none
-                        transition
-                        placeholder:text-slate-400
-                        disabled:cursor-not-allowed
-                        disabled:bg-slate-50
-                        ${
-                          targetAmountError
-                            ? "border-red-400 focus:border-red-500 focus:ring-4 focus:ring-red-100"
-                            : "border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                        }
-                      `}
-                    />
-                  </div>
-
-                  <FieldError>
-                    {targetAmountError}
-                  </FieldError>
-                </div>
-
-                {/* CURRENCY */}
-
-                <div>
-                  <FieldLabel
-                    htmlFor="saving-plan-currency"
-                    required
-                  >
-                    Currency
-                  </FieldLabel>
-
-                  <div
-                    className="
-                      relative
-                    "
-                  >
-                    <Wallet
-                      size={16}
-                      className="
-                        top-1/2 left-4 absolute
-                        text-slate-400
-                        pointer-events-none
-                        -translate-y-1/2
-                      "
-                      aria-hidden="true"
-                    /
-                    >
-
                     <select
-                      id="saving-plan-currency"
-                      name="currency"
-                      value={
-                        form.currency
-                      }
-                      onChange={
-                        handleChange
-                      }
-                      disabled={
-                        submitting
-                      }
-                      aria-invalid={
-                        Boolean(
-                          currencyError
-                        )
-                      }
-                      className={`
-                        h-12
-                        w-full
-                        appearance-none
-                        rounded-xl
-                        border
-                        bg-white
-                        px-4
-                        pl-11
-                        text-sm
-                        font-semibold
-                        text-slate-950
-                        outline-none
-                        transition
-                        disabled:cursor-not-allowed
-                        disabled:bg-slate-50
-                        ${
-                          currencyError
-                            ? "border-red-400 focus:border-red-500 focus:ring-4 focus:ring-red-100"
-                            : "border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                        }
-                      `}
+                      id="saving-plan-type"
+                      name="planType"
+                      value={form.planType}
+                      onChange={handlePlanTypeChange}
+                      disabled={submitting}
+                      className={SELECT_CLASS}
                     >
-                      <option value="NGN">
-                        Nigerian Naira (NGN)
-                      </option>
+                      {PLAN_TYPES.map((type) => (
+                        <option
+                          key={type.value}
+                          value={type.value}
+                        >
+                          {type.label}
+                        </option>
+                      ))}
                     </select>
+
+                    <SelectIcon />
                   </div>
 
-                  <FieldError>
-                    {currencyError}
-                  </FieldError>
-                </div>
-
-                {/* TARGET DATE */}
-
-                <div
-                  className="
-                    sm:col-span-2
-                  "
-                >
-                  <FieldLabel
-                    htmlFor="saving-plan-target-date"
-                    required
-                  >
-                    Target date
-                  </FieldLabel>
-
-                  <div
-                    className="
-                      relative
-                    "
-                  >
-                    <CalendarDays
-                      size={17}
-                      className="
-                        top-1/2 left-4 absolute
-                        text-slate-400
-                        pointer-events-none
-                        -translate-y-1/2
-                      "
-                      aria-hidden="true"
-                    /
-                    >
-
-                    <input
-                      id="saving-plan-target-date"
-                      name="targetDate"
-                      type="date"
-                      min={today}
-                      value={
-                        form.targetDate
-                      }
-                      onChange={
-                        handleChange
-                      }
-                      disabled={
-                        submitting
-                      }
-                      aria-invalid={
-                        Boolean(
-                          targetDateError
-                        )
-                      }
-                      className={`
-                        h-12
-                        w-full
-                        rounded-xl
-                        border
-                        bg-white
-                        px-4
-                        pl-11
-                        text-sm
-                        font-medium
-                        text-slate-950
-                        outline-none
-                        transition
-                        disabled:cursor-not-allowed
-                        disabled:bg-slate-50
-                        ${
-                          targetDateError
-                            ? "border-red-400 focus:border-red-500 focus:ring-4 focus:ring-red-100"
-                            : "border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                        }
-                      `}
-                    />
-                  </div>
-
-                  <FieldError>
-                    {targetDateError}
-                  </FieldError>
-
-                  <p
-                    className="
-                      mt-2
-                      text-slate-500 text-xs
-                    "
-                  >
-                    Choose the date by which
-                    you want to reach this
-                    savings target.
+                  <p className={HELPER_CLASS}>
+                    {planTypeConfig.description}
                   </p>
                 </div>
+
+                {/* Contribution method */}
+                <div>
+                  <FieldLabel
+                    htmlFor="saving-plan-method"
+                    required
+                  >
+                    Contribution method
+                  </FieldLabel>
+
+                  <div
+                    className="
+                      relative
+                    "
+                  >
+                    <select
+                      id="saving-plan-method"
+                      name="contributionMethod"
+                      value={
+                        form.planType === "round_up"
+                          ? "round_up"
+                          : form.contributionMethod
+                      }
+                      onChange={handleChange}
+                      disabled={
+                        submitting ||
+                        form.planType === "round_up"
+                      }
+                      className={`${SELECT_CLASS} ${
+                        errors.contributionMethod
+                          ? ERROR_INPUT_CLASS
+                          : ""
+                      }`}
+                      aria-invalid={Boolean(
+                        errors.contributionMethod,
+                      )}
+                    >
+                      {form.planType === "round_up" ? (
+                        <option value="round_up">
+                          Round up
+                        </option>
+                      ) : (
+                        CONTRIBUTION_METHODS.map(
+                          (method) => (
+                            <option
+                              key={method.value}
+                              value={method.value}
+                            >
+                              {method.label}
+                            </option>
+                          ),
+                        )
+                      )}
+                    </select>
+
+                    <SelectIcon />
+                  </div>
+
+                  <FieldError
+                    message={errors.contributionMethod}
+                  />
+                </div>
+
+                {/* Frequency */}
+                <div>
+                  <FieldLabel
+                    htmlFor="saving-plan-frequency"
+                    required
+                  >
+                    Contribution frequency
+                  </FieldLabel>
+
+                  <div
+                    className="
+                      relative
+                    "
+                  >
+                    <select
+                      id="saving-plan-frequency"
+                      name="contributionFrequency"
+                      value={form.contributionFrequency}
+                      onChange={handleChange}
+                      disabled={submitting}
+                      className={SELECT_CLASS}
+                    >
+                      {FREQUENCIES.map((frequency) => (
+                        <option
+                          key={frequency.value}
+                          value={frequency.value}
+                        >
+                          {frequency.label}
+                        </option>
+                      ))}
+                    </select>
+
+                    <SelectIcon />
+                  </div>
+                </div>
+
+                {/* Amount */}
+                {requiresAmount ? (
+                  <div>
+                    <FieldLabel
+                      htmlFor="saving-plan-amount"
+                      required
+                    >
+                      Contribution amount
+                    </FieldLabel>
+
+                    <div
+                      className="
+                        relative
+                      "
+                    >
+                      <span
+                        className="
+                          absolute left-4 top-1/2
+                          text-sm text-slate-400 font-semibold
+                          pointer-events-none
+                          -translate-y-1/2
+                        "
+                      >
+                        {getGoalCurrency(selectedGoal)}
+                      </span>
+
+                      <input
+                        id="saving-plan-amount"
+                        name="contributionAmount"
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        inputMode="decimal"
+                        value={form.contributionAmount}
+                        onChange={handleChange}
+                        placeholder="0.00"
+                        disabled={submitting}
+                        className={`w-full rounded-xl border border-slate-200 bg-white py-3 pl-14 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 ${
+                          errors.contributionAmount
+                            ? ERROR_INPUT_CLASS
+                            : ""
+                        }`}
+                        aria-invalid={Boolean(
+                          errors.contributionAmount,
+                        )}
+                      />
+                    </div>
+
+                    <p className={HELPER_CLASS}>
+                      The amount contributed on each
+                      {form.contributionFrequency ===
+                      "daily"
+                        ? " day."
+                        : form.contributionFrequency ===
+                            "weekly"
+                          ? " week."
+                          : form.contributionFrequency ===
+                              "biweekly"
+                            ? " two-week period."
+                            : form.contributionFrequency ===
+                                "quarterly"
+                              ? " quarter."
+                              : " contribution period."}
+                    </p>
+
+                    <FieldError
+                      message={errors.contributionAmount}
+                    />
+                  </div>
+                ) : null}
+
+                {/* Percentage */}
+                {requiresPercentage ? (
+                  <div>
+                    <FieldLabel
+                      htmlFor="saving-plan-percentage"
+                      required
+                    >
+                      Income percentage
+                    </FieldLabel>
+
+                    <div
+                      className="
+                        relative
+                      "
+                    >
+                      <input
+                        id="saving-plan-percentage"
+                        name="contributionPercentage"
+                        type="number"
+                        min="0.01"
+                        max="100"
+                        step="0.01"
+                        inputMode="decimal"
+                        value={
+                          form.contributionPercentage
+                        }
+                        onChange={handleChange}
+                        placeholder="10"
+                        disabled={submitting}
+                        className={`w-full rounded-xl border border-slate-200 bg-white px-4 py-3 pr-11 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 ${
+                          errors.contributionPercentage
+                            ? ERROR_INPUT_CLASS
+                            : ""
+                        }`}
+                        aria-invalid={Boolean(
+                          errors.contributionPercentage,
+                        )}
+                      />
+
+                      <span
+                        className="
+                          absolute right-4 top-1/2
+                          text-sm text-slate-400 font-semibold
+                          pointer-events-none
+                          -translate-y-1/2
+                        "
+                      >
+                        %
+                      </span>
+                    </div>
+
+                    <p className={HELPER_CLASS}>
+                      Percentage of income allocated to this
+                      goal.
+                    </p>
+
+                    <FieldError
+                      message={
+                        errors.contributionPercentage
+                      }
+                    />
+                  </div>
+                ) : null}
+
+                {/* Day of week */}
+                {requiresDayOfWeek ? (
+                  <div>
+                    <FieldLabel
+                      htmlFor="saving-plan-day-of-week"
+                      required
+                    >
+                      Contribution day
+                    </FieldLabel>
+
+                    <div
+                      className="
+                        relative
+                      "
+                    >
+                      <select
+                        id="saving-plan-day-of-week"
+                        name="dayOfWeek"
+                        value={form.dayOfWeek}
+                        onChange={handleChange}
+                        disabled={submitting}
+                        className={`${SELECT_CLASS} ${
+                          errors.dayOfWeek
+                            ? ERROR_INPUT_CLASS
+                            : ""
+                        }`}
+                        aria-invalid={Boolean(
+                          errors.dayOfWeek,
+                        )}
+                      >
+                        <option value="" disabled>
+                          Select a day
+                        </option>
+
+                        {DAYS_OF_WEEK.map((day) => (
+                          <option
+                            key={day.value}
+                            value={day.value}
+                          >
+                            {day.label}
+                          </option>
+                        ))}
+                      </select>
+
+                      <SelectIcon />
+                    </div>
+
+                    <FieldError
+                      message={errors.dayOfWeek}
+                    />
+                  </div>
+                ) : null}
+
+                {/* Day of month */}
+                {requiresDayOfMonth ? (
+                  <div>
+                    <FieldLabel
+                      htmlFor="saving-plan-day-of-month"
+                      required
+                    >
+                      Day of month
+                    </FieldLabel>
+
+                    <input
+                      id="saving-plan-day-of-month"
+                      name="dayOfMonth"
+                      type="number"
+                      min="1"
+                      max="31"
+                      step="1"
+                      inputMode="numeric"
+                      value={form.dayOfMonth}
+                      onChange={handleChange}
+                      placeholder="1"
+                      disabled={submitting}
+                      className={`${INPUT_CLASS} ${
+                        errors.dayOfMonth
+                          ? ERROR_INPUT_CLASS
+                          : ""
+                      }`}
+                      aria-invalid={Boolean(
+                        errors.dayOfMonth,
+                      )}
+                    />
+
+                    <p className={HELPER_CLASS}>
+                      Use a day from 1 to 31.
+                    </p>
+
+                    <FieldError
+                      message={errors.dayOfMonth}
+                    />
+                  </div>
+                ) : null}
+
+                {/* Custom interval */}
+                {requiresCustomInterval ? (
+                  <div>
+                    <FieldLabel
+                      htmlFor="saving-plan-custom-interval"
+                      required
+                    >
+                      Repeat every
+                    </FieldLabel>
+
+                    <div
+                      className="
+                        flex
+                        gap-2
+                      "
+                    >
+                      <input
+                        id="saving-plan-custom-interval"
+                        name="customIntervalDays"
+                        type="number"
+                        min="1"
+                        step="1"
+                        inputMode="numeric"
+                        value={
+                          form.customIntervalDays
+                        }
+                        onChange={handleChange}
+                        placeholder="14"
+                        disabled={submitting}
+                        className={`${INPUT_CLASS} ${
+                          errors.customIntervalDays
+                            ? ERROR_INPUT_CLASS
+                            : ""
+                        }`}
+                        aria-invalid={Boolean(
+                          errors.customIntervalDays,
+                        )}
+                      />
+
+                      <div
+                        className="
+                          flex items-center
+                          px-4
+                          text-sm text-slate-600 font-medium
+                          bg-slate-50
+                          rounded-xl border border-slate-200
+                          shrink-0
+                        "
+                      >
+                        days
+                      </div>
+                    </div>
+
+                    <FieldError
+                      message={
+                        errors.customIntervalDays
+                      }
+                    />
+                  </div>
+                ) : null}
               </div>
             </section>
 
-            {/* ============================================================
-                SUBMIT ERROR
-            ============================================================ */}
+            {/* =============================================
+                TARGET SNAPSHOT
+            ============================================= */}
 
-            {submitError ? (
-              <div
-                className="
-                  flex items-start
-                  px-4 py-3.5
-                  text-red-700 text-sm
-                  bg-red-50
-                  border border-red-200 rounded-2xl
-                  gap-3
-                "
-                role="alert"
-              >
-                <AlertCircle
-                  size={18}
+            {selectedGoal ? (
+              <section>
+                <SectionHeader
+                  icon={CalendarDays}
+                  title="Goal target"
+                  description="These values come from the selected saving goal and are intentionally read-only."
+                />
+
+                <div
                   className="
-                    mt-0.5
-                    text-red-600
-                    shrink-0
+                    grid sm:grid-cols-3
+                    gap-3
                   "
-                  aria-hidden="true"
-                /
                 >
-
-                <div>
-                  <p
+                  <div
                     className="
-                      font-semibold
+                      p-4
+                      bg-slate-50
+                      rounded-xl border border-slate-200
                     "
                   >
-                    Could not create saving plan
-                  </p>
+                    <p
+                      className="
+                        text-[11px] text-slate-500 font-medium
+                      "
+                    >
+                      Target amount
+                    </p>
 
-                  <p
+                    <p
+                      className="
+                        mt-1
+                        text-sm text-slate-900 font-bold
+                      "
+                    >
+                      {formatCurrency(
+                        getGoalTargetAmount(
+                          selectedGoal,
+                        ),
+                        getGoalCurrency(selectedGoal),
+                      )}
+                    </p>
+                  </div>
+
+                  <div
+                    className="
+                      p-4
+                      bg-slate-50
+                      rounded-xl border border-slate-200
+                    "
+                  >
+                    <p
+                      className="
+                        text-[11px] text-slate-500 font-medium
+                      "
+                    >
+                      Currency
+                    </p>
+
+                    <p
+                      className="
+                        mt-1
+                        text-sm text-slate-900 font-bold
+                      "
+                    >
+                      {getGoalCurrency(selectedGoal)}
+                    </p>
+                  </div>
+
+                  <div
+                    className="
+                      p-4
+                      bg-slate-50
+                      rounded-xl border border-slate-200
+                    "
+                  >
+                    <p
+                      className="
+                        text-[11px] text-slate-500 font-medium
+                      "
+                    >
+                      Target date
+                    </p>
+
+                    <p
+                      className="
+                        mt-1
+                        text-sm text-slate-900 font-bold
+                      "
+                    >
+                      {formatDate(
+                        selectedGoal?.targetDate ||
+                          selectedGoal?.target
+                            ?.targetDate,
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  className="
+                    flex items-start
+                    mt-3 p-3
+                    bg-blue-50/60
+                    rounded-xl border border-blue-100
+                    gap-3
+                  "
+                >
+                  <Info
+                    size={17}
                     className="
                       mt-0.5
-                      leading-5
+                      text-blue-600
+                      shrink-0
+                    "
+                    aria-hidden="true"
+                  /
+                  >
+
+                  <p
+                    className="
+                      text-xs text-blue-800 leading-5
                     "
                   >
-                    {submitError}
+                    The saving plan does not create a second
+                    financial target. Its target is synchronized
+                    from the selected goal by the backend.
                   </p>
                 </div>
-              </div>
+              </section>
             ) : null}
-
-            {/* ============================================================
-                INFORMATION
-            ============================================================ */}
-
-            <div
-              className="
-                flex items-start
-                px-4 py-3.5
-                bg-blue-50/70
-                border border-blue-100 rounded-2xl
-                gap-3
-              "
-            >
-              <Check
-                size={17}
-                className="
-                  mt-0.5
-                  text-blue-600
-                  shrink-0
-                "
-                aria-hidden="true"
-              /
-              >
-
-              <p
-                className="
-                  text-slate-600 text-xs leading-5
-                "
-              >
-                Your saving plan defines
-                the target configuration.
-                Contributions and automated
-                saving activity are managed
-                separately by SmartSave.
-              </p>
-            </div>
           </div>
+        </form>
 
-          {/* ==============================================================
-              FOOTER
-          ============================================================== */}
+        {/* =================================================
+            FOOTER
+        ================================================= */}
+
+        <div
+          className="
+            flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between
+            px-5 sm:px-7 py-4
+            bg-slate-50/70
+            border-t border-slate-100
+            shrink-0 gap-3
+          "
+        >
+          <div
+            className="
+              flex items-center
+              text-xs text-slate-500
+              gap-2
+            "
+          >
+            <Info size={14} aria-hidden="true" />
+
+            <span>
+              Your selected goal remains the source of truth.
+            </span>
+          </div>
 
           <div
             className="
-              bottom-0 sticky flex flex-col-reverse sm:flex-row sm:justify-end
-              px-5 sm:px-7 py-4
-              bg-white
-              border-slate-200 border-t
-              gap-3 shrink-0
+              flex
+              w-full sm:w-auto
+              gap-3
             "
           >
             <button
               type="button"
-              onClick={handleClose}
+              onClick={onClose}
               disabled={submitting}
               className="
-                h-12
-                px-5
-                font-semibold text-slate-700 hover:text-slate-950 text-sm
+                flex-1 sm:flex-none
+                px-5 py-3
+                text-sm text-slate-700 font-semibold
                 bg-white hover:bg-slate-50
-                border border-slate-300 rounded-xl
-                disabled:opacity-50 transition
+                rounded-xl border border-slate-200 hover:border-slate-300
+                focus:outline-none focus:ring-4 focus:ring-slate-500/10
+                transition disabled:opacity-50
                 disabled:cursor-not-allowed
               "
             >
@@ -1475,15 +2065,16 @@ const CreateSavingPlanModal = ({
 
             <button
               type="submit"
-              disabled={submitting}
+              form="create-saving-plan-form"
+              disabled={!canSubmit}
               className="
-                flex justify-center items-center
-                h-12
-                px-6
-                font-bold text-white text-sm
-                bg-blue-600 hover:bg-blue-700
-                rounded-xl
-                disabled:opacity-60 shadow-blue-600/20 shadow-lg transition
+                flex flex-1 sm:flex-none items-center justify-center
+                px-5 py-3
+                text-sm text-white font-semibold
+                bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300
+                rounded-xl focus:outline-none
+                focus:ring-4 focus:ring-blue-500/20
+                shadow-sm shadow-blue-600/20 disabled:shadow-none transition
                 disabled:cursor-not-allowed
                 gap-2
               "
@@ -1498,31 +2089,23 @@ const CreateSavingPlanModal = ({
                     aria-hidden="true"
                   /
                   >
-
-                  <span>
-                    Creating plan...
-                  </span>
+                  Creating...
                 </>
               ) : (
                 <>
-                  <PiggyBank
+                  <CheckCircle2
                     size={17}
                     aria-hidden="true"
                   />
-
-                  <span>
-                    Create saving plan
-                  </span>
+                  Create saving plan
                 </>
               )}
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
-};
+}
 
-export default memo(
-  CreateSavingPlanModal
-);
+export default memo(CreateSavingPlanModal);
