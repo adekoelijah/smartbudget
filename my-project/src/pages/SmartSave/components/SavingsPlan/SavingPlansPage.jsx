@@ -1,56 +1,82 @@
+/**
+ * SavingPlansPage.jsx
+ *
+ * SmartSave — Saving Plans
+ *
+ * Responsibilities:
+ * - Display saving plans.
+ * - Manage page-level UI state.
+ * - Coordinate create/edit/delete/detail interactions.
+ * - Coordinate saving-plan lifecycle actions.
+ * - Manage search and status filters.
+ * - Render loading, error, empty and populated states.
+ * - Render pagination.
+ *
+ * Architecture:
+ *
+ * SavingPlansPage
+ *      ↓
+ * useSavingPlans
+ *      ↓
+ * smartSaveService
+ *      ↓
+ * SmartSave backend
+ *
+ * The page does not contain financial business logic.
+ */
 
 import {
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  Plus,
+  RefreshCw,
+  Search,
+  X,
+} from "lucide-react";
+
+import {
+  memo,
   useCallback,
   useMemo,
   useState,
 } from "react";
 
-import {
-  AlertCircle,
-  ArrowRight,
-  CalendarDays,
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-  CircleDollarSign,
-  Clock3,
-  Plus,
-  RefreshCw,
-  Search,
-  Target,
-  TrendingUp,
-  WalletCards,
-  X,
-} from "lucide-react";
-
 import useSavingPlans from "../../../../hooks/useSavingPlans";
-import useSavingsGoals from "../../../../hooks/useSavingsGoals";
 
-import CreateSavingPlanModal from "./CreateSavingPlanModal";
 import SavingPlanDetailsDrawer from "./SavingPlanDetailsDrawer";
+import SavingPlanEmptyState from "./SavingPlanEmptyState";
+import SavingPlanList from "./SavingPlanList";
+import CreateSavingPlanModal from "./CreateSavingPlanModal";
+import EditSavingPlanModal from "./EditSavingPlanModal";
+import DeleteSavingPlanDialog from "./DeleteSavingPlanDialog";
 
-/* =========================================================
+import {
+  getSavingPlanId,
+} from "../../../../utils/smartSave/savingPlanHelpers";
+
+/* ============================================================================
    CONSTANTS
-========================================================= */
+============================================================================ */
 
 const DEFAULT_FILTERS = Object.freeze({
-  status: "",
   page: 1,
-  limit: 12,
+  limit: 20,
 });
 
-const STATUS_OPTIONS = [
+const STATUS_OPTIONS = Object.freeze([
   {
     value: "",
-    label: "All plans",
-  },
-  {
-    value: "draft",
-    label: "Draft",
+    label: "All statuses",
   },
   {
     value: "active",
     label: "Active",
+  },
+  {
+    value: "in_progress",
+    label: "In progress",
   },
   {
     value: "paused",
@@ -64,638 +90,264 @@ const STATUS_OPTIONS = [
     value: "cancelled",
     label: "Cancelled",
   },
-];
+]);
 
-const STATUS_STYLES = {
-  draft: {
-    label: "Draft",
-    className:
-      "bg-slate-100 text-slate-700 border-slate-200",
-  },
+/* ============================================================================
+   HELPERS
+============================================================================ */
 
-  active: {
-    label: "Active",
-    className:
-      "bg-emerald-50 text-emerald-700 border-emerald-200",
-  },
-
-  paused: {
-    label: "Paused",
-    className:
-      "bg-amber-50 text-amber-700 border-amber-200",
-  },
-
-  completed: {
-    label: "Completed",
-    className:
-      "bg-blue-50 text-blue-700 border-blue-200",
-  },
-
-  cancelled: {
-    label: "Cancelled",
-    className:
-      "bg-rose-50 text-rose-700 border-rose-200",
-  },
-
-  expired: {
-    label: "Expired",
-    className:
-      "bg-orange-50 text-orange-700 border-orange-200",
-  },
-};
-
-/* =========================================================
-   VALUE HELPERS
-========================================================= */
-
-const toNumber = (value, fallback = 0) => {
-  const number = Number(value);
-
-  return Number.isFinite(number)
-    ? number
-    : fallback;
-};
-
-const getPlanId = (plan) =>
-  plan?._id ??
-  plan?.id ??
-  plan?.planId ??
-  null;
-
-const getGoalId = (goal) =>
-  goal?._id ??
-  goal?.id ??
-  goal?.goalId ??
-  null;
-
-const getAccountId = (account) => {
-  if (!account) {
-    return null;
-  }
-
-  if (typeof account === "string") {
-    return account;
-  }
-
-  return (
-    account?._id ??
-    account?.id ??
-    account?.accountId ??
-    null
-  );
-};
-
-const getGoalAccountId = (goal) =>
-  getAccountId(goal?.savingAccount);
-
-const getPlanGoal = (plan) =>
-  plan?.goal ??
-  plan?.savingGoal ??
-  null;
-
-
-
-const getPlanGoalName = (plan) => {
-  const goal = getPlanGoal(plan);
-
-  if (
-    goal &&
-    typeof goal === "object"
-  ) {
-    return (
-      goal?.name ??
-      goal?.title ??
-      "Savings goal"
-    );
-  }
-
-  return "Savings goal";
-};
-
-const getPlanName = (plan) =>
-  typeof plan?.name === "string" &&
-  plan.name.trim()
-    ? plan.name.trim()
-    : "Untitled saving plan";
-
-const getPlanCurrency = (plan) => {
-  const currency =
-    plan?.target?.currency ??
-    plan?.currency ??
-    "NGN";
-
-  return typeof currency === "string"
-    ? currency.toUpperCase()
-    : "NGN";
-};
-
-const getPlanTargetAmount = (plan) =>
-  Math.max(
-    0,
-    toNumber(
-      plan?.target?.amount ??
-        plan?.targetAmount,
-      0
-    )
-  );
-
-const getPlanCurrentAmount = (plan) =>
-  Math.max(
-    0,
-    toNumber(
-      plan?.progress?.currentAmount ??
-        plan?.currentAmount ??
-        plan?.metrics?.totalContributed,
-      0
-    )
-  );
-
-const getPlanProgress = (plan) => {
-  const backendProgress = toNumber(
-    plan?.progress?.percentage ??
-      plan?.progressPercentage ??
-      plan?.metrics?.progressPercentage,
-    NaN
-  );
-
-  if (Number.isFinite(backendProgress)) {
-    return Math.min(
-      100,
-      Math.max(0, backendProgress)
-    );
-  }
-
-  const target =
-    getPlanTargetAmount(plan);
-
-  const current =
-    getPlanCurrentAmount(plan);
-
-  if (target <= 0) {
-    return 0;
-  }
-
-  return Math.min(
-    100,
-    Math.max(
-      0,
-      (current / target) * 100
-    )
-  );
-};
-
-const getPlanTargetDate = (plan) =>
-  plan?.target?.targetDate ??
-  plan?.targetDate ??
-  null;
-
-const getPlanFrequency = (plan) =>
-  plan?.contribution?.frequency ??
-  "monthly";
-
-const getPlanContributionAmount = (
-  plan
-) =>
-  Math.max(
-    0,
-    toNumber(
-      plan?.contribution?.amount,
-      0
-    )
-  );
-
-const formatCurrency = (
-  amount,
-  currency = "NGN"
-) => {
-  try {
-    return new Intl.NumberFormat(
-      "en-NG",
-      {
-        style: "currency",
-        currency,
-        maximumFractionDigits: 2,
-      }
-    ).format(
-      toNumber(amount)
-    );
-  } catch {
-    return `${currency} ${toNumber(
-      amount
-    ).toLocaleString()}`;
-  }
-};
-
-const formatDate = (value) => {
-  if (!value) {
-    return "No target date";
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "No target date";
-  }
-
-  return new Intl.DateTimeFormat(
-    "en-NG",
-    {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    }
-  ).format(date);
-};
-
-const formatFrequency = (frequency) => {
-  if (!frequency) {
-    return "Flexible";
-  }
-
-  return frequency
-    .replace(/_/g, " ")
-    .replace(
-      /\b\w/g,
-      (character) =>
-        character.toUpperCase()
-    );
-};
-
-const normalizeSearchValue = (
-  value
-) =>
+const normalizeSearchValue = (value) =>
   typeof value === "string"
-    ? value.trim().toLowerCase()
+    ? value.trim()
     : "";
 
-/* =========================================================
-   PRESENTATION COMPONENTS
-========================================================= */
+const getErrorText = (error) => {
+  if (!error) {
+    return "";
+  }
 
-const PageSkeleton = () => (
-  <div
-    className="
-      space-y-6
-      animate-pulse
-    "
-  >
-    <div
-      className="
-        w-64 h-10
-        bg-slate-200
-        rounded-xl
-      "
-      /
-    >
+  if (
+    typeof error === "string" &&
+    error.trim()
+  ) {
+    return error.trim();
+  }
 
-    <div
-      className="
-        grid sm:grid-cols-2 xl:grid-cols-4
-        gap-4
-      "
-    >
-      {[1, 2, 3, 4].map(
-        (item) => (
-          <div
-            key={item}
-            className="
-              h-32
-              bg-slate-100
-              rounded-2xl
-            "
-            /
-          >
-        )
-      )}
-    </div>
+  if (
+    typeof error.message === "string" &&
+    error.message.trim()
+  ) {
+    return error.message.trim();
+  }
 
-    <div
-      className="
-        h-72
-        bg-slate-100
-        rounded-3xl
-      "
-      /
-    >
-  </div>
-);
+  if (
+    typeof error.error === "string" &&
+    error.error.trim()
+  ) {
+    return error.error.trim();
+  }
 
-const ErrorState = ({
-  error,
-  onRetry,
-}) => (
-  <div
-    className="
-      p-8
-      bg-rose-50
-      border border-rose-200 rounded-3xl
-    "
-  >
-    <div
-      className="
-        flex flex-col sm:flex-row sm:justify-between sm:items-center
-        gap-5
-      "
-    >
-      <div
+  if (
+    typeof error.data?.message === "string" &&
+    error.data.message.trim()
+  ) {
+    return error.data.message.trim();
+  }
+
+  return "Something went wrong while processing your saving plans.";
+};
+
+const getMutationResultError = (result) => {
+  if (
+    !result ||
+    result.success !== false
+  ) {
+    return "";
+  }
+
+  return getErrorText(result.error);
+};
+
+/**
+ * Convert an arbitrary hook method into a safe callable.
+ *
+ * This prevents:
+ *
+ * TypeError: x is not a function
+ *
+ * from escaping into React's event system.
+ */
+const createSafeAction = (
+  action,
+  actionName
+) => {
+  if (typeof action === "function") {
+    return action;
+  }
+
+  return async () => ({
+    success: false,
+    error: new Error(
+      `Saving plan action "${actionName}" is not available.`
+    ),
+  });
+};
+
+/* ============================================================================
+   ERROR BANNER
+============================================================================ */
+
+const PageError = memo(
+  ({
+    error,
+    onRetry,
+    onDismiss,
+    retrying = false,
+  }) => {
+    const message = getErrorText(error);
+
+    if (!message) {
+      return null;
+    }
+
+    return (
+      <section
+        role="alert"
+        aria-live="assertive"
         className="
-          flex
-          gap-4
+          overflow-hidden
+          mb-6
+          bg-red-50
+          border border-red-200 rounded-2xl
         "
       >
         <div
           className="
-            flex justify-center items-center
-            w-11 h-11
-            text-rose-600
-            bg-white
-            rounded-2xl
-            shadow-sm
-            shrink-0
-          "
-        >
-          <AlertCircle size={21} />
-        </div>
-
-        <div>
-          <h3
-            className="
-              font-semibold text-slate-900
-            "
-          >
-            We couldn't load your saving plans
-          </h3>
-
-          <p
-            className="
-              max-w-xl
-              mt-1
-              text-slate-600 text-sm leading-6
-            "
-          >
-            {error?.message ??
-              "Something went wrong while loading your saving plans."}
-          </p>
-        </div>
-      </div>
-
-      <button
-        type="button"
-        onClick={onRetry}
-        className="
-          inline-flex justify-center items-center
-          h-11
-          px-5
-          font-semibold text-white text-sm
-          bg-slate-900 hover:bg-slate-800
-          rounded-xl
-          transition
-          gap-2
-        "
-      >
-        <RefreshCw size={16} />
-        Try again
-      </button>
-    </div>
-  </div>
-);
-
-const EmptyState = ({
-  search,
-  hasGoals,
-  onCreate,
-}) => (
-  <div
-    className="
-      px-6 py-14
-      text-center
-      bg-white
-      border border-slate-200 rounded-3xl
-      shadow-sm
-    "
-  >
-    <div
-      className="
-        flex justify-center items-center
-        w-16 h-16
-        mx-auto
-        text-blue-600
-        bg-blue-50
-        rounded-3xl
-      "
-    >
-      <Target size={28} />
-    </div>
-
-    <h3
-      className="
-        mt-5
-        font-bold text-slate-900 text-lg
-      "
-    >
-      {search
-        ? "No saving plans found"
-        : "Create your first saving plan"}
-    </h3>
-
-    <p
-      className="
-        max-w-lg
-        mx-auto mt-2
-        text-slate-500 text-sm leading-6
-      "
-    >
-      {search
-        ? "Try a different plan name or search term."
-        : hasGoals
-          ? "Turn one of your existing savings goals into a structured contribution plan."
-          : "Create a savings goal first. Your saving plan will then define how you will fund that goal."}
-    </p>
-
-    {!search && hasGoals ? (
-      <button
-        type="button"
-        onClick={onCreate}
-        className="
-          inline-flex items-center
-          h-11
-          mt-6 px-5
-          font-semibold text-white text-sm
-          bg-slate-900 hover:bg-slate-800
-          rounded-xl
-          transition
-          gap-2
-        "
-      >
-        <Plus size={17} />
-        Create saving plan
-      </button>
-    ) : null}
-  </div>
-);
-
-const StatCard = ({
-  icon: Icon,
-  label,
-  value,
-  helper,
-}) => (
-  <div
-    className="
-      p-5
-      bg-white
-      border border-slate-200 rounded-2xl
-      shadow-sm
-    "
-  >
-    <div
-      className="
-        flex justify-between items-start
-        gap-4
-      "
-    >
-      <div>
-        <p
-          className="
-            font-semibold text-slate-400 text-xs uppercase tracking-[0.08em]
-          "
-        >
-          {label}
-        </p>
-
-        <p
-          className="
-            mt-2
-            font-bold text-slate-900 text-2xl tracking-tight
-          "
-        >
-          {value}
-        </p>
-
-        {helper ? (
-          <p
-            className="
-              mt-1
-              text-slate-500 text-xs
-            "
-          >
-            {helper}
-          </p>
-        ) : null}
-      </div>
-
-      <div
-        className="
-          flex justify-center items-center
-          w-10 h-10
-          text-slate-600
-          bg-slate-50
-          rounded-xl
-          shrink-0
-        "
-      >
-        <Icon size={19} />
-      </div>
-    </div>
-  </div>
-);
-
-const StatusBadge = ({
-  status,
-}) => {
-  const normalized =
-    typeof status === "string"
-      ? status.toLowerCase()
-      : "draft";
-
-  const configuration =
-    STATUS_STYLES[
-      normalized
-    ] ?? STATUS_STYLES.draft;
-
-  return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${configuration.className}`}
-    >
-      {configuration.label}
-    </span>
-  );
-};
-
-const ProgressBar = ({
-  value,
-}) => {
-  const progress = Math.min(
-    100,
-    Math.max(
-      0,
-      toNumber(value)
-    )
-  );
-
-  return (
-    <div
-      className="
-        overflow-hidden
-        h-2
-        bg-slate-100
-        rounded-full
-      "
-    >
-      <div
-        className="
-          h-full
-          bg-slate-900
-          rounded-full
-          transition-[width] duration-500
-        "
-        style={{
-          width: `${progress}%`,
-        }}
-      /
-      >
-    </div>
-  );
-};
-
-const PlanCard = ({
-  plan,
-  onOpen,
-}) => {
-  const target =
-    getPlanTargetAmount(plan);
-
-  const current =
-    getPlanCurrentAmount(plan);
-
-  const progress =
-    getPlanProgress(plan);
-
-  const currency =
-    getPlanCurrency(plan);
-
-  const status =
-    plan?.status ?? "draft";
-
-  return (
-    <article
-      className="
-        overflow-hidden
-        bg-white
-        border border-slate-200 hover:border-slate-300 rounded-3xl
-        shadow-sm hover:shadow-md transition
-        group hover:-translate-y-0.5
-      "
-    >
-      <div
-        className="
-          p-5 sm:p-6
-        "
-      >
-        <div
-          className="
-            flex justify-between items-start
+            flex flex-col sm:flex-row sm:justify-between sm:items-center
+            p-4
             gap-4
+          "
+        >
+          <div
+            className="
+              flex items-start
+              min-w-0
+              gap-3
+            "
+          >
+            <div
+              className="
+                flex justify-center items-center
+                w-9 h-9
+                text-red-600
+                bg-red-100
+                rounded-full
+                shrink-0
+              "
+            >
+              <AlertCircle
+                aria-hidden="true"
+                className="
+                  w-5 h-5
+                "
+                /
+              >
+            </div>
+
+            <div
+              className="
+                min-w-0
+              "
+            >
+              <p
+                className="
+                  font-semibold text-red-900 text-sm
+                "
+              >
+                Unable to process saving plans
+              </p>
+
+              <p
+                className="
+                  mt-1
+                  text-red-700 text-sm leading-relaxed
+                "
+              >
+                {message}
+              </p>
+            </div>
+          </div>
+
+          <div
+            className="
+              flex items-center
+              gap-2 shrink-0
+            "
+          >
+            {onDismiss ? (
+              <button
+                type="button"
+                onClick={onDismiss}
+                disabled={retrying}
+                className="
+                  inline-flex justify-center items-center
+                  min-h-9
+                  px-3
+                  font-semibold text-red-700 text-xs
+                  hover:bg-red-100
+                  rounded-lg
+                  disabled:opacity-50 transition
+                  disabled:cursor-not-allowed
+                "
+              >
+                Dismiss
+              </button>
+            ) : null}
+
+            {onRetry ? (
+              <button
+                type="button"
+                onClick={onRetry}
+                disabled={retrying}
+                className="
+                  inline-flex justify-center items-center
+                  min-h-9
+                  px-3
+                  font-semibold text-white text-xs
+                  bg-red-600 hover:bg-red-700
+                  rounded-lg
+                  disabled:opacity-60
+                  disabled:cursor-not-allowed
+                  gap-2
+                "
+              >
+                <RefreshCw
+                  aria-hidden="true"
+                  className={[
+                    "h-3.5 w-3.5",
+                    retrying
+                      ? "animate-spin"
+                      : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                />
+
+                {retrying
+                  ? "Retrying..."
+                  : "Retry"}
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </section>
+    );
+  }
+);
+
+PageError.displayName = "PageError";
+
+/* ============================================================================
+   PAGE HEADER
+============================================================================ */
+
+const PageHeader = memo(
+  ({
+    onCreate,
+    onRefresh,
+    refreshing,
+    disabled,
+  }) => {
+    return (
+      <header
+        className="
+          mb-6
+        "
+      >
+        <div
+          className="
+            flex flex-col lg:flex-row lg:justify-between lg:items-end
+            gap-5
           "
         >
           <div
@@ -705,510 +357,850 @@ const PlanCard = ({
           >
             <div
               className="
-                flex flex-wrap items-center
-                gap-2
+                inline-flex items-center
+                mb-3 px-3 py-1
+                font-bold text-[11px] text-blue-700 uppercase tracking-wider
+                bg-blue-50
+                border border-blue-100 rounded-full
               "
             >
-              <StatusBadge status={status} />
-
-              {plan?.automation?.enabled ? (
-                <span
-                  className="
-                    inline-flex items-center
-                    px-2.5 py-1
-                    font-semibold text-[11px] text-blue-700
-                    bg-blue-50
-                    border border-blue-200 rounded-full
-                  "
-                >
-                  Automated
-                </span>
-              ) : null}
+              SmartSave
             </div>
 
-            <h3
+            <h1
               className="
-                mt-3
-                font-bold text-slate-900 text-lg truncate
+                font-bold text-slate-950 text-2xl sm:text-3xl tracking-tight
               "
             >
-              {getPlanName(plan)}
-            </h3>
+              Saving Plans
+            </h1>
 
-            <div
+            <p
               className="
-                flex items-center
-                min-w-0
+                max-w-2xl
                 mt-2
-                text-slate-500 text-sm
+                text-slate-500 text-sm sm:text-base leading-relaxed
+              "
+            >
+              Create structured saving plans, track
+              your progress, and manage your savings
+              journey from one place.
+            </p>
+          </div>
+
+          <div
+            className="
+              flex flex-col sm:flex-row
+              w-full sm:w-auto
+              gap-2
+            "
+          >
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={
+                disabled ||
+                refreshing
+              }
+              className="
+                inline-flex justify-center items-center
+                min-h-11
+                px-4
+                font-semibold text-slate-700 text-sm
+                bg-white hover:bg-slate-50
+                border border-slate-200 hover:border-slate-300 rounded-xl
+                disabled:opacity-50 shadow-sm transition
+                disabled:cursor-not-allowed
                 gap-2
               "
             >
-              <Target
-                size={15}
+              <RefreshCw
+                aria-hidden="true"
+                className={[
+                  "h-4 w-4",
+                  refreshing
+                    ? "animate-spin"
+                    : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              />
+
+              {refreshing
+                ? "Refreshing..."
+                : "Refresh"}
+            </button>
+
+            <button
+              type="button"
+              onClick={onCreate}
+              disabled={disabled}
+              className="
+                inline-flex justify-center items-center
+                min-h-11
+                px-5
+                font-semibold text-white text-sm
+                bg-slate-950 hover:bg-slate-800
+                rounded-xl
+                disabled:opacity-50 shadow-sm transition
+                disabled:cursor-not-allowed
+                gap-2
+              "
+            >
+              <Plus
+                aria-hidden="true"
                 className="
-                  shrink-0
+                  w-4 h-4
                 "
                 /
               >
 
-              <span
-                className="
-                  truncate
-                "
-              >
-                {getPlanGoalName(
-                  plan
-                )}
-              </span>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() =>
-              onOpen(plan)
-            }
-            className="flex justify-center items-center hover:bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-xl w-10 h-10 text-slate-500 hover:text-slate-900 transition shrink-0"
-            aria-label={`Open ${getPlanName(
-              plan
-            )}`}
-          >
-            <ArrowRight
-              size={17}
-            />
-          </button>
-        </div>
-
-        <div
-          className="
-            mt-6
-          "
-        >
-          <div
-            className="
-              flex justify-between items-end
-              gap-4
-            "
-          >
-            <div>
-              <p
-                className="
-                  font-medium text-slate-400 text-xs
-                "
-              >
-                Progress
-              </p>
-
-              <p
-                className="
-                  mt-1
-                  font-semibold text-slate-900 text-sm
-                "
-              >
-                {formatCurrency(
-                  current,
-                  currency
-                )}{" "}
-                <span
-                  className="
-                    font-normal text-slate-400
-                  "
-                >
-                  of{" "}
-                  {formatCurrency(
-                    target,
-                    currency
-                  )}
-                </span>
-              </p>
-            </div>
-
-            <span
-              className="
-                font-bold text-slate-900 text-sm
-              "
-            >
-              {Math.round(
-                progress
-              )}
-              %
-            </span>
-          </div>
-
-          <div
-            className="
-              mt-3
-            "
-          >
-            <ProgressBar
-              value={progress}
-            />
+              Create saving plan
+            </button>
           </div>
         </div>
+      </header>
+    );
+  }
+);
 
-        <div
-          className="
-            grid grid-cols-2
-            mt-6
-            gap-3
-          "
-        >
-          <div
-            className="
-              p-3
-              bg-slate-50
-              rounded-2xl
-            "
-          >
-            <p
-              className="
-                font-medium text-[11px] text-slate-400
-              "
-            >
-              Contribution
-            </p>
+PageHeader.displayName = "PageHeader";
 
-            <p
-              className="
-                mt-1
-                font-semibold text-slate-900 text-sm
-              "
-            >
-              {getPlanContributionAmount(
-                plan
-              ) > 0
-                ? formatCurrency(
-                    getPlanContributionAmount(
-                      plan
-                    ),
-                    currency
-                  )
-                : "Flexible"}
-            </p>
-          </div>
+/* ============================================================================
+   FILTER BAR
+============================================================================ */
 
-          <div
-            className="
-              p-3
-              bg-slate-50
-              rounded-2xl
-            "
-          >
-            <p
-              className="
-                font-medium text-[11px] text-slate-400
-              "
-            >
-              Frequency
-            </p>
-
-            <p
-              className="
-                mt-1
-                font-semibold text-slate-900 text-sm capitalize
-              "
-            >
-              {formatFrequency(
-                getPlanFrequency(
-                  plan
-                )
-              )}
-            </p>
-          </div>
-        </div>
-
+const FilterBar = memo(
+  ({
+    search,
+    status,
+    onSearchChange,
+    onStatusChange,
+    onApply,
+    onClear,
+    disabled,
+    hasActiveFilters,
+  }) => {
+    return (
+      <section
+        aria-label="Saving plan filters"
+        className="
+          mb-6 p-4
+          bg-white
+          border border-slate-200 rounded-2xl
+          shadow-sm
+        "
+      >
         <div
           className="
             flex justify-between items-center
-            mt-4 pt-4
-            text-slate-500 text-xs
-            border-slate-100 border-t
-          "
-        >
-          <span
-            className="
-              inline-flex items-center
-              gap-1.5
-            "
-          >
-            <CalendarDays size={14} />
-            {formatDate(
-              getPlanTargetDate(
-                plan
-              )
-            )}
-          </span>
-
-          <span>
-            {plan?.planType
-              ?.replace(
-                /_/g,
-                " "
-              ) ?? "Fixed amount"}
-          </span>
-        </div>
-      </div>
-    </article>
-  );
-};
-
-const GoalConnectionPanel = ({
-  goals,
-  selectedGoal,
-  onSelect,
-}) => {
-  return (
-    <div
-      className="
-        p-5 sm:p-6
-        bg-gradient-to-br from-blue-50 via-white to-white
-        border border-blue-100 rounded-3xl
-      "
-    >
-      <div
-        className="
-          flex items-start
-          gap-4
-        "
-      >
-        <div
-          className="
-            flex justify-center items-center
-            w-11 h-11
-            text-white
-            bg-blue-600
-            rounded-2xl
-            shadow-sm
-            shrink-0
-          "
-        >
-          <Target size={20} />
-        </div>
-
-        <div>
-          <h3
-            className="
-              font-bold text-slate-900
-            "
-          >
-            Connect this plan to a goal
-          </h3>
-
-          <p
-            className="
-              max-w-2xl
-              mt-1
-              text-slate-500 text-sm leading-6
-            "
-          >
-            Every saving plan belongs to a real savings goal.
-            Select the goal you want this plan to fund.
-          </p>
-        </div>
-      </div>
-
-      <div
-        className="
-          mt-5
-        "
-      >
-        <label
-          htmlFor="saving-plan-goal"
-          className="
-            font-semibold text-slate-500 text-xs uppercase tracking-[0.08em]
-          "
-        >
-          Savings goal
-        </label>
-
-        <select
-          id="saving-plan-goal"
-          value={
-            getGoalId(
-              selectedGoal
-            ) ?? ""
-          }
-          onChange={(event) => {
-            const nextGoal =
-              goals.find(
-                (goal) =>
-                  getGoalId(
-                    goal
-                  ) ===
-                  event.target
-                    .value
-              ) ?? null;
-
-            onSelect(
-              nextGoal
-            );
-          }}
-          className="bg-white mt-2 px-4 border border-slate-200 focus:border-blue-500 rounded-xl outline-none focus:ring-4 focus:ring-blue-100 w-full h-12 font-medium text-slate-900 text-sm transition"
-        >
-          <option value="">
-            Select a savings goal
-          </option>
-
-          {goals.map(
-            (goal) => (
-              <option
-                key={
-                  getGoalId(
-                    goal
-                  )
-                }
-                value={
-                  getGoalId(
-                    goal
-                  ) ?? ""
-                }
-              >
-                {goal.name} —{" "}
-                {formatCurrency(
-                  goal.targetAmount,
-                  goal.currency
-                )}
-              </option>
-            )
-          )}
-        </select>
-      </div>
-
-      {selectedGoal ? (
-        <div
-          className="
-            grid sm:grid-cols-3
-            mt-4
+            mb-3
             gap-3
           "
         >
           <div
             className="
-              p-4
-              bg-white
-              border border-blue-100 rounded-2xl
+              flex items-center
+              gap-2
             "
           >
-            <p
+            <div
               className="
-                font-semibold text-[11px] text-slate-400 uppercase
-                tracking-[0.08em]
+                flex justify-center items-center
+                w-8 h-8
+                text-slate-600
+                bg-slate-100
+                rounded-lg
               "
             >
-              Target
-            </p>
+              <Filter
+                aria-hidden="true"
+                className="
+                  w-4 h-4
+                "
+                /
+              >
+            </div>
 
-            <p
-              className="
-                mt-1
-                font-bold text-slate-900
-              "
-            >
-              {formatCurrency(
-                selectedGoal.targetAmount,
-                selectedGoal.currency
-              )}
-            </p>
+            <div>
+              <p
+                className="
+                  font-semibold text-slate-900 text-sm
+                "
+              >
+                Filter plans
+              </p>
+
+              <p
+                className="
+                  text-slate-500 text-xs
+                "
+              >
+                Search or narrow plans by status.
+              </p>
+            </div>
           </div>
 
-          <div
-            className="
-              p-4
-              bg-white
-              border border-blue-100 rounded-2xl
-            "
-          >
-            <p
+          {hasActiveFilters ? (
+            <button
+              type="button"
+              onClick={onClear}
+              disabled={disabled}
               className="
-                font-semibold text-[11px] text-slate-400 uppercase
-                tracking-[0.08em]
+                inline-flex items-center
+                px-2.5 py-1.5
+                font-semibold text-slate-500 hover:text-slate-800 text-xs
+                hover:bg-slate-100
+                rounded-lg
+                disabled:opacity-50 transition
+                disabled:cursor-not-allowed
+                gap-1.5
               "
             >
-              Saved
-            </p>
+              <X
+                aria-hidden="true"
+                className="
+                  w-3.5 h-3.5
+                "
+                /
+              >
 
-            <p
-              className="
-                mt-1
-                font-bold text-slate-900
-              "
-            >
-              {formatCurrency(
-                selectedGoal.currentAmount,
-                selectedGoal.currency
-              )}
-            </p>
-          </div>
-
-          <div
-            className="
-              p-4
-              bg-white
-              border border-blue-100 rounded-2xl
-            "
-          >
-            <p
-              className="
-                font-semibold text-[11px] text-slate-400 uppercase
-                tracking-[0.08em]
-              "
-            >
-              Goal date
-            </p>
-
-            <p
-              className="
-                mt-1
-                font-bold text-slate-900
-              "
-            >
-              {formatDate(
-                selectedGoal.targetDate
-              )}
-            </p>
-          </div>
+              Clear
+            </button>
+          ) : null}
         </div>
-      ) : null}
-    </div>
-  );
-};
 
-/* =========================================================
+        <div
+          className="
+            grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_220px_auto]
+            gap-3
+          "
+        >
+          <div
+            className="
+              relative
+            "
+          >
+            <Search
+              aria-hidden="true"
+              className="
+                top-1/2 left-3 absolute
+                w-4 h-4
+                text-slate-400
+                pointer-events-none
+                -translate-y-1/2
+              "
+              /
+            >
+
+            <input
+              type="search"
+              value={search}
+              onChange={(event) =>
+                onSearchChange(
+                  event.target.value
+                )
+              }
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  onApply();
+                }
+              }}
+              placeholder="Search saving plans..."
+              disabled={disabled}
+              aria-label="Search saving plans"
+              className="
+                bg-slate-50
+                focus:bg-white
+                disabled:opacity-60
+                pr-10 pl-9
+                border
+                border-slate-200
+                focus:border-blue-400
+                rounded-xl
+                outline-none
+                focus:ring-2
+                focus:ring-blue-100
+                w-full
+                h-11
+                text-slate-900
+                placeholder:text-slate-400
+                text-sm
+                transition
+                disabled:cursor-not-allowed
+              "
+            />
+
+            {search ? (
+              <button
+                type="button"
+                onClick={() =>
+                  onSearchChange("")
+                }
+                disabled={disabled}
+                aria-label="Clear search text"
+                className="
+                  top-1/2
+                  right-2
+                  absolute
+                  flex
+                  justify-center
+                  items-center
+                  hover:bg-slate-200
+                  disabled:opacity-50
+                  rounded-lg
+                  w-7 h-7
+                  text-slate-400
+                  hover:text-slate-700
+                  transition
+                  -translate-y-1/2
+                  disabled:cursor-not-allowed
+                "
+              >
+                <X
+                  aria-hidden="true"
+                  className="
+                    w-4 h-4
+                  "
+                  /
+                >
+              </button>
+            ) : null}
+          </div>
+
+          <select
+            value={status}
+            onChange={(event) =>
+              onStatusChange(
+                event.target.value
+              )
+            }
+            disabled={disabled}
+            aria-label="Filter by status"
+            className="
+              bg-slate-50
+              focus:bg-white
+              disabled:opacity-60
+              px-3
+              border
+              border-slate-200
+              focus:border-blue-400
+              rounded-xl
+              outline-none
+              focus:ring-2
+              focus:ring-blue-100
+              w-full
+              h-11
+              font-medium
+              text-slate-700
+              text-sm
+              transition
+              disabled:cursor-not-allowed
+            "
+          >
+            {STATUS_OPTIONS.map(
+              (option) => (
+                <option
+                  key={option.value}
+                  value={option.value}
+                >
+                  {option.label}
+                </option>
+              )
+            )}
+          </select>
+
+          <button
+            type="button"
+            onClick={onApply}
+            disabled={disabled}
+            className="
+              inline-flex justify-center items-center
+              h-11
+              px-5
+              font-semibold text-white text-sm
+              bg-slate-950 hover:bg-slate-800
+              rounded-xl
+              disabled:opacity-50 transition
+              disabled:cursor-not-allowed
+            "
+          >
+            Apply filters
+          </button>
+        </div>
+      </section>
+    );
+  }
+);
+
+FilterBar.displayName = "FilterBar";
+
+/* ============================================================================
+   SUMMARY
+============================================================================ */
+
+const PlansSummary = memo(
+  ({
+    totalPlans,
+    loading,
+  }) => {
+    return (
+      <div
+        className="
+          flex flex-col sm:flex-row sm:justify-between sm:items-center
+          mb-4
+          gap-2
+        "
+      >
+        <div>
+          <h2
+            className="
+              font-bold text-slate-900 text-sm
+            "
+          >
+            Your saving plans
+          </h2>
+
+          <p
+            className="
+              mt-0.5
+              text-slate-500 text-xs
+            "
+          >
+            {totalPlans}{" "}
+            {totalPlans === 1
+              ? "plan"
+              : "plans"}{" "}
+            available
+          </p>
+        </div>
+
+        {loading ? (
+          <div
+            className="
+              inline-flex items-center
+              font-medium text-slate-500 text-xs
+              gap-2
+            "
+          >
+            <RefreshCw
+              aria-hidden="true"
+              className="
+                w-3.5 h-3.5
+                animate-spin
+              "
+              /
+            >
+
+            Updating plans...
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+);
+
+PlansSummary.displayName = "PlansSummary";
+
+/* ============================================================================
+   PAGINATION
+============================================================================ */
+
+const Pagination = memo(
+  ({
+    currentPage,
+    totalPages,
+    totalItems,
+    limit,
+    onPrevious,
+    onNext,
+    disabled,
+  }) => {
+    if (
+      totalPages <= 1 &&
+      totalItems <= limit
+    ) {
+      return null;
+    }
+
+    const firstItem =
+      totalItems === 0
+        ? 0
+        : (currentPage - 1) * limit + 1;
+
+    const lastItem =
+      Math.min(
+        currentPage * limit,
+        totalItems
+      );
+
+    return (
+      <nav
+        aria-label="Saving plan pagination"
+        className="
+          flex flex-col sm:flex-row sm:justify-between sm:items-center
+          mt-6 p-4
+          bg-white
+          border border-slate-200 rounded-2xl
+          shadow-sm
+          gap-3
+        "
+      >
+        <p
+          className="
+            text-slate-500 text-xs
+          "
+        >
+          Showing{" "}
+          <span
+            className="
+              font-semibold text-slate-700
+            "
+          >
+            {firstItem}
+          </span>
+          {"–"}
+          <span
+            className="
+              font-semibold text-slate-700
+            "
+          >
+            {lastItem}
+          </span>{" "}
+          of{" "}
+          <span
+            className="
+              font-semibold text-slate-700
+            "
+          >
+            {totalItems}
+          </span>{" "}
+          plans
+        </p>
+
+        <div
+          className="
+            flex items-center
+            gap-2
+          "
+        >
+          <button
+            type="button"
+            onClick={onPrevious}
+            disabled={
+              disabled ||
+              currentPage <= 1
+            }
+            className="
+              inline-flex justify-center items-center
+              h-9
+              px-3
+              font-semibold text-slate-700 text-xs
+              bg-white hover:bg-slate-50
+              border border-slate-200 rounded-lg
+              disabled:opacity-40 transition
+              disabled:cursor-not-allowed
+              gap-1
+            "
+          >
+            <ChevronLeft
+              aria-hidden="true"
+              className="
+                w-4 h-4
+              "
+              /
+            >
+
+            Previous
+          </button>
+
+          <span
+            aria-current="page"
+            className="
+              inline-flex justify-center items-center
+              min-w-9 h-9
+              px-2
+              font-semibold text-white text-xs
+              bg-slate-950
+              rounded-lg
+            "
+          >
+            {currentPage}
+          </span>
+
+          <button
+            type="button"
+            onClick={onNext}
+            disabled={
+              disabled ||
+              currentPage >= totalPages
+            }
+            className="
+              inline-flex
+              justify-center
+              items-center
+              h-9
+              px-3
+              font-semibold
+              text-slate-700
+              text-xs
+              bg-white
+              hover:bg-slate-50
+              border
+              border-slate-200
+              rounded-lg
+              disabled:opacity-40
+              disabled:cursor-not-allowed
+              transition
+              gap-1
+            "
+          >
+            Next
+
+            <ChevronRight
+              aria-hidden="true"
+              className="
+                w-4 h-4
+              "
+              /
+            >
+          </button>
+        </div>
+      </nav>
+    );
+  }
+);
+
+Pagination.displayName = "Pagination";
+
+/* ============================================================================
    PAGE
-========================================================= */
+============================================================================ */
 
 const SavingPlansPage = () => {
-  const {
-    plans,
-    pagination,
-    loading,
-    refreshing,
-    error,
-    createPlan,
-    refresh,
-    setStatus,
-    goToPage,
-    pausePlan,
-    resumePlan,
-    activatePlan,
-    deletePlan,
-  } = useSavingPlans({
-    initialFilters:
-      DEFAULT_FILTERS,
+  const savingPlans = useSavingPlans({
+    initialFilters: DEFAULT_FILTERS,
     autoFetch: true,
   });
 
+  /*
+   * Keep the hook contract in one place.
+   *
+   * This makes missing hook methods immediately visible
+   * instead of allowing them to become minified
+   * "x is not a function" errors inside click handlers.
+   */
   const {
-    activeGoals,
-    loading: goalsLoading,
-  
-    refresh: refreshGoals,
-  } = useSavingsGoals({
-    status: "active",
-    page: 1,
-    limit: 100,
-  });
+    plans = [],
+    filters = DEFAULT_FILTERS,
+
+    loading = false,
+
+    fetchPlans,
+    refreshPlans,
+
+    setFilters,
+    setPage,
+    resetFilters,
+
+    createPlan,
+    updatePlan,
+
+    activatePlan: rawActivatePlan,
+    pausePlan: rawPausePlan,
+    resumePlan: rawResumePlan,
+    completePlan: rawCompletePlan,
+    cancelPlan: rawCancelPlan,
+
+    creating = false,
+    updating = false,
+    activating = false,
+    pausing = false,
+    resuming = false,
+    completing = false,
+    cancelling = false,
+
+    recalculating = false,
+    refreshingProgress = false,
+
+    isMutating = false,
+    isBusy = false,
+
+    currentPage = DEFAULT_FILTERS.page,
+    currentLimit = DEFAULT_FILTERS.limit,
+    totalPlans = 0,
+    totalPages = 0,
+
+    hasPlans = false,
+    getPlanById,
+
+    error = null,
+    clearError,
+  } = savingPlans;
+
+  /* --------------------------------------------------------------------------
+     SAFE ACTIONS
+  -------------------------------------------------------------------------- */
+
+  const activatePlan = useMemo(
+    () =>
+      createSafeAction(
+        rawActivatePlan,
+        "activate"
+      ),
+    [rawActivatePlan]
+  );
+
+  const pausePlan = useMemo(
+    () =>
+      createSafeAction(
+        rawPausePlan,
+        "pause"
+      ),
+    [rawPausePlan]
+  );
+
+  const resumePlan = useMemo(
+    () =>
+      createSafeAction(
+        rawResumePlan,
+        "resume"
+      ),
+    [rawResumePlan]
+  );
+
+  const completePlan = useMemo(
+    () =>
+      createSafeAction(
+        rawCompletePlan,
+        "complete"
+      ),
+    [rawCompletePlan]
+  );
+
+  const cancelPlan = useMemo(
+    () =>
+      createSafeAction(
+        rawCancelPlan,
+        "cancel"
+      ),
+    [rawCancelPlan]
+  );
+
+  const safeGetPlanById =
+    useMemo(
+      () =>
+        typeof getPlanById === "function"
+          ? getPlanById
+          : () => null,
+      [getPlanById]
+    );
+
+  const safeFetchPlans =
+    useMemo(
+      () =>
+        typeof fetchPlans === "function"
+          ? fetchPlans
+          : async () => null,
+      [fetchPlans]
+    );
+
+  const safeRefreshPlans =
+    useMemo(
+      () =>
+        typeof refreshPlans === "function"
+          ? refreshPlans
+          : async () => null,
+      [refreshPlans]
+    );
+
+  const safeSetFilters =
+    useMemo(
+      () =>
+        typeof setFilters === "function"
+          ? setFilters
+          : () => {},
+      [setFilters]
+    );
+
+  const safeSetPage =
+    useMemo(
+      () =>
+        typeof setPage === "function"
+          ? setPage
+          : () => {},
+      [setPage]
+    );
+
+  const safeResetFilters =
+    useMemo(
+      () =>
+        typeof resetFilters === "function"
+          ? resetFilters
+          : () => {},
+      [resetFilters]
+    );
+
+  const safeCreatePlan =
+    useMemo(
+      () =>
+        typeof createPlan === "function"
+          ? createPlan
+          : async () => ({
+              success: false,
+              error: new Error(
+                "createPlan is not available."
+              ),
+            }),
+      [createPlan]
+    );
+
+  const safeUpdatePlan =
+    useMemo(
+      () =>
+        typeof updatePlan === "function"
+          ? updatePlan
+          : async () => ({
+              success: false,
+              error: new Error(
+                "updatePlan is not available."
+              ),
+            }),
+      [updatePlan]
+    );
+
+  const safeClearError =
+    useMemo(
+      () =>
+        typeof clearError === "function"
+          ? clearError
+          : () => {},
+      [clearError]
+    );
+
+  /* --------------------------------------------------------------------------
+     LOCAL STATE
+  -------------------------------------------------------------------------- */
+
+  const [search, setSearch] =
+    useState(
+      filters?.search ?? ""
+    );
+
+  const [status, setStatus] =
+    useState(
+      filters?.status ?? ""
+    );
+
+  const [
+    selectedPlanId,
+    setSelectedPlanId,
+  ] = useState(null);
+
+  const [
+    detailsOpen,
+    setDetailsOpen,
+  ] = useState(false);
 
   const [
     createOpen,
@@ -1216,909 +1208,942 @@ const SavingPlansPage = () => {
   ] = useState(false);
 
   const [
-    selectedGoal,
-    setSelectedGoal,
-  ] = useState(null);
+    editOpen,
+    setEditOpen,
+  ] = useState(false);
 
   const [
-    selectedPlan,
-    setSelectedPlan,
-  ] = useState(null);
-
-  const [
-    search,
-    setSearch,
-  ] = useState("");
+    deleteOpen,
+    setDeleteOpen,
+  ] = useState(false);
 
   const [
     actionError,
     setActionError,
   ] = useState(null);
 
-  /* =======================================================
-     DERIVED DATA
-  ======================================================= */
+  /* --------------------------------------------------------------------------
+     SELECTED PLAN
+  -------------------------------------------------------------------------- */
 
-  const visiblePlans = useMemo(() => {
-    const normalizedSearch =
-      normalizeSearchValue(
-        search
-      );
-
-    if (!normalizedSearch) {
-      return plans;
-    }
-
-    return plans.filter(
-      (plan) => {
-        const name =
-          normalizeSearchValue(
-            getPlanName(plan)
-          );
-
-        const goalName =
-          normalizeSearchValue(
-            getPlanGoalName(plan)
-          );
-
-        return (
-          name.includes(
-            normalizedSearch
-          ) ||
-          goalName.includes(
-            normalizedSearch
-          )
-        );
+  const selectedPlan = useMemo(
+    () => {
+      if (!selectedPlanId) {
+        return null;
       }
-    );
-  }, [plans, search]);
 
-  const planSummary = useMemo(() => {
-    const totalPlans =
-      pagination?.total ??
-      plans.length;
-
-    const activeCount =
-      plans.filter(
-        (plan) =>
-          plan?.status ===
-          "active"
-      ).length;
-
-    const completedCount =
-      plans.filter(
-        (plan) =>
-          plan?.status ===
-          "completed"
-      ).length;
-
-    const totalTarget =
-      plans.reduce(
-        (sum, plan) =>
-          sum +
-          getPlanTargetAmount(
-            plan
-          ),
-        0
+      return safeGetPlanById(
+        selectedPlanId
       );
-
-    const totalCurrent =
-      plans.reduce(
-        (sum, plan) =>
-          sum +
-          getPlanCurrentAmount(
-            plan
-          ),
-        0
-      );
-
-    return {
-      totalPlans,
-      activeCount,
-      completedCount,
-      totalTarget,
-      totalCurrent,
-    };
-  }, [plans, pagination]);
-
-  const availableGoals = useMemo(
-    () =>
-      activeGoals.filter(
-        (goal) =>
-          Boolean(
-            getGoalId(
-              goal
-            )
-          )
-      ),
-    [activeGoals]
+    },
+    [
+      selectedPlanId,
+      safeGetPlanById,
+    ]
   );
 
-  /* =======================================================
-     CREATE FLOW
-  ======================================================= */
+  /* --------------------------------------------------------------------------
+     BUSY STATE
+  -------------------------------------------------------------------------- */
+
+  const refreshing =
+    loading && hasPlans;
+
+  const actionBusy =
+    activating ||
+    pausing ||
+    resuming ||
+    completing ||
+    cancelling ||
+    recalculating ||
+    refreshingProgress;
+
+  const pageDisabled =
+    Boolean(isMutating);
+
+  /* --------------------------------------------------------------------------
+     FILTER HANDLERS
+  -------------------------------------------------------------------------- */
+
+  const handleSearchChange =
+    useCallback((value) => {
+      setSearch(value);
+    }, []);
+
+  const handleStatusChange =
+    useCallback((value) => {
+      setStatus(value);
+    }, []);
+
+  const handleApplyFilters =
+    useCallback(() => {
+      const normalizedSearch =
+        normalizeSearchValue(search);
+
+      setActionError(null);
+
+      safeSetFilters(
+        {
+          search: normalizedSearch,
+          status: status || "",
+          page: 1,
+        },
+        {
+          resetPage: false,
+          fetch: true,
+        }
+      );
+    }, [
+      search,
+      status,
+      safeSetFilters,
+    ]);
+
+  const handleClearFilters =
+    useCallback(() => {
+      setSearch("");
+      setStatus("");
+      setActionError(null);
+
+      safeResetFilters({
+        fetch: true,
+      });
+    }, [safeResetFilters]);
+
+  /* --------------------------------------------------------------------------
+     REFRESH
+  -------------------------------------------------------------------------- */
+
+  const handleRefresh =
+    useCallback(async () => {
+      setActionError(null);
+
+      await safeRefreshPlans({
+        preserveData: true,
+        silent: false,
+      });
+    }, [safeRefreshPlans]);
+
+  /* --------------------------------------------------------------------------
+     RETRY
+  -------------------------------------------------------------------------- */
+
+  const handleRetry =
+    useCallback(async () => {
+      setActionError(null);
+      safeClearError();
+
+      await safeFetchPlans(
+        filters,
+        {
+          preserveData: false,
+          silent: false,
+        }
+      );
+    }, [
+      filters,
+      safeClearError,
+      safeFetchPlans,
+    ]);
+
+  /* --------------------------------------------------------------------------
+     CREATE
+  -------------------------------------------------------------------------- */
 
   const handleOpenCreate =
     useCallback(() => {
       setActionError(null);
-
-      const firstAvailableGoal =
-        availableGoals[0] ??
-        null;
-
-      setSelectedGoal(
-        firstAvailableGoal
-      );
-
       setCreateOpen(true);
-    }, [availableGoals]);
+    }, []);
 
   const handleCloseCreate =
     useCallback(() => {
+      if (creating) {
+        return;
+      }
+
       setCreateOpen(false);
-      setSelectedGoal(null);
-      setActionError(null);
-    }, []);
+    }, [creating]);
 
   const handleCreate =
     useCallback(
       async (payload) => {
         setActionError(null);
 
-        const goalId =
-          getGoalId(
-            selectedGoal
-          );
-
-        const savingAccountId =
-          getGoalAccountId(
-            selectedGoal
-          );
-
-        if (!goalId) {
-          const message =
-            "Select a valid savings goal before creating a saving plan.";
-
-          setActionError(
-            message
-          );
-
-          throw new Error(
-            message
-          );
-        }
-
-        if (!savingAccountId) {
-          const message =
-            "This savings goal is not connected to a saving account yet. Connect an account to the goal before creating a plan.";
-
-          setActionError(
-            message
-          );
-
-          throw new Error(
-            message
-          );
-        }
-
-        const planPayload = {
-          ...payload,
-
-          goal: goalId,
-
-          savingAccount:
-            savingAccountId,
-        };
-
         const result =
-          await createPlan(
-            planPayload
+          await safeCreatePlan(
+            payload
           );
 
-        handleCloseCreate();
+        if (result?.success) {
+          setCreateOpen(false);
+        } else if (result) {
+          setActionError(
+            getMutationResultError(
+              result
+            )
+          );
+        }
 
         return result;
       },
+      [safeCreatePlan]
+    );
+
+  /* --------------------------------------------------------------------------
+     VIEW
+  -------------------------------------------------------------------------- */
+
+  const handleViewPlan =
+    useCallback((plan) => {
+      const planId =
+        getSavingPlanId(plan);
+
+      if (!planId) {
+        return;
+      }
+
+      setSelectedPlanId(
+        String(planId)
+      );
+
+      setDetailsOpen(true);
+      setActionError(null);
+    }, []);
+
+  const handleCloseDetails =
+    useCallback(() => {
+      if (actionBusy) {
+        return;
+      }
+
+      setDetailsOpen(false);
+    }, [actionBusy]);
+
+  /* --------------------------------------------------------------------------
+     EDIT
+  -------------------------------------------------------------------------- */
+
+  const handleOpenEdit =
+    useCallback((plan) => {
+      const planId =
+        getSavingPlanId(plan);
+
+      if (!planId) {
+        return;
+      }
+
+      setSelectedPlanId(
+        String(planId)
+      );
+
+      setEditOpen(true);
+      setDetailsOpen(false);
+      setActionError(null);
+    }, []);
+
+  const handleCloseEdit =
+    useCallback(() => {
+      if (updating) {
+        return;
+      }
+
+      setEditOpen(false);
+    }, [updating]);
+
+  const handleUpdate =
+    useCallback(
+      async (
+        planId,
+        payload
+      ) => {
+        if (!planId) {
+          const result = {
+            success: false,
+            error: new Error(
+              "A saving plan ID is required."
+            ),
+          };
+
+          setActionError(
+            getMutationResultError(
+              result
+            )
+          );
+
+          return result;
+        }
+
+        setActionError(null);
+
+        const result =
+          await safeUpdatePlan(
+            planId,
+            payload
+          );
+
+        if (result?.success) {
+          setEditOpen(false);
+        } else if (result) {
+          setActionError(
+            getMutationResultError(
+              result
+            )
+          );
+        }
+
+        return result;
+      },
+      [safeUpdatePlan]
+    );
+
+  /* --------------------------------------------------------------------------
+     DELETE
+  -------------------------------------------------------------------------- */
+
+  const handleOpenDelete =
+    useCallback((plan) => {
+      const planId =
+        getSavingPlanId(plan);
+
+      if (!planId) {
+        return;
+      }
+
+      setSelectedPlanId(
+        String(planId)
+      );
+
+      setDeleteOpen(true);
+      setDetailsOpen(false);
+      setActionError(null);
+    }, []);
+
+  const handleCloseDelete =
+    useCallback(() => {
+      if (cancelling) {
+        return;
+      }
+
+      setDeleteOpen(false);
+    }, [cancelling]);
+
+  const handleDelete =
+    useCallback(async () => {
+      if (!selectedPlanId) {
+        const result = {
+          success: false,
+          error: new Error(
+            "A saving plan ID is required."
+          ),
+        };
+
+        setActionError(
+          getMutationResultError(
+            result
+          )
+        );
+
+        return result;
+      }
+
+      setActionError(null);
+
+      const result =
+        await cancelPlan(
+          selectedPlanId
+        );
+
+      if (result?.success) {
+        setDeleteOpen(false);
+        setDetailsOpen(false);
+        setSelectedPlanId(null);
+      } else if (result) {
+        setActionError(
+          getMutationResultError(
+            result
+          )
+        );
+      }
+
+      return result;
+    }, [
+      cancelPlan,
+      selectedPlanId,
+    ]);
+
+  /* --------------------------------------------------------------------------
+     LIFECYCLE ACTIONS
+  -------------------------------------------------------------------------- */
+
+  const runPlanAction =
+    useCallback(
+      async (
+        plan,
+        action,
+        actionName
+      ) => {
+        const planId =
+          getSavingPlanId(plan);
+
+        if (!planId) {
+          const result = {
+            success: false,
+            error: new Error(
+              "A saving plan ID is required."
+            ),
+          };
+
+          setActionError(
+            getMutationResultError(
+              result
+            )
+          );
+
+          return result;
+        }
+
+        if (
+          typeof action !==
+          "function"
+        ) {
+          const result = {
+            success: false,
+            error: new Error(
+              `Saving plan action "${actionName}" is not available.`
+            ),
+          };
+
+          setActionError(
+            getMutationResultError(
+              result
+            )
+          );
+
+          return result;
+        }
+
+        setActionError(null);
+
+        try {
+          const result =
+            await action(planId);
+
+          if (
+            result &&
+            result.success === false
+          ) {
+            setActionError(
+              getMutationResultError(
+                result
+              )
+            );
+          }
+
+          return result;
+        } catch (error) {
+          const result = {
+            success: false,
+            error,
+          };
+
+          setActionError(
+            getMutationResultError(
+              result
+            )
+          );
+
+          return result;
+        }
+      },
+      []
+    );
+
+  const handlePause =
+    useCallback(
+      (plan) =>
+        runPlanAction(
+          plan,
+          pausePlan,
+          "pause"
+        ),
       [
-        selectedGoal,
-        createPlan,
-        handleCloseCreate,
+        pausePlan,
+        runPlanAction,
       ]
     );
 
-  /* =======================================================
-     PLAN ACTIONS
-  ======================================================= */
+  const handleResume =
+    useCallback(
+      (plan) =>
+        runPlanAction(
+          plan,
+          resumePlan,
+          "resume"
+        ),
+      [
+        resumePlan,
+        runPlanAction,
+      ]
+    );
 
-  const handleOpenPlan =
-    useCallback((plan) => {
-      setActionError(null);
-      setSelectedPlan(plan);
-    }, []);
+  const handleActivate =
+    useCallback(
+      (plan) =>
+        runPlanAction(
+          plan,
+          activatePlan,
+          "activate"
+        ),
+      [
+        activatePlan,
+        runPlanAction,
+      ]
+    );
 
-  const handleClosePlan =
+  const handleComplete =
+    useCallback(
+      (plan) =>
+        runPlanAction(
+          plan,
+          completePlan,
+          "complete"
+        ),
+      [
+        completePlan,
+        runPlanAction,
+      ]
+    );
+
+  const handleCancel =
+    useCallback(
+      (plan) =>
+        runPlanAction(
+          plan,
+          cancelPlan,
+          "cancel"
+        ),
+      [
+        cancelPlan,
+        runPlanAction,
+      ]
+    );
+
+  /* --------------------------------------------------------------------------
+     PAGINATION
+  -------------------------------------------------------------------------- */
+
+  const handlePreviousPage =
     useCallback(() => {
-      setSelectedPlan(null);
-    }, []);
+      if (
+        currentPage <= 1 ||
+        isBusy
+      ) {
+        return;
+      }
 
-  const handlePausePlan =
-    useCallback(
-      async (planId) => {
-        try {
-          setActionError(null);
-
-          await pausePlan(
-            planId
-          );
-
-          setSelectedPlan(
-            null
-          );
-        } catch (requestError) {
-          setActionError(
-            requestError?.message ??
-              "Unable to pause saving plan."
-          );
+      safeSetPage(
+        currentPage - 1,
+        {
+          fetch: true,
         }
-      },
-      [pausePlan]
-    );
+      );
+    }, [
+      currentPage,
+      isBusy,
+      safeSetPage,
+    ]);
 
-  const handleResumePlan =
-    useCallback(
-      async (planId) => {
-        try {
-          setActionError(null);
+  const handleNextPage =
+    useCallback(() => {
+      if (
+        currentPage >= totalPages ||
+        isBusy
+      ) {
+        return;
+      }
 
-          await resumePlan(
-            planId
-          );
-
-          setSelectedPlan(
-            null
-          );
-        } catch (requestError) {
-          setActionError(
-            requestError?.message ??
-              "Unable to resume saving plan."
-          );
+      safeSetPage(
+        currentPage + 1,
+        {
+          fetch: true,
         }
-      },
-      [resumePlan]
-    );
+      );
+    }, [
+      currentPage,
+      totalPages,
+      isBusy,
+      safeSetPage,
+    ]);
 
-  const handleActivatePlan =
-    useCallback(
-      async (planId) => {
-        try {
-          setActionError(null);
+  /* --------------------------------------------------------------------------
+     DERIVED STATE
+  -------------------------------------------------------------------------- */
 
-          await activatePlan(
-            planId
-          );
+  const showInitialLoading =
+    loading && !hasPlans;
 
-          setSelectedPlan(
-            null
-          );
-        } catch (requestError) {
-          setActionError(
-            requestError?.message ??
-              "Unable to activate saving plan."
-          );
-        }
-      },
-      [activatePlan]
-    );
+  const showEmpty =
+    !loading &&
+    !hasPlans &&
+    !error;
 
-  const handleDeletePlan =
-    useCallback(
-      async (planId) => {
-        try {
-          setActionError(null);
+  const hasActiveFilters =
+    Boolean(
+      normalizeSearchValue(
+        search
+      )
+    ) ||
+    Boolean(status);
 
-          await deletePlan(
-            planId
-          );
+  const pageError =
+    actionError || error;
 
-          setSelectedPlan(
-            null
-          );
-        } catch (requestError) {
-          setActionError(
-            requestError?.message ??
-              "Unable to delete saving plan."
-          );
-        }
-      },
-      [deletePlan]
-    );
-
-  /* =======================================================
-     LOADING
-  ======================================================= */
-
-  if (
-    loading &&
-    plans.length === 0
-  ) {
-    return (
-      <main
-        className="
-          min-h-full
-          p-4 sm:p-6 lg:p-8
-          bg-slate-50
-        "
-      >
-        <PageSkeleton />
-      </main>
-    );
-  }
-
-  /* =======================================================
+  /* --------------------------------------------------------------------------
      RENDER
-  ======================================================= */
+  -------------------------------------------------------------------------- */
 
   return (
     <main
       className="
-        min-h-full
+        w-full min-h-screen
         bg-slate-50
       "
     >
       <div
         className="
-          w-full max-w-[1600px]
-          mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-7
+          w-full max-w-7xl
+          mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8
         "
       >
-        {/* =================================================
-            HEADER
-        ================================================= */}
+        <PageHeader
+          onCreate={handleOpenCreate}
+          onRefresh={handleRefresh}
+          refreshing={refreshing}
+          disabled={pageDisabled}
+        />
 
-        <section
-          className="
-            p-5 sm:p-7
-            bg-white
-            border border-slate-200 rounded-3xl
-            shadow-sm
-          "
-        >
-          <div
+        {pageError ? (
+          <PageError
+            error={pageError}
+            onRetry={
+              actionError
+                ? null
+                : handleRetry
+            }
+            onDismiss={() => {
+              setActionError(null);
+              safeClearError();
+            }}
+            retrying={loading}
+          />
+        ) : null}
+
+        <FilterBar
+          search={search}
+          status={status}
+          onSearchChange={
+            handleSearchChange
+          }
+          onStatusChange={
+            handleStatusChange
+          }
+          onApply={
+            handleApplyFilters
+          }
+          onClear={
+            handleClearFilters
+          }
+          disabled={pageDisabled}
+          hasActiveFilters={
+            hasActiveFilters
+          }
+        />
+
+        {showInitialLoading ? (
+          <section
+            aria-label="Loading saving plans"
+            aria-busy="true"
             className="
-              flex flex-col xl:flex-row xl:justify-between xl:items-center
-              gap-6
+              p-4 sm:p-5
+              bg-white
+              border border-slate-200 rounded-2xl
+              shadow-sm
             "
           >
             <div
               className="
-                max-w-3xl
+                flex justify-between items-center
+                mb-5
               "
             >
               <div
                 className="
-                  inline-flex items-center
-                  px-3 py-1.5
-                  font-semibold text-blue-700 text-xs
-                  bg-blue-50
-                  border border-blue-100 rounded-full
-                  gap-2
+                  space-y-2
                 "
               >
-                <TrendingUp
-                  size={14}
-                />
-                SmartSave Plans
+                <div
+                  className="
+                    w-32 h-4
+                    bg-slate-200
+                    rounded
+                    animate-pulse
+                  "
+                  /
+                >
+
+                <div
+                  className="
+                    w-48 h-3
+                    bg-slate-100
+                    rounded
+                    animate-pulse
+                  "
+                  /
+                >
               </div>
 
-              <h1
+              <div
                 className="
-                  mt-4
-                  font-bold text-slate-950 text-2xl sm:text-3xl tracking-tight
+                  w-24 h-9
+                  bg-slate-100
+                  rounded-lg
+                  animate-pulse
                 "
+                /
               >
-                Turn your goals into a saving system
-              </h1>
-
-              <p
-                className="
-                  max-w-2xl
-                  mt-2
-                  text-slate-500 text-sm sm:text-base leading-6
-                "
-              >
-                A saving plan defines how you will fund an
-                existing goal — including your contribution
-                strategy, frequency, target date and
-                automation.
-              </p>
             </div>
-
-            <button
-              type="button"
-              onClick={
-                handleOpenCreate
-              }
-              disabled={
-                goalsLoading ||
-                availableGoals.length ===
-                  0
-              }
-              className="
-                inline-flex justify-center items-center
-                h-12
-                px-5
-                font-semibold text-white text-sm
-                bg-slate-950 hover:bg-slate-800
-                rounded-xl
-                disabled:opacity-50 shadow-sm transition
-                disabled:cursor-not-allowed
-                gap-2 shrink-0
-              "
-            >
-              <Plus size={18} />
-              Create saving plan
-            </button>
-          </div>
-        </section>
-
-        {/* =================================================
-            ACTION ERROR
-        ================================================= */}
-
-        {actionError ? (
-          <div
-            className="
-              flex items-start
-              mt-5 p-4
-              text-rose-700 text-sm
-              bg-rose-50
-              border border-rose-200 rounded-2xl
-              gap-3
-            "
-          >
-            <AlertCircle
-              size={18}
-              className="
-                mt-0.5
-                shrink-0
-              "
-              /
-            >
 
             <div
               className="
-                flex-1
-              "
-            >
-              {actionError}
-            </div>
-
-            <button
-              type="button"
-              onClick={() =>
-                setActionError(
-                  null
-                )
-              }
-              className="text-rose-500 hover:text-rose-700 shrink-0"
-              aria-label="Dismiss error"
-            >
-              <X size={16} />
-            </button>
-          </div>
-        ) : null}
-
-        {/* =================================================
-            STATS
-        ================================================= */}
-
-        <section
-          className="
-            grid sm:grid-cols-2 xl:grid-cols-4
-            mt-5
-            gap-4
-          "
-        >
-          <StatCard
-            icon={WalletCards}
-            label="Total plans"
-            value={
-              planSummary.totalPlans
-            }
-            helper="Across your saving system"
-          />
-
-          <StatCard
-            icon={Clock3}
-            label="Active plans"
-            value={
-              planSummary.activeCount
-            }
-            helper="Currently contributing"
-          />
-
-          <StatCard
-            icon={CheckCircle2}
-            label="Completed"
-            value={
-              planSummary.completedCount
-            }
-            helper="Plans that reached their target"
-          />
-
-          <StatCard
-            icon={CircleDollarSign}
-            label="Plan targets"
-            value={formatCurrency(
-              planSummary.totalTarget
-            )}
-            helper={`${formatCurrency(
-              planSummary.totalCurrent
-            )} currently saved`}
-          />
-        </section>
-
-        {/* =================================================
-            GOAL CONNECTION INFO
-        ================================================= */}
-
-        <section
-          className="
-            mt-5 p-5 sm:p-6
-            bg-white
-            border border-slate-200 rounded-3xl
-            shadow-sm
-          "
-        >
-          <div
-            className="
-              flex flex-col lg:flex-row lg:justify-between lg:items-center
-              gap-4
-            "
-          >
-            <div
-              className="
-                flex
+                grid md:grid-cols-2
                 gap-4
               "
             >
-              <div
-                className="
-                  flex justify-center items-center
-                  w-11 h-11
-                  text-white
-                  bg-slate-950
-                  rounded-2xl
-                  shrink-0
-                "
-              >
-                <Target size={20} />
-              </div>
-
-              <div>
-                <h2
-                  className="
-                    font-bold text-slate-900
-                  "
-                >
-                  Your plans are connected to your goals
-                </h2>
-
-                <p
-                  className="
-                    max-w-2xl
-                    mt-1
-                    text-slate-500 text-sm leading-6
-                  "
-                >
-                  SmartSave keeps the goal as the source of
-                  truth for the target amount, currency and
-                  target date. Plans determine the strategy
-                  used to reach that goal.
-                </p>
-              </div>
-            </div>
-
-            <div
-              className="
-                flex items-center
-                px-4 py-3
-                font-medium text-slate-600 text-sm
-                bg-slate-50
-                rounded-xl
-                gap-2 shrink-0
-              "
-            >
-              <Target
-                size={16}
-                className="
-                  text-blue-600
-                "
-                /
-              >
-
-              {availableGoals.length} active{" "}
-              {availableGoals.length ===
-              1
-                ? "goal"
-                : "goals"}{" "}
-              available
-            </div>
-          </div>
-        </section>
-
-        {/* =================================================
-            TOOLBAR
-        ================================================= */}
-
-        <section
-          className="
-            mt-6
-          "
-        >
-          <div
-            className="
-              flex flex-col lg:flex-row lg:justify-between lg:items-center
-              gap-3
-            "
-          >
-            <div
-              className="
-                relative flex-1
-                min-w-0 lg:max-w-md
-              "
-            >
-              <Search
-                size={17}
-                className="
-                  top-1/2 left-4 absolute
-                  text-slate-400
-                  pointer-events-none
-                  -translate-y-1/2
-                "
-                /
-              >
-
-              <input
-                type="search"
-                value={search}
-                onChange={(event) =>
-                  setSearch(
-                    event.target.value
-                  )
-                }
-                placeholder="Search plans or goals..."
-                className="bg-white pr-4 pl-11 border border-slate-200 focus:border-blue-500 rounded-xl outline-none focus:ring-4 focus:ring-blue-100 w-full h-11 text-slate-900 placeholder:text-slate-400 text-sm transition"
-              />
-            </div>
-
-            <div
-              className="
-                flex items-center overflow-x-auto
-                pb-1
-                gap-2
-              "
-            >
-              {STATUS_OPTIONS.map(
-                (option) => (
-                  <button
-                    key={
-                      option.value ||
-                      "all"
-                    }
-                    type="button"
-                    onClick={() =>
-                      setStatus(
-                        option.value
-                      )
-                    }
-                    className={`whitespace-nowrap rounded-xl border px-4 py-2.5 text-xs font-semibold transition ${
-                      (pagination?.filters?.status ??
-                        "") ===
-                      option.value
-                        ? "border-slate-950 bg-slate-950 text-white"
-                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900"
-                    }`}
+              {[1, 2, 3, 4].map(
+                (item) => (
+                  <div
+                    key={item}
+                    className="
+                      p-5
+                      border border-slate-100 rounded-2xl
+                    "
                   >
-                    {
-                      option.label
-                    }
-                  </button>
+                    <div
+                      className="
+                        flex justify-between items-center
+                        mb-4
+                      "
+                    >
+                      <div
+                        className="
+                          w-36 h-4
+                          bg-slate-200
+                          rounded
+                          animate-pulse
+                        "
+                        /
+                      >
+
+                      <div
+                        className="
+                          w-20 h-6
+                          bg-slate-100
+                          rounded-full
+                          animate-pulse
+                        "
+                        /
+                      >
+                    </div>
+
+                    <div
+                      className="
+                        w-full h-3
+                        mb-3
+                        bg-slate-100
+                        rounded
+                        animate-pulse
+                      "
+                      /
+                    >
+
+                    <div
+                      className="
+                        w-4/5 h-3
+                        mb-6
+                        bg-slate-100
+                        rounded
+                        animate-pulse
+                      "
+                      /
+                    >
+
+                    <div
+                      className="
+                        w-full h-2
+                        bg-slate-100
+                        rounded-full
+                        animate-pulse
+                      "
+                      /
+                    >
+
+                    <div
+                      className="
+                        flex justify-between
+                        mt-5
+                      "
+                    >
+                      <div
+                        className="
+                          w-20 h-3
+                          bg-slate-100
+                          rounded
+                          animate-pulse
+                        "
+                        /
+                      >
+
+                      <div
+                        className="
+                          w-16 h-3
+                          bg-slate-100
+                          rounded
+                          animate-pulse
+                        "
+                        /
+                      >
+                    </div>
+                  </div>
                 )
               )}
-
-              <button
-                type="button"
-                onClick={() => {
-                  void refresh();
-                  void refreshGoals();
-                }}
-                disabled={
-                  refreshing
-                }
-                className="inline-flex justify-center items-center bg-white disabled:opacity-50 border border-slate-200 hover:border-slate-300 rounded-xl w-10 h-10 text-slate-500 hover:text-slate-900 transition shrink-0"
-                aria-label="Refresh saving plans"
-              >
-                <RefreshCw
-                  size={16}
-                  className={
-                    refreshing
-                      ? "animate-spin"
-                      : ""
-                  }
-                />
-              </button>
             </div>
-          </div>
-        </section>
+          </section>
+        ) : null}
 
-        {/* =================================================
-            ERROR
-        ================================================= */}
+        {showEmpty ? (
+          <SavingPlanEmptyState
+            variant={
+              hasActiveFilters
+                ? "noResults"
+                : "noPlans"
+            }
+            onAction={
+              hasActiveFilters
+                ? handleClearFilters
+                : handleOpenCreate
+            }
+            actionLabel={
+              hasActiveFilters
+                ? "Clear filters"
+                : "Create saving plan"
+            }
+          />
+        ) : null}
 
-        {error ? (
+        {!showInitialLoading &&
+        !showEmpty &&
+        hasPlans ? (
           <section
-            className="
-              mt-5
-            "
+            aria-label="Saving plans"
           >
-            <ErrorState
-              error={error}
-              onRetry={() => {
-                void refresh();
-              }}
+            <PlansSummary
+              totalPlans={totalPlans}
+              loading={loading}
+            />
+
+            <SavingPlanList
+              plans={plans}
+              loading={loading}
+              error={null}
+              selectedPlanId={
+                selectedPlanId
+              }
+
+              onSelect={
+                handleViewPlan
+              }
+
+              onView={
+                handleViewPlan
+              }
+
+              onEdit={
+                handleOpenEdit
+              }
+
+              onDelete={
+                handleOpenDelete
+              }
+
+              onPause={
+                handlePause
+              }
+
+              onResume={
+                handleResume
+              }
+
+              onActivate={
+                handleActivate
+              }
+
+              onComplete={
+                handleComplete
+              }
+
+              onCancel={
+                handleCancel
+              }
+
+              deleting={
+                cancelling
+              }
+
+              updating={
+                updating ||
+                actionBusy
+              }
+
+              disabled={
+                isMutating
+              }
+
+              onRetry={
+                handleRetry
+              }
+
+              onCreate={
+                handleOpenCreate
+              }
+            />
+
+            <Pagination
+              currentPage={
+                currentPage
+              }
+              totalPages={
+                totalPages
+              }
+              totalItems={
+                totalPlans
+              }
+              limit={
+                currentLimit
+              }
+              onPrevious={
+                handlePreviousPage
+              }
+              onNext={
+                handleNextPage
+              }
+              disabled={
+                isBusy
+              }
             />
           </section>
         ) : null}
 
-        {/* =================================================
-            PLANS
-        ================================================= */}
-
-        {!error ? (
-          <section
-            className="
-              mt-5
-            "
-          >
-            {visiblePlans.length >
-            0 ? (
-              <div
-                className="
-                  grid md:grid-cols-2 xl:grid-cols-3
-                  gap-4
-                "
-              >
-                {visiblePlans.map(
-                  (plan) => (
-                    <PlanCard
-                      key={
-                        getPlanId(
-                          plan
-                        )
-                      }
-                      plan={
-                        plan
-                      }
-                      onOpen={
-                        handleOpenPlan
-                      }
-                    />
-                  )
-                )}
-              </div>
-            ) : (
-              <EmptyState
-                search={search}
-                hasGoals={
-                  availableGoals.length >
-                  0
-                }
-                onCreate={
-                  handleOpenCreate
-                }
-              />
-            )}
-          </section>
-        ) : null}
-
-        {/* =================================================
-            PAGINATION
-        ================================================= */}
-
-        {pagination &&
-        pagination.totalPages >
-          1 ? (
-          <section
-            className="
-              flex flex-col sm:flex-row sm:justify-between sm:items-center
-              mt-6 p-4
-              bg-white
-              border border-slate-200 rounded-2xl
-              gap-3
-            "
-          >
-            <p
-              className="
-                text-slate-500 text-sm
-              "
-            >
-              Page{" "}
-              <span
-                className="
-                  font-semibold text-slate-900
-                "
-              >
-                {pagination.page}
-              </span>{" "}
-              of{" "}
-              <span
-                className="
-                  font-semibold text-slate-900
-                "
-              >
-                {
-                  pagination.totalPages
-                }
-              </span>
-            </p>
-
-            <div
-              className="
-                flex items-center
-                gap-2
-              "
-            >
-              <button
-                type="button"
-                onClick={() =>
-                  goToPage(
-                    Math.max(
-                      1,
-                      pagination.page -
-                        1
-                    )
-                  )
-                }
-                disabled={
-                  !pagination.hasPreviousPage
-                }
-                className="inline-flex items-center gap-2 bg-white disabled:opacity-40 px-3 border border-slate-200 hover:border-slate-300 rounded-xl h-10 font-semibold text-slate-600 text-sm transition disabled:cursor-not-allowed"
-              >
-                <ChevronLeft
-                  size={16}
-                />
-                Previous
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  goToPage(
-                    pagination.page +
-                      1
-                  )
-                }
-                disabled={
-                  !pagination.hasNextPage
-                }
-                className="inline-flex items-center gap-2 bg-white disabled:opacity-40 px-3 border border-slate-200 hover:border-slate-300 rounded-xl h-10 font-semibold text-slate-600 text-sm transition disabled:cursor-not-allowed"
-              >
-                Next
-                <ChevronRight
-                  size={16}
-                />
-              </button>
-            </div>
-          </section>
-        ) : null}
-      </div>
-
-      {/* ===================================================
-          CREATE PLAN MODAL
-      =================================================== */}
-
-      {createOpen ? (
         <CreateSavingPlanModal
           open={createOpen}
           onClose={
@@ -2128,51 +2153,74 @@ const SavingPlansPage = () => {
             handleCreate
           }
           submitting={
-            loading
-          }
-          selectedGoal={
-            selectedGoal
-          }
-          goals={
-            availableGoals
-          }
-          onGoalChange={
-            setSelectedGoal
+            creating
           }
         />
-      ) : null}
 
-      {/* ===================================================
-          PLAN DETAILS
-      =================================================== */}
+        <EditSavingPlanModal
+          open={editOpen}
+          plan={selectedPlan}
+          onClose={
+            handleCloseEdit
+          }
+          onSubmit={
+            handleUpdate
+          }
+          submitting={
+            updating
+          }
+        />
 
-      {selectedPlan ? (
-        <SavingPlanDetailsDrawer
-          open={Boolean(
-            selectedPlan
-          )}
-          plan={
-            selectedPlan
+        <DeleteSavingPlanDialog
+          open={deleteOpen}
+          plan={selectedPlan}
+          deleting={
+            cancelling
+          }
+          error={
+            actionError
+          }
+          onConfirm={
+            handleDelete
           }
           onClose={
-            handleClosePlan
-          }
-          onPause={
-            handlePausePlan
-          }
-          onResume={
-            handleResumePlan
-          }
-          onActivate={
-            handleActivatePlan
-          }
-          onDelete={
-            handleDeletePlan
+            handleCloseDelete
           }
         />
-      ) : null}
+
+        <SavingPlanDetailsDrawer
+          open={detailsOpen}
+          plan={selectedPlan}
+          onClose={
+            handleCloseDetails
+          }
+          onEdit={
+            handleOpenEdit
+          }
+          onDelete={
+            handleOpenDelete
+          }
+          onPause={
+            handlePause
+          }
+          onResume={
+            handleResume
+          }
+          deleting={
+            cancelling
+          }
+          updating={
+            actionBusy
+          }
+          error={
+            actionError
+          }
+        />
+      </div>
     </main>
   );
 };
 
-export default SavingPlansPage;
+export default memo(
+  SavingPlansPage
+);
